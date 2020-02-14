@@ -1,10 +1,21 @@
 #
-# The VIRL 2 Client Library
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019, Cisco Systems, Inc.
-# All rights reserved.
+#
+# Copyright 2020 Cisco Systems Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 import logging
@@ -59,7 +70,8 @@ class NodeImageDefinitions:
         :param definition_id:
         :return:
         """
-        url = self._base_url + "node_definitions/" + definition_id + "/image_definitions"
+        url = self._base_url + "node_definitions/" + \
+            definition_id + "/image_definitions"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
@@ -125,7 +137,8 @@ class NodeImageDefinitions:
         total_size = os.path.getsize(filename)
 
         with open(filename, 'rb') as fh:
-            chunk_iter = read_file_as_chunks(fh, chunk_size_mb=chunk_size_mb, total_size=total_size)
+            chunk_iter = read_file_as_chunks(
+                fh, chunk_size_mb=chunk_size_mb, total_size=total_size)
             response = self.session.post(url, headers=headers, data=chunk_iter)
             response.raise_for_status()
             print("Upload completed")
@@ -206,7 +219,8 @@ def read_file_as_chunks(file_object, total_size=None, chunk_size_mb=10):
     chunk_size = chunk_size_mb * bytes_in_mb
     counter = 0
     total_chunks = total_size / chunk_size
-    print("Uploading {0} MB in {1}MB chunks".format(total_size / bytes_in_mb, chunk_size_mb))
+    print("Uploading {0} MB in {1}MB chunks".format(
+        total_size / bytes_in_mb, chunk_size_mb))
     while True:
         data = file_object.read(chunk_size)
         progress = int(100 * (counter / total_chunks))

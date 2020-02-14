@@ -1,10 +1,21 @@
 #
-# The VIRL 2 Client Library
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019, Cisco Systems, Inc.
-# All rights reserved.
+#
+# Copyright 2020 Cisco Systems Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 # TODO: make this Python <3.5 compatible
@@ -300,7 +311,8 @@ class ClientLibrary:
         """
         Waits until the controller has a compute node connected.
         """
-        response = self.session.get(urljoin(self._base_url, 'wait_for_lld_connected'))
+        response = self.session.get(
+            urljoin(self._base_url, 'wait_for_lld_connected'))
         response.raise_for_status()
 
     def import_lab(self, topology, title, offline=False):
@@ -329,7 +341,8 @@ class ClientLibrary:
             if title.endswith(".virl"):
                 url = "{}import/virl-1x?title={}".format(self._base_url, title)
             elif title.endswith(".ng"):
-                url = "{}import?is_json=true&title={}".format(self._base_url, title)
+                url = "{}import?is_json=true&title={}".format(
+                    self._base_url, title)
             else:
                 url = "{}import?title={}".format(self._base_url, title)
             response = self.session.post(url, data=topology)
@@ -385,7 +398,8 @@ class ClientLibrary:
         """
         warnings.warn("deprecated", DeprecationWarning)
         topology_file_path = Path("import_export") / "SampleData" / title
-        topology = pkg_resources.resource_string("simple_common", topology_file_path.as_posix())
+        topology = pkg_resources.resource_string(
+            "simple_common", topology_file_path.as_posix())
         return self.import_lab(topology=topology.decode(), title=title)
 
     def all_labs(self):

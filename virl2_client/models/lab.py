@@ -1,10 +1,21 @@
 #
-# The VIRL 2 Client Library
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019, Cisco Systems, Inc.
-# All rights reserved.
+#
+# Copyright 2020 Cisco Systems Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 import json
@@ -409,7 +420,8 @@ class Lab:
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
 
-        node = self.add_node_local(node_id, label, node_definition, image_definition, config, x, y)
+        node = self.add_node_local(
+            node_id, label, node_definition, image_definition, config, x, y)
         return node
 
     def add_node_local(self, node_id, label, node_definition, image_definition, config, x, y,
@@ -514,11 +526,12 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("interface %s removed from lab %s", iface.id, self._lab_id)
+        logger.debug("interface %s removed from lab %s",
+                     iface.id, self._lab_id)
 
     def create_link(self, i1, i2, wait=None):
         """
-        Creates a link between two interfaces.
+        Creates a link between two interfaces::
 
         :param i1: the first interface ID
         :type i1: str
@@ -723,9 +736,11 @@ class Lab:
                 return
 
             if index % 10 == 0:
-                logging.info("Lab has not converged, attempt %s/%s, waiting...", index, max_iterations)
+                logging.info(
+                    "Lab has not converged, attempt %s/%s, waiting...", index, max_iterations)
             time.sleep(5)
-        logger.info("Lab %s has not converged, maximum tries %s exceeded", self._lab_id, max_iterations)
+        logger.info("Lab %s has not converged, maximum tries %s exceeded",
+                    self._lab_id, max_iterations)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"
@@ -861,7 +876,8 @@ class Lab:
     def _sync_topology(self, exclude_configurations=False):
         "Helper function to sync topologies from the backend server."
         # TODO: check what happens if call twice
-        url = self._context.base_url + "labs/{}".format(self._lab_id) + "/topology"
+        url = self._context.base_url + \
+            "labs/{}".format(self._lab_id) + "/topology"
         params = {"exclude_configurations": exclude_configurations}
         result = self.session.get(url, params=params)
         if not result.ok:
@@ -953,7 +969,8 @@ class Lab:
 
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
-        update_interface_keys = set(interface["id"] for interface in topology["interfaces"])
+        update_interface_keys = set(
+            interface["id"] for interface in topology["interfaces"])
 
         # removed elements
         removed_nodes = existing_node_keys - update_node_keys
@@ -987,10 +1004,12 @@ class Lab:
             logger.info("Added node %s", node)
 
         for interface_id in new_interfaces:
-            interface = self._find_interface_in_topology(interface_id, topology)
+            interface = self._find_interface_in_topology(
+                interface_id, topology)
             interface_data = interface["data"]
             node_id = interface["node"]
-            interface = self._import_interface(interface_id, node_id, interface_data)
+            interface = self._import_interface(
+                interface_id, node_id, interface_data)
             logger.info("Added interface %s", interface)
 
         for link_id in new_links:
@@ -1003,7 +1022,8 @@ class Lab:
         # kept elements
         kept_nodes = update_node_keys.intersection(existing_node_keys)
         kept_links = update_link_keys.intersection(existing_link_keys)
-        kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
+        kept_interfaces = update_interface_keys.intersection(
+            existing_interface_keys)
 
         for node_id in kept_nodes:
             node = self._find_node_in_topology(node_id, topology)
@@ -1012,7 +1032,8 @@ class Lab:
             lab_node.update(node_data, exclude_configurations)
 
         for interface_id in kept_interfaces:
-            interface_data = self._find_interface_in_topology(interface_id, topology)
+            interface_data = self._find_interface_in_topology(
+                interface_id, topology)
             # For now, can't update interface data server-side, this will change with tags
             pass
 
@@ -1061,7 +1082,8 @@ class Lab:
         :returns: The pyATS testbed for the lab in YAML format
         :rtype: str
         """
-        url = self._context.base_url + "labs/{}".format(self._lab_id) + "/pyats_testbed"
+        url = self._context.base_url + \
+            "labs/{}".format(self._lab_id) + "/pyats_testbed"
         result = self.session.get(url)
         return result.text
 

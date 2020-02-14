@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.abspath('.'))
 # -- Project information -----------------------------------------------------
 
 project = 'virl2_client'
-copyright = '2018, Cisco Systems, Inc'
+copyright = '2020, Cisco Systems, Inc'
 author = 'VIRL2 team <virl@cisco.com>'
 
 # The short X.Y version

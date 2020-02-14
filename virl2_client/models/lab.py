@@ -32,26 +32,25 @@ logger = logging.getLogger(__name__)
 
 
 class Lab:
+    """A VIRL2 lab network topology. Contains nodes, links and interfaces.
+    Initializes a Lab instance.
 
-    "A VIRL2 lab network topology. Contains nodes, links and interfaces."
+    :param title: Name / title of the lab
+    :type title: str
+    :param lab_id: A lab ID
+    :type lab_id: str
+    :param context: The context of the ClientLibrary that holds the connection data to the server
+    :type context: Context
+    :param auto_sync: Should local changes sync to the server automatically
+    :type auto_sync: bool
+    :param auto_sync_interval: Interval to auto sync in seconds
+    :type auto_sync_interval: int
+    :param wait: Wait for convergence on backend
+    :type auto_sync: bool
+    """
 
     def __init__(self, title, lab_id, context, username, password, auto_sync=True, auto_sync_interval=1.0, wait=True):
-        """
-        Initializes a Lab instance.
-
-        :param title: Name / title of the lab
-        :type title: str
-        :param lab_id: A lab ID
-        :type lab_id: str
-        :param context: The context of the ClientLibrary that holds the connection data to the server
-        :type context: Context
-        :param auto_sync: Should local changes sync to the server automatically
-        :type auto_sync: bool
-        :param auto_sync_interval: Interval to auto sync in seconds
-        :type auto_sync_interval: int
-        :param wait: Wait for convergence on backend
-        :type auto_sync: bool
-        """
+        """Constructor method"""
         self.username = username
         self.password = password
 
@@ -531,12 +530,12 @@ class Lab:
 
     def create_link(self, i1, i2, wait=None):
         """
-        Creates a link between two interfaces::
+        Creates a link between two interfaces
 
-        :param i1: the first interface ID
-        :type i1: str
-        :param i2: the second interface ID
-        :type i2: str
+        :param i1: the first interface object
+        :type i1: models.Interface
+        :param i2: the second interface object
+        :type i2: models.Interface
         :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
         :type wait: bool
         :returns: the created link
@@ -561,9 +560,9 @@ class Lab:
         """
         Convenience method to connect two nodes within a lab.
 
-        :param node1: the first node
+        :param node1: the first node object
         :type node1: models.Node
-        :param node2: the second node
+        :param node2: the second node object
         :type node2: models.Node
         :returns: the created link
         :rtype: models.Link
@@ -580,14 +579,15 @@ class Lab:
 
     def create_interface(self, node, slot=None, wait=None):
         """
-        Create an interface in the specified slot or, if no slot is given, in the
-        next available slot.
+        Create an interface in the specified slot or, if no slot
+        is given, in the next available slot.
 
         :param node: The node on which the interface is created
         :type node: models.Node
         :param slot: (optional)
         :type slot: int
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         :returns: The newly created interface
         :rtype: models.Interface
@@ -753,7 +753,8 @@ class Lab:
         """
         Start all the nodes and links in the lab.
 
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         url = self.lab_base_url + "/start"
@@ -798,7 +799,8 @@ class Lab:
         """
         Stops all the nodes and links in the lab.
 
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         url = self.lab_base_url + "/stop"
@@ -812,7 +814,8 @@ class Lab:
         """
         Wipe all the nodes and links in the lab.
 
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         url = self.lab_base_url + "/wipe"
@@ -824,8 +827,8 @@ class Lab:
 
     def remove(self):
         """
-        Removes the lab from the server. The lab has to be stopped and wiped
-        for this to work.
+        Removes the lab from the server. The lab has to
+        be stopped and wiped for this to work.
 
         Use carefully, it removes current lab::
 
@@ -847,8 +850,11 @@ class Lab:
         self.events = result
 
     def build_configurations(self):
-        """Build basic configurations for all nodes in the lab which do not already
-        have a configuration and also do support configuration building."""
+        """
+        Build basic configurations for all nodes in the lab which
+        do not already have a configuration and also do support
+        configuration building.
+        """
 
         url = self._context.base_url + "build_configurations?lab_id=" + self._lab_id
         self.session.get(url)
@@ -864,7 +870,8 @@ class Lab:
 
         :param topology_only: do not sync statistics and IP addresses
         :type topology_only: bool
-        :param with_node_configurations: also sync the configuration of the nodes itself
+        :param with_node_configurations: also sync the configuration
+            of the nodes itself
         :type with_node_configurations: bool
         """
         self._sync_topology(with_node_configurations)
@@ -1034,12 +1041,14 @@ class Lab:
         for interface_id in kept_interfaces:
             interface_data = self._find_interface_in_topology(
                 interface_id, topology)
-            # For now, can't update interface data server-side, this will change with tags
+            # For now, can't update interface data server-side, this will
+            # change with tags
             pass
 
         for link_id in kept_links:
             link_data = self._find_link_in_topology(link_id, topology)
-            # For now, can't update link data server-side, this will change with tags
+            # For now, can't update link data server-side, this will change
+            # with tags
             pass
 
     def _find_link_in_topology(self, link_id, topology):

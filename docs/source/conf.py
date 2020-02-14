@@ -20,7 +20,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../virl2_client'))
 
 
 # -- Project information -----------------------------------------------------
@@ -133,7 +133,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'virl2_client.tex', 'simple\\_client Documentation',
+    (master_doc, 'virl2_client.tex', 'virl2_client Documentation',
      'VIRL2 team <virl@cisco.com>', 'manual'),
 ]
 

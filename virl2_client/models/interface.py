@@ -26,10 +26,22 @@ logger = logging.getLogger(__name__)
 
 @total_ordering
 class Interface:
+    """A VIRL2 network interface, part of a node.
 
-    "A VIRL2 network interface, part of a node."
+    :param iid: interface ID
+    :type iid: str
+    :param node: node object
+    :type node: models.Node
+    :param label: the label of the interface
+    :type label: str
+    :param slot: the slot of the interface
+    :type slot: int
+    :param iface_type: the type of the interface, defaults to "physical"
+    :type iface_type: str, optional
+    """
 
     def __init__(self, iid, node, label, slot, iface_type="physical"):
+        """Constructor method"""
         self.id = iid
         self.node = node
         self.type = iface_type

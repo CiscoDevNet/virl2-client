@@ -27,11 +27,21 @@ logger = logging.getLogger(__name__)
 
 @total_ordering
 class Link:
+    """A VIRL2 network link between two nodes, connecting
+    to two interfaces on these nodes.
 
-    "A VIRL2 network link between two hosts, connecting to two interfaces on these hosts."
+    :param lab: the lab object
+    :type lab: modles.Lab
+    :param lid: the lab ID
+    :type lid: str
+    :param iface_a: the first interface of the link
+    :type iface_a: a models.Interface
+    :param iface_b: the second interface of a the link
+    :type iface_b: models.Interface
+    """
 
-    def __init__(self, lab, lid,
-                 iface_a, iface_b):
+    def __init__(self, lab, lid, iface_a, iface_b):
+        """Constructor method"""
         self.id = lid
         self.interface_a = iface_a
         self.interface_b = iface_b
@@ -146,10 +156,12 @@ class Link:
 
             if index % 10 == 0:
                 logging.info(
-                    "Link has not converged, attempt %s/%s, waiting...", index, max_iterations)
+                    "Link has not converged, attempt %s/%s, waiting...",
+                    index, max_iterations)
             time.sleep(5)
         logger.info(
-            "Link %s has not converged, maximum tries %s exceeded", self.id, max_iterations)
+            "Link %s has not converged, maximum tries %s exceeded",
+            self.id, max_iterations)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"

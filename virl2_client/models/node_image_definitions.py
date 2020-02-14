@@ -25,16 +25,22 @@ logger = logging.getLogger(__name__)
 
 
 class NodeImageDefinitions:
+    """
+    VIRL2 Definition classes to specify a node VM and associated disk images.
 
-    "VIRL2 Definition classes to specify a node VM and associated disk images."
+    :param context: the authentication context to use
+    :type context: authentication.Context
+    """
 
     def __init__(self, context):
+        """Constructor method"""
         self._context = context
 
     @property
     def session(self):
         """
         Returns the used Requests session object.
+
         :returns: The Requests session object
         :rtype: Requests.Session
         """
@@ -44,6 +50,7 @@ class NodeImageDefinitions:
     def _base_url(self):
         """
         Returns the base URL to access the controller.
+
         :returns: The base URL
         :rtype: str
         """
@@ -63,12 +70,15 @@ class NodeImageDefinitions:
 
     def image_definitions_for_node_definition(self, definition_id):
         """
+        Returns the image definition for a given node definition
+
         example::
 
             client_library.definitions.image_definitions_for_node_definition("iosv")
 
         :param definition_id:
-        :return:
+        :returns: the image definition as JSON
+        :rtype: str
         """
         url = self._base_url + "node_definitions/" + \
             definition_id + "/image_definitions"
@@ -90,12 +100,16 @@ class NodeImageDefinitions:
 
     def download_node_definition(self, definition_id):
         """
+        Returns the node definition for a given definition ID
+
         Example::
 
             client_library.definitions.download_node_definition("iosv")
 
         :param definition_id:
-        :return:
+        :type definition_id: str
+        :returns: the node definition as JSON
+        :rtype: str
         """
         url = self._base_url + "node_definitions/" + definition_id
         response = self.session.get(url)
@@ -108,8 +122,10 @@ class NodeImageDefinitions:
 
             client_library.definitions.download_image_definition("iosv-158-3")
 
-        :param definition_id:
-        :return:
+        :param definition_id: the node definition ID
+        :type definition_id: str
+        :returns: the image definition as JSON
+        :rtype: str
         """
 
         url = self._base_url + "image_definitions/" + definition_id
@@ -120,11 +136,12 @@ class NodeImageDefinitions:
     def upload_image_file(self, filename, rename=None, chunk_size_mb=10):
         """
 
-        :param chunk_size_mb: Optional size of upload chunk (mb)
+        :param filename: the path of the image to upload
+        :type filename: str
         :param rename:  Optional filename to rename to
-        :param filename: the location of the image to upload
-        :param name: the destination filename
-        :return: None
+        :type rename: str
+        :param chunk_size_mb: Optional size of upload chunk (mb)
+        :type chunk_size_mb: int
         """
         url = self._base_url + "images/upload"
         if rename:
@@ -157,12 +174,14 @@ class NodeImageDefinitions:
 
     def remove_node_definition(self, definition_id):
         """
+        Removes the node definition with the given ID.
+
         Example::
 
             client_library.definitions.remove_node_definition("iosv-custom")
 
-        :param definition_id:
-        :return:
+        :param definition_id: the definition ID to delete
+        :type definition_id: str
         """
 
         url = self._base_url + "image_definitions/" + definition_id
@@ -172,12 +191,14 @@ class NodeImageDefinitions:
 
     def remove_image_definition(self, definition_id):
         """
+        Removes the image definition with the given ID.
+
         Example::
 
             client_library.definitions.remove_image_definition("iosv-158-3-custom")
 
-        :param definition_id:
-        :return:
+        :param definition_id: the image definition ID to remove
+        :type definition_id: str
         """
 
         url = self._base_url + "image_definitions/" + definition_id
@@ -187,16 +208,20 @@ class NodeImageDefinitions:
 
     def create_image_definition(self, image_id, node_definition_id, label, disk_image):
         """
+        Creates a new image definition.
 
         Example::
 
             client_library.definitions.create_image_definition("test-1", "iosv", "test", "test.img")
 
-        :param image_id:
-        :param node_definition_id:
-        :param label:
-        :param disk_image:
-        :return:
+        :param image_id: the ID of the new image definition
+        :type image_id: str
+        :param node_definition_id: the node definition ID for this image definition
+        :type node_definition_id: str
+        :param label: the label of the new image definition
+        :type label: str
+        :param disk_image: the name of the .qcow2 disk image (must exist on server)
+        :type disk_image: str
         """
         body = {
             "id": image_id,

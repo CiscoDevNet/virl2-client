@@ -17,6 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""This package contains the VIRL2 client library models for
+labs, nodes, interfaces and links. It also contains classes for
+node and image definition and helper classes for automation
+and authentication."""
 
 from .interface import Interface
 from .authentication import Context, TokenAuth

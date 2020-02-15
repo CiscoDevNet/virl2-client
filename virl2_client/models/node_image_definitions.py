@@ -31,7 +31,6 @@ class NodeImageDefinitions:
     :param context: the authentication context to use
     :type context: authentication.Context
     """
-
     def __init__(self, context):
         """Constructor method"""
         self._context = context
@@ -154,8 +153,9 @@ class NodeImageDefinitions:
         total_size = os.path.getsize(filename)
 
         with open(filename, 'rb') as fh:
-            chunk_iter = read_file_as_chunks(
-                fh, chunk_size_mb=chunk_size_mb, total_size=total_size)
+            chunk_iter = read_file_as_chunks(fh,
+                                             chunk_size_mb=chunk_size_mb,
+                                             total_size=total_size)
             response = self.session.post(url, headers=headers, data=chunk_iter)
             response.raise_for_status()
             print("Upload completed")
@@ -206,7 +206,8 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def create_image_definition(self, image_id, node_definition_id, label, disk_image):
+    def create_image_definition(self, image_id, node_definition_id, label,
+                                disk_image):
         """
         Creates a new image definition.
 
@@ -244,8 +245,8 @@ def read_file_as_chunks(file_object, total_size=None, chunk_size_mb=10):
     chunk_size = chunk_size_mb * bytes_in_mb
     counter = 0
     total_chunks = total_size / chunk_size
-    print("Uploading {0} MB in {1}MB chunks".format(
-        total_size / bytes_in_mb, chunk_size_mb))
+    print("Uploading {0} MB in {1}MB chunks".format(total_size / bytes_in_mb,
+                                                    chunk_size_mb))
     while True:
         data = file_object.read(chunk_size)
         progress = int(100 * (counter / total_chunks))

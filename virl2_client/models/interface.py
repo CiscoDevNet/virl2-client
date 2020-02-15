@@ -39,7 +39,6 @@ class Interface:
     :param iface_type: the type of the interface, defaults to "physical"
     :type iface_type: str, optional
     """
-
     def __init__(self, iid, node, label, slot, iface_type="physical"):
         """Constructor method"""
         self.id = iid
@@ -80,11 +79,7 @@ class Interface:
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self.id,
-            self.node,
-            self.label,
-            self.slot,
+            self.__class__.__name__, self.id, self.node, self.label, self.slot,
             self.type)
 
     def __hash__(self):

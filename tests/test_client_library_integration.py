@@ -283,15 +283,8 @@ def test_lab_details(client_library: ClientLibrary):
     s2_iface = lab.create_interface(s2, 2)
     lab.create_link(s1_iface, s2_iface)
 
-    expected_keys = (
-        "state",
-        "created",
-        "lab_title",
-        "lab_description",
-        "node_count",
-        "link_count",
-        "id"
-    )
+    expected_keys = ("state", "created", "lab_title", "lab_description",
+                     "node_count", "link_count", "id")
 
     details = lab.details()
     assert all(k in details.keys() for k in expected_keys)

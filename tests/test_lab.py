@@ -24,7 +24,7 @@ import pytest
 import requests
 
 from virl2_client.exceptions import NodeNotFound
-from virl2_client.models import Interface, Lab, Link, Node
+from virl2_client.models import Interface, Lab
 from virl2_client.virl2_client import Context
 
 
@@ -99,8 +99,13 @@ def test_topology_creation_and_removal():
 def test_need_to_wait1():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=True)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=True)
     assert lab.need_to_wait(None) == True
     assert lab.need_to_wait(False) == False
     assert lab.need_to_wait(True) == True
@@ -109,8 +114,13 @@ def test_need_to_wait1():
 def test_need_to_wait2():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=False)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=False)
     assert lab.need_to_wait(None) == False
     assert lab.need_to_wait(False) == False
     assert lab.need_to_wait(True) == True
@@ -119,8 +129,13 @@ def test_need_to_wait2():
 def test_str_and_repr():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=False)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=False)
     assert str(lab) == "Lab: laboratory"
     assert repr(lab).startswith("Lab('laboratory', 1, Context(")
 
@@ -128,48 +143,80 @@ def test_str_and_repr():
 def test_create_node():
     context = Context("http://dontcare", requests_session=MagicMock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=False)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=False)
     node = lab.create_node("testnode", "server")
     assert node.node_definition == "server"
     assert node.label == "testnode"
 
 
 def test_create_link(requests_mock):
-    requests_mock.post('mock://labs/1/nodes', json={"id": "n0"})
-    requests_mock.post('mock://labs/1/interfaces',
-                       json={"id": "i0", "label": "eth0", "slot": 0})
-    requests_mock.post('mock://labs/1/links',
-                       json={"id": "l0", "label": "segment0"})
+    requests_mock.post("mock://labs/1/nodes", json={"id": "n0"})
+    requests_mock.post("mock://labs/1/interfaces",
+                       json={
+                           "id": "i0",
+                           "label": "eth0",
+                           "slot": 0
+                       })
+    requests_mock.post("mock://labs/1/links",
+                       json={
+                           "id": "l0",
+                           "label": "segment0"
+                       })
     session = requests.Session()
     context = Context("mock://", requests_session=session)
     # requests_mock.post("http://dontcare", )
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=False)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=False)
     node1 = lab.create_node("testnode", "server")
     node1_i1 = node1.create_interface()
     assert isinstance(node1_i1, Interface)
     node2 = lab.create_node("testnode", "server")
     node2_i1 = node2.create_interface()
     link = lab.create_link(node1_i1, node2_i1)
-    assert link.as_dict() == {'id': 'l0',
-                              'interface_a': 'i0', 'interface_b': 'i0'}
+    assert link.as_dict() == {
+        "id": "l0",
+        "interface_a": "i0",
+        "interface_b": "i0"
+    }
     assert link.nodes[0].label == "testnode"
     assert link.nodes[1].label == "testnode"
     assert link.statistics == {
-        'readbytes': 0, 'readpackets': 0, 'writebytes': 0, 'writepackets': 0}
+        "readbytes": 0,
+        "readpackets": 0,
+        "writebytes": 0,
+        "writepackets": 0,
+    }
     assert link.id == "l0"
 
 
 def test_sync_stats(requests_mock):
-    requests_mock.get('mock://labs/1/simulation_stats',
-                      json={"nodes": {}, "links": {}})
+    requests_mock.get("mock://labs/1/simulation_stats",
+                      json={
+                          "nodes": {},
+                          "links": {}
+                      })
     session = requests.Session()
     context = Context("mock://", requests_session=session)
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=False)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=False)
     lab.sync_statistics()
 
 
@@ -242,24 +289,43 @@ def test_next_free_interface():
 
 
 def test_connect_two_nodes(requests_mock):
-    requests_mock.post('mock://labs/1/nodes', json={"id": "n0"})
-    requests_mock.post('mock://labs/1/interfaces',
-                       json={"id": "i0", "label": "eth0", "slot": 0})
-    requests_mock.post('mock://labs/1/links',
-                       json={"id": "l0", "label": "segment0"})
+    requests_mock.post("mock://labs/1/nodes", json={"id": "n0"})
+    requests_mock.post("mock://labs/1/interfaces",
+                       json={
+                           "id": "i0",
+                           "label": "eth0",
+                           "slot": 0
+                       })
+    requests_mock.post("mock://labs/1/links",
+                       json={
+                           "id": "l0",
+                           "label": "segment0"
+                       })
     session = requests.Session()
     context = Context("mock://", requests_session=session)
     # requests_mock.post("http://dontcare", )
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username,
-              password, auto_sync=0, wait=False)
+    lab = Lab("laboratory",
+              1,
+              context,
+              username,
+              password,
+              auto_sync=0,
+              wait=False)
     node1 = lab.create_node("testnode", "server")
     node2 = lab.create_node("testnode", "server")
     link = lab.connect_two_nodes(node1, node2)
-    assert link.as_dict() == {'id': 'l0',
-                              'interface_a': 'i0', 'interface_b': 'i0'}
+    assert link.as_dict() == {
+        "id": "l0",
+        "interface_a": "i0",
+        "interface_b": "i0"
+    }
     assert link.nodes[0].label == "testnode"
     assert link.nodes[1].label == "testnode"
     assert link.statistics == {
-        'readbytes': 0, 'readpackets': 0, 'writebytes': 0, 'writepackets': 0}
+        "readbytes": 0,
+        "readpackets": 0,
+        "writebytes": 0,
+        "writepackets": 0,
+    }
     assert link.id == "l0"

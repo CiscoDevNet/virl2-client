@@ -33,12 +33,21 @@ class PyatsDeviceNotFound(Exception):
 
 
 class ClPyats:
+    """Creates a pyATS object that can be used to run commands
+    against a device either in exec mode ``show version`` or in
+    configuration mode ``interface gi0/0\\\\nno shut``.
 
+    :param lab: The lab which should be used with pyATS
+    :type lab: models.Lab
+    :raises PyatsNotInstalled: when pyATS can not be found
+    :raises PyatsDeviceNotFound: when the device can not be found
+    """
     def __init__(self, lab):
+        """Constructor method"""
         self._pyats_installed = False
         self._lab = lab
         try:
-            import pyats  # noqa: F401
+            import pyats    # noqa: F401
         except ImportError:
             return
         else:
@@ -52,12 +61,14 @@ class ClPyats:
             raise PyatsNotInstalled
 
     def sync_testbed(self, username, password):
-        """Syncs the the testbed from the server. Note that this will always
-        fetch the latest topology data from the server.
+        """Syncs the the testbed from the server. Note that this
+        will always fetch the latest topology data from the server.
 
-        :param username: the username that will be inserted into the testbed data
+        :param username: the username that will be inserted into
+            the testbed data
         :type username: str
-        :param password: the password that will be inserted into the testbed data
+        :param password: the password that will be inserted into
+            the testbed data
         :type password: str
         """
         self._check_pyats_installed()
@@ -75,7 +86,7 @@ class ClPyats:
         :type node_label: str
         :param command: the command to be run in exec mode
         :type command: str
-        :returns: The output
+        :returns: The output from the device
         :rtype: str
         """
         self._check_pyats_installed()
@@ -99,7 +110,7 @@ class ClPyats:
         :type node_label: str
         :param command: the command to be run in exec mode
         :type command: str
-        :returns: The output
+        :returns: The output from the device
         :rtype: str
         """
         self._check_pyats_installed()
@@ -116,5 +127,6 @@ class ClPyats:
         return pyats_device.configure(command, log_stdout=False)
 
     def cleanup(self):
+        """cleans up the pyATS connections"""
         for pyats_device in self._connections:
             pyats_device.destroy()

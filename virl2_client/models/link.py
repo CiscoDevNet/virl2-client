@@ -39,7 +39,6 @@ class Link:
     :param iface_b: the second interface of a the link
     :type iface_b: models.Interface
     """
-
     def __init__(self, lab, lid, iface_a, iface_b):
         """Constructor method"""
         self.id = lid
@@ -84,12 +83,10 @@ class Link:
         return "Link: {}".format(self.id)
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self.lab),
-            self.id,
-            self.interface_a,
-            self.interface_a)
+        return "{}({!r}, {!r}, {!r}, {!r})".format(self.__class__.__name__,
+                                                   str(self.lab), self.id,
+                                                   self.interface_a,
+                                                   self.interface_a)
 
     def __eq__(self, other: object):
         if not isinstance(other, Link):
@@ -156,12 +153,11 @@ class Link:
 
             if index % 10 == 0:
                 logging.info(
-                    "Link has not converged, attempt %s/%s, waiting...",
-                    index, max_iterations)
+                    "Link has not converged, attempt %s/%s, waiting...", index,
+                    max_iterations)
             time.sleep(5)
-        logger.info(
-            "Link %s has not converged, maximum tries %s exceeded",
-            self.id, max_iterations)
+        logger.info("Link %s has not converged, maximum tries %s exceeded",
+                    self.id, max_iterations)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"

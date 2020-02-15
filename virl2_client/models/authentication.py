@@ -32,7 +32,6 @@ class TokenAuth(requests.auth.AuthBase):
     Inspired by:
     http://docs.python-requests.org/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
     """
-
     def __init__(self, client_library):
         self.client_library = client_library
         self.token = None
@@ -71,8 +70,10 @@ class TokenAuth(requests.auth.AuthBase):
             logger.warning("Not using SSL port of 443: %d", parsed_url.port)
         if parsed_url.scheme != "https":
             logger.warning("Not using https scheme: %s", parsed_url.scheme)
-        data = {"username": self.client_library.username,
-                "password": self.client_library.password}
+        data = {
+            "username": self.client_library.username,
+            "password": self.client_library.password
+        }
         response = self.client_library.session.post(url, json=data, auth=False)
         response.raise_for_status()
         self.token = response.json()
@@ -92,11 +93,10 @@ class Context:
             self._requests_session = requests_session
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._base_url,
-            self._requests_session,
-            self._client_uuid)
+        return "{}({!r}, {!r}, {!r})".format(self.__class__.__name__,
+                                             self._base_url,
+                                             self._requests_session,
+                                             self._client_uuid)
 
     @property
     def base_url(self):

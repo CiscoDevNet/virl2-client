@@ -14,8 +14,6 @@ requests = "^2"
 [tool.poetry.dev-dependencies]
 pytest = "^5"
 pytest-cov = "^2"
-# aiomock = "^0"
-# pytest-asyncio = "^0"
 responses = "^0"
 
 [build-system]

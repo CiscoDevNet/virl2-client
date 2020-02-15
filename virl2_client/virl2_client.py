@@ -37,7 +37,7 @@ from .exceptions import LabNotFound
 from .models import Context, Lab, NodeImageDefinitions, TokenAuth
 
 logger = logging.getLogger(__name__)
-cached = lru_cache(maxsize=None)  # cache results forever
+cached = lru_cache(maxsize=None)    # cache results forever
 
 
 class InitializationError(Exception):
@@ -67,8 +67,13 @@ class ClientLibrary:
     :raises InitializationError: If no URL is provided or
         authentication fails or host can't be reasched
     """
-
-    def __init__(self, url=None, username=None, password=None, ssl_verify=True, raise_for_auth_failure=False, allow_http=False):
+    def __init__(self,
+                 url=None,
+                 username=None,
+                 password=None,
+                 ssl_verify=True,
+                 raise_for_auth_failure=False,
+                 allow_http=False):
         """Constructor method"""
 
         # check environment for host URL
@@ -143,14 +148,13 @@ class ClientLibrary:
             urllib3.disable_warnings()
 
         self.session.auth = TokenAuth(self)
-
         """
         `auto_sync` automatically syncs data with the backend after a specific
         time. The default expiry time is 1.0s. This time can be configured by
         setting the `auto_sync_interval`."""
 
         self.auto_sync = True
-        self.auto_sync_interval = 1.0  # seconds
+        self.auto_sync_interval = 1.0    # seconds
 
         self.allow_http = allow_http
         self.definitions = NodeImageDefinitions(self._context)
@@ -169,17 +173,14 @@ class ClientLibrary:
                 return
 
     def __repr__(self):
-        return("{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self.url,
-            self.username,
-            self.password,
-            self._context.session.verify,
-            self.raise_for_auth_failure,
-            self.allow_http))
+        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
+            self.__class__.__name__, self.url, self.username, self.password,
+            self._context.session.verify, self.raise_for_auth_failure,
+            self.allow_http)
 
     def __str__(self):
-        return("{} URL: {}".format(self.__class__.__name__, self._context.base_url))
+        return "{} URL: {}".format(self.__class__.__name__,
+                                   self._context.base_url)
 
     def _make_test_auth_call(self):
         # make a call to confirm auth working, this will be replaced by a Version check in SIMPLE-2188
@@ -276,8 +277,11 @@ class ClientLibrary:
 
         # remove the extension (.ng, .yaml) to name the lab
         lab_title = title.replace(Path(title).suffix, "")
-        lab = Lab(lab_title, lab_id, self._context,
-                  self.username, self.password,
+        lab = Lab(lab_title,
+                  lab_id,
+                  self._context,
+                  self.username,
+                  self.password,
                   auto_sync=self.auto_sync,
                   auto_sync_interval=self.auto_sync_interval)
 
@@ -320,8 +324,8 @@ class ClientLibrary:
         """
         warnings.warn("deprecated", DeprecationWarning)
         topology_file_path = Path("import_export") / "SampleData" / title
-        topology = pkg_resources.resource_string(
-            "simple_common", topology_file_path.as_posix())
+        topology = pkg_resources.resource_string("simple_common",
+                                                 topology_file_path.as_posix())
         return self.import_lab(topology=topology.decode(), title=title)
 
     def all_labs(self):
@@ -378,8 +382,11 @@ class ClientLibrary:
         response.raise_for_status()
         result = response.json()
         lab_id = result["id"]
-        lab = Lab(title or lab_id, lab_id, self._context,
-                  self.username, self.password,
+        lab = Lab(title or lab_id,
+                  lab_id,
+                  self._context,
+                  self.username,
+                  self.password,
                   auto_sync=self.auto_sync,
                   auto_sync_interval=self.auto_sync_interval)
         self._labs[lab_id] = lab
@@ -422,8 +429,11 @@ class ClientLibrary:
         # TODO: check if lab exists through REST call
         title = None
         # TODO: sync lab name
-        lab = Lab(title, lab_id, self._context,
-                  self.username, self.password,
+        lab = Lab(title,
+                  lab_id,
+                  self._context,
+                  self.username,
+                  self.password,
                   auto_sync=self.auto_sync,
                   auto_sync_interval=self.auto_sync_interval)
         if sync_lab:

@@ -59,7 +59,6 @@ class Node:
     :param tags: List of tags List[str, str]
     :type tags: list
     """
-
     def __init__(self, lab, nid, label, node_definition, image_definition,
                  config, x, y, ram, cpus, data_volume, boot_disk_size, tags):
         """Constructor method"""
@@ -79,11 +78,7 @@ class Node:
         self._boot_disk_size = boot_disk_size
         self._tags = tags
 
-        self.statistics = {
-            "cpu_usage": 0,
-            "disk_read": 0,
-            "disk_write": 0
-        }
+        self.statistics = {"cpu_usage": 0, "disk_read": 0, "disk_write": 0}
 
     @property
     def state(self):
@@ -95,18 +90,10 @@ class Node:
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self.lab),
-            self.id,
-            self._label,
-            self._node_definition,
-            self._image_definition,
-            self._config,
-            self._x, self._y,
-            self._ram, self._cpus,
-            self._data_volume,
-            self._boot_disk_size,
-            self._tags)
+            self.__class__.__name__, str(self.lab), self.id, self._label,
+            self._node_definition, self._image_definition, self._config,
+            self._x, self._y, self._ram, self._cpus, self._data_volume,
+            self._boot_disk_size, self._tags)
 
     def __eq__(self, other):
         if not isinstance(other, Node):
@@ -123,13 +110,11 @@ class Node:
 
     def interfaces(self):
         self.lab.sync_topology_if_outdated()
-        return [iface for iface in self.lab.interfaces()
-                if iface.node is self]
+        return [iface for iface in self.lab.interfaces() if iface.node is self]
 
     def physical_interfaces(self):
         self.lab.sync_topology_if_outdated()
-        return [iface for iface in self.interfaces()
-                if iface.is_physical]
+        return [iface for iface in self.interfaces() if iface.is_physical]
 
     def create_interface(self, slot=None, wait=False):
         """
@@ -281,8 +266,8 @@ class Node:
 
     def _set_node_property(self, key, val):
         logger.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}?origin_uuid={}".format(
-            self._base_url, self.lab.client_uuid)
+        node_url = "{}?origin_uuid={}".format(self._base_url,
+                                              self.lab.client_uuid)
         response = self.session.patch(url=node_url, json={key: val})
         response.raise_for_status()
 
@@ -333,10 +318,11 @@ class Node:
 
             if index % 10 == 0:
                 logging.info(
-                    "Node has not converged, attempt %s/%s, waiting...", index, max_iterations)
+                    "Node has not converged, attempt %s/%s, waiting...", index,
+                    max_iterations)
             time.sleep(5)
-        logger.info(
-            "Node %s has not converged, maximum tries %s exceeded", self.id, max_iterations)
+        logger.info("Node %s has not converged, maximum tries %s exceeded",
+                    self.id, max_iterations)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"

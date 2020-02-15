@@ -10,10 +10,16 @@ on a VIRL :sup:`2` controller.
 .. toctree::
     :maxdepth: 2
     :caption: Content
+    :glob:
 
     intro
     examples
-    virl2_client
+    api/*
+
+Download
+--------
+
+`Download the client library (Linux/Win/macOS) </client>`_
 
 Indices and tables
 ==================

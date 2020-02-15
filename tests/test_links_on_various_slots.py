@@ -63,9 +63,29 @@ def test_links_on_various_slots(client_library: ClientLibrary):
     assert link.interface_b.slot == 0
 
     assert list(lab._interfaces.keys()) == [
-        'i0', 'i1', 'i2', 'i3', 'i4', 'i5', 'i6', 'i7', 'i8', 'i9']
-    assert [ifc.label for ifc in lab.interfaces()] == ['eth0', 'eth1',
-                                                       'eth2', 'eth3', 'eth4', 'eth0', 'eth1', 'eth2', 'eth3', 'eth4']
+        "i0",
+        "i1",
+        "i2",
+        "i3",
+        "i4",
+        "i5",
+        "i6",
+        "i7",
+        "i8",
+        "i9",
+    ]
+    assert [ifc.label for ifc in lab.interfaces()] == [
+        "eth0",
+        "eth1",
+        "eth2",
+        "eth3",
+        "eth4",
+        "eth0",
+        "eth1",
+        "eth2",
+        "eth3",
+        "eth4",
+    ]
     # create a link between s1 and s2, again on the 4th slot
     s1_i1 = s1.create_interface(slot=4)
     s2_i1 = s2.create_interface(slot=4)

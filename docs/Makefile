@@ -1,4 +1,7 @@
 # Minimal makefile for Sphinx documentation
+# http://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html
+# https://stackoverflow.com/questions/50361218/remove-the-word-module-from-sphinx-documentation/57520238#57520238
+# https://stackoverflow.com/questions/21003122/sphinx-apidoc-section-titles-for-python-module-package-names#
 #
 
 # You can set these variables from the command line.
@@ -17,3 +20,9 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+buildapi:
+	rm -rf $(SOURCEDIR)/api/*
+	sphinx-apidoc --templatedir template -fMT ../virl2_client -o $(SOURCEDIR)/api
+	@echo "Auto-generation of API documentation finished. " \
+	      "The generated files are in '$(SOURCEDIR)/api/'"

@@ -26,8 +26,11 @@ from virl2_client import ClientLibrary
 
 @pytest.mark.integration
 def test_sending_requests_without_auth_token(controller_url: str):
-    client_library = ClientLibrary(
-        controller_url, username="virl2", password="virl2", ssl_verify=False, allow_http=True)
+    client_library = ClientLibrary(controller_url,
+                                   username="virl2",
+                                   password="virl2",
+                                   ssl_verify=False,
+                                   allow_http=True)
 
     # it probably won't be a common case to override `auth` by ClientLibrary users
     # but missing auth token may happen when using API directly via HTTP:

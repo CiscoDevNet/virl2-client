@@ -48,8 +48,15 @@ class Lab:
     :param wait: Wait for convergence on backend
     :type auto_sync: bool
     """
-
-    def __init__(self, title, lab_id, context, username, password, auto_sync=True, auto_sync_interval=1.0, wait=True):
+    def __init__(self,
+                 title,
+                 lab_id,
+                 context,
+                 username,
+                 password,
+                 auto_sync=True,
+                 auto_sync_interval=1.0,
+                 wait=True):
         """Constructor method"""
         self.username = username
         self.password = password
@@ -96,13 +103,8 @@ class Lab:
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._title,
-            self._lab_id,
-            self._context,
-            self.auto_sync,
-            self.auto_sync_interval,
-            self.wait_for_convergence)
+            self.__class__.__name__, self._title, self._lab_id, self._context,
+            self.auto_sync, self.auto_sync_interval, self.wait_for_convergence)
 
     def need_to_wait(self, local_wait):
         if local_wait is None:
@@ -371,10 +373,15 @@ class Lab:
         :rtype: list
         """
         self.sync_topology_if_outdated()
-        return [node for node in self.nodes()
-                if tag in node.tags()]
+        return [node for node in self.nodes() if tag in node.tags()]
 
-    def create_node(self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False):
+    def create_node(self,
+                    label,
+                    node_definition,
+                    x=0,
+                    y=0,
+                    wait=None,
+                    populate_interfaces=False):
         """
         Creates a node in the lab with the given parameters.
 
@@ -419,18 +426,29 @@ class Lab:
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
 
-        node = self.add_node_local(
-            node_id, label, node_definition, image_definition, config, x, y)
+        node = self.add_node_local(node_id, label, node_definition,
+                                   image_definition, config, x, y)
         return node
 
-    def add_node_local(self, node_id, label, node_definition, image_definition, config, x, y,
-                       ram=0, cpus=0, data_volume=0, boot_disk_size=0, tags=None):
+    def add_node_local(self,
+                       node_id,
+                       label,
+                       node_definition,
+                       image_definition,
+                       config,
+                       x,
+                       y,
+                       ram=0,
+                       cpus=0,
+                       data_volume=0,
+                       boot_disk_size=0,
+                       tags=None):
         "Helper function to add a node to the client library."
         if tags is None:
             # TODO: see if can deprecate now tags set automatically on server at creation
             tags = []
-        node = Node(self, node_id, label, node_definition, image_definition, config, x, y, ram, cpus,
-                    data_volume, boot_disk_size, tags)
+        node = Node(self, node_id, label, node_definition, image_definition,
+                    config, x, y, ram, cpus, data_volume, boot_disk_size, tags)
         self._nodes[node.id] = node
         return node
 
@@ -507,7 +525,8 @@ class Lab:
 
         :param iface: the interface ID
         :type iface: str
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default, 
+            the lab wait property takes precedence)
         :type wait: bool
         """
         iface.remove_on_server()
@@ -515,18 +534,20 @@ class Lab:
             try:
                 del self._links[lnk.id]
             except KeyError:
-                # element may already have been deleted on server, and removed locally due to auto-sync
+                # element may already have been deleted on server, and removed
+                # locally due to auto-sync
                 pass
         try:
             del self._interfaces[iface.id]
         except KeyError:
-            # element may already have been deleted on server, and removed locally due to auto-sync
+            # element may already have been deleted on server, and removed
+            # locally due to auto-sync
             pass
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("interface %s removed from lab %s",
-                     iface.id, self._lab_id)
+        logger.debug("interface %s removed from lab %s", iface.id,
+                     self._lab_id)
 
     def create_link(self, i1, i2, wait=None):
         """
@@ -536,7 +557,8 @@ class Lab:
         :type i1: models.Interface
         :param i2: the second interface object
         :type i2: models.Interface
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         :returns: the created link
         :rtype: models.Link
@@ -609,20 +631,26 @@ class Lab:
         # TODO: need to import the topology then
         desired_interface = None
         for iface in result:
-            lab_interface = self.create_interface_local(
-                iface_id=iface["id"], label=iface["label"],
-                node=node, slot=iface["slot"])
+            lab_interface = self.create_interface_local(iface_id=iface["id"],
+                                                        label=iface["label"],
+                                                        node=node,
+                                                        slot=iface["slot"])
             if slot == iface["slot"] or slot is None:
                 desired_interface = lab_interface
 
         return desired_interface
 
-    def create_interface_local(self, iface_id, label, node, slot, iface_type="physical"):
+    def create_interface_local(self,
+                               iface_id,
+                               label,
+                               node,
+                               slot,
+                               iface_type="physical"):
         "Helper function to create an interface in the client library."
         if iface_id not in self._interfaces:
             iface = Interface(iface_id, node, label, slot, iface_type)
             self._interfaces[iface_id] = iface
-        else:  # update the interface if it already exists:
+        else:    # update the interface if it already exists:
             self._interfaces[iface_id].node = node
             self._interfaces[iface_id].label = label
             self._interfaces[iface_id].slot = slot
@@ -638,7 +666,8 @@ class Lab:
         node_statistics = states.get("nodes", {})
         link_statistics = states.get("links", {})
         for node_id, node_data in node_statistics.items():
-            # TODO: standardise so if shutdown, then these are set to 0 on server side
+            # TODO: standardise so if shutdown, then these are set to 0 on
+            # server side
             try:
                 disk_read = int(node_data["block0_rd_bytes"])
             except (TypeError, KeyError):
@@ -655,7 +684,8 @@ class Lab:
             }
 
         for link_id, link_data in link_statistics.items():
-            # TODO: standardise so if shutdown, then these are set to 0 on server side
+            # TODO: standardise so if shutdown, then these are set to 0 on
+            # server side
             try:
                 readbytes = int(link_data["readbytes"])
             except (TypeError, KeyError):
@@ -737,7 +767,8 @@ class Lab:
 
             if index % 10 == 0:
                 logging.info(
-                    "Lab has not converged, attempt %s/%s, waiting...", index, max_iterations)
+                    "Lab has not converged, attempt %s/%s, waiting...", index,
+                    max_iterations)
             time.sleep(5)
         logger.info("Lab %s has not converged, maximum tries %s exceeded",
                     self._lab_id, max_iterations)
@@ -893,8 +924,8 @@ class Lab:
                 resp_dict = json.loads(result.text)
                 error_msg = resp_dict['description']
             except (ValueError, TypeError, KeyError):
-                # result.text was empty, not a JSON object, or not the expected JSON schema.
-                # Use the raw result text.
+                # result.text was empty, not a JSON object, or not the expected
+                # JSON schema. Use the raw result text.
                 error_msg = result.text
             raise LabNotFound(f"Error syncing lab: {error_msg}")
             # TODO: get the error message from response/headers also?
@@ -945,7 +976,8 @@ class Lab:
         slot = iface_data["slot"]
         iface_type = iface_data["type"]
         node = self._nodes[node_id]
-        return self.create_interface_local(iface_id, label, node, slot, iface_type)
+        return self.create_interface_local(iface_id, label, node, slot,
+                                           iface_type)
 
     def _import_node(self, node_id, node_data):
         label = node_data["label"]
@@ -959,8 +991,9 @@ class Lab:
         boot_disk_size = node_data["boot_disk_size"]
         tags = node_data["tags"]
         config = node_data.get("configuration", "")
-        return self.add_node_local(node_id, label, node_definition, image_definition, config, x, y,
-                                   ram, cpus, data_volume, boot_disk_size, tags)
+        return self.add_node_local(node_id, label, node_definition,
+                                   image_definition, config, x, y, ram, cpus,
+                                   data_volume, boot_disk_size, tags)
 
     def update_lab(self, topology, exclude_configurations):
         self._title = topology["lab_title"]
@@ -976,8 +1009,8 @@ class Lab:
 
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
-        update_interface_keys = set(
-            interface["id"] for interface in topology["interfaces"])
+        update_interface_keys = set(interface["id"]
+                                    for interface in topology["interfaces"])
 
         # removed elements
         removed_nodes = existing_node_keys - update_node_keys
@@ -1015,8 +1048,8 @@ class Lab:
                 interface_id, topology)
             interface_data = interface["data"]
             node_id = interface["node"]
-            interface = self._import_interface(
-                interface_id, node_id, interface_data)
+            interface = self._import_interface(interface_id, node_id,
+                                               interface_data)
             logger.info("Added interface %s", interface)
 
         for link_id in new_links:

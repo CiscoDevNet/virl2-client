@@ -5,8 +5,8 @@ This is the client library for the Cisco VIRL :sup:`2` Network Simulation Platfo
 (``virl2_client``). It provides a Python package to programmatically create, edit,
 delete and control network simulations on a VIRL :sup:`2` controller.
 
-It is a pure Python implementation that requires Python3. We've tested and
-written the package with Python 3.6.8.
+It is a pure Python implementation that requires Python3. We've written and tested
+the package with Python 3.6.8.
 
 The **status** of this package can be considered **Beta**. We're not aware of
 any major issues at the time of release. However, since this is the first
@@ -17,10 +17,10 @@ Use Case Description
 *********************
 
 The client library provides a convenient interface to control the lifecycle of a
-network simulation. This can be used for automation scripts directly in Python
-but also for third party integrations / plugins which need to integrate with a
-simulated network. Examples already existing are an `Ansible plugin
-<https://github.com/CiscoDevNet/ansible-virl/>`_.
+network simulation running on VIRL2. This can be used for automation scripts
+directly in Python but also for third party integrations / plugins which need to
+integrate with a simulated network. Examples already existing are an `Ansible
+plugin <https://github.com/CiscoDevNet/ansible-virl/>`_.
 
 Installation
 *************

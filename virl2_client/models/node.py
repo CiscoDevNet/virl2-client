@@ -379,10 +379,32 @@ class Node:
         self._set_node_property("tags", current)
 
     def run_pyats_command(self, command):
+        """Run a pyATS command in exec mode.
+
+        :param command: the command (like "show version")
+        :type command: str
+        :returns: the output from the device
+        :rtype: str
+        """
         label = self.label
         return self.lab.pyats.run_command(label, command)
 
+    def run_pyats_config_command(self, command):
+        """Run a pyATS command in config mode.
+
+        :param command: the command (like "interface gi0")
+        :type command: str
+        :returns: the output from the device
+        :rtype: str
+        """
+        label = self.label
+        return self.lab.pyats.run_config_command(label, command)
+
     def sync_layer3_addresses(self):
+        """Acquire all L3 addresses form the controller. For this
+        to work, the device has to be attached to the external network
+        in bridge mode and must run DHCP to acquire an IP address.
+        """
         # TODO: can optimise the sync of l3 to only be for the node rather than whole lab
         url = self._base_url + "/layer3_addresses"
         response = self.session.get(url)

@@ -332,8 +332,8 @@ class ClientLibrary:
         """
         Retrieves a list of all defined labs.
 
-        :returns: A list of lab instances
-        :rtype: list
+        :returns: A list of lab objects
+        :rtype: list[models.Lab]
         """
         # TODO: integrate this further with local labs - check if already exist
         response = self.session.get(urljoin(self._base_url, 'labs'))
@@ -396,7 +396,7 @@ class ClientLibrary:
         """
         Use carefully, it removes a given lab::
 
-            client_library.remove_lab("lab_2")
+            client_library.remove_lab("1f6cd7")
 
         :param lab_id: The lab ID to be removed.
         :type lab_id: str
@@ -417,7 +417,7 @@ class ClientLibrary:
 
         Join preexisting lab::
 
-            lab = client_library.join_existing_lab("lab_1")
+            lab = client_library.join_existing_lab("2e6a18")
 
         :param lab_id: The lab ID to be removed.
         :type lab_id: str
@@ -443,6 +443,11 @@ class ClientLibrary:
         return lab
 
     def get_diagnostics(self):
+        """Returns the controller diagnostic data as JSON
+
+        :returns: diagnostic data
+        :rtype: str
+        """
         url = self._base_url + "diagnostics"
         response = self.session.get(url)
         response.raise_for_status()
@@ -450,9 +455,12 @@ class ClientLibrary:
 
     def find_labs_by_title(self, title):
         """
+        Return a list of labs which match the given title
 
         :param title: The title to search for
-        :return: A list of lab objects which match the title specified
+        :type title: str
+        :returns: A list of lab objects which match the title specified
+        :rtype: list[models.Lab]
         """
         url = self._base_url + "populate_lab_tiles"
         response = self.session.get(url)
@@ -474,7 +482,11 @@ class ClientLibrary:
         return matched_labs
 
     def get_lab_list(self):
-        """Returns list of all lab IDs"""
+        """Returns list of all lab IDs.
+
+        :returns: a list of Lab IDs
+        :rtype: list[str]
+        """
         url = self._base_url + "labs"
         response = self.session.get(url)
         response.raise_for_status()

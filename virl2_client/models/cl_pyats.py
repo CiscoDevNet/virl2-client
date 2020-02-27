@@ -75,8 +75,8 @@ class ClPyats:
         from pyats.topology import loader
         testbed_yaml = self._lab.get_pyats_testbed()
         data = loader.load(io.StringIO(testbed_yaml))
-        data["terminal_server"]["connections"]["cli"]["username"] = username
-        data["terminal_server"]["connections"]["cli"]["password"] = password
+        data.devices.terminal_server.connections.cli.username = username
+        data.devices.terminal_server.connections.cli.password = password
         self._testbed = data
 
     def run_command(self, node_label, command):

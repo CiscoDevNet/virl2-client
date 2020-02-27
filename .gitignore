@@ -3,3 +3,6 @@ dist/
 docs/build/*
 *.pyc
 *.egg-info
+.direnv
+.envrc
+.python-version

@@ -11,7 +11,7 @@ the package with Python 3.6.8.
 The **status** of this package can be considered **Beta**. We're not aware of
 any major issues at the time of release. However, since this is the first
 release of the package, bugs might exist. Both in the package as well as in the
-API implementation on the controller itself.
+API implementation on the controller.
 
 Use Case Description
 *********************
@@ -26,15 +26,17 @@ Installation
 *************
 
 The package comes in form of a wheel that is downloadable from the VIRL
-controller itself. It should also be available on PyPi after the release of
-VIRL :sup:`2` itself. When available on PyPi, the package can be
-installed via::
+controller. The package can be installed either from PyPi using::
 
     pip install virl2_client
 
-Otherwise, the wheel can be installed via::
+or, alternatively, the version that is bundled with the VIRL :sup:`2` controller
+can be downloaded to the local filesystem and then directly installed via::
 
     pip install ./virl2_client-*.whl
+
+The bundled version is available on the index site of the docs when
+viewed directly on the VIRL :sup:`2` controller.
 
 We recommend the use of a virtual environment for installation.
 
@@ -49,6 +51,14 @@ Get started with the ``ClientLibrary`` class
 :class:`virl2_client.virl2_client.ClientLibrary`
 and the ``Lab`` :class:`virl2_client.models.lab.Lab` class.
 
+Compatibility
+**************
+
+This package and the used API is specific to VIRL :sup:`2`. It is not backwards
+compatible with VIRL 1.x and therefore can not be used with VIRL 1.x. If you
+are looking for a convenient tool to interface with the VIRL 1 API then the
+`VIRL Utils tool <https://github.com/CiscoDevNet/virlutils>`_ is recommended.
+
 Known Issues
 *************
 
@@ -59,7 +69,7 @@ Getting Help
 *************
 
 If you have questions, concerns, bug reports, etc., please create an issue
-against this repository.
+against the `repository on GitHub <https://github.com/CiscoDevNet/virl2-client/>`_.
 
 Getting Involved
 *****************

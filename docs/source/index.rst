@@ -16,10 +16,15 @@ on a VIRL :sup:`2` controller.
     examples
     api/*
 
-Download
---------
+.. only:: internal
 
-`Download the client library (Linux/Win/macOS) </client>`_
+    Download
+    --------
+
+    `Download the client library (Linux/Win/macOS) </client>`_
+
+    **Note** that the above link *only* works when the documentation is viewed
+    on the VIRL :sup:`2` controller.
 
 Indices and tables
 ==================

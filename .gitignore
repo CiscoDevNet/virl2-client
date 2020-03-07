@@ -1,8 +1,8 @@
+.direnv/
+.envrc
+.python-version
 dist/
 */__pycache__
 docs/build/*
 *.pyc
 *.egg-info
-.direnv
-.envrc
-.python-version

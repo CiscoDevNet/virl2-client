@@ -795,6 +795,7 @@ class Lab:
             self.wait_until_lab_converged()
         logger.debug("started lab: %s", self._lab_id)
 
+    @property
     def state(self):
         """
         Returns the state of the lab.

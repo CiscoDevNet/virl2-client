@@ -795,7 +795,6 @@ class Lab:
             self.wait_until_lab_converged()
         logger.debug("started lab: %s", self._lab_id)
 
-    @property
     def state(self):
         """
         Returns the state of the lab.
@@ -812,7 +811,7 @@ class Lab:
     def is_active(self):
         "Returns if the lab is running."
         simulated_states = {"STARTED", "QUEUED", "BOOTED"}
-        return self.state in simulated_states
+        return self.state() in simulated_states
 
     def details(self):
         """

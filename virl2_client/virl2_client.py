@@ -28,10 +28,12 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+
 import pkg_resources
 import requests
 import urllib3
 from urllib3.exceptions import LocationParseError
+import yaml
 
 from .exceptions import LabNotFound
 from .models import Context, Lab, NodeImageDefinitions, TokenAuth
@@ -237,6 +239,24 @@ class ClientLibrary:
         response = self.session.get(
             urljoin(self._base_url, 'wait_for_lld_connected'))
         response.raise_for_status()
+
+    def export_lab(self, lab_id=None):
+        """
+        Export an existing topology configuration from CML2 server.
+
+        :param lab_id: Topology ID
+        :type lab_id: str
+        :returns: Topology configuration YAML
+        :rtype: str
+        :raises
+        :raises ValueError: if there's no lab ID in the API response
+        :raises requests.exceptions.HTTPError: if there was a transport error
+        """
+        if lab_id is None:
+            raise TypeError
+        response = self.session.get(urljoin(self._base_url, 'labs/' + lab_id + '/download'))
+        response.raise_for_status()
+        return yaml.safe_load(response.content)
 
     def import_lab(self, topology, title, offline=False):
         """

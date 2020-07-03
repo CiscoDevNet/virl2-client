@@ -247,9 +247,8 @@ class ClientLibrary:
         :param lab_id: Topology ID
         :type lab_id: str
         :returns: Topology configuration YAML
-        :rtype: str
-        :raises
-        :raises ValueError: if there's no lab ID in the API response
+        :rtype: yaml
+        :raises TypeError: if there's no lab ID provided as parameter
         :raises requests.exceptions.HTTPError: if there was a transport error
         """
         if lab_id is None:

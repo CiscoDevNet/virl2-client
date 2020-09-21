@@ -52,6 +52,8 @@ class Node:
     :type ram: int
     :param cpus: Amount of CPUs in this node (if applicable)
     :type cpus: int
+    :param cpu_limit: CPU limit (default at 100%)
+    :type cpu_limit: int
     :param data_volume: Size in GiB of 2nd HDD (if > 0)
     :type data_volume: int
     :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
@@ -59,8 +61,24 @@ class Node:
     :param tags: List of tags List[str, str]
     :type tags: list
     """
-    def __init__(self, lab, nid, label, node_definition, image_definition,
-                 config, x, y, ram, cpus, data_volume, boot_disk_size, tags):
+
+    def __init__(
+        self,
+        lab,
+        nid,
+        label,
+        node_definition,
+        image_definition,
+        config,
+        x,
+        y,
+        ram,
+        cpus,
+        cpu_limit,
+        data_volume,
+        boot_disk_size,
+        tags,
+    ):
         """Constructor method"""
         self.lab = lab
         self.id = nid
@@ -74,6 +92,7 @@ class Node:
         self._ram = ram
         self._config = config
         self._cpus = cpus
+        self._cpu_limit = cpu_limit
         self._data_volume = data_volume
         self._boot_disk_size = boot_disk_size
         self._tags = tags
@@ -89,11 +108,23 @@ class Node:
         return "Node: {}".format(self._label)
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__, str(self.lab), self.id, self._label,
-            self._node_definition, self._image_definition, self._config,
-            self._x, self._y, self._ram, self._cpus, self._data_volume,
-            self._boot_disk_size, self._tags)
+        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
+            self.__class__.__name__,
+            str(self.lab),
+            self.id,
+            self._label,
+            self._node_definition,
+            self._image_definition,
+            self._config,
+            self._x,
+            self._y,
+            self._ram,
+            self._cpus,
+            self._cpu_limit,
+            self._data_volume,
+            self._boot_disk_size,
+            self._tags,
+        )
 
     def __eq__(self, other):
         if not isinstance(other, Node):
@@ -132,13 +163,17 @@ class Node:
 
     def next_available_interface(self):
         """
-        Returns the next available interface on this node.
+        Returns the next available physical interface on this node.
+
+        Note: On XR 9000v, the first two physical interfaces are marked
+        as "do not use"... Only the third physical interface can be used
+        to connect to other nodes!
 
         :returns: an interface or None, if all existing ones are connected
         :rtype: models.interface
         """
         for iface in self.interfaces():
-            if not iface.is_connected():
+            if not iface.is_connected() and iface.is_physical:
                 return iface
         return None
 
@@ -210,6 +245,16 @@ class Node:
         self._cpus = value
 
     @property
+    def cpu_limit(self):
+        self.lab.sync_topology_if_outdated()
+        return self._cpu_limit
+
+    @cpu_limit.setter
+    def cpu_limit(self, value):
+        self._set_node_property("cpu_limit", value)
+        self._cpu_limit = value
+
+    @property
     def data_volume(self):
         self.lab.sync_topology_if_outdated()
         return self._data_volume
@@ -236,8 +281,7 @@ class Node:
 
     @config.setter
     def config(self, value):
-        url = self._base_url + \
-            "/config?origin_uuid={}".format(self.lab.client_uuid)
+        url = self._base_url + "/config?origin_uuid={}".format(self.lab.client_uuid)
         response = self.session.put(url, data=value)
         response.raise_for_status()
         self._config = value
@@ -266,8 +310,7 @@ class Node:
 
     def _set_node_property(self, key, val):
         logger.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}?origin_uuid={}".format(self._base_url,
-                                              self.lab.client_uuid)
+        node_url = "{}?origin_uuid={}".format(self._base_url, self.lab.client_uuid)
         response = self.session.patch(url=node_url, json={key: val})
         response.raise_for_status()
 
@@ -298,31 +341,34 @@ class Node:
         for iface in self.interfaces():
             if iface.label == label:
                 return iface
-        else:
-            raise InterfaceNotFound("{}:{}".format(label, self))
+        raise InterfaceNotFound("{}:{}".format(label, self))
 
     def get_interface_by_slot(self, slot):
         for iface in self.interfaces():
             if iface.slot == slot:
                 return iface
-        else:
-            raise InterfaceNotFound("{}:{}".format(slot, self))
+        raise InterfaceNotFound("{}:{}".format(slot, self))
 
     def wait_until_converged(self, max_iterations=500):
         logger.info("Waiting for node %s to converge", self.id)
         for index in range(max_iterations):
             converged = self.has_converged()
             if converged:
-                logger.info("Node %s has booted", self.id)
+                logger.info("Node %s has converged", self.id)
                 return
 
             if index % 10 == 0:
                 logging.info(
-                    "Node has not converged, attempt %s/%s, waiting...", index,
-                    max_iterations)
+                    "Node has not converged, attempt %s/%s, waiting...",
+                    index,
+                    max_iterations,
+                )
             time.sleep(5)
-        logger.info("Node %s has not converged, maximum tries %s exceeded",
-                    self.id, max_iterations)
+        logger.info(
+            "Node %s has not converged, maximum tries %s exceeded",
+            self.id,
+            max_iterations,
+        )
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"
@@ -356,6 +402,19 @@ class Node:
         url = self._base_url + "/extract_configuration"
         response = self.session.put(url)
         response.raise_for_status()
+        self._config = response.json()
+
+    def console_key(self):
+        url = self._base_url + "/keys/console"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def vnc_key(self):
+        url = self._base_url + "/keys/vnc"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
 
     def remove_on_server(self):
         logger.info("Removing node %s", self)
@@ -401,7 +460,7 @@ class Node:
         return self.lab.pyats.run_config_command(label, command)
 
     def sync_layer3_addresses(self):
-        """Acquire all L3 addresses form the controller. For this
+        """Acquire all L3 addresses from the controller. For this
         to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
         """
@@ -424,7 +483,7 @@ class Node:
             iface.ip_snooped_info = {
                 "mac_address": mac_address,
                 "ipv4": ipv4,
-                "ipv6": ipv6
+                "ipv6": ipv6,
             }
 
     def update(self, node_data, exclude_configurations):
@@ -435,6 +494,7 @@ class Node:
         self._image_definition = node_data["image_definition"]
         self._ram = node_data["ram"]
         self._cpus = node_data["cpus"]
+        self._cpu_limit = node_data.get("cpu_limit", 100)
         self._data_volume = node_data["data_volume"]
         self._boot_disk_size = node_data["boot_disk_size"]
         self._tags = node_data["tags"]

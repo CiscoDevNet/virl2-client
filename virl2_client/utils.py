@@ -29,7 +29,7 @@ class TextFsmNotInstalled(Exception):
 logger = logging.getLogger(__name__)
 
 
-class TextFsmTemplateHelper():
+class TextFsmTemplateHelper:
     def __init__(self):
         self._tokens = []
         self._lines = []
@@ -40,12 +40,12 @@ class TextFsmTemplateHelper():
 
     def add_token(self, name, pattern):
         # TODO: warn if not raw string
-        entry = f"Value {name} ({pattern})"
+        entry = "Value {} ({})".format(name, pattern)
         self._tokens.append(entry)
 
     def add_numeric_token(self, name):
         # TODO: warn if not raw string
-        entry = f"Value {name}" + r" (\d+)"
+        entry = "Value {} (\\d+)".format(name)
         self._tokens.append(entry)
 
     def add_line(self, line):
@@ -66,8 +66,10 @@ class TextFsmTemplateHelper():
 
 
 def splice_interface_ip_into_config(config, remote, ip_address, netmask):
-    search_string = f"description to {remote}\n    no ip address"
-    replace_string = f"description to {remote}\n    ip address {ip_address} {netmask}"
+    search_string = "description to {}\n    no ip address".format(remote)
+    replace_string = "description to {}\n    ip address {} {}".format(
+        remote, ip_address, netmask
+    )
     return config.replace(search_string, replace_string)
 
 
@@ -93,13 +95,13 @@ def parse_with_textfsm_template(template, cli_result):
 
 def parse_ping(result):
     import re
-    match = re.search(r'Success rate is (?P<rate>\d+) percent', result)
-    success_rate = int(match.group('rate'))
+
+    match = re.search(r"Success rate is (?P<rate>\d+) percent", result)
+    success_rate = int(match.group("rate"))
     return {"success": success_rate}
 
 
 def parse_interfaces(get_offsets_for_keywords, parse_line, result):
-    interfaces = {}
     lines = result.splitlines()
 
     title = lines[0]
@@ -112,8 +114,7 @@ def parse_interfaces(get_offsets_for_keywords, parse_line, result):
     for line in body:
         data = parse_line(line, keys, offsets)
         label = data["Interface"]
-        result[label] = {"Status": data["Status"],
-                         "Protocol": data["Protocol"]}
+        result[label] = {"Status": data["Status"], "Protocol": data["Protocol"]}
 
     return result
 

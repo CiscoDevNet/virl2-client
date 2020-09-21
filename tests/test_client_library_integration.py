@@ -18,6 +18,7 @@
 # limitations under the License.
 #
 
+import json
 import pytest
 import requests
 
@@ -26,7 +27,7 @@ from virl2_client import ClientLibrary
 pytestmark = [pytest.mark.integration]
 
 
-def test_sync_lab(client_library: ClientLibrary):
+def test_sync_lab(register_licensing, client_library: ClientLibrary):
     lab = client_library.create_lab("my test lab name")
     lab = client_library.join_existing_lab(lab.id)
 
@@ -264,6 +265,8 @@ def test_lab_state(client_library: ClientLibrary):
     state = lab.state()
     assert state == "STARTED"
 
+    assert lab.is_active()
+
     lab.stop()
     state = lab.state()
     assert state == "STOPPED"
@@ -283,8 +286,15 @@ def test_lab_details(client_library: ClientLibrary):
     s2_iface = lab.create_interface(s2, 2)
     lab.create_link(s1_iface, s2_iface)
 
-    expected_keys = ("state", "created", "lab_title", "lab_description",
-                     "node_count", "link_count", "id")
+    expected_keys = (
+        "state",
+        "created",
+        "lab_title",
+        "lab_description",
+        "node_count",
+        "link_count",
+        "id",
+    )
 
     details = lab.details()
     assert all(k in details.keys() for k in expected_keys)
@@ -309,3 +319,51 @@ def test_labels_and_tags(client_library: ClientLibrary):
     node_3 = lab.get_node_by_label("server-2")
     assert node_3.label == "server-2"
     assert len(node_3.tags()) == 5
+
+
+def test_remove_non_existent_node_definition(client_library: ClientLibrary):
+    def_id = "non_existent_node_definition"
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.definitions.remove_node_definition(definition_id=def_id)
+    assert err.value.response.status_code == 404
+
+
+def test_remove_non_existent_dropfolder_image(client_library: ClientLibrary):
+    filename = "non_existent_file"
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.definitions.remove_dropfolder_image(filename=filename)
+    assert err.value.response.status_code == 404
+
+
+def test_node_with_unavailable_vnc(client_library: ClientLibrary):
+    lab = client_library.create_lab("lab_111")
+    node = lab.create_node("s1", "unmanaged_switch", 5, 100)
+    lab.start()
+    assert lab.state() == "STARTED"
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        node.vnc_key()
+    assert err.value.response.status_code == 404
+
+
+def test_upload_node_definition_invalid_body(client_library: ClientLibrary):
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.definitions.upload_node_definition(body=json.dumps(None))
+    assert err.value.response.status_code == 400
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.definitions.upload_node_definition(
+            body=json.dumps({"id": "test1"})
+        )
+    assert err.value.response.status_code == 400
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.definitions.upload_node_definition(
+            body=json.dumps({"general": {}})
+        )
+    assert err.value.response.status_code == 400
+
+
+def test_topology_owner(client_library_keep_labs: ClientLibrary):
+    lab = client_library_keep_labs.create_lab("owned_by_cml2")
+    lab.sync(topology_only=True)
+    assert lab.owner == "cml2"

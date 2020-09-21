@@ -31,6 +31,7 @@ class NodeImageDefinitions:
     :param context: the authentication context to use
     :type context: authentication.Context
     """
+
     def __init__(self, context):
         """Constructor method"""
         self._context = context
@@ -79,19 +80,20 @@ class NodeImageDefinitions:
         :returns: the image definition as JSON
         :rtype: str
         """
-        url = self._base_url + "node_definitions/" + \
-            definition_id + "/image_definitions"
+        url = (
+            self._base_url + "node_definitions/" + definition_id + "/image_definitions"
+        )
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def upload_node_definition(self, definition_id, body):
+    def upload_node_definition(self, body):
         url = self._base_url + "node_definitions/"
         response = self.session.post(url, data=body)
         response.raise_for_status()
         return response.json()
 
-    def upload_image_definition(self, definition_id, body):
+    def upload_image_definition(self, body):
         url = self._base_url + "image_definitions/"
         response = self.session.post(url, data=body)
         response.raise_for_status()
@@ -148,14 +150,14 @@ class NodeImageDefinitions:
         else:
             _, name = os.path.split(filename)
         print("Uploading %s" % name)
-        headers = {'X-Original-File-Name': name}
+        headers = {"X-Original-File-Name": name}
 
         total_size = os.path.getsize(filename)
 
-        with open(filename, 'rb') as fh:
-            chunk_iter = read_file_as_chunks(fh,
-                                             chunk_size_mb=chunk_size_mb,
-                                             total_size=total_size)
+        with open(filename, "rb") as fh:
+            chunk_iter = read_file_as_chunks(
+                fh, chunk_size_mb=chunk_size_mb, total_size=total_size
+            )
             response = self.session.post(url, headers=headers, data=chunk_iter)
             response.raise_for_status()
             print("Upload completed")
@@ -167,7 +169,7 @@ class NodeImageDefinitions:
         return response.json()
 
     def remove_dropfolder_image(self, filename):
-        url = self._base_url + f"images/manage/{filename}"
+        url = self._base_url + "images/manage/{}".format(filename)
         response = self.session.delete(url)
         response.raise_for_status()
         return response.json()
@@ -184,7 +186,7 @@ class NodeImageDefinitions:
         :type definition_id: str
         """
 
-        url = self._base_url + "image_definitions/" + definition_id
+        url = self._base_url + "node_definitions/" + definition_id
         response = self.session.delete(url)
         response.raise_for_status()
         return response.json()
@@ -206,8 +208,7 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def create_image_definition(self, image_id, node_definition_id, label,
-                                disk_image):
+    def create_image_definition(self, image_id, node_definition_id, label, disk_image):
         """
         Creates a new image definition.
 
@@ -228,7 +229,7 @@ class NodeImageDefinitions:
             "id": image_id,
             "node_definition_id": node_definition_id,
             "label": label,
-            "disk_image": disk_image
+            "disk_image": disk_image,
         }
 
         params = {"json": True}
@@ -245,8 +246,11 @@ def read_file_as_chunks(file_object, total_size=None, chunk_size_mb=10):
     chunk_size = chunk_size_mb * bytes_in_mb
     counter = 0
     total_chunks = total_size / chunk_size
-    print("Uploading {0} MB in {1}MB chunks".format(total_size / bytes_in_mb,
-                                                    chunk_size_mb))
+    print(
+        "Uploading {0} MB in {1}MB chunks".format(
+            total_size / bytes_in_mb, chunk_size_mb
+        )
+    )
     while True:
         data = file_object.read(chunk_size)
         progress = int(100 * (counter / total_chunks))

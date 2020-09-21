@@ -83,5 +83,5 @@ details.
 ## References
 
 This package is part of the VIRL 2 Network Simulation platform. For details, go
-to http://virl.cisco.com
-
+to https://developer.cisco.com/modeling-labs. Additional documentation for the
+product is available at https://developer.cisco.com/docs/modeling-labs

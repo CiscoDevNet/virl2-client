@@ -47,7 +47,7 @@ The package itself is fairly well documented using docstrings. In addition, the
 documentation is available in HTML format on the controller itself, via the
 "Tools -> Client Library" menu.
 
-Get started with the ``ClientLibrary`` class 
+Get started with the ``ClientLibrary`` class
 :class:`virl2_client.virl2_client.ClientLibrary`
 and the ``Lab`` :class:`virl2_client.models.lab.Lab` class.
 
@@ -88,4 +88,5 @@ References
 ***********
 
 This package is part of the VIRL :sup:`2` Network Simulation platform.
-For details, go to `<http://virl.cisco.com>`_.
+For details, go to `<https://developer.cisco.com/modeling-labs>`_.  Or to
+`<https://developer.cisco.com/docs/virl2-client/>`_.

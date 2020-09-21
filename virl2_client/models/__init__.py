@@ -25,8 +25,9 @@ and authentication."""
 from .interface import Interface
 from .authentication import Context, TokenAuth
 from .lab import Lab
+from .licensing import Licensing
 from .link import Link
 from .node import Node
 from .node_image_definitions import NodeImageDefinitions
 
-__all__ = ("Interface", "Lab", "Link", "Node")
+__all__ = ("Interface", "Lab", "Link", "Node", "Licensing")

@@ -32,6 +32,7 @@ class TokenAuth(requests.auth.AuthBase):
     Inspired by:
     http://docs.python-requests.org/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
     """
+
     def __init__(self, client_library):
         self.client_library = client_library
         self.token = None
@@ -39,10 +40,10 @@ class TokenAuth(requests.auth.AuthBase):
     def __call__(self, request):
         token = self.authenticate()
         request.headers["Authorization"] = "Bearer {}".format(token)
-        request.register_hook('response', self.handle_401_unauthorized)
+        request.register_hook("response", self.handle_401_unauthorized)
         return request
 
-    def handle_401_unauthorized(self, resp, **kwargs):
+    def handle_401_unauthorized(self, resp, **kwargs):  # pylint: disable=W0613
         # ensure that we print the result from the API if something goes wrong.
         # As almost every library call uses "raise_for_status()"
         if resp.status_code != 401:
@@ -56,7 +57,7 @@ class TokenAuth(requests.auth.AuthBase):
         token = self.authenticate()
         request = resp.request.copy()
         request.headers["Authorization"] = "Bearer {}".format(token)
-        request.deregister_hook('response', self.handle_401_unauthorized)
+        request.deregister_hook("response", self.handle_401_unauthorized)
         new_resp = resp.connection.send(request)
         new_resp.history.append(resp)
         return new_resp
@@ -64,7 +65,9 @@ class TokenAuth(requests.auth.AuthBase):
     def authenticate(self):
         if self.token is not None:
             return self.token
-        url = urljoin(self.client_library._base_url, "authenticate")
+        url = urljoin(
+            self.client_library._base_url, "authenticate"
+        )  # pylint: disable=W0212
         parsed_url = urlparse(url)
         if parsed_url.port is not None and parsed_url.port != 443:
             logger.warning("Not using SSL port of 443: %d", parsed_url.port)
@@ -72,7 +75,7 @@ class TokenAuth(requests.auth.AuthBase):
             logger.warning("Not using https scheme: %s", parsed_url.scheme)
         data = {
             "username": self.client_library.username,
-            "password": self.client_library.password
+            "password": self.client_library.password,
         }
         response = self.client_library.session.post(url, json=data, auth=False)
         response.raise_for_status()
@@ -93,10 +96,12 @@ class Context:
             self._requests_session = requests_session
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r})".format(self.__class__.__name__,
-                                             self._base_url,
-                                             self._requests_session,
-                                             self._client_uuid)
+        return "{}({!r}, {!r}, {!r})".format(
+            self.__class__.__name__,
+            self._base_url,
+            self._requests_session,
+            self._client_uuid,
+        )
 
     @property
     def base_url(self):

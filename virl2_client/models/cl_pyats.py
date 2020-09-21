@@ -42,12 +42,13 @@ class ClPyats:
     :raises PyatsNotInstalled: when pyATS can not be found
     :raises PyatsDeviceNotFound: when the device can not be found
     """
+
     def __init__(self, lab):
         """Constructor method"""
         self._pyats_installed = False
         self._lab = lab
         try:
-            import pyats    # noqa: F401
+            import pyats  # noqa: F401
         except ImportError:
             return
         else:
@@ -73,6 +74,7 @@ class ClPyats:
         """
         self._check_pyats_installed()
         from pyats.topology import loader
+
         testbed_yaml = self._lab.get_pyats_testbed()
         data = loader.load(io.StringIO(testbed_yaml))
         data.devices.terminal_server.connections.cli.username = username

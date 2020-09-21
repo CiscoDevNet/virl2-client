@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "virl2_client"
-version = "2.0.0b5"
+version = "2.1.0-rc.1"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"
@@ -20,14 +20,14 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6.8"
+python = "^3.5.0"
 requests = "^2"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5"
-pytest-cov = "^2"
-responses = "^0"
-sphinx_rtd_theme = "^0.4.3"
+pytest = "*"
+pytest-cov = "*"
+responses = "*"
+sphinx_rtd_theme = "*"
 
 [build-system]
 requires = ["poetry>=0.12"]

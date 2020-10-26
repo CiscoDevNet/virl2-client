@@ -994,6 +994,7 @@ class Lab:
         self._title = topology["lab_title"]
         self._description = topology["lab_description"]
         self._notes = topology["lab_notes"]
+        self._owner = topology.get("lab_owner", self.username)
         # TODO: add support for origin_id etc
 
         for node in topology["nodes"]:
@@ -1064,7 +1065,7 @@ class Lab:
         self._title = topology["lab_title"]
         self._description = topology["lab_description"]
         self._notes = topology["lab_notes"]
-        self._owner = topology["lab_owner"]
+        self._owner = topology.get("lab_owner", self.username)
         # TODO: add support for origin_id etc
 
         # add in order: node -> interface -> link

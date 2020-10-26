@@ -416,8 +416,10 @@ class ClientLibrary:
         )
 
         if offline:
-            topology_json = json.loads(topology)
-            lab.import_lab(topology_json)
+            topology_dict = json.loads(topology)
+            # ensure the lab owner is not properly set
+            topology_dict["lab_owner"] = self.username
+            lab.import_lab(topology_dict)
         else:
             lab.sync()
         self._labs[lab_id] = lab

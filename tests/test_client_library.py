@@ -350,50 +350,47 @@ def test_exact_version_no_warn(client_library_exact_version, caplog):
 @pytest.mark.parametrize(
     "greater, lesser, expected",
     [
-        pytest.param("2.0.1", "2.0.0", True, id="Patch is greater than"),
-        pytest.param("2.0.10", "2.0.0", True, id="Patch is much greater than"),
-        pytest.param("2.1.0", "2.0.0", True, id="Minor is greater than"),
-        pytest.param("2.10.0", "2.0.0", True, id="Minor is much greater than"),
-        pytest.param("3.0.0", "2.0.0", True, id="Major is greater than"),
-        pytest.param("10.0.0", "2.0.0", True, id="Major is much greater than"),
-        pytest.param("2.0.0", "2.0.1", False, id="Patch is lesser than"),
-        pytest.param("2.0.0", "2.0.10", False, id="Patch is much lesser than"),
-        pytest.param("2.0.0", "2.1.0", False, id="Minor is lesser than"),
-        pytest.param("2.0.0", "2.10.0", False, id="Minor is much lesser than"),
-        pytest.param("2.0.0", "3.0.0", False, id="Major is lesser than"),
-        pytest.param("2.0.0", "10.0.0", False, id="Major is much lesser than"),
+        pytest.param(Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"),
+        pytest.param(Version("2.0.10"), Version("2.0.0"), True, id="Patch is much greater than"),
+        pytest.param(Version("2.1.0"), Version("2.0.0"), True, id="Minor is greater than"),
+        pytest.param(Version("2.10.0"), Version("2.0.0"), True, id="Minor is much greater than"),
+        pytest.param(Version("3.0.0"), Version("2.0.0"), True, id="Major is greater than"),
+        pytest.param(Version("10.0.0"), Version("2.0.0"), True, id="Major is much greater than"),
+        pytest.param(Version("2.0.0"), Version("2.0.1"), False, id="Patch is lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.0.10"), False, id="Patch is much lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.1.0"), False, id="Minor is lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.10.0"), False, id="Minor is much lesser than"),
+        pytest.param(Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"),
+        pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
+        pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
     ]
 )
 def test_version_comparison_greater_than(greater, lesser, expected):
-    greater_obj = Version(greater)
-    lesser_obj = Version(lesser)
-    assert (greater_obj > lesser_obj) == expected
+    assert (greater > lesser) == expected
 
 @pytest.mark.parametrize(
     "first, second, expected",
     [
-        pytest.param("2.0.1", "2.0.0", True, id="Patch is greater than"),
-        pytest.param("2.0.10", "2.0.0", True, id="Patch is much greater than"),
-        pytest.param("2.1.0", "2.0.0", True, id="Minor is greater than"),
-        pytest.param("2.10.0", "2.0.0", True, id="Minor is much greater than"),
-        pytest.param("3.0.0", "2.0.0", True, id="Major is greater than"),
-        pytest.param("10.0.0", "2.0.0", True, id="Major is much greater than"),
-        pytest.param("2.0.0", "2.0.1", False, id="Patch is lesser than"),
-        pytest.param("2.0.0", "2.0.10", False, id="Patch is much lesser than"),
-        pytest.param("2.0.0", "2.1.0", False, id="Minor is lesser than"),
-        pytest.param("2.0.0", "2.10.0", False, id="Minor is much lesser than"),
-        pytest.param("2.0.0", "3.0.0", False, id="Major is lesser than"),
-        pytest.param("2.0.0", "10.0.0", False, id="Major is much lesser than"),
-        pytest.param("2.0.0", "2.0.0", True, id="Equal versions no minor no patch"),
-        pytest.param("2.0.1", "2.0.1", True, id="Equal versions patch increment"),
-        pytest.param("2.1.0", "2.1.0", True, id="Equal versions minor increment"),
-        pytest.param("3.0.0", "3.0.0", True, id="Equal versions major increment"),
+        pytest.param(Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"),
+        pytest.param(Version("2.0.10"), Version("2.0.0"), True, id="Patch is much greater than"),
+        pytest.param(Version("2.1.0"), Version("2.0.0"), True, id="Minor is greater than"),
+        pytest.param(Version("2.10.0"), Version("2.0.0"), True, id="Minor is much greater than"),
+        pytest.param(Version("3.0.0"), Version("2.0.0"), True, id="Major is greater than"),
+        pytest.param(Version("10.0.0"), Version("2.0.0"), True, id="Major is much greater than"),
+        pytest.param(Version("2.0.0"), Version("2.0.1"), False, id="Patch is lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.0.10"), False, id="Patch is much lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.1.0"), False, id="Minor is lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.10.0"), False, id="Minor is much lesser than"),
+        pytest.param(Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"),
+        pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
+        pytest.param(Version("2.0.0"), Version("2.0.0"), True, id="Equal versions no minor no patch"),
+        pytest.param(Version("2.0.1"), Version("2.0.1"), True, id="Equal versions patch increment"),
+        pytest.param(Version("2.1.0"), Version("2.1.0"), True, id="Equal versions minor increment"),
+        pytest.param(Version("3.0.0"), Version("3.0.0"), True, id="Equal versions major increment"),
     ]
 )
 def test_version_comparison_greater_than_or_equal_to(first, second, expected):
-    first_obj = Version(first)
-    second_obj = Version(second)
-    assert (first_obj >= second_obj) == expected
+    assert (first >= second) == expected
 
 def test_import_lab_offline(
     client_library_compatible_version, mocked_session, tmp_path: Path

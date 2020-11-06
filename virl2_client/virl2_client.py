@@ -83,6 +83,21 @@ class Version(object):
     def __ge__(self, other):
         return (self == other or self > other)
 
+    def __lt__(self, other):
+        if isinstance(other, self.__class__):
+            if self.major < other.major:
+                return True
+            elif self.major == other.major:
+                if self.minor < other.minor:
+                    return True
+                elif self.minor == other.minor:
+                    if self.patch < other.patch:
+                        return True
+        return False
+
+    def __le__(self, other):
+        return (self == other or self < other)
+
     def major_differs(self, other):
         return self.major != other.major
 

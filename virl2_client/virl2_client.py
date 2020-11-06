@@ -60,11 +60,13 @@ class Version(object):
         return "{}".format(self.version_str)
 
     def __eq__(self, other):
-        return (
-            self.major == other.major
-            and self.minor == other.minor
-            and self.patch == other.patch
-        )
+        if isinstance(other, self.__class__):
+            return (
+                self.major == other.major
+                and self.minor == other.minor
+                and self.patch == other.patch
+            )
+        return False
 
     def __gt__(self, other):
         if isinstance(other, self.__class__):

@@ -363,6 +363,8 @@ def test_exact_version_no_warn(client_library_exact_version, caplog):
         pytest.param(Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"),
         pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
         pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
+        pytest.param(Version("2.0.0"), "random string", False, id="Other object is string and not a Version object"),
+        pytest.param(Version("2.0.0"), 12345, False, id="Other object is int and not a Version object")
     ]
 )
 def test_version_comparison_greater_than(greater, lesser, expected):
@@ -387,6 +389,8 @@ def test_version_comparison_greater_than(greater, lesser, expected):
         pytest.param(Version("2.0.1"), Version("2.0.1"), True, id="Equal versions patch increment"),
         pytest.param(Version("2.1.0"), Version("2.1.0"), True, id="Equal versions minor increment"),
         pytest.param(Version("3.0.0"), Version("3.0.0"), True, id="Equal versions major increment"),
+        pytest.param(Version("2.0.0"), "random string", False, id="Other object is string and not a Version object"),
+        pytest.param(Version("2.0.0"), 12345, False, id="Other object is int and not a Version object")
     ]
 )
 def test_version_comparison_greater_than_or_equal_to(first, second, expected):

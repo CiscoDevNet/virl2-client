@@ -369,6 +369,31 @@ def test_version_comparison_greater_than(greater, lesser, expected):
     lesser_obj = Version(lesser)
     assert (greater_obj > lesser_obj) == expected
 
+@pytest.mark.parametrize(
+    "first, second, expected",
+    [
+        pytest.param("2.0.1", "2.0.0", True, id="Patch is greater than"),
+        pytest.param("2.0.10", "2.0.0", True, id="Patch is much greater than"),
+        pytest.param("2.1.0", "2.0.0", True, id="Minor is greater than"),
+        pytest.param("2.10.0", "2.0.0", True, id="Minor is much greater than"),
+        pytest.param("3.0.0", "2.0.0", True, id="Major is greater than"),
+        pytest.param("10.0.0", "2.0.0", True, id="Major is much greater than"),
+        pytest.param("2.0.0", "2.0.1", False, id="Patch is lesser than"),
+        pytest.param("2.0.0", "2.0.10", False, id="Patch is much lesser than"),
+        pytest.param("2.0.0", "2.1.0", False, id="Minor is lesser than"),
+        pytest.param("2.0.0", "2.10.0", False, id="Minor is much lesser than"),
+        pytest.param("2.0.0", "3.0.0", False, id="Major is lesser than"),
+        pytest.param("2.0.0", "10.0.0", False, id="Major is much lesser than"),
+        pytest.param("2.0.0", "2.0.0", True, id="Equal versions no minor no patch"),
+        pytest.param("2.0.1", "2.0.1", True, id="Equal versions patch increment"),
+        pytest.param("2.1.0", "2.1.0", True, id="Equal versions minor increment"),
+        pytest.param("3.0.0", "3.0.0", True, id="Equal versions major increment"),
+    ]
+)
+def test_version_comparison_greater_than_or_equal_to(first, second, expected):
+    first_obj = Version(first)
+    second_obj = Version(second)
+    assert (first_obj >= second_obj) == expected
 
 def test_import_lab_offline(
     client_library_compatible_version, mocked_session, tmp_path: Path

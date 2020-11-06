@@ -77,6 +77,9 @@ class Version(object):
                     if self.patch > other.patch:
                         return True
         return False
+    
+    def __ge__(self, other):
+        return (self == other or self > other)
 
     def major_differs(self, other):
         return self.major != other.major

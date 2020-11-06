@@ -52,9 +52,9 @@ class Version(object):
     def __init__(self, version_str):
         self.version_str = version_str
         version_list = self.version_str.split(".")
-        self.major = version_list[0]
-        self.minor = version_list[1]
-        self.patch = version_list[2]
+        self.major = int(version_list[0])
+        self.minor = int(version_list[1])
+        self.patch = int(version_list[2])
 
     def __repr__(self):
         return "{}".format(self.version_str)
@@ -65,6 +65,18 @@ class Version(object):
             and self.minor == other.minor
             and self.patch == other.patch
         )
+
+    def __gt__(self, other):
+        if isinstance(other, self.__class__):
+            if self.major > other.major:
+                return True
+            elif self.major == other.major:
+                if self.minor > other.minor:
+                    return True
+                elif self.minor == other.minor:
+                    if self.patch > other.patch:
+                        return True
+        return False
 
     def major_differs(self, other):
         return self.major != other.major

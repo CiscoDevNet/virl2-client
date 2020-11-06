@@ -347,6 +347,29 @@ def test_exact_version_no_warn(client_library_exact_version, caplog):
     )
 
 
+@pytest.mark.parametrize(
+    "greater, lesser, expected",
+    [
+        pytest.param("2.0.1", "2.0.0", True, id="Patch is greater than"),
+        pytest.param("2.0.10", "2.0.0", True, id="Patch is much greater than"),
+        pytest.param("2.1.0", "2.0.0", True, id="Minor is greater than"),
+        pytest.param("2.10.0", "2.0.0", True, id="Minor is much greater than"),
+        pytest.param("3.0.0", "2.0.0", True, id="Major is greater than"),
+        pytest.param("10.0.0", "2.0.0", True, id="Major is much greater than"),
+        pytest.param("2.0.0", "2.0.1", False, id="Patch is lesser than"),
+        pytest.param("2.0.0", "2.0.10", False, id="Patch is much lesser than"),
+        pytest.param("2.0.0", "2.1.0", False, id="Minor is lesser than"),
+        pytest.param("2.0.0", "2.10.0", False, id="Minor is much lesser than"),
+        pytest.param("2.0.0", "3.0.0", False, id="Major is lesser than"),
+        pytest.param("2.0.0", "10.0.0", False, id="Major is much lesser than"),
+    ]
+)
+def test_version_comparison_greater_than(greater, lesser, expected):
+    greater_obj = Version(greater)
+    lesser_obj = Version(lesser)
+    assert (greater_obj > lesser_obj) == expected
+
+
 def test_import_lab_offline(
     client_library_compatible_version, mocked_session, tmp_path: Path
 ):

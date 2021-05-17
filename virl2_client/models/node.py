@@ -402,7 +402,13 @@ class Node:
         url = self._base_url + "/extract_configuration"
         response = self.session.put(url)
         response.raise_for_status()
-        self._config = response.json()
+
+    def console_logs(self, console_id, lines=None):
+        query = "?lines=%d" % lines if lines else ""
+        url = self._base_url + "/consoles/%d/log%s" % (console_id, query)
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
 
     def console_key(self):
         url = self._base_url + "/keys/console"

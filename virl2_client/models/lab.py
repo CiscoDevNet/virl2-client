@@ -1222,3 +1222,30 @@ class Lab:
         response = self.session.get(url)
         response.raise_for_status()
         return response.text
+
+    @property
+    def groups(self):
+        """
+        Returns the groups this lab is associated with.
+
+        :return: associated groups
+        :rtype: List[Dict[str, str]]
+        """
+        url = self.lab_base_url + "/groups"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def update_lab_groups(self, group_list):
+        """
+        Modifies lab / group association
+
+        :param group_list: list of objects consisting of group id and permission
+        :rtype: group_list: List[Dict[str, str]]
+        :return: updated objects consisting of group id and permission
+        :rtype: List[Dict[str, str]]
+        """
+        url = self.lab_base_url + "/groups"
+        response = self.session.put(url, json=group_list)
+        response.raise_for_status()
+        return response.json()

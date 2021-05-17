@@ -20,6 +20,7 @@
 
 import logging
 import os
+from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ class NodeImageDefinitions:
         :type filename: str
         :param rename:  Optional filename to rename to
         :type rename: str
-        :param chunk_size_mb: Optional size of upload chunk (mb)
+        :param chunk_size_mb: Optional size of upload chunk (mb) (deprecated since 2.2.0)
         :type chunk_size_mb: int
         """
         url = self._base_url + "images/upload"
@@ -152,15 +153,12 @@ class NodeImageDefinitions:
         print("Uploading %s" % name)
         headers = {"X-Original-File-Name": name}
 
-        total_size = os.path.getsize(filename)
+        mpe = MultipartEncoder(fields={"field0": (name, open(filename, "rb"))})
+        monitor = MultipartEncoderMonitor(mpe, progress_callback)
 
-        with open(filename, "rb") as fh:
-            chunk_iter = read_file_as_chunks(
-                fh, chunk_size_mb=chunk_size_mb, total_size=total_size
-            )
-            response = self.session.post(url, headers=headers, data=chunk_iter)
-            response.raise_for_status()
-            print("Upload completed")
+        response = self.session.post(url, data=monitor, headers=headers)
+        response.raise_for_status()
+        print("Upload completed")
 
     def download_image_file_list(self):
         url = self._base_url + "list_image_definition_drop_folder/"
@@ -240,23 +238,18 @@ class NodeImageDefinitions:
         return response.json()
 
 
-def read_file_as_chunks(file_object, total_size=None, chunk_size_mb=10):
-    # TODO: look at requests toolbelt for this
-    bytes_in_mb = 1024 * 1024
-    chunk_size = chunk_size_mb * bytes_in_mb
-    counter = 0
-    total_chunks = total_size / chunk_size
-    print(
-        "Uploading {0} MB in {1}MB chunks".format(
-            total_size / bytes_in_mb, chunk_size_mb
+def progress_callback(monitor):
+    # Track progress in the monitor instance itself.
+    if not hasattr(monitor, "curr_progress"):
+        monitor.curr_progress = -1
+
+    progress = int(100 * (monitor.bytes_read / monitor.len))
+    progress = min(progress, 100)
+    # Report progress every increment of 10%
+    if progress > monitor.curr_progress and progress % 10 == 0:
+        print(
+            "Progress: {0} of {1} bytes ({2}%)".format(
+                monitor.bytes_read, monitor.len, progress
+            )
         )
-    )
-    while True:
-        data = file_object.read(chunk_size)
-        progress = int(100 * (counter / total_chunks))
-        progress = min(progress, 100)
-        print("Progress: {0}%".format(progress))
-        counter += 1
-        if not data:
-            break
-        yield data
+        monitor.curr_progress = progress

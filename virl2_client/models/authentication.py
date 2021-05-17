@@ -55,6 +55,7 @@ class TokenAuth(requests.auth.AuthBase):
         self.token = None
         # repeat last request that has failed
         token = self.authenticate()
+        logger.warning("re-auth called on 401 unauthorized")
         request = resp.request.copy()
         request.headers["Authorization"] = "Bearer {}".format(token)
         request.deregister_hook("response", self.handle_401_unauthorized)
@@ -81,6 +82,14 @@ class TokenAuth(requests.auth.AuthBase):
         response.raise_for_status()
         self.token = response.json()
         return self.token
+
+    def logout(self, clear_all_sessions=False):
+        url = urljoin(self.client_library._base_url, "logout")
+        if clear_all_sessions:
+            url = url + "?clear_all_sessions=true"
+        response = self.client_library.session.delete(url)
+        response.raise_for_status()
+        return response.json()
 
 
 class Context:

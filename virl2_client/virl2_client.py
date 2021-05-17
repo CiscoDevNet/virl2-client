@@ -3,7 +3,7 @@
 #
 # This file is part of VIRL 2
 #
-# Copyright 2020 Cisco Systems Inc.
+# Copyright 2020-2021 Cisco Systems Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 import json
 import logging
 import os
+import re
 import time
 import urllib
 import warnings
@@ -35,7 +36,16 @@ import urllib3
 from urllib3.exceptions import LocationParseError
 
 from .exceptions import LabNotFound
-from .models import Context, Lab, NodeImageDefinitions, TokenAuth, Licensing
+from .models import (
+    Context,
+    Lab,
+    NodeImageDefinitions,
+    TokenAuth,
+    Licensing,
+    UserManagement,
+    SystemManagement,
+    GroupManagement,
+)
 
 logger = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -49,24 +59,31 @@ class Version(object):
 
     __slots__ = ("version_str", "major", "minor", "patch")
 
-    def __init__(self, version_str):
+    def __init__(self, version_str: str):
         self.version_str = version_str
-        version_list = self.version_str.split(".")
-        self.major = int(version_list[0])
-        self.minor = int(version_list[1])
-        self.patch = int(version_list[2])
+        version_tuple = self.parse_version_str(version_str)
+        self.major = int(version_tuple[0])
+        self.minor = int(version_tuple[1])
+        self.patch = int(version_tuple[2])
+
+    @staticmethod
+    def parse_version_str(version_str: str):
+        regex = r"^(\d+)\.(\d+).(\d+)(.*)$"
+        res = re.findall(regex, version_str)
+        if not res:
+            raise ValueError("Malformed version string.")
+        return res[0]
 
     def __repr__(self):
         return "{}".format(self.version_str)
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return (
-                self.major == other.major
-                and self.minor == other.minor
-                and self.patch == other.patch
-            )
-        return False
+        return (
+            isinstance(other, self.__class__)
+            and self.major == other.major
+            and self.minor == other.minor
+            and self.patch == other.patch
+        )
 
     def __gt__(self, other):
         if isinstance(other, self.__class__):
@@ -79,9 +96,9 @@ class Version(object):
                     if self.patch > other.patch:
                         return True
         return False
-    
+
     def __ge__(self, other):
-        return (self == other or self > other)
+        return self == other or self > other
 
     def __lt__(self, other):
         if isinstance(other, self.__class__):
@@ -96,13 +113,16 @@ class Version(object):
         return False
 
     def __le__(self, other):
-        return (self == other or self < other)
+        return self == other or self < other
 
     def major_differs(self, other):
         return self.major != other.major
 
     def minor_differs(self, other):
         return self.minor != other.minor
+
+    def minor_lt(self, other):
+        return self.minor < other.minor
 
     def patch_differs(self, other):
         return self.patch != other.patch
@@ -127,16 +147,16 @@ class ClientLibrary:
     :param ssl_verify: SSL controller certificate verification
     :type ssl_verify: bool
     :param raise_for_auth_failure: Raise an exception if unable
-        to connect to server (use for scripting scenarios)
+        to connect to controller (use for scripting scenarios)
     :type allow_http: bool
     :param allow_http: If set, a https URL will not be enforced
     :type raise_for_auth_failure: bool
     :raises InitializationError: If no URL is provided or
-        authentication fails or host can't be reasched
+        authentication fails or host can't be reached
     """
 
     # current client version
-    VERSION = Version(version_str="2.1.0")
+    VERSION = Version(version_str="2.2.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = []
 
@@ -212,9 +232,9 @@ class ClientLibrary:
 
         # http://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
 
-        ENV_CA_BUNDLE = os.environ.get("CA_BUNDLE")
-        if ssl_verify is True and ENV_CA_BUNDLE:
-            self.session.verify = ENV_CA_BUNDLE
+        env_ca_bundle = os.environ.get("CA_BUNDLE")
+        if ssl_verify is True and env_ca_bundle:
+            self.session.verify = env_ca_bundle
         else:
             self.session.verify = ssl_verify
 
@@ -242,6 +262,9 @@ class ClientLibrary:
         self._labs = {}
 
         self.licensing = Licensing(context=self._context)
+        self.user_management = UserManagement(context=self._context)
+        self.group_management = GroupManagement(context=self._context)
+        self.system_management = SystemManagement(context=self._context)
 
         try:
             self._make_test_auth_call()
@@ -305,6 +328,12 @@ class ClientLibrary:
         """
         return self._context.base_url
 
+    def logout(self, clear_all_sessions=False):
+        """
+        Invalidate current token.
+        """
+        return self.session.auth.logout(clear_all_sessions=clear_all_sessions)
+
     def get_host(self):
         """
         Returns the hostname of the session to the controller.
@@ -331,9 +360,9 @@ class ClientLibrary:
         """
         Checks remote controller version against current client version
         (specified in self.VERSION) and against controller version
-        blacklist (specified in self.INCOMPATIBLE_CONTROLLER_VERSIONST) and
-        raises exception if version are incompatible or prints warning
-        if version are not in exact match.
+        blacklist (specified in self.INCOMPATIBLE_CONTROLLER_VERSIONS) and
+        raises exception if versions are incompatible or prints warning
+        if client minor version is lower than controller minor version.
 
         :rtype: None
         """
@@ -350,20 +379,22 @@ class ClientLibrary:
         if controller_version in self.INCOMPATIBLE_CONTROLLER_VERSIONS:
             raise InitializationError(
                 "Controller version {} is marked incompatible! "
-                "List of versions marked expclicitly as incompatible: {}".format(
+                "List of versions marked explicitly as incompatible: {}.".format(
                     controller_version, self.INCOMPATIBLE_CONTROLLER_VERSIONS
                 )
             )
         if self.VERSION.major_differs(controller_version):
             raise InitializationError(
-                "Major version mismatch. server {}, client {}".format(
-                    controller_version, self.VERSION
+                "Major version mismatch. Client {}, controller {}.".format(
+                    self.VERSION, controller_version
                 )
             )
-        if self.VERSION.minor_or_patch_differs(controller_version):
+        if self.VERSION.minor_differs(controller_version) and self.VERSION.minor_lt(
+            controller_version
+        ):
             logger.warning(
-                "Please ensure the client version is compatible with the server"
-                " version. client %s, server %s",
+                "Please ensure the client version is compatible with the controller"
+                " version. Client %s, controller %s.",
                 self.VERSION,
                 controller_version,
             )
@@ -518,7 +549,7 @@ class ClientLibrary:
         return result
 
     def local_labs(self):
-        # TODO: first sync with server to pull all possible labs
+        # TODO: first sync with controller to pull all possible labs
         return [lab for lab in self._labs.values()]
 
     def get_local_lab(self, lab_id):
@@ -532,7 +563,7 @@ class ClientLibrary:
         Creates an empty lab with the given name. If no name is given, then
         the created lab ID is set as the name.
 
-        Note that the lab will be auto-syncing according to the Client Librarie's
+        Note that the lab will be auto-syncing according to the Client Library's
         auto-sync setting when created. The lab has a property to override this
         on a per-lab basis.
 
@@ -594,7 +625,7 @@ class ClientLibrary:
 
         :param lab_id: The lab ID to be removed.
         :type lab_id: str
-        :param sync_lab: Syncronize changes.
+        :param sync_lab: Synchronize changes.
         :type sync_lab: bool
         :returns: A Lab instance
         :rtype: models.Lab

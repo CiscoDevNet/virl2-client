@@ -90,6 +90,16 @@ class Licensing(object):
             proxy_port=DEFAULT_PROXY_PORT,
         )
 
+    def set_product_license(self, product_license):
+        """
+        Setup a product license.
+        """
+        url = self.base_url + "/product_license"
+        response = self.ctx.session.put(url, json=product_license)
+        response.raise_for_status()
+        logger.info("Product license was accepted by the agent.")
+        return response.status_code == 204
+
     def get_certificate(self):
         """
         Setup a licensing public certificate for internal deployment
@@ -230,7 +240,7 @@ class Licensing(object):
 
     def complete_reservation(self, authorization_code):
         """
-        Complete reservation by installing authorization code from CSSM.
+        Complete reservation by installing authorization code from SSMS.
         """
         # TODO
         url = self.base_url + "/reservation/complete"

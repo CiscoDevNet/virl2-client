@@ -60,7 +60,7 @@ class TextFsmTemplateHelper:
         result += "\n"
         result += "Start\n"
         for line in self._lines:
-            result += fr"  ^{line} -> Record"
+            result += r"  ^{} -> Record".format(line)
 
         return result
 

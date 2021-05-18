@@ -26,7 +26,6 @@ logger.setLevel(logging.INFO)
 
 
 class GroupManagement(object):
-
     def __init__(self, context):
         self.ctx = context
 
@@ -90,14 +89,15 @@ class GroupManagement(object):
             "name": name,
             "description": description,
             "members": members or [],
-            "labs": labs or []
+            "labs": labs or [],
         }
         response = self.ctx.session.post(self.base_url, json=data)
         response.raise_for_status()
         return response.json()
 
-    def update_group(self, group_id, name=None, description=None, members=None,
-                     labs=None):
+    def update_group(
+        self, group_id, name=None, description=None, members=None, labs=None
+    ):
         """
         Updates a group.
 

@@ -21,6 +21,7 @@
 import json
 import pytest
 import requests
+import logging
 
 from virl2_client import ClientLibrary
 
@@ -225,7 +226,7 @@ def test_server_node_deletion(client_library: ClientLibrary):
     # can't remove node while running
     with pytest.raises(requests.exceptions.HTTPError) as exc:
         lab.remove_node(s3)
-    assert exc.value.response.status_code == 403
+    assert exc.value.response.status_code == 400
 
     # need to stop and wipe to be able to remove node.
     s3.stop()
@@ -233,19 +234,174 @@ def test_server_node_deletion(client_library: ClientLibrary):
     lab.remove_node(s3)
 
 
-def test_import_json(client_library: ClientLibrary):
-    lab = client_library.import_sample_lab("server-triangle.ng")
+def test_user_management(client_library: ClientLibrary):
+    test_user = "test_user"
+    test_password = "test_password"
+
+    res = client_library.user_management.create_user(
+        username=test_user, pwd=test_password
+    )
+    assert isinstance(res, dict)
+    assert res["username"] == test_user
+    assert res["fullname"] == ""
+    assert res["description"] == ""
+    test_user_id = res["id"]
+
+    # changing only fullname
+    res = client_library.user_management.update_user(
+        user_id=test_user_id, fullname=test_user
+    )
+    assert res["fullname"] == test_user
+    assert res["description"] == ""
+
+    # changing only description; already changed fullname must be kept
+    res = client_library.user_management.update_user(
+        user_id=test_user_id, description=test_user
+    )
+    assert res["fullname"] == test_user
+    assert res["description"] == test_user
+
+    # changing both fullname and description
+    res = client_library.user_management.update_user(
+        user_id=test_user_id,
+        description=test_user + test_user,
+        fullname=test_user + test_user,
+    )
+    assert res["fullname"] == test_user + test_user
+    assert res["description"] == test_user + test_user
+
+    user = client_library.user_management.get_user(test_user_id)
+    assert isinstance(user, dict)
+    assert user["username"] == test_user
+    assert "admin" in user and "groups" in user
+    assert res["fullname"] == test_user + test_user
+    assert res["description"] == test_user + test_user
+
+    users = client_library.user_management.users()
+    assert isinstance(users, list)
+    assert test_user in [user["username"] for user in users]
+
+    res = client_library.user_management.update_user(
+        user_id=test_user_id,
+        password_dict=dict(
+            old_password=test_password, new_password="new_test_password"
+        ),
+    )
+    assert isinstance(res, dict)
+    assert test_user_id == res["id"]
+    res = client_library.user_management.delete_user(user_id=test_user_id)
+    assert res is None
+
+    users = client_library.user_management.users()
+    assert isinstance(users, list)
+    assert test_user not in [user["username"] for user in users]
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        client_library.user_management.get_user(test_user_id)
+
+    # non existent role should return 400 - Bad request
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.user_management.create_user(
+            username=test_user_id, pwd=test_password, admin=["non-existent-role"]
+        )
+    assert err.value.response.status_code == 400
+    assert "not of type 'boolean'" in err.value.response.text
+
+    # delete non-existent user
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.user_management.delete_user(user_id="non-existent-user")
+    assert err.value.response.status_code == 404
+    assert "User does not exist" in err.value.response.text
+
+
+def test_password_word_list(client_library: ClientLibrary):
+    test_user = "another-test-user"
+    restricted_password = "password"
+    # try to create user with restricted password - must fail
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.user_management.create_user(
+            username=test_user, pwd=restricted_password
+        )
+    assert err.value.response.status_code == 403
+    assert "password in common word list" in err.value.response.text
+
+    good_pwd = restricted_password + "dfsjdf"
+    res = client_library.user_management.create_user(username=test_user, pwd=good_pwd)
+    assert isinstance(res, dict)
+    assert res["username"] == test_user
+    test_user_id = res["id"]
+
+    # try to change password to restricted password - must fail
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library.user_management.update_user(
+            user_id=test_user_id,
+            password_dict=dict(old_password=good_pwd, new_password=restricted_password),
+        )
+    assert err.value.response.status_code == 403
+    assert "password in common word list" in err.value.response.text
+
+    res = client_library.user_management.delete_user(user_id=test_user_id)
+    assert res is None
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        client_library.user_management.get_user(test_user_id)
+
+
+def test_webtoken_config(client_library_session: ClientLibrary):
+    orig = client_library_session.system_management.get_web_session_timeout()
+
+    client_library_session.system_management.set_web_session_timeout(3600)
+    res = client_library_session.system_management.get_web_session_timeout()
+    assert res == 3600
+    client_library_session.system_management.set_web_session_timeout(orig)
+    res = client_library_session.system_management.get_web_session_timeout()
+    assert res == orig
+
+
+def test_mac_addr_block_config(client_library_session: ClientLibrary):
+    orig = client_library_session.system_management.get_mac_address_block()
+
+    client_library_session.system_management.set_mac_address_block(7)
+    res = client_library_session.system_management.get_mac_address_block()
+    assert res == 7
+
+    client_library_session.system_management.set_mac_address_block(orig)
+    res = client_library_session.system_management.get_mac_address_block()
+    assert res == orig
+
+    # client validation
+    with pytest.raises(ValueError):
+        client_library_session.system_management.set_mac_address_block(8)
+
+    with pytest.raises(ValueError):
+        client_library_session.system_management.set_mac_address_block(-1)
+
+    # server validation
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.system_management._set_mac_address_block(8)
+    assert err.value.response.status_code == 400
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.system_management._set_mac_address_block(-1)
+    assert err.value.response.status_code == 400
+
+
+def test_import_json(client_library_session: ClientLibrary):
+    lab = client_library_session.import_sample_lab("server-triangle.ng")
     assert lab is not None
+    lab.remove()
 
 
-def test_import_yaml(client_library: ClientLibrary):
-    lab = client_library.import_sample_lab("server-triangle.yaml")
+def test_import_yaml(client_library_session: ClientLibrary):
+    lab = client_library_session.import_sample_lab("server-triangle.yaml")
     assert lab is not None
+    lab.remove()
 
 
-def test_import_virl(client_library: ClientLibrary):
-    lab = client_library.import_sample_lab("dual-server.virl")
+def test_import_virl(client_library_session: ClientLibrary):
+    lab = client_library_session.import_sample_lab("dual-server.virl")
     assert lab is not None
+    lab.remove()
 
 
 def test_lab_state(client_library: ClientLibrary):
@@ -321,49 +477,281 @@ def test_labels_and_tags(client_library: ClientLibrary):
     assert len(node_3.tags()) == 5
 
 
-def test_remove_non_existent_node_definition(client_library: ClientLibrary):
+def test_remove_non_existent_node_definition(client_library_session: ClientLibrary):
     def_id = "non_existent_node_definition"
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library.definitions.remove_node_definition(definition_id=def_id)
+        client_library_session.definitions.remove_node_definition(definition_id=def_id)
     assert err.value.response.status_code == 404
 
 
-def test_remove_non_existent_dropfolder_image(client_library: ClientLibrary):
+def test_remove_non_existent_dropfolder_image(client_library_session: ClientLibrary):
     filename = "non_existent_file"
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library.definitions.remove_dropfolder_image(filename=filename)
+        client_library_session.definitions.remove_dropfolder_image(filename=filename)
     assert err.value.response.status_code == 404
 
 
-def test_node_with_unavailable_vnc(client_library: ClientLibrary):
-    lab = client_library.create_lab("lab_111")
+def test_node_with_unavailable_vnc(client_library_session: ClientLibrary):
+    lab = client_library_session.create_lab("lab_111")
     node = lab.create_node("s1", "unmanaged_switch", 5, 100)
     lab.start()
     assert lab.state() == "STARTED"
     with pytest.raises(requests.exceptions.HTTPError) as err:
         node.vnc_key()
     assert err.value.response.status_code == 404
+    lab.stop()
+    lab.wipe()
+    lab.remove()
 
 
-def test_upload_node_definition_invalid_body(client_library: ClientLibrary):
+@pytest.mark.nomock
+def test_node_console_logs(client_library_session: ClientLibrary):
+    lab = client_library_session.create_lab("lab_space")
+    ext_conn = lab.create_node("ec", "external_connector", 100, 50, wait=False)
+    server = lab.create_node("s1", "server", 100, 100)
+    iosv = lab.create_node("n", "iosv", 50, 0)
+    lab.start()
+    assert lab.state() == "STARTED"
+    # server has one serial console on id 0
+    logs = server.console_logs(console_id=0)
+    assert type(logs) == str
+
+    # external connector - no serial console
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library.definitions.upload_node_definition(body=json.dumps(None))
+        ext_conn.console_logs(console_id=0)
+    assert err.value.response.status_code == 400
+    assert "Serial port does not exist on node" in err.value.response.text
+
+    # test limited number of lines
+    num_lines = 5
+    logs = server.console_logs(console_id=0, lines=num_lines)
+    assert type(logs) == str
+    assert len(logs.split("\n")) == num_lines
+
+    # assert 400 for non existent console id for server >0
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        server.console_logs(console_id=55)
+    assert err.value.response.status_code == 400
+    assert "Serial port does not exist on node" in err.value.response.text
+
+    # iosv has 2 serial consoles
+    logs = iosv.console_logs(console_id=0)
+    assert type(logs) == str
+    logs = iosv.console_logs(console_id=1)
+    assert type(logs) == str
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        iosv.console_logs(console_id=2)
+    assert err.value.response.status_code == 400
+    assert "Serial port does not exist on node" in err.value.response.text
+
+    lab.stop()
+    lab.wipe()
+    lab.remove()
+
+
+def test_upload_node_definition_invalid_body(client_library_session: ClientLibrary):
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.definitions.upload_node_definition(body=json.dumps(None))
     assert err.value.response.status_code == 400
 
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library.definitions.upload_node_definition(
+        client_library_session.definitions.upload_node_definition(
             body=json.dumps({"id": "test1"})
         )
     assert err.value.response.status_code == 400
 
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library.definitions.upload_node_definition(
+        client_library_session.definitions.upload_node_definition(
             body=json.dumps({"general": {}})
         )
     assert err.value.response.status_code == 400
 
 
-def test_topology_owner(client_library_keep_labs: ClientLibrary):
-    lab = client_library_keep_labs.create_lab("owned_by_cml2")
+def test_topology_owner(client_library_session: ClientLibrary):
+    cml2_uid = client_library_session.user_management.user_id("cml2")
+    lab = client_library_session.create_lab("owned_by_cml2")
     lab.sync(topology_only=True)
-    assert lab.owner == "cml2"
+    assert lab.owner == cml2_uid
+    lab.remove()
+
+
+@pytest.mark.nomock
+def test_server_tokens_off(controller_url):
+    resp = requests.get(controller_url, verify=False)
+    headers = resp.headers
+    # has to equal to 'nginx' without version
+    assert headers["Server"] == "nginx"
+
+
+def test_user_role_change(controller_url, client_library_session: ClientLibrary):
+    cl_admin = client_library_session
+    cl_admin_uid = client_library_session.user_management.user_id(cl_admin.username)
+    # create non admin users
+    cl_user1, cl_user2 = "cl_user1", "cl_user2"
+    password = "super-secret"
+    res = cl_admin.user_management.create_user(username=cl_user1, pwd=password)
+    cl_user1_uid = res["id"]
+    res = cl_admin.user_management.create_user(username=cl_user2, pwd=password)
+    cl_user2_uid = res["id"]
+
+    cl_user1 = ClientLibrary(
+        controller_url,
+        username=cl_user1,
+        password=password,
+        ssl_verify=False,
+        allow_http=True,
+    )
+    cl_user2 = ClientLibrary(
+        controller_url,
+        username=cl_user2,
+        password=password,
+        ssl_verify=False,
+        allow_http=True,
+    )
+
+    cl_user1.create_lab("lab1-cl_user1")
+    cl_user1.create_lab("lab2-cl_user1")
+
+    assert cl_user2.all_labs(show_all=True) == []
+    # promote cl_user2 to admin
+    cl_admin.user_management.update_user(user_id=cl_user2_uid, admin=True)
+    # check if cl_user2 can see all the labs as admin
+    all_labs = cl_user2.all_labs(show_all=True)
+    assert len(all_labs) == 2
+    assert all_labs[0].owner == cl_user1_uid
+
+    # check if cl_user2 can create user and delete users
+    res = cl_user2.user_management.create_user(username="TestUser", pwd=password)
+    assert cl_user2.user_management.get_user(user_id=res["id"])
+
+    cl_user2.user_management.delete_user(user_id=res["id"])
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        cl_user2.user_management.get_user(user_id=res["id"])
+    assert err.value.response.status_code == 404
+
+    # check cl_user2 can see licensing
+    assert cl_user2.licensing.status()
+
+    for lab in all_labs:
+        cl_user2.remove_lab(lab.id)
+    assert cl_user2.all_labs(show_all=True) == []
+
+    # promote cl_user1 to admin
+    cl_admin.user_management.update_user(user_id=cl_user1_uid, admin=True)
+
+    # check if cl_user1 can remove admin cl_user2
+    cl_user1.user_management.delete_user(user_id=cl_user2_uid)
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        cl_user1.user_management.get_user(user_id=cl_user2_uid)
+    assert err.value.response.status_code == 404
+
+    # remove admin rights from cl_user1
+    cl_admin.user_management.update_user(user_id=cl_user1_uid, admin=False)
+    lab = cl_admin.create_lab("origin-lab")
+    assert cl_user1.all_labs(show_all=True) == []
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        cl_user1.user_management.create_user(username="TestUser", pwd=password)
+    assert err.value.response.status_code == 403
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        cl_user1.licensing.status()
+    assert err.value.response.status_code == 403
+
+    cl_admin.user_management.delete_user(user_id=cl_user1_uid)
+
+    # check that user cannot update its own user role
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        cl_admin.user_management.update_user(user_id=cl_admin_uid, admin=False)
+    assert err.value.response.status_code == 400
+
+    # cleanup
+    cl_admin.remove_lab(lab.id)
+
+
+def test_token_invalidation(
+    caplog, controller_url, client_library_session: ClientLibrary
+):
+    cl_admin = client_library_session
+
+    res = cl_admin.user_management.create_user(username="test_user", pwd="moremore")
+    test_user_uid = res["id"]
+
+    cl_test_user = ClientLibrary(
+        controller_url,
+        username="test_user",
+        password="moremore",
+        ssl_verify=False,
+        allow_http=True,
+    )
+    # make sure user token works
+    res = cl_test_user.user_management.users()
+    assert isinstance(res, list)
+    for obj in res:
+        assert "username" in obj and "id" in obj
+
+    # CHANGE PASSWORD
+    new_pwd = "moremoreevenmore"
+    res = cl_test_user.user_management.update_user(
+        user_id=test_user_uid,
+        password_dict=dict(old_password="moremore", new_password=new_pwd),
+    )
+    assert isinstance(res, dict)
+    cl_test_user.password = new_pwd
+    with caplog.at_level(logging.WARNING):
+        res = cl_test_user.user_management.users()
+        assert isinstance(res, list)
+    assert "re-auth called on 401 unauthorized" in caplog.text
+
+    # CHANGE ROLE
+    res = cl_admin.user_management.update_user(user_id=test_user_uid, admin=True)
+    assert isinstance(res, dict)
+    assert res["admin"] is True
+    with caplog.at_level(logging.WARNING):
+        res = cl_test_user.user_management.users()
+        assert isinstance(res, list)
+    assert "re-auth called on 401 unauthorized" in caplog.text
+
+    # LOGOUT
+    res = cl_test_user.logout()
+    assert res is True
+    with caplog.at_level(logging.WARNING):
+        res = cl_test_user.user_management.users()
+        assert isinstance(res, list)
+    assert "re-auth called on 401 unauthorized" in caplog.text
+
+    # CLEAR SESSION
+    # create another client library object (this generates new token)
+    cl_test_user1 = ClientLibrary(
+        controller_url,
+        username="test_user",
+        password=new_pwd,
+        ssl_verify=False,
+        allow_http=True,
+    )
+    # clear whole test_user session (remove all tokens)
+    res = cl_test_user.logout(clear_all_sessions=True)
+    assert res is True
+    # cl_test_user
+    with caplog.at_level(logging.WARNING):
+        res = cl_test_user.user_management.users()
+        assert isinstance(res, list)
+    assert "re-auth called on 401 unauthorized" in caplog.text
+    # cl_test_user1
+    with caplog.at_level(logging.WARNING):
+        res = cl_test_user1.user_management.users()
+        assert isinstance(res, list)
+    assert "re-auth called on 401 unauthorized" in caplog.text
+
+    # DELETE USER
+    res = cl_admin.user_management.delete_user(user_id=test_user_uid)
+    # test that user token works no more
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        with caplog.at_level(logging.WARNING):
+            cl_test_user.user_management.users()
+            assert isinstance(res, list)
+        assert "re-auth called on 401 unauthorized" in caplog.text
+    # normally you would expect 401 here, it was returned, however
+    # response hook that catches 401 TokenAuth.handle_401_unauthorized
+    # tried to authenticate and user no longer exists - so 403 Forbidden
+    assert err.value.response.status_code == 403

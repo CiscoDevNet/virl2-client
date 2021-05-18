@@ -44,5 +44,5 @@ __all__ = (
     "SystemManagement",
     "UserManagement",
     "GroupManagement",
-    "TokenAuth"
+    "TokenAuth",
 )

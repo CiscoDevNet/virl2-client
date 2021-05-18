@@ -100,8 +100,9 @@ class UserManagement(object):
         response.raise_for_status()
         return response.json()
 
-    def create_user(self, user_id, pwd, fullname="", description="",
-                    roles=None, groups=None):
+    def create_user(
+        self, user_id, pwd, fullname="", description="", roles=None, groups=None
+    ):
         """
         Creates user.
 
@@ -125,7 +126,7 @@ class UserManagement(object):
             "fullname": fullname,
             "description": description,
             "roles": roles or ["USER"],
-            "groups": groups or []
+            "groups": groups or [],
         }
         url = self.base_url + "/{}".format(user_id)
         response = self.ctx.session.post(url, json=data)

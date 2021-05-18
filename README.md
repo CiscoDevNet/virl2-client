@@ -1,3 +1,5 @@
+[![CI](https://github.com/CiscoDevNet/virl2-client/actions/workflows/main.yml/badge.svg)](https://github.com/CiscoDevNet/virl2-client/actions/workflows/main.yml)
+
 # VIRL 2 Client Library
 
 ## Introduction

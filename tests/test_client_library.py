@@ -19,8 +19,10 @@
 #
 
 import json
-import os
 import logging
+import os
+import sys
+
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlsplit
@@ -34,6 +36,14 @@ from virl2_client.models import Lab
 from virl2_client.virl2_client import ClientLibrary, Version, InitializationError
 
 
+CURRENT_VERSION = ClientLibrary.VERSION.version_str
+
+
+python36_or_newer = pytest.mark.skipif(
+    sys.version_info < (3, 6), reason="requires Python3.6"
+)
+
+
 def client_library_patched_system_info(version):
     with patch.object(
         ClientLibrary, "system_info", return_value={"version": version, "ready": True}
@@ -42,18 +52,28 @@ def client_library_patched_system_info(version):
 
 
 @pytest.fixture
-def client_library_exact_version():
-    yield from client_library_patched_system_info(version="2.1.0")
+def client_library_server_current():
+    yield from client_library_patched_system_info(version=CURRENT_VERSION)
 
 
 @pytest.fixture
-def client_library_compatible_version():
+def client_library_server_2_0_0():
     yield from client_library_patched_system_info(version="2.0.0")
 
 
 @pytest.fixture
-def client_library_incompatible_version():
+def client_library_server_1_0_0():
     yield from client_library_patched_system_info(version="1.0.0")
+
+
+@pytest.fixture
+def client_library_server_2_9_0():
+    yield from client_library_patched_system_info(version="2.9.0")
+
+
+@pytest.fixture
+def client_library_server_2_19_0():
+    yield from client_library_patched_system_info(version="2.19.0")
 
 
 @pytest.fixture
@@ -62,8 +82,9 @@ def mocked_session():
         yield session
 
 
+@python36_or_newer
 def test_import_lab_from_path_ng(
-    client_library_compatible_version, mocked_session, tmp_path: Path
+    client_library_server_2_0_0, mocked_session, tmp_path: Path
 ):
     client_library = ClientLibrary(
         url="http://0.0.0.0/fake_url/", username="test", password="pa$$"
@@ -89,8 +110,9 @@ def test_import_lab_from_path_ng(
     sync_mock.assert_called_once_with()
 
 
+@python36_or_newer
 def test_import_lab_from_path_virl(
-    client_library_compatible_version, mocked_session, tmp_path: Path
+    client_library_server_2_0_0, mocked_session, tmp_path: Path
 ):
     cl = ClientLibrary(url="http://0.0.0.0/fake_url/", username="test", password="pa$$")
     Lab.sync = Mock()
@@ -111,7 +133,7 @@ def test_import_lab_from_path_virl(
     sync_mock.assert_called_once_with()
 
 
-def test_ssl_certificate(client_library_compatible_version, mocked_session):
+def test_ssl_certificate(client_library_server_2_0_0, mocked_session):
     cl = ClientLibrary(
         url="http://0.0.0.0/fake_url/",
         username="test",
@@ -128,7 +150,7 @@ def test_ssl_certificate(client_library_compatible_version, mocked_session):
 
 
 def test_ssl_certificate_from_env_variable(
-    client_library_compatible_version, monkeypatch, mocked_session
+    client_library_server_2_0_0, monkeypatch, mocked_session
 ):
     monkeypatch.setitem(os.environ, "CA_BUNDLE", "/home/user/cert.pem")
     cl = ClientLibrary(url="http://0.0.0.0/fake_url/", username="test", password="pa$$")
@@ -141,8 +163,9 @@ def test_ssl_certificate_from_env_variable(
     ]
 
 
+@python36_or_newer
 @responses.activate
-def test_auth_and_reauth_token(client_library_compatible_version):
+def test_auth_and_reauth_token(client_library_server_2_0_0):
     # TODO: need to check what the purpose of this test is, and how it
     # works with the automatic auth check on CL init
     # if there's environ vars for username and password set
@@ -174,7 +197,7 @@ def test_auth_and_reauth_token(client_library_compatible_version):
 
     with pytest.raises(InitializationError):
         # Test returns custom exception when instructed to raise on failure
-        cl = ClientLibrary(
+        ClientLibrary(
             url="http://0.0.0.0/fake_url/",
             username="test",
             password="pa$$",
@@ -215,7 +238,7 @@ def test_auth_and_reauth_token(client_library_compatible_version):
     assert len(responses.calls) == 6
 
 
-def test_client_library_init_allow_http(client_library_compatible_version):
+def test_client_library_init_allow_http(client_library_server_2_0_0):
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
     url_parts = urlsplit(cl._context.base_url)
     assert url_parts.scheme == "http"
@@ -228,7 +251,7 @@ def test_client_library_init_allow_http(client_library_compatible_version):
 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize(
-    "parms",
+    "params",
     [
         (False, "somehost"),
         (False, "http://somehost"),
@@ -237,16 +260,14 @@ def test_client_library_init_allow_http(client_library_compatible_version):
         (True, "https:@somehost:4:4:3"),
     ],
 )
-def test_client_library_init_url(
-    client_library_compatible_version, monkeypatch, via, parms
-):
-    (fail, url) = parms
+def test_client_library_init_url(client_library_server_2_0_0, monkeypatch, via, params):
+    (fail, url) = params
     if via == "environment":
         monkeypatch.setenv("VIRL2_URL", url)
         url = None
     if fail:
         with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
-            cl = ClientLibrary(url=url, username="virl2", password="virl2")
+            ClientLibrary(url=url, username="virl2", password="virl2")
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2")
         url_parts = urlsplit(cl._context.base_url)
@@ -259,48 +280,48 @@ def test_client_library_init_url(
 
 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
-@pytest.mark.parametrize("parms", [(False, "johndoe"), (True, ""), (True, None)])
+@pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_compatible_version, monkeypatch, via, parms
+    client_library_server_2_0_0, monkeypatch, via, params
 ):
     url = "validhostname"
-    (fail, user) = parms
+    (fail, user) = params
     if via == "environment":
         # can't set a None value for an environment variable
         monkeypatch.setenv("VIRL2_USER", user or "")
         user = None
     if fail:
         with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
-            cl = ClientLibrary(url=url, username=user, password="virl2")
+            ClientLibrary(url=url, username=user, password="virl2")
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
-        assert cl.username == parms[1]
+        assert cl.username == params[1]
         assert cl.password == "virl2"
         assert cl._context.base_url == "https://validhostname/api/v0/"
 
 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
-@pytest.mark.parametrize("parms", [(False, "validPa$$w!2"), (True, ""), (True, None)])
+@pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_compatible_version, monkeypatch, via, parms
+    client_library_server_2_0_0, monkeypatch, via, params
 ):
     url = "validhostname"
-    (fail, password) = parms
+    (fail, password) = params
     if via == "environment":
         # can't set a None value for an environment variable
         monkeypatch.setenv("VIRL2_PASS", password or "")
         password = None
     if fail:
         with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
-            cl = ClientLibrary(url=url, username="virl2", password=password)
+            ClientLibrary(url=url, username="virl2", password=password)
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"
-        assert cl.password == parms[1]
+        assert cl.password == params[1]
         assert cl._context.base_url == "https://validhostname/api/v0/"
 
 
-def test_client_library_str_and_repr(client_library_compatible_version):
+def test_client_library_str_and_repr(client_library_server_2_0_0):
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         repr(client_library)
@@ -309,146 +330,359 @@ def test_client_library_str_and_repr(client_library_compatible_version):
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 
-def test_major_version_mismatch(client_library_incompatible_version):
+def test_major_version_mismatch(client_library_server_1_0_0):
     with pytest.raises(InitializationError) as err:
         ClientLibrary("somehost", "virl2", password="virl2")
-    assert str(err.value) == "Major version mismatch. server 1.0.0, client 2.1.0"
+    assert str(
+        err.value
+    ) == "Major version mismatch. Client {}, controller 1.0.0.".format(CURRENT_VERSION)
 
 
-def test_incompatible_version(client_library_compatible_version):
+def test_incompatible_version(client_library_server_2_0_0):
     with pytest.raises(InitializationError) as err:
         with patch.object(
             ClientLibrary, "INCOMPATIBLE_CONTROLLER_VERSIONS", new=[Version("2.0.0")]
         ):
             ClientLibrary("somehost", "virl2", password="virl2")
     assert (
-        str(err.value)
-        == "Controller version 2.0.0 is marked incompatible! List of versions marked expclicitly as incompatible: [2.0.0]"
+        str(err.value) == "Controller version 2.0.0 is marked incompatible! "
+        "List of versions marked explicitly as incompatible: [2.0.0]."
     )
 
 
-def test_minor_version_mismatch(client_library_compatible_version, caplog):
+def test_client_minor_version_gt_nowarn(client_library_server_2_0_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
-        "Please ensure the client version is compatible with the server version. client 2.1.0, server 2.0.0"
-        in caplog.text
+        "Please ensure the client version is compatible with the controller version. "
+        "Client {}, controller 2.0.0.".format(CURRENT_VERSION) not in caplog.text
     )
 
 
-def test_exact_version_no_warn(client_library_exact_version, caplog):
+def test_client_minor_version_lt_warn(client_library_server_2_9_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
-        "Please ensure the client version is compatible with the server version. client 2.1.0, server 2.0.0"
-        not in caplog.text
+        "Please ensure the client version is compatible with the controller version. "
+        "Client {}, controller 2.9.0.".format(CURRENT_VERSION) in caplog.text
+    )
+
+
+def test_client_minor_version_lt_warn_1(client_library_server_2_19_0, caplog):
+    with caplog.at_level(logging.WARNING):
+        client_library = ClientLibrary("somehost", "virl2", password="virl2")
+    assert client_library is not None
+    assert (
+        "Please ensure the client version is compatible with the controller version. "
+        "Client {}, controller 2.19.0.".format(CURRENT_VERSION) in caplog.text
+    )
+
+
+def test_exact_version_no_warn(client_library_server_current, caplog):
+    with caplog.at_level(logging.WARNING):
+        client_library = ClientLibrary("somehost", "virl2", password="virl2")
+    assert client_library is not None
+    assert (
+        "Please ensure the client version is compatible with the controller version. "
+        "Client {}, controller 2.0.0.".format(CURRENT_VERSION) not in caplog.text
     )
 
 
 @pytest.mark.parametrize(
     "greater, lesser, expected",
     [
-        pytest.param(Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"),
-        pytest.param(Version("2.0.10"), Version("2.0.0"), True, id="Patch is much greater than"),
-        pytest.param(Version("2.1.0"), Version("2.0.0"), True, id="Minor is greater than"),
-        pytest.param(Version("2.10.0"), Version("2.0.0"), True, id="Minor is much greater than"),
-        pytest.param(Version("3.0.0"), Version("2.0.0"), True, id="Major is greater than"),
-        pytest.param(Version("10.0.0"), Version("2.0.0"), True, id="Major is much greater than"),
-        pytest.param(Version("2.0.0"), Version("2.0.1"), False, id="Patch is lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.0.10"), False, id="Patch is much lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.1.0"), False, id="Minor is lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.10.0"), False, id="Minor is much lesser than"),
-        pytest.param(Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"),
-        pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
-        pytest.param(Version("2.0.0"), "random string", False, id="Other object is string and not a Version object"),
-        pytest.param(Version("2.0.0"), 12345, False, id="Other object is int and not a Version object")
-    ]
+        pytest.param(
+            Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"
+        ),
+        pytest.param(
+            Version("2.0.10"), Version("2.0.0"), True, id="Patch is much greater than"
+        ),
+        pytest.param(
+            Version("2.1.0"), Version("2.0.0"), True, id="Minor is greater than"
+        ),
+        pytest.param(
+            Version("2.10.0"), Version("2.0.0"), True, id="Minor is much greater than"
+        ),
+        pytest.param(
+            Version("3.0.0"), Version("2.0.0"), True, id="Major is greater than"
+        ),
+        pytest.param(
+            Version("10.0.0"), Version("2.0.0"), True, id="Major is much greater than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.0.1"), False, id="Patch is lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.0.10"), False, id="Patch is much lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.1.0"), False, id="Minor is lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.10.0"), False, id="Minor is much lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            "random string",
+            False,
+            id="Other object is string and not a Version object",
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            12345,
+            False,
+            id="Other object is int and not a Version object",
+        ),
+    ],
 )
 def test_version_comparison_greater_than(greater, lesser, expected):
     assert (greater > lesser) == expected
 
+
 @pytest.mark.parametrize(
     "first, second, expected",
     [
-        pytest.param(Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"),
-        pytest.param(Version("2.0.10"), Version("2.0.0"), True, id="Patch is much greater than"),
-        pytest.param(Version("2.1.0"), Version("2.0.0"), True, id="Minor is greater than"),
-        pytest.param(Version("2.10.0"), Version("2.0.0"), True, id="Minor is much greater than"),
-        pytest.param(Version("3.0.0"), Version("2.0.0"), True, id="Major is greater than"),
-        pytest.param(Version("10.0.0"), Version("2.0.0"), True, id="Major is much greater than"),
-        pytest.param(Version("2.0.0"), Version("2.0.1"), False, id="Patch is lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.0.10"), False, id="Patch is much lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.1.0"), False, id="Minor is lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.10.0"), False, id="Minor is much lesser than"),
-        pytest.param(Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"),
-        pytest.param(Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"),
-        pytest.param(Version("2.0.0"), Version("2.0.0"), True, id="Equal versions no minor no patch"),
-        pytest.param(Version("2.0.1"), Version("2.0.1"), True, id="Equal versions patch increment"),
-        pytest.param(Version("2.1.0"), Version("2.1.0"), True, id="Equal versions minor increment"),
-        pytest.param(Version("3.0.0"), Version("3.0.0"), True, id="Equal versions major increment"),
-        pytest.param(Version("2.0.0"), "random string", False, id="Other object is string and not a Version object"),
-        pytest.param(Version("2.0.0"), 12345, False, id="Other object is int and not a Version object")
-    ]
+        pytest.param(
+            Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"
+        ),
+        pytest.param(
+            Version("2.0.10"), Version("2.0.0"), True, id="Patch is much greater than"
+        ),
+        pytest.param(
+            Version("2.1.0"), Version("2.0.0"), True, id="Minor is greater than"
+        ),
+        pytest.param(
+            Version("2.10.0"), Version("2.0.0"), True, id="Minor is much greater than"
+        ),
+        pytest.param(
+            Version("3.0.0"), Version("2.0.0"), True, id="Major is greater than"
+        ),
+        pytest.param(
+            Version("10.0.0"), Version("2.0.0"), True, id="Major is much greater than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.0.1"), False, id="Patch is lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.0.10"), False, id="Patch is much lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.1.0"), False, id="Minor is lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("2.10.0"), False, id="Minor is much lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("3.0.0"), False, id="Major is lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"), Version("10.0.0"), False, id="Major is much lesser than"
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            Version("2.0.0"),
+            True,
+            id="Equal versions no minor no patch",
+        ),
+        pytest.param(
+            Version("2.0.1"),
+            Version("2.0.1"),
+            True,
+            id="Equal versions patch increment",
+        ),
+        pytest.param(
+            Version("2.1.0"),
+            Version("2.1.0"),
+            True,
+            id="Equal versions minor increment",
+        ),
+        pytest.param(
+            Version("3.0.0"),
+            Version("3.0.0"),
+            True,
+            id="Equal versions major increment",
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            "random string",
+            False,
+            id="Other object is string and not a Version object",
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            12345,
+            False,
+            id="Other object is int and not a Version object",
+        ),
+    ],
 )
 def test_version_comparison_greater_than_or_equal_to(first, second, expected):
     assert (first >= second) == expected
+
 
 @pytest.mark.parametrize(
     "lesser, greater, expected",
     [
         pytest.param(Version("2.0.0"), Version("2.0.1"), True, id="Patch is less than"),
-        pytest.param(Version("2.0.0"), Version("2.0.10"), True, id="Patch is much less than"),
+        pytest.param(
+            Version("2.0.0"), Version("2.0.10"), True, id="Patch is much less than"
+        ),
         pytest.param(Version("2.0.0"), Version("2.1.0"), True, id="Minor is less than"),
-        pytest.param(Version("2.0.0"), Version("2.10.0"), True, id="Minor is much less than"),
+        pytest.param(
+            Version("2.0.0"), Version("2.10.0"), True, id="Minor is much less than"
+        ),
         pytest.param(Version("2.0.0"), Version("3.0.0"), True, id="Major is less than"),
-        pytest.param(Version("2.0.0"), Version("10.0.0"), True, id="Major is much less than"),
-        pytest.param(Version("2.0.1"), Version("2.0.0"), False, id="Patch is greater than"),
-        pytest.param(Version("2.0.10"), Version("2.0.0"), False, id="Patch is much greater than"),
-        pytest.param(Version("2.1.0"), Version("2.0.0"), False, id="Minor is greater than"),
-        pytest.param(Version("2.10.0"), Version("2.0.0"), False, id="Minor is much greater than"),
-        pytest.param(Version("3.0.0"), Version("2.0.0"), False, id="Major is greater than"),
-        pytest.param(Version("10.0.0"), Version("2.0.0"), False, id="Major is much greater than"),
-        pytest.param(Version("2.0.0"), "random string", False, id="Other object is string and not a Version object"),
-        pytest.param(Version("2.0.0"), 12345, False, id="Other object is int and not a Version object")
-    ]
+        pytest.param(
+            Version("2.0.0"), Version("10.0.0"), True, id="Major is much less than"
+        ),
+        pytest.param(
+            Version("2.0.1"), Version("2.0.0"), False, id="Patch is greater than"
+        ),
+        pytest.param(
+            Version("2.0.10"), Version("2.0.0"), False, id="Patch is much greater than"
+        ),
+        pytest.param(
+            Version("2.1.0"), Version("2.0.0"), False, id="Minor is greater than"
+        ),
+        pytest.param(
+            Version("2.10.0"), Version("2.0.0"), False, id="Minor is much greater than"
+        ),
+        pytest.param(
+            Version("3.0.0"), Version("2.0.0"), False, id="Major is greater than"
+        ),
+        pytest.param(
+            Version("10.0.0"), Version("2.0.0"), False, id="Major is much greater than"
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            "random string",
+            False,
+            id="Other object is string and not a Version object",
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            12345,
+            False,
+            id="Other object is int and not a Version object",
+        ),
+    ],
 )
 def test_version_comparison_less_than(lesser, greater, expected):
     assert (lesser < greater) == expected
+
 
 @pytest.mark.parametrize(
     "first, second, expected",
     [
         pytest.param(Version("2.0.0"), Version("2.0.1"), True, id="Patch is less than"),
-        pytest.param(Version("2.0.0"), Version("2.0.10"), True, id="Patch is much less than"),
+        pytest.param(
+            Version("2.0.0"), Version("2.0.10"), True, id="Patch is much less than"
+        ),
         pytest.param(Version("2.0.0"), Version("2.1.0"), True, id="Minor is less than"),
-        pytest.param(Version("2.0.0"), Version("2.10.0"), True, id="Minor is much less than"),
+        pytest.param(
+            Version("2.0.0"), Version("2.10.0"), True, id="Minor is much less than"
+        ),
         pytest.param(Version("2.0.0"), Version("3.0.0"), True, id="Major is less than"),
-        pytest.param(Version("2.0.0"), Version("10.0.0"), True, id="Major is much less than"),
-        pytest.param(Version("2.0.1"), Version("2.0.0"), False, id="Patch is greater than"),
-        pytest.param(Version("2.0.10"), Version("2.0.0"), False, id="Patch is much greater than"),
-        pytest.param(Version("2.1.0"), Version("2.0.0"), False, id="Minor is greater than"),
-        pytest.param(Version("2.10.0"), Version("2.0.0"), False, id="Minor is much greater than"),
-        pytest.param(Version("3.0.0"), Version("2.0.0"), False, id="Major is greater than"),
-        pytest.param(Version("10.0.0"), Version("2.0.0"), False, id="Major is much greater than"),
-        pytest.param(Version("2.0.0"), Version("2.0.0"), True, id="Equal versions no minor no patch"),
-        pytest.param(Version("2.0.1"), Version("2.0.1"), True, id="Equal versions patch increment"),
-        pytest.param(Version("2.1.0"), Version("2.1.0"), True, id="Equal versions minor increment"),
-        pytest.param(Version("3.0.0"), Version("3.0.0"), True, id="Equal versions major increment"),
-        pytest.param(Version("2.0.0"), "random string", False, id="Other object is string and not a Version object"),
-        pytest.param(Version("2.0.0"), 12345, False, id="Other object is int and not a Version object"),
-    ]
+        pytest.param(
+            Version("2.0.0"), Version("10.0.0"), True, id="Major is much less than"
+        ),
+        pytest.param(
+            Version("2.0.1"), Version("2.0.0"), False, id="Patch is greater than"
+        ),
+        pytest.param(
+            Version("2.0.10"), Version("2.0.0"), False, id="Patch is much greater than"
+        ),
+        pytest.param(
+            Version("2.1.0"), Version("2.0.0"), False, id="Minor is greater than"
+        ),
+        pytest.param(
+            Version("2.10.0"), Version("2.0.0"), False, id="Minor is much greater than"
+        ),
+        pytest.param(
+            Version("3.0.0"), Version("2.0.0"), False, id="Major is greater than"
+        ),
+        pytest.param(
+            Version("10.0.0"), Version("2.0.0"), False, id="Major is much greater than"
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            Version("2.0.0"),
+            True,
+            id="Equal versions no minor no patch",
+        ),
+        pytest.param(
+            Version("2.0.1"),
+            Version("2.0.1"),
+            True,
+            id="Equal versions patch increment",
+        ),
+        pytest.param(
+            Version("2.1.0"),
+            Version("2.1.0"),
+            True,
+            id="Equal versions minor increment",
+        ),
+        pytest.param(
+            Version("3.0.0"),
+            Version("3.0.0"),
+            True,
+            id="Equal versions major increment",
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            "random string",
+            False,
+            id="Other object is string and not a Version object",
+        ),
+        pytest.param(
+            Version("2.0.0"),
+            12345,
+            False,
+            id="Other object is int and not a Version object",
+        ),
+    ],
 )
 def test_version_comparison_less_than_or_equal_to(first, second, expected):
     assert (first <= second) == expected
 
+
+def test_different_version_strings():
+    v = Version("2.1.0-dev0+build8.7ee86bf8")
+    assert v.major == 2 and v.minor == 1 and v.patch == 0
+    v = Version("2.1.0dev0+build8.7ee86bf8")
+    assert v.major == 2 and v.minor == 1 and v.patch == 0
+    v = Version("2.1.0--dev0+build8.7ee86bf8")
+    assert v.major == 2 and v.minor == 1 and v.patch == 0
+    v = Version("2.1.0_dev0+build8.7ee86bf8")
+    assert v.major == 2 and v.minor == 1 and v.patch == 0
+    v = Version("2.1.0")
+    assert v.major == 2 and v.minor == 1 and v.patch == 0
+    v = Version("2.1.0-")
+    assert v.major == 2 and v.minor == 1 and v.patch == 0
+
+    with pytest.raises(ValueError):
+        Version("2.1-dev0+build8.7ee86bf8")
+    with pytest.raises(ValueError):
+        Version("2-dev0+build8.7ee86bf8")
+    with pytest.raises(ValueError):
+        Version("54dev0+build8.7ee86bf8")
+
+
 def test_import_lab_offline(
-    client_library_compatible_version, mocked_session, tmp_path: Path
+    client_library_server_2_0_0, mocked_session, tmp_path: Path
 ):
     client_library = ClientLibrary(
         url="http://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
-    topology_file_path = "import_export/SampleData/topology-v0_0_4.json"
-    topology = pkg_resources.resource_string("simple_common", topology_file_path)
-    client_library.import_lab(topology, "topology-v0_0_4", offline=True)
+    topology_file_path = "tests/test_data/sample_topology.json"
+    with open(topology_file_path) as fh:
+        topology_file = fh.read()
+        client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)

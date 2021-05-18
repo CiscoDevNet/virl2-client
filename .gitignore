@@ -1,6 +1,6 @@
-.direnv/
 .envrc
 .python-version
+.venv
 dist/
 */__pycache__
 docs/build/*

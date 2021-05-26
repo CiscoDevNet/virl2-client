@@ -33,7 +33,6 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 import pkg_resources
 import requests
 import urllib3
-from urllib3.exceptions import LocationParseError
 
 from .exceptions import LabNotFound
 from .models import (
@@ -183,7 +182,7 @@ class ClientLibrary:
         # prepare the URL
         try:
             url_parts = urlsplit(url, "https")
-        except LocationParseError:
+        except ValueError:
             message = "invalid URL / hostname"
             raise InitializationError(message)
 
@@ -193,7 +192,12 @@ class ClientLibrary:
         # input is presumed to be a relative URL and thus to start with
         # a path component.
         if len(url_parts.netloc) == 0:
-            url_parts = urlsplit("//" + url, "https")
+            try:
+                url_parts = urlsplit("//" + url, "https")
+            except ValueError:
+                message = "invalid URL / hostname"
+                raise InitializationError(message)
+
         url_parts_list = list(url_parts)
         if not allow_http and url_parts.scheme == "http":
             url_parts_list[0] = "https"
@@ -481,7 +485,7 @@ class ClientLibrary:
         if offline:
             topology_dict = json.loads(topology)
             # ensure the lab owner is not properly set
-            topology_dict["lab_owner"] = self.username
+            topology_dict["lab_owner"] = self.user_management.user_id(self.username)
             lab.import_lab(topology_dict)
         else:
             lab.sync()

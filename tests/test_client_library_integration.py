@@ -302,14 +302,16 @@ def test_user_management(client_library: ClientLibrary):
     # non existent role should return 400 - Bad request
     with pytest.raises(requests.exceptions.HTTPError) as err:
         client_library.user_management.create_user(
-            username=test_user_id, pwd=test_password, admin=["non-existent-role"]
+            username="user569", pwd=test_password, admin=["non-existent-role"]
         )
     assert err.value.response.status_code == 400
     assert "not of type 'boolean'" in err.value.response.text
 
     # delete non-existent user
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library.user_management.delete_user(user_id="non-existent-user")
+        client_library.user_management.delete_user(
+            user_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc"
+        )
     assert err.value.response.status_code == 404
     assert "User does not exist" in err.value.response.text
 

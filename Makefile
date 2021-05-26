@@ -1,5 +1,5 @@
 
-.phony: export
+.phony: export diff
 
 # https://github.com/python-poetry/poetry/issues/3160
 # when resolved, we should be able to run with hashes
@@ -17,3 +17,6 @@ poetry:
 
 export: tests/requirements.txt
 	@echo "exported dependencies"
+
+diff:
+	diff -ruN -X.gitignore -x.github -x.git -xdist -x.pytest_cache ./ ../simple/virl2_client/ | pygmentize | less -r

@@ -47,7 +47,7 @@ def test_group_api_basic(client_library_session: ClientLibrary):
 
     # get non-existent group
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.get_group(group_id="non-existent")
+        cl.group_management.get_group(group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc")
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
 
@@ -61,7 +61,7 @@ def test_group_api_basic(client_library_session: ClientLibrary):
     assert group_labs == []
 
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.group_labs(group_id="non-existent")
+        cl.group_management.group_labs(group_id="ef490485-f0a4-4455-afb6-b71c2b97bb6b")
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
 
@@ -70,7 +70,9 @@ def test_group_api_basic(client_library_session: ClientLibrary):
     assert group_members == []
 
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.group_members(group_id="non-existent")
+        cl.group_management.group_members(
+            group_id="8a0aff6f-ed54-40b0-8246-081b0cb104db"
+        )
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
 
@@ -98,14 +100,16 @@ def test_group_api_basic(client_library_session: ClientLibrary):
     # update non-existent group
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.group_management.update_group(
-            group_id="non-existent", description=new_description
+            group_id="d393bb36-08a2-4f6b-a1b4-9acddc4ea364", description=new_description
         )
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
 
     # delete non existent group
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.delete_group(group_id="non-existent")
+        cl.group_management.delete_group(
+            group_id="ca789cac-a0e1-4233-bd92-336685c0eba2"
+        )
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
 
@@ -251,7 +255,8 @@ def test_group_api_user_associations(client_library_session: ClientLibrary):
     # try add non-existent user to group
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.group_management.update_group(
-            group_id=teachers_group["id"], members=["non-existent"]
+            group_id=teachers_group["id"],
+            members=["b78a563b-d4a9-45fb-9aed-d8b5de4c3a2b"],
         )
     assert err.value.response.status_code == 404
     assert "User does not exist" in err.value.response.text
@@ -259,7 +264,9 @@ def test_group_api_user_associations(client_library_session: ClientLibrary):
     # try add non-existent group to user
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.user_management.create_user(
-            username="xxx", pwd="super-secret-pwd", groups=["non-existent"]
+            username="xxx",
+            pwd="super-secret-pwd",
+            groups=["fcd86c8b-a04f-4d1b-9a2d-81ce4dfae1b2"],
         )
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text

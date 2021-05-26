@@ -22,14 +22,13 @@ import time
 import logging
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+_LOGGER = logging.getLogger(__name__)
 
 DEFAULT_PROXY_SERVER = None
 DEFAULT_PROXY_PORT = None
 
 
-class Licensing(object):
+class Licensing:
 
     max_wait = 30
     wait_interval = 1.5
@@ -65,7 +64,7 @@ class Licensing(object):
         url = self.base_url + "/authorization/renew"
         response = self.ctx.session.put(url)
         response.raise_for_status()
-        logger.info("The agent has scheduled an authorization renewal.")
+        _LOGGER.info("The agent has scheduled an authorization renewal.")
         return response.status_code == 204
 
     def set_transport(self, ssms, proxy_server=None, proxy_port=None):
@@ -76,7 +75,7 @@ class Licensing(object):
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
         response = self.ctx.session.put(url, json=data)
         response.raise_for_status()
-        logger.info("The transport configuration has been accepted. Config: %s.", data)
+        _LOGGER.info("The transport configuration has been accepted. Config: %s.", data)
         return response.status_code == 204
 
     def set_default_transport(self):
@@ -97,7 +96,7 @@ class Licensing(object):
         url = self.base_url + "/product_license"
         response = self.ctx.session.put(url, json=product_license)
         response.raise_for_status()
-        logger.info("Product license was accepted by the agent.")
+        _LOGGER.info("Product license was accepted by the agent.")
         return response.status_code == 204
 
     def get_certificate(self):
@@ -108,7 +107,7 @@ class Licensing(object):
         response = self.ctx.session.get(url)
         response.raise_for_status()
         if response:
-            logger.info("Certificate received.")
+            _LOGGER.info("Certificate received.")
             return response.json()
 
     def install_certificate(self, cert):
@@ -119,7 +118,7 @@ class Licensing(object):
         url = self.base_url + "/certificate"
         response = self.ctx.session.post(url, data=cert)
         response.raise_for_status()
-        logger.info("Certificate was accepted by the agent.")
+        _LOGGER.info("Certificate was accepted by the agent.")
         return response.status_code == 204
 
     def remove_certificate(self):
@@ -130,7 +129,7 @@ class Licensing(object):
         url = self.base_url + "/certificate"
         response = self.ctx.session.delete(url)
         response.raise_for_status()
-        logger.info("Certificate was removed.")
+        _LOGGER.info("Certificate was removed.")
         return response.status_code == 204
 
     def register(self, token, reregister=False):
@@ -142,7 +141,7 @@ class Licensing(object):
             url, json={"token": token, "reregister": reregister}
         )
         response.raise_for_status()
-        logger.info("Registration request was accepted by the agent.")
+        _LOGGER.info("Registration request was accepted by the agent.")
         return response.status_code == 204
 
     def register_renew(self):
@@ -152,7 +151,7 @@ class Licensing(object):
         url = self.base_url + "/registration/renew"
         response = self.ctx.session.put(url)
         response.raise_for_status()
-        logger.info("The renewal request was accepted by the agent.")
+        _LOGGER.info("The renewal request was accepted by the agent.")
         return response.status_code == 204
 
     def register_wait(self, token, reregister=False):
@@ -173,14 +172,14 @@ class Licensing(object):
         response = self.ctx.session.delete(url)
         response.raise_for_status()
         if response.status_code == 202:
-            logger.warning(
+            _LOGGER.warning(
                 "Deregistration has been completed on the Product Instance but was "
                 "unable to deregister from Smart Software Licensing due to a "
                 "communication timeout."
             )
             # TODO try to register again and unregister
         if response.status_code == 204:
-            logger.info(
+            _LOGGER.info(
                 "The Product Instance was successfully deregistered from Smart "
                 "Software Licensing."
             )
@@ -211,7 +210,7 @@ class Licensing(object):
         response = self.ctx.session.put(url, json=data)
         response.raise_for_status()
         msg = "enabled" if data else "disabled"
-        logger.info("The reservation mode has been %s.", msg)
+        _LOGGER.info("The reservation mode has been %s.", msg)
 
     def enable_reservation_mode(self):
         """
@@ -232,7 +231,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/request"
         response = self.ctx.session.post(url)
         response.raise_for_status()
-        logger.info("The reservation request code received.")
+        _LOGGER.info("The reservation request code received.")
         return response.json()
 
     def complete_reservation(self, authorization_code):
@@ -243,7 +242,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/complete"
         response = self.ctx.session.post(url, json=authorization_code)
         response.raise_for_status()
-        logger.info("The confirmation code of completed reservation received.")
+        _LOGGER.info("The confirmation code of completed reservation received.")
         return response.json()
 
     def cancel_reservation(self):
@@ -253,7 +252,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/cancel"
         response = self.ctx.session.delete(url)
         response.raise_for_status()
-        logger.info("The reservation request has been cancelled.")
+        _LOGGER.info("The reservation request has been cancelled.")
         return response.status_code == 204
 
     def release_reservation(self):
@@ -264,7 +263,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/release"
         response = self.ctx.session.delete(url)
         response.raise_for_status()
-        logger.info("The return code of the released reservation received.")
+        _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
     def discard_reservation(self, data):
@@ -276,7 +275,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/discard"
         response = self.ctx.session.post(url, json=data)
         response.raise_for_status()
-        logger.info(
+        _LOGGER.info(
             "The discard code for an already cancelled reservation request received."
         )
         return response.json()
@@ -288,7 +287,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/confirmation_code"
         response = self.ctx.session.get(url)
         response.raise_for_status()
-        logger.info("The confirmation code of the completed reservation received.")
+        _LOGGER.info("The confirmation code of the completed reservation received.")
         return response.json()
 
     def delete_reservation_confirmation_code(self):
@@ -298,7 +297,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/confirmation_code"
         response = self.ctx.session.delete(url)
         response.raise_for_status()
-        logger.info("The confirmation code has been removed.")
+        _LOGGER.info("The confirmation code has been removed.")
         return response.status_code == 204
 
     def get_reservation_return_code(self):
@@ -308,7 +307,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/return_code"
         response = self.ctx.session.get(url)
         response.raise_for_status()
-        logger.info("The return code of the released reservation received.")
+        _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
     def delete_reservation_return_code(self):
@@ -318,7 +317,7 @@ class Licensing(object):
         url = self.base_url + "/reservation/return_code"
         response = self.ctx.session.delete(url)
         response.raise_for_status()
-        logger.info("The return code has been removed.")
+        _LOGGER.info("The return code has been removed.")
         return response.status_code == 204
 
     def wait_for_status(self, what, *target_status):
@@ -342,5 +341,5 @@ class Licensing(object):
                     "Last status was {}".format(what, target_status, timeout, status)
                 )
             status = self.status()[what]["status"]
-            logger.debug("%s status: %s", what, status)
+            _LOGGER.debug("%s status: %s", what, status)
             count += 1

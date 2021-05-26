@@ -21,27 +21,26 @@
 import logging
 from functools import total_ordering
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 @total_ordering
 class Interface:
-    """A VIRL2 network interface, part of a node.
-
-    :param iid: interface ID
-    :type iid: str
-    :param node: node object
-    :type node: models.Node
-    :param label: the label of the interface
-    :type label: str
-    :param slot: the slot of the interface
-    :type slot: int
-    :param iface_type: the type of the interface, defaults to "physical"
-    :type iface_type: str, optional
-    """
-
     def __init__(self, iid, node, label, slot, iface_type="physical"):
-        """Constructor method"""
+        """
+        A VIRL2 network interface, part of a node.
+
+        :param iid: interface ID
+        :type iid: str
+        :param node: node object
+        :type node: models.Node
+        :param label: the label of the interface
+        :type label: str
+        :param slot: the slot of the interface
+        :type slot: int
+        :param iface_type: the type of the interface, defaults to "physical"
+        :type iface_type: str
+        """
         self.id = iid
         self.node = node
         self.type = iface_type
@@ -56,10 +55,6 @@ class Interface:
             "writepackets": 0,
         }
         self.ip_snooped_info = {"mac_address": None, "ipv4": None, "ipv6": None}
-
-    @property
-    def is_physical(self):
-        return self.type == "physical"
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -86,6 +81,10 @@ class Interface:
 
     def __hash__(self):
         return hash(self.id)
+
+    @property
+    def is_physical(self):
+        return self.type == "physical"
 
     @property
     def lab_base_url(self):
@@ -157,7 +156,7 @@ class Interface:
         return {iface.node for iface in self.peer_interfaces()}
 
     def remove_on_server(self):
-        logger.info("Removing interface %s", self)
+        _LOGGER.info("Removing interface %s", self)
 
         url = self._base_url
         response = self.node.session.delete(url)

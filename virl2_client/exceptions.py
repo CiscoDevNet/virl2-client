@@ -19,17 +19,37 @@
 #
 
 
-class NodeNotFound(Exception):
+class VirlException(Exception):
     pass
 
 
-class LinkNotFound(Exception):
+class InitializationError(VirlException):
     pass
 
 
-class InterfaceNotFound(Exception):
+class ElementAlreadyExists(VirlException, FileExistsError):
     pass
 
 
-class LabNotFound(Exception):
+class ElementNotFound(VirlException, KeyError):
+    pass
+
+
+class NodeNotFound(ElementNotFound):
+    pass
+
+
+class LinkNotFound(ElementNotFound):
+    pass
+
+
+class InterfaceNotFound(ElementNotFound):
+    pass
+
+
+class LabNotFound(ElementNotFound):
+    pass
+
+
+class DesynchronizedError(VirlException):
     pass

@@ -677,12 +677,12 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline(
-    client_library_server_2_0_0, mocked_session, tmp_path: Path
+    change_test_dir, client_library_server_2_0_0, mocked_session, tmp_path: Path
 ):
     client_library = ClientLibrary(
         url="http://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
-    topology_file_path = "tests/test_data/sample_topology.json"
+    topology_file_path = "test_data/sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
         client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)

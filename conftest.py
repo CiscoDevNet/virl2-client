@@ -18,6 +18,7 @@
 # limitations under the License.
 #
 
+import os
 import pytest
 import time
 import warnings
@@ -105,3 +106,10 @@ def client_library(client_library_keep_labs: ClientLibrary) -> ClientLibrary:
     # tear down - delete labs from the tests
     # TODO: see if these need updating now remove_all_labs doesnt stop the lab
     stop_wipe_and_remove_all_labs(clientlibrary)
+
+
+@pytest.fixture(scope="function")
+def change_test_dir(request):
+    os.chdir(request.fspath.dirname)
+    yield
+    os.chdir(request.config.invocation_dir)

@@ -31,10 +31,16 @@ from virl2_client import ClientLibrary
 
 
 def pytest_addoption(parser):
+    # only add these options if the test is run inside the
+    # root virl2 repository itself and not from outside
+    root_dir = parser.extra_info.get("rootdir", "")
+    if not root_dir.endswith("virl2_client"):
+        return
+
     parser.addoption(
         "--controller-url",
         default="http://127.0.0.1:8001",
-        help="The URL of simple controller server",
+        help="The URL of a CML2 controller",
     )
 
 

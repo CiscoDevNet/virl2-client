@@ -6,3 +6,4 @@ dist/
 docs/build/*
 *.pyc
 *.egg-info
+pytest_integration.xml

@@ -102,14 +102,13 @@ class Licensing(object):
 
     def get_certificate(self):
         """
-        Setup a licensing public certificate for internal deployment
-        of an unregistered product instance.
+        Get the currently installed licensing public certificate.
         """
         url = self.base_url + "/certificate"
         response = self.ctx.session.get(url)
         response.raise_for_status()
-        logger.info("Certificate was accepted by the agent.")
         if response:
+            logger.info("Certificate received.")
             return response.json()
 
     def install_certificate(self, cert):
@@ -179,7 +178,7 @@ class Licensing(object):
                 "unable to deregister from Smart Software Licensing due to a "
                 "communication timeout."
             )
-            # TODO try to register agsain and unregister
+            # TODO try to register again and unregister
         if response.status_code == 204:
             logger.info(
                 "The Product Instance was successfully deregistered from Smart "

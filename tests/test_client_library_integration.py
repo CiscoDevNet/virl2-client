@@ -79,9 +79,9 @@ def test_sync_lab(register_licensing, client_library: ClientLibrary):
 
 def test_import(client_library: ClientLibrary):
     lab = client_library.import_sample_lab("server-triangle.ng")
-    s0 = lab.get_node_by_id("n0")
-    assert lab.get_node_by_id("n1") is not None
-    assert lab.get_node_by_id("n2") is not None
+    s0 = lab.get_node_by_label("server-0")
+    assert lab.get_node_by_label("server-1") is not None
+    assert lab.get_node_by_label("server-2") is not None
 
     lab.start()
 

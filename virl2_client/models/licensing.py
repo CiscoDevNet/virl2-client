@@ -161,8 +161,8 @@ class Licensing(object):
         to be COMPLETED and authorization status to be IN_COMPLIANCE.
         """
         res = self.register(token=token, reregister=reregister)
-        self.wait_for_completed_registration()
-        self.wait_for_completed_authorization()
+        self._wait_for_status("registration", "COMPLETED")
+        self._wait_for_status("authorization", "IN_COMPLIANCE")
         return res
 
     def deregister(self):
@@ -323,25 +323,26 @@ class Licensing(object):
         logger.info("The return code has been removed.")
         return response.status_code == 204
 
-    def _wait_for_status(self, what, target_status):
+    def _wait_for_status(self, what, *target_status):
+        """
+        Repeatedly check licensing registration or authorization status,
+        until status matches one of the expected statuses or timeout is reached.
+        :param what: "registration", "authorization" or other status in licensing API.
+        :param target_status: One or more expected statuses.
+        :type what: str
+        :type target_status: str
+        :raises RuntimeError: When timeout is reached.
+        """
         count = 0
         status = self.status()[what]["status"]
-        while status != target_status:
+        while status not in target_status:
             time.sleep(self.wait_interval)
             if count > self.max_wait:
-                logger.error(
-                    "%s timeout: status %s after %d sec of waiting",
-                    what,
-                    status,
-                    self.max_wait * self.wait_interval,
+                timeout = self.max_wait * self.wait_interval
+                raise RuntimeError(
+                    f"Timeout: licensing {what} did not reach {target_status} status after {timeout} secs. "
+                    f"Last status was {status}"
                 )
-                break
             status = self.status()[what]["status"]
             logger.debug("%s status: %s", what, status)
             count += 1
-
-    def wait_for_completed_registration(self):
-        self._wait_for_status(what="registration", target_status="COMPLETED")
-
-    def wait_for_completed_authorization(self):
-        self._wait_for_status(what="authorization", target_status="IN_COMPLIANCE")

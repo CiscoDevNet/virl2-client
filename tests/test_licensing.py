@@ -74,6 +74,15 @@ def cleanup_certificate(client_library_session: ClientLibrary):
     ensure_no_certificate(client_library_session)
 
 
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_licensing(client_library_session: ClientLibrary):
+    """Reset registration, transport settings and certificate after every test."""
+    yield
+    ensure_unregistered(client_library_session)
+    client_library_session.licensing.set_default_transport()
+    ensure_no_certificate(client_library_session)
+
+
 @pytest.fixture(
     params=[
         "empty",
@@ -165,15 +174,9 @@ def test_registration_actions(
 
     # Register
     cl.licensing.register_wait(token=registration_token)
-    status = cl.licensing.status()
-    assert status["registration"]["status"] == "COMPLETED"
-    assert status["authorization"]["status"] == "IN_COMPLIANCE"
 
     # Re-register
     cl.licensing.register_wait(token=registration_token, reregister=True)
-    status = cl.licensing.status()
-    assert status["registration"]["status"] == "COMPLETED"
-    assert status["authorization"]["status"] == "IN_COMPLIANCE"
 
     # Renew authorization
     auth_expiry = datetime.fromisoformat(
@@ -191,9 +194,7 @@ def test_registration_actions(
             sleep(1)
             continue
     else:
-        pytest.fail(
-            f"Timed out waiting {timeout} secs for authorization renewal."
-        )
+        pytest.fail(f"Timed out waiting {timeout} secs for authorization renewal.")
     status = cl.licensing.status()
     assert status["registration"]["status"] == "COMPLETED"
     assert status["authorization"]["status"] == "IN_COMPLIANCE"
@@ -214,9 +215,7 @@ def test_registration_actions(
             sleep(1)
             continue
     else:
-        pytest.fail(
-            f"Timed out waiting {timeout} secs for registration renewal."
-        )
+        pytest.fail(f"Timed out waiting {timeout} secs for registration renewal.")
     status = cl.licensing.status()
     assert status["registration"]["status"] == "COMPLETED"
     assert status["authorization"]["status"] == "IN_COMPLIANCE"
@@ -228,8 +227,88 @@ def test_registration_actions(
     assert status["authorization"]["status"] == "EVAL"
 
 
-# TODO: registration actions with invalid transport settings
-# TODO: registration actions with invalid token
+def test_registration_invalid_transport(
+    client_library_session: ClientLibrary,
+    alpha_dev_ca,
+    alpha_ssms_url,
+    registration_token,
+):
+    cl = client_library_session
+
+    cl.licensing.install_certificate(alpha_dev_ca)
+    cl.licensing.set_transport("127.0.0.1")
+
+    # Registration/reregistration fails with timeout
+    with pytest.raises(RuntimeError) as exc:
+        cl.licensing.register_wait(token=registration_token)
+    exc.match("Timeout*")
+
+    with pytest.raises(RuntimeError) as exc:
+        cl.licensing.register_wait(token=registration_token, reregister=True)
+    exc.match("Timeout*")
+
+    cl.licensing.set_transport(alpha_ssms_url)
+    cl.licensing.register_wait(token=registration_token)
+    cl.licensing.set_transport("127.0.0.1")
+
+    cl.licensing.renew_authorization()
+    timeout = 20
+    for x in range(timeout):
+        status = cl.licensing.status()["authorization"]["renew_time"]["success"]
+        if status == "FAILED":
+            break
+        else:
+            sleep(1)
+            continue
+    else:
+        pytest.fail(
+            "Timed out waiting {0} secs for authorization renewal to fail.".format(
+                timeout
+            )
+        )
+
+    cl.licensing.register_renew()
+    timeout = 20
+    for x in range(timeout):
+        status = cl.licensing.status()["registration"]["renew_time"]["success"]
+        if status == "FAILED":
+            break
+        else:
+            sleep(1)
+            continue
+    else:
+        pytest.fail(
+            "Timed out waiting {0} secs for registration renewal to fail.".format(
+                timeout
+            )
+        )
+
+    cl.licensing.deregister()
+    status = cl.licensing.status()
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] == "EVAL"
+
+
+def test_registration_invalid_token(
+    client_library_session: ClientLibrary,
+    alpha_dev_ca,
+    alpha_ssms_url,
+):
+
+    cl = client_library_session
+    bad_token = "BadRegistrationToken"
+
+    cl.licensing.install_certificate(alpha_dev_ca)
+    cl.licensing.set_transport(alpha_ssms_url)
+
+    with pytest.raises(RuntimeError) as exc:
+        cl.licensing.register_wait(token=bad_token)
+    exc.match("Timeout*")
+
+    with pytest.raises(RuntimeError) as exc:
+        cl.licensing.register_wait(token=bad_token, reregister=True)
+    exc.match("Timeout*")
+
 # TODO: min/max feature counts for every license type
 # TODO: SLR - enable, disable, request reservation, cancel request
 # TODO: SLR - mock server responses and test all functions

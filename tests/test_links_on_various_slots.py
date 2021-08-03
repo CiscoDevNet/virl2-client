@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import uuid
 
 import pytest
 
@@ -62,18 +63,9 @@ def test_links_on_various_slots(client_library: ClientLibrary):
     assert link.interface_a.slot == 0
     assert link.interface_b.slot == 0
 
-    assert list(lab._interfaces.keys()) == [
-        "i0",
-        "i1",
-        "i2",
-        "i3",
-        "i4",
-        "i5",
-        "i6",
-        "i7",
-        "i8",
-        "i9",
-    ]
+    assert all(
+        uuid.UUID(interface_id, version=4) for interface_id in lab._interfaces.keys()
+    )
     assert [ifc.label for ifc in lab.interfaces()] == [
         "eth0",
         "eth1",

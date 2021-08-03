@@ -342,9 +342,10 @@ def test_group_api_lab_associations(client_library_session: ClientLibrary):
     assert students_group_labs == [lab1.id]
 
     # add non-existent lab to group (create)
+    non_existent_id = str(uuid.uuid4())
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.group_management.create_group(
-            name="xxx", labs=[{"id": "non-existent", "permission": "read_only"}]
+            name="xxx", labs=[{"id": non_existent_id, "permission": "read_only"}]
         )
     assert err.value.response.status_code == 404
     assert "Lab not found" in err.value.response.text
@@ -354,7 +355,7 @@ def test_group_api_lab_associations(client_library_session: ClientLibrary):
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.group_management.update_group(
             group_id=teachers_group["id"],
-            labs=[{"id": "non-existent", "permission": "read_only"}],
+            labs=[{"id": non_existent_id, "permission": "read_only"}],
         )
     assert err.value.response.status_code == 404
     assert "Lab not found" in err.value.response.text
@@ -365,7 +366,7 @@ def test_group_api_lab_associations(client_library_session: ClientLibrary):
     # add non-existent group to lab
     with pytest.raises(requests.exceptions.HTTPError) as err:
         lab0.update_lab_groups(
-            group_list=[{"id": "non-existent", "permission": "read_only"}]
+            group_list=[{"id": non_existent_id, "permission": "read_only"}]
         )
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
@@ -403,7 +404,7 @@ def test_group_api_permissions(controller_url, client_library_session: ClientLib
     )
     satoshi_uid = satoshi["id"]
     cml2_uid = client_library_session.user_management.user_id(username="cml2")
-    halfinn_uid = client_library_session.user_management.user_id(username="halfinney")
+    halfinn_uid = halfinn["id"]
     # assert there is no lab
     assert cl_admin.all_labs(show_all=True) == []
     # create lab

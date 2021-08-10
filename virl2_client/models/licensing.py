@@ -161,8 +161,8 @@ class Licensing(object):
         to be COMPLETED and authorization status to be IN_COMPLIANCE.
         """
         res = self.register(token=token, reregister=reregister)
-        self._wait_for_status("registration", "COMPLETED")
-        self._wait_for_status("authorization", "IN_COMPLIANCE")
+        self.wait_for_status("registration", "COMPLETED")
+        self.wait_for_status("authorization", "IN_COMPLIANCE")
         return res
 
     def deregister(self):
@@ -202,7 +202,8 @@ class Licensing(object):
         url = self.base_url + "/features"
         response = self.ctx.session.patch(url, json=feature_dict)
         response.raise_for_status()
-        return response.json()
+        if response.text:
+            return response.json()
 
     def reservation_mode(self, data):
         """
@@ -323,7 +324,7 @@ class Licensing(object):
         logger.info("The return code has been removed.")
         return response.status_code == 204
 
-    def _wait_for_status(self, what, *target_status):
+    def wait_for_status(self, what, *target_status):
         """
         Repeatedly check licensing registration or authorization status,
         until status matches one of the expected statuses or timeout is reached.

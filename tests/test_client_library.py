@@ -27,7 +27,6 @@ from pathlib import Path
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlsplit
 
-import pkg_resources
 import pytest
 import requests
 import responses
@@ -80,34 +79,6 @@ def client_library_server_2_19_0():
 def mocked_session():
     with patch.object(requests, "Session", autospec=True) as session:
         yield session
-
-
-@python36_or_newer
-def test_import_lab_from_path_ng(
-    client_library_server_2_0_0, mocked_session, tmp_path: Path
-):
-    client_library = ClientLibrary(
-        url="http://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
-    Lab.sync = Mock()
-
-    topology_data = '{"nodes": [], "links": [], "interfaces": []}'
-    (tmp_path / "topology.ng").write_text(topology_data)
-    with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = client_library.import_lab_from_path(
-            topology=(tmp_path / "topology.ng").as_posix()
-        )
-
-    assert lab.title is not None
-    assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
-
-    client_library.session.post.assert_called_once_with(
-        "https://0.0.0.0/fake_url/api/v0/import?is_json=true&title=topology.ng",
-        data=topology_data,
-    )
-    client_library.session.post.assert_called_once()
-    client_library.session.post.return_value.raise_for_status.assert_called_once()
-    sync_mock.assert_called_once_with()
 
 
 @python36_or_newer

@@ -78,7 +78,7 @@ def test_sync_lab(register_licensing, client_library: ClientLibrary):
 
 
 def test_import(client_library: ClientLibrary):
-    lab = client_library.import_sample_lab("server-triangle.ng")
+    lab = client_library.import_sample_lab("server-triangle.yaml")
     s0 = lab.get_node_by_label("server-0")
     assert lab.get_node_by_label("server-1") is not None
     assert lab.get_node_by_label("server-2") is not None
@@ -386,12 +386,6 @@ def test_mac_addr_block_config(client_library_session: ClientLibrary):
     with pytest.raises(requests.exceptions.HTTPError) as err:
         client_library_session.system_management._set_mac_address_block(-1)
     assert err.value.response.status_code == 400
-
-
-def test_import_json(client_library_session: ClientLibrary):
-    lab = client_library_session.import_sample_lab("server-triangle.ng")
-    assert lab is not None
-    lab.remove()
 
 
 def test_import_yaml(client_library_session: ClientLibrary):

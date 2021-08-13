@@ -456,21 +456,18 @@ class ClientLibrary:
         if offline:
             lab_id = "offline_lab"
         else:
-            # TODO: reformat with params=params not string formatting
             if title.endswith(".virl"):
-                url = "{}import/virl-1x?title={}".format(self._base_url, title)
-            elif title.endswith(".ng"):
-                url = "{}import?is_json=true&title={}".format(self._base_url, title)
+                url = f"{self._base_url}import/virl-1x?title={title}"
             else:
-                url = "{}import?title={}".format(self._base_url, title)
+                url = f"{self._base_url}import?title={title}"
             response = self.session.post(url, data=topology)
             response.raise_for_status()
             result = response.json()
             lab_id = result.get("id")
             if lab_id is None:
-                raise ValueError("no lab ID returned!")
+                raise ValueError("No lab ID returned!")
 
-        # remove the extension (.ng, .yaml) to name the lab
+        # remove the extension (.yaml) to name the lab
         lab_title = title.replace(Path(title).suffix, "")
         lab = Lab(
             lab_title,
@@ -514,14 +511,13 @@ class ClientLibrary:
 
     def import_sample_lab(self, title):
         """
-        Imports a built-in sample lab (this will be going away in the future).
+        Imports a built-in sample lab.
 
         :param title: Sample lab name with extension
         :type title: str
         :returns: A Lab instance
         :rtype: models.Lab
         """
-        warnings.warn("deprecated", DeprecationWarning)
         topology_file_path = Path("import_export") / "SampleData" / title
         topology = pkg_resources.resource_string(
             "simple_common", topology_file_path.as_posix()

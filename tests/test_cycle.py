@@ -36,7 +36,7 @@ def test_start_stop_start_stop_cycle(client_library: ClientLibrary):
     - stopped
     - ...
     """
-    lab = client_library.import_sample_lab("server-triangle.ng")
+    lab = client_library.import_sample_lab("server-triangle.yaml")
 
     lab.start()
     lab.stop()

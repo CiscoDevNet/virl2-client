@@ -214,7 +214,8 @@ class Licensing(object):
         response.raise_for_status()
         msg = "enabled" if data else "disabled"
         logger.info("The reservation mode has been %s.", msg)
-        return response.json()
+        if response.text:
+            return response.json()
 
     def enable_reservation_mode(self):
         """

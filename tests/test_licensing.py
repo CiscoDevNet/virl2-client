@@ -89,6 +89,8 @@ def cleanup_registration(
     Register it back at the end of the test module.
     """
     ensure_unregistered(client_library_session)
+    if client_library_session.licensing.status()["reservation_mode"] is True:
+        client_library_session.licensing.disable_reservation_mode()
     ensure_default_features(client_library_session)
     yield
     ensure_default_features(client_library_session)
@@ -108,6 +110,14 @@ def cleanup_licensing(
     yield
     ensure_unregistered(client_library_session)
     ensure_default_features(client_library_session)
+
+
+@pytest.fixture()
+def cleanup_reservation_mode(
+    client_library_session: ClientLibrary,
+):
+    yield
+    client_library_session.licensing.disable_reservation_mode()
 
 
 def register_wait_fail(client_library_session: ClientLibrary, token, reregister=False):
@@ -473,5 +483,86 @@ def test_license_count(
     check_bad_values(bad_features_negative)
 
 
-# TODO: SLR - enable, disable, request reservation, cancel request
+def test_slr_basic_actions(
+    client_library_session: ClientLibrary, cleanup_reservation_mode
+):
+
+    cl = client_library_session
+
+    # Enable reservation mode
+    cl.licensing.enable_reservation_mode()
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is True
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Request reservation
+    reservation_code = cl.licensing.request_reservation()
+    assert len(reservation_code) > 0
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is True
+    assert status["registration"]["status"] == "RESERVATION_IN_PROGRESS"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Cancel reservation request
+    cl.licensing.cancel_reservation()
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is True
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Disable reservation mode
+    cl.licensing.disable_reservation_mode()
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is False
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+
+def test_slr_negatives(client_library_session: ClientLibrary, cleanup_reservation_mode):
+
+    cl = client_library_session
+
+    # Enable reservation mode when already enabled
+    cl.licensing.enable_reservation_mode()
+    cl.licensing.enable_reservation_mode()
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is True
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Cancel reservation when no reservation request has been made
+    cl.licensing.cancel_reservation()
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is True
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Disable reservation mode when already disabled
+    cl.licensing.disable_reservation_mode()
+    cl.licensing.disable_reservation_mode()
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is False
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Generate reservation request when not in reservation mode
+    with pytest.raises(requests.exceptions.HTTPError) as exc:
+        reservation_code = cl.licensing.request_reservation()
+    exc.match("400 Client Error: Bad Request for url*")
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is False
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+    # Cancel reservation request when not in reservation mode
+    with pytest.raises(requests.exceptions.HTTPError) as exc:
+        cl.licensing.cancel_reservation()
+    exc.match("400 Client Error: Bad Request for url*")
+    status = cl.licensing.status()
+    assert status["reservation_mode"] is False
+    assert status["registration"]["status"] == "NOT_REGISTERED"
+    assert status["authorization"]["status"] in ("INIT", "EVAL")
+
+
 # TODO: SLR - mock server responses and test all functions

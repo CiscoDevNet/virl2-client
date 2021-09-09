@@ -758,16 +758,6 @@ nodes:
     node: n18
     slot: 3
     type: physical
-  - id: i4
-    label: eth4
-    node: n18
-    slot: 4
-    type: physical
-  - id: i5
-    label: eth5
-    node: n18
-    slot: 5
-    type: physical
   label: lxc-0
   node_definition: lxc
   x: 250
@@ -794,21 +784,6 @@ nodes:
     label: eth3
     node: n19
     slot: 3
-    type: physical
-  - id: i4
-    label: eth4
-    node: n19
-    slot: 4
-    type: physical
-  - id: i5
-    label: eth5
-    node: n19
-    slot: 5
-    type: physical
-  - id: i6
-    label: eth6
-    node: n19
-    slot: 6
     type: physical
   label: lxc-1
   node_definition: lxc
@@ -1425,13 +1400,13 @@ links:
   id: l35
   n1: n21
   n2: n22
-- i1: i5
+- i1: i3
   i2: i8
   id: l36
   n1: n18
   n2: n12
 - i1: i8
-  i2: i6
+  i2: i2
   id: l37
   n1: n13
   n2: n19

@@ -20,14 +20,10 @@
 
 import pytest
 
-
 from virl2_client import ClientLibrary
 
-pytestmark = [pytest.mark.integration]
 
-test_data_filenames = ["mixed-0.0.1.yaml", "mixed-0.0.4.yaml", "mixed-0.0.5.yaml"]
-reimported_lab_title = "export_import_test.yaml"
-test_lab_titles = [x for x in test_data_filenames] + [reimported_lab_title]
+TEST_TOPOLOGIES = ["mixed-0.0.1.yaml", "mixed-0.0.4.yaml", "mixed-0.0.5.yaml"]
 
 
 @pytest.fixture
@@ -42,7 +38,9 @@ def cleanup_test_labs(client_library_session: ClientLibrary):
         client_library_session.remove_lab(lab_id)
 
 
-@pytest.mark.parametrize(argnames="topology", argvalues=test_data_filenames)
+@pytest.mark.integration
+@pytest.mark.nomock
+@pytest.mark.parametrize(argnames="topology", argvalues=TEST_TOPOLOGIES)
 def test_import_export_yaml(
     client_library_session: ClientLibrary,
     topology,
@@ -55,6 +53,7 @@ def test_import_export_yaml(
     """
 
     # Import lab from test data YAML file
+    reimported_lab_title = "export_import_test.yaml"
     topology_file_path = f"test_data/{topology}"
     imported_lab = client_library_session.import_lab_from_path(topology_file_path)
 

@@ -25,14 +25,12 @@ requests = "^2"
 requests-toolbelt = "^0.9.1"
 
 [tool.poetry.dev-dependencies]
+pyats = {extras = ["library"], version = "^21.8"}
 pytest = "*"
-pytest-cov = "*"
-responses = "*"
-sphinx_rtd_theme = "*"
 requests-mock = "^1.9.2"
-flake8 = "^3.9.2"
-Pygments = "^2.9.0"
+responses = "*"
+urllib3 = "^1.2.6"
 
 [build-system]
-requires = ["poetry>=0.12"]
+requires = ["poetry>=1.1.8"]
 build-backend = "poetry.masonry.api"

@@ -737,14 +737,6 @@ nodes:
         slot: 3
         label: eth3
         type: physical
-      - id: i4
-        slot: null
-        label: eth4
-        type: physical
-      - id: i5
-        slot: null
-        label: eth5
-        type: physical
   - id: n17
     label: lxc-1
     node_definition: alpine
@@ -773,18 +765,6 @@ nodes:
       - id: i3
         slot: 3
         label: eth3
-        type: physical
-      - id: i4
-        slot: null
-        label: eth4
-        type: physical
-      - id: i5
-        slot: null
-        label: eth5
-        type: physical
-      - id: i6
-        slot: null
-        label: eth6
         type: physical
   - id: n18
     label: nxos-0
@@ -1391,14 +1371,14 @@ links:
     i2: i7
     n2: n20
   - id: l27
-    i1: i5
+    i1: i3
     n1: n16
     i2: i8
     n2: n10
   - id: l28
     i1: i8
     n1: n11
-    i2: i6
+    i2: i2
     n2: n17
   - id: l29
     i1: i12

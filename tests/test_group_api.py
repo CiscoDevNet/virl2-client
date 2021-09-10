@@ -561,6 +561,7 @@ def test_group_api_permissions(controller_url, client_library_session: ClientLib
     teachers_group = cl_admin.group_management.update_group(
         group_id=teachers_group["id"], labs=lab0_1_rw
     )
+    assert len(teachers_group["labs"]) == 2
     # we cannot modify groups associations as satoshi is not admin or owner
     with pytest.raises(requests.exceptions.HTTPError) as err:
         lab0.update_lab_groups(group_list=[])
@@ -582,8 +583,8 @@ def test_group_api_permissions(controller_url, client_library_session: ClientLib
     # as satoshi has no access to lab1 - below list is empty
     assert cl_satoshi.find_labs_by_title(title="lab1") == []
     # add satoshi to teachers group - by doing this now he gains read write
-    # access to both ;ab0 and lab1
-    cl_admin.group_management.update_group(
+    # access to both lab0 and lab1
+    teachers_group = cl_admin.group_management.update_group(
         group_id=teachers_group["id"], members=[satoshi_uid]
     )
     # now we can access teachers group and related data

@@ -20,6 +20,8 @@
 
 import logging
 import os
+import time
+import sys
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
 logger = logging.getLogger(__name__)
@@ -239,17 +241,23 @@ class NodeImageDefinitions:
 
 
 def progress_callback(monitor):
+    if not hasattr(monitor, "start_time"):
+        monitor.start_time = time.time()
+    if not hasattr(monitor, "last_bytes"):
+        monitor.last_bytes = -1
     # Track progress in the monitor instance itself.
-    if not hasattr(monitor, "curr_progress"):
-        monitor.curr_progress = -1
+    if monitor.bytes_read > monitor.last_bytes:
+        print_progress_bar(monitor.bytes_read, monitor.len, monitor.start_time)
+        monitor.last_bytes = monitor.bytes_read
 
-    progress = int(100 * (monitor.bytes_read / monitor.len))
-    progress = min(progress, 100)
-    # Report progress every increment of 10%
-    if progress > monitor.curr_progress and progress % 10 == 0:
-        print(
-            "Progress: {0} of {1} bytes ({2}%)".format(
-                monitor.bytes_read, monitor.len, progress
-            )
-        )
-        monitor.curr_progress = progress
+
+def print_progress_bar(cur, total, start_time, length=50):
+    percent = ("{0:.1f}").format(100 * (cur / float(total)))
+    filled_len = int(round(length * cur / float(total)))
+    bar = '#' * filled_len + '-' * (length - filled_len)
+    raw_elapsed = time.time() - start_time
+    elapsed = time.strftime("[%H:%M:%S]", time.gmtime(raw_elapsed))
+    sys.stdout.write(f'\r |{bar}| {cur}/{total} {percent}% {elapsed}')
+    sys.stdout.flush()
+    if cur == total: 
+        print()

@@ -20,14 +20,12 @@
 
 import requests
 
-import pytest
-import requests
 from virl2_client.virl2_client import Context
-
 from virl2_client.models import NodeImageDefinitions
 
+
 def test_upload_image_files(requests_mock):
-    adapter = requests_mock.post('mock://images/upload')
+    adapter = requests_mock.post("mock://images/upload")
     session = requests.Session()
     context = Context("mock://", requests_session=session)
     definitions = NodeImageDefinitions(context)

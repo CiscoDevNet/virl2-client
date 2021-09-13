@@ -257,7 +257,7 @@ def print_progress_bar(cur, total, start_time, length=50):
     bar = '#' * filled_len + '-' * (length - filled_len)
     raw_elapsed = time.time() - start_time
     elapsed = time.strftime("[%H:%M:%S]", time.gmtime(raw_elapsed))
-    sys.stdout.write(f'\r |{bar}| {cur}/{total} {percent}% {elapsed}')
+    sys.stdout.write('\r |{}| {}/{} {}% {}'.format(bar, cur, total, percent, elapsed))
     sys.stdout.flush()
     if cur == total: 
         print()

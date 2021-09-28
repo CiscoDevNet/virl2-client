@@ -408,118 +408,6 @@ nodes:
         label: GigabitEthernet0/0/0/8
         type: physical
   - id: n10
-    label: xrv-0
-    node_definition: iosxrv
-    x: 250
-    y: -200
-    configuration: ''
-    ram: 0
-    cpus: 0
-    cpu_limit: 100
-    data_volume: 0
-    boot_disk_size: 0
-    tags: []
-    interfaces:
-      - id: i0
-        label: Loopback0
-        type: loopback
-      - id: i1
-        slot: 0
-        label: MgmtEth0/0/CPU0/0
-        type: physical
-      - id: i2
-        slot: 1
-        label: GigabitEthernet0/0/0/0
-        type: physical
-      - id: i3
-        slot: 2
-        label: GigabitEthernet0/0/0/1
-        type: physical
-      - id: i4
-        slot: 3
-        label: GigabitEthernet0/0/0/2
-        type: physical
-      - id: i5
-        slot: 4
-        label: GigabitEthernet0/0/0/3
-        type: physical
-      - id: i6
-        slot: 5
-        label: GigabitEthernet0/0/0/4
-        type: physical
-      - id: i7
-        slot: 6
-        label: GigabitEthernet0/0/0/5
-        type: physical
-      - id: i8
-        slot: 7
-        label: GigabitEthernet0/0/0/6
-        type: physical
-      - id: i9
-        slot: 8
-        label: GigabitEthernet0/0/0/7
-        type: physical
-      - id: i10
-        slot: 9
-        label: GigabitEthernet0/0/0/8
-        type: physical
-      - id: i11
-        slot: 10
-        label: GigabitEthernet0/0/0/9
-        type: physical
-      - id: i12
-        slot: 10
-        label: GigabitEthernet0/0/0/9
-        type: physical
-  - id: n11
-    label: xrv-1
-    node_definition: iosxrv
-    x: 200
-    y: 100
-    configuration: ''
-    ram: 0
-    cpus: 0
-    cpu_limit: 100
-    data_volume: 0
-    boot_disk_size: 0
-    tags: []
-    interfaces:
-      - id: i0
-        label: Loopback0
-        type: loopback
-      - id: i1
-        slot: 0
-        label: MgmtEth0/0/CPU0/0
-        type: physical
-      - id: i2
-        slot: 1
-        label: GigabitEthernet0/0/0/0
-        type: physical
-      - id: i3
-        slot: 2
-        label: GigabitEthernet0/0/0/1
-        type: physical
-      - id: i4
-        slot: 3
-        label: GigabitEthernet0/0/0/2
-        type: physical
-      - id: i5
-        slot: 4
-        label: GigabitEthernet0/0/0/3
-        type: physical
-      - id: i6
-        slot: 5
-        label: GigabitEthernet0/0/0/4
-        type: physical
-      - id: i7
-        slot: 6
-        label: GigabitEthernet0/0/0/5
-        type: physical
-      - id: i8
-        slot: 7
-        label: GigabitEthernet0/0/0/6
-        type: physical
-  - id: n12
     label: iosv-2
     node_definition: iosv
     x: 400
@@ -563,7 +451,7 @@ nodes:
         slot: 6
         label: GigabitEthernet0/6
         type: physical
-  - id: n13
+  - id: n11
     label: iosv-3
     node_definition: iosv
     x: 400
@@ -607,7 +495,7 @@ nodes:
         slot: 6
         label: GigabitEthernet0/6
         type: physical
-  - id: n14
+  - id: n12
     label: iosvl2-0
     node_definition: iosvl2
     x: 550
@@ -659,7 +547,7 @@ nodes:
         slot: 8
         label: GigabitEthernet2/0
         type: physical
-  - id: n15
+  - id: n13
     label: iosvl2-1
     node_definition: iosvl2
     x: 550
@@ -707,7 +595,7 @@ nodes:
         slot: 7
         label: GigabitEthernet1/3
         type: physical
-  - id: n16
+  - id: n14
     label: lxc-0
     node_definition: alpine
     x: 250
@@ -736,7 +624,7 @@ nodes:
         slot: 3
         label: eth3
         type: physical
-  - id: n17
+  - id: n15
     label: lxc-1
     node_definition: alpine
     x: 200
@@ -765,131 +653,7 @@ nodes:
         slot: 3
         label: eth3
         type: physical
-  - id: n18
-    label: nxos-0
-    node_definition: nxosv
-    x: 700
-    y: -200
-    configuration: ''
-    ram: 0
-    cpus: 0
-    cpu_limit: 100
-    data_volume: 0
-    boot_disk_size: 0
-    tags: []
-    interfaces:
-      - id: i0
-        label: Loopback0
-        type: loopback
-      - id: i1
-        slot: 0
-        label: mgmt0
-        type: physical
-      - id: i2
-        slot: 1
-        label: Ethernet2/1
-        type: physical
-      - id: i3
-        slot: 2
-        label: Ethernet2/2
-        type: physical
-      - id: i4
-        slot: 3
-        label: Ethernet2/3
-        type: physical
-      - id: i5
-        slot: 4
-        label: Ethernet2/4
-        type: physical
-      - id: i6
-        slot: 5
-        label: Ethernet2/5
-        type: physical
-      - id: i7
-        slot: 6
-        label: Ethernet2/6
-        type: physical
-      - id: i8
-        slot: 7
-        label: Ethernet2/7
-        type: physical
-      - id: i9
-        slot: 8
-        label: Ethernet2/8
-        type: physical
-      - id: i10
-        slot: 9
-        label: Ethernet2/9
-        type: physical
-      - id: i11
-        slot: 10
-        label: Ethernet2/10
-        type: physical
-  - id: n19
-    label: nxos-1
-    node_definition: nxosv
-    x: 700
-    y: 100
-    configuration: ''
-    ram: 0
-    cpus: 0
-    cpu_limit: 100
-    data_volume: 0
-    boot_disk_size: 0
-    tags: []
-    interfaces:
-      - id: i0
-        label: Loopback0
-        type: loopback
-      - id: i1
-        slot: 0
-        label: mgmt0
-        type: physical
-      - id: i2
-        slot: 1
-        label: Ethernet2/1
-        type: physical
-      - id: i3
-        slot: 2
-        label: Ethernet2/2
-        type: physical
-      - id: i4
-        slot: 3
-        label: Ethernet2/3
-        type: physical
-      - id: i5
-        slot: 4
-        label: Ethernet2/4
-        type: physical
-      - id: i6
-        slot: 5
-        label: Ethernet2/5
-        type: physical
-      - id: i7
-        slot: 6
-        label: Ethernet2/6
-        type: physical
-      - id: i8
-        slot: 7
-        label: Ethernet2/7
-        type: physical
-      - id: i9
-        slot: 8
-        label: Ethernet2/8
-        type: physical
-      - id: i10
-        slot: 9
-        label: Ethernet2/9
-        type: physical
-      - id: i11
-        slot: 10
-        label: Ethernet2/10
-        type: physical
-      - id: i12
-        slot: 11
-        label: Ethernet2/11
-        type: physical
-  - id: n20
+  - id: n16
     label: nxos9000-0
     node_definition: nxosv9000
     x: 950
@@ -941,7 +705,7 @@ nodes:
         slot: 8
         label: Ethernet1/8
         type: physical
-  - id: n21
+  - id: n17
     label: nxos9000-1
     node_definition: nxosv9000
     x: 950
@@ -993,7 +757,7 @@ nodes:
         slot: 8
         label: Ethernet1/8
         type: physical
-  - id: n22
+  - id: n18
     label: server-0
     node_definition: server
     x: 750
@@ -1030,7 +794,7 @@ nodes:
         slot: 5
         label: eth5
         type: physical
-  - id: n23
+  - id: n19
     label: server-1
     node_definition: server
     x: 650
@@ -1059,7 +823,7 @@ nodes:
         slot: 3
         label: eth3
         type: physical
-  - id: n24
+  - id: n20
     label: trex-0
     node_definition: trex
     x: 0
@@ -1084,7 +848,7 @@ nodes:
         slot: 2
         label: eth2
         type: physical
-  - id: n25
+  - id: n21
     label: trex-1
     node_definition: trex
     x: 50
@@ -1109,7 +873,7 @@ nodes:
         slot: 2
         label: eth2
         type: physical
-  - id: n26
+  - id: n22
     label: unmanaged-switch-0
     node_definition: unmanaged_switch
     x: 1400
@@ -1146,7 +910,7 @@ nodes:
         slot: 5
         label: port5
         type: physical
-  - id: n27
+  - id: n23
     label: unmanaged-switch-1
     node_definition: unmanaged_switch
     x: 1400
@@ -1191,7 +955,7 @@ nodes:
         slot: 7
         label: port7
         type: physical
-  - id: n28
+  - id: n24
     label: wan-em-0
     node_definition: wan_emulator
     x: 1400
@@ -1212,7 +976,7 @@ nodes:
         slot: 1
         label: eth1
         type: physical
-  - id: n29
+  - id: n25
     label: wan-em-1
     node_definition: wan_emulator
     x: 1450
@@ -1261,7 +1025,7 @@ links:
     n2: n5
   - id: l5
     i1: i2
-    n1: n25
+    n1: n21
     i2: i7
     n2: n8
   - id: l6
@@ -1284,151 +1048,56 @@ links:
     n1: n9
     i2: i9
     n2: n4
-  - id: l10
-    i1: i4
-    n1: n9
-    i2: i5
-    n2: n11
-  - id: l11
-    i1: i6
+  - id: l12
+    i1: i5
     n1: n11
     i2: i4
     n2: n13
-  - id: l12
-    i1: i5
-    n1: n13
-    i2: i4
-    n2: n15
   - id: l13
     i1: i6
     n1: n9
     i2: i2
-    n2: n24
-  - id: l14
-    i1: i3
-    n1: n8
-    i2: i6
-    n2: n10
-  - id: l15
-    i1: i7
-    n1: n10
-    i2: i5
-    n2: n12
-  - id: l16
-    i1: i9
-    n1: n10
-    i2: i7
-    n2: n11
+    n2: n20
   - id: l17
     i1: i7
-    n1: n13
+    n1: n11
     i2: i7
-    n2: n12
+    n2: n10
   - id: l18
     i1: i6
-    n1: n12
+    n1: n10
     i2: i5
-    n2: n14
-  - id: l19
-    i1: i7
-    n1: n18
-    i2: i7
-    n2: n19
-  - id: l20
-    i1: i5
-    n1: n19
-    i2: i5
-    n2: n15
+    n2: n12
   - id: l21
     i1: i8
-    n1: n15
+    n1: n13
     i2: i4
-    n2: n14
-  - id: l22
-    i1: i9
-    n1: n14
-    i2: i5
-    n2: n18
-  - id: l23
-    i1: i10
-    n1: n18
-    i2: i5
-    n2: n20
-  - id: l24
-    i1: i9
-    n1: n19
-    i2: i5
-    n2: n21
+    n2: n12
   - id: l25
     i1: i9
-    n1: n20
-    i2: i6
-    n2: n21
-  - id: l26
-    i1: i6
-    n1: n19
-    i2: i7
-    n2: n20
-  - id: l27
-    i1: i3
     n1: n16
-    i2: i8
-    n2: n10
-  - id: l28
-    i1: i8
-    n1: n11
-    i2: i2
+    i2: i6
     n2: n17
-  - id: l29
-    i1: i12
-    n1: n19
-    i2: i5
-    n2: n22
   - id: l30
     i1: i7
-    n1: n27
+    n1: n23
     i2: i0
-    n2: n28
+    n2: n24
   - id: l31
     i1: i1
-    n1: n28
+    n1: n24
     i2: i7
-    n2: n21
-  - id: l32
-    i1: i3
-    n1: n23
-    i2: i4
-    n2: n18
-  - id: l33
-    i1: i11
-    n1: n18
-    i2: i1
-    n2: n29
+    n2: n17
   - id: l34
     i1: i0
-    n1: n29
+    n1: n25
     i2: i3
-    n2: n21
+    n2: n17
   - id: l35
     i1: i3
-    n1: n12
-    i2: i6
-    n2: n15
-  - id: l36
-    i1: i4
     n1: n10
-    i2: i8
-    n2: n9
-  - id: l37
-    i1: i11
-    n1: n9
-    i2: i5
-    n2: n10
-  - id: l38
-    i1: i12
-    n1: n9
-    i2: i12
-    n2: n10
+    i2: i6
+    n2: n13
   - id: l39
     i1: i8
     n1: n0

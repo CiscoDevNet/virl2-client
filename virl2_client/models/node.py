@@ -434,14 +434,13 @@ class Node:
         return self._tags
 
     def add_tag(self, tag):
-        current = self._tags
+        current = self.tags()
         if tag not in current:
             current.append(tag)
-            # Push single tag to API
-            self._set_node_property("tags", [tag])
+            self._set_node_property("tags", current)
 
     def remove_tag(self, tag):
-        current = self._tags
+        current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
 

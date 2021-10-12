@@ -182,6 +182,8 @@ def test_tags():
     node_a.add_tag("Europe")
     node_a.add_tag("Test")
     assert len(node_a.tags()) == 3
+    node_a.add_tag("Europe")
+    assert len(node_a.tags()) == 3
     node_a.remove_tag("Test")
     assert len(node_a.tags()) == 2
 

@@ -472,6 +472,39 @@ def test_labels_and_tags(client_library: ClientLibrary):
     assert node_3.label == "server-2"
     assert len(node_3.tags()) == 5
 
+    tags = sorted(node_3.tags())
+    tag = tags[2]
+    tagtag = tag + tag
+
+    node_3.add_tag(tagtag)
+    tags.insert(3, tagtag)
+    lab.sync(topology_only=True)
+    assert sorted(node_3.tags()) == tags
+
+    node_3.add_tag(tag)
+    lab.sync(topology_only=True)
+    assert sorted(node_3.tags()) == tags
+
+    node_3._tags.remove(tag)
+    node_3.add_tag(tag)
+    lab.sync(topology_only=True)
+    assert sorted(node_3.tags()) == tags
+
+    node_3.remove_tag(tag)
+    tags.remove(tag)
+    lab.sync(topology_only=True)
+    assert sorted(node_3.tags()) == tags
+
+    with pytest.raises(ValueError) as err:
+        node_3.remove_tag(tag)
+    lab.sync(topology_only=True)
+    assert sorted(node_3.tags()) == tags
+
+    node_3._tags.append(tag)
+    node_3.remove_tag(tag)
+    lab.sync(topology_only=True)
+    assert sorted(node_3.tags()) == tags
+
 
 def test_remove_non_existent_node_definition(client_library_session: ClientLibrary):
     def_id = "non_existent_node_definition"

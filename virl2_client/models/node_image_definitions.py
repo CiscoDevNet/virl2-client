@@ -232,7 +232,7 @@ class NodeImageDefinitions:
 
         params = {"json": True}
 
-        url = self._base_url + "image_definitions/" + image_id
+        url = self._base_url + "image_definitions/"
         response = self.session.post(url, json=body, params=params)
         response.raise_for_status()
         return response.json()

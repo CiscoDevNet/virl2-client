@@ -282,7 +282,7 @@ class Node:
     @config.setter
     def config(self, value):
         url = self._base_url + "/config?origin_uuid={}".format(self.lab.client_uuid)
-        response = self.session.put(url, data=value)
+        response = self.session.put(url, json=value)
         response.raise_for_status()
         self._config = value
 

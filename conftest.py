@@ -22,6 +22,7 @@ import os
 import pytest
 import time
 import warnings
+from os import environ
 
 from requests import HTTPError
 from unittest.mock import patch
@@ -69,10 +70,12 @@ def stop_wipe_and_remove_all_labs(client_library: ClientLibrary):
 def client_library_keep_labs_base(
     url, usr="cml2", pwd="cml2cml2", ssl_verify=False, allow_http=True
 ):
+    username = environ.get("VIRL_USERNAME") or usr
+    password = environ.get("VIRL_PASSWORD") or pwd
     clientlibrary = ClientLibrary(
         url,
-        username=usr,
-        password=pwd,
+        username=username,
+        password=password,
         ssl_verify=ssl_verify,
         allow_http=allow_http,
     )

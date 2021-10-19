@@ -190,7 +190,7 @@ class Lab:
         :type value: str
         """
         url = self.lab_base_url + "/title"
-        response = self.session.put(url, data=value)
+        response = self.session.put(url, json=value)
         response.raise_for_status()
         self._title = value
 
@@ -214,7 +214,7 @@ class Lab:
         :type value: str
         """
         url = self.lab_base_url + "/notes"
-        response = self.session.put(url, data=value)
+        response = self.session.put(url, json=value)
         response.raise_for_status()
         self._notes = value
 
@@ -238,7 +238,7 @@ class Lab:
         :type value: str
         """
         url = self.lab_base_url + "/description"
-        response = self.session.put(url, data=value)
+        response = self.session.put(url, json=value)
         response.raise_for_status()
         self._description = value
 

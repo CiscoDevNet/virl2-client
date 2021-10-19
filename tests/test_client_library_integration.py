@@ -19,6 +19,7 @@
 #
 
 import json
+from typing import List
 import pytest
 import requests
 import logging
@@ -513,6 +514,26 @@ def test_remove_non_existent_node_definition(client_library_session: ClientLibra
     assert err.value.response.status_code == 404
 
 
+def test_add_image_definition(client_library_session: ClientLibrary):
+
+    img_id = "some_test_image"
+
+    # remove first, in case it does exist
+    try:
+        client_library_session.definitions.remove_image_definition(img_id)
+    except Exception:
+        pass
+
+    img_def = dict(id=img_id, node_definition_id="alpine", label="bla", disk_image="bla.qcow2")
+    client_library_session.definitions.upload_image_definition(img_def, json=True)
+    img_defs = client_library_session.definitions.image_definitions_for_node_definition("alpine")
+    assert isinstance(img_defs, List)
+    assert len(img_defs) > 1
+    assert next(img_def for img_def in img_defs if img_def.get("id") == img_id)
+    client_library_session.definitions.remove_image_definition(img_id)
+
+
+
 def test_remove_non_existent_dropfolder_image(client_library_session: ClientLibrary):
     filename = "non_existent_file"
     with pytest.raises(requests.exceptions.HTTPError) as err:
@@ -616,23 +637,23 @@ def test_user_role_change(controller_url, client_library_session: ClientLibrary)
     cl_admin = client_library_session
     cl_admin_uid = client_library_session.user_management.user_id(cl_admin.username)
     # create non admin users
-    cl_user1, cl_user2 = "cl_user1", "cl_user2"
+    user1, user2 = "cl_user1", "cl_user2"
     password = "super-secret"
-    res = cl_admin.user_management.create_user(username=cl_user1, pwd=password)
+    res = cl_admin.user_management.create_user(username=user1, pwd=password)
     cl_user1_uid = res["id"]
-    res = cl_admin.user_management.create_user(username=cl_user2, pwd=password)
+    res = cl_admin.user_management.create_user(username=user2, pwd=password)
     cl_user2_uid = res["id"]
 
     cl_user1 = ClientLibrary(
         controller_url,
-        username=cl_user1,
+        username=user1,
         password=password,
         ssl_verify=False,
         allow_http=True,
     )
     cl_user2 = ClientLibrary(
         controller_url,
-        username=cl_user2,
+        username=user2,
         password=password,
         ssl_verify=False,
         allow_http=True,

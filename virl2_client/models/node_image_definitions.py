@@ -21,7 +21,6 @@
 import logging
 import os
 import time
-import sys
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
 logger = logging.getLogger(__name__)
@@ -254,10 +253,13 @@ def progress_callback(monitor):
 def print_progress_bar(cur, total, start_time, length=50):
     percent = ("{0:.1f}").format(100 * (cur / float(total)))
     filled_len = int(round(length * cur / float(total)))
-    bar = '#' * filled_len + '-' * (length - filled_len)
+    bar = "#" * filled_len + "-" * (length - filled_len)
     raw_elapsed = time.time() - start_time
     elapsed = time.strftime("[%H:%M:%S]", time.gmtime(raw_elapsed))
-    sys.stdout.write('\r |{}| {}/{} {}% {}'.format(bar, cur, total, percent, elapsed))
-    sys.stdout.flush()
-    if cur == total: 
+    print(
+        "\r |{}| {}/{} {}% {}".format(bar, cur, total, percent, elapsed),
+        end="",
+        flush=True,
+    )
+    if cur == total:
         print()

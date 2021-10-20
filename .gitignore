@@ -1,6 +1,7 @@
 .envrc
 .python-version
 .venv
+.vscode
 dist/
 */__pycache__
 docs/build/*

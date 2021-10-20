@@ -3,7 +3,7 @@
 #
 # This file is part of VIRL 2
 #
-# Copyright 2020 Cisco Systems Inc.
+# Copyright 2020-2021 Cisco Systems Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 # limitations under the License.
 #
 
-import json
-from typing import List
 import pytest
 import requests
 import logging
@@ -496,7 +494,7 @@ def test_labels_and_tags(client_library: ClientLibrary):
     lab.sync(topology_only=True)
     assert sorted(node_3.tags()) == tags
 
-    with pytest.raises(ValueError) as err:
+    with pytest.raises(ValueError):
         node_3.remove_tag(tag)
     lab.sync(topology_only=True)
     assert sorted(node_3.tags()) == tags
@@ -505,40 +503,6 @@ def test_labels_and_tags(client_library: ClientLibrary):
     node_3.remove_tag(tag)
     lab.sync(topology_only=True)
     assert sorted(node_3.tags()) == tags
-
-
-def test_remove_non_existent_node_definition(client_library_session: ClientLibrary):
-    def_id = "non_existent_node_definition"
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.definitions.remove_node_definition(definition_id=def_id)
-    assert err.value.response.status_code == 404
-
-
-def test_add_image_definition(client_library_session: ClientLibrary):
-
-    img_id = "some_test_image"
-
-    # remove first, in case it does exist
-    try:
-        client_library_session.definitions.remove_image_definition(img_id)
-    except Exception:
-        pass
-
-    img_def = dict(id=img_id, node_definition_id="alpine", label="bla", disk_image="bla.qcow2")
-    client_library_session.definitions.upload_image_definition(img_def, json=True)
-    img_defs = client_library_session.definitions.image_definitions_for_node_definition("alpine")
-    assert isinstance(img_defs, List)
-    assert len(img_defs) > 1
-    assert next(img_def for img_def in img_defs if img_def.get("id") == img_id)
-    client_library_session.definitions.remove_image_definition(img_id)
-
-
-
-def test_remove_non_existent_dropfolder_image(client_library_session: ClientLibrary):
-    filename = "non_existent_file"
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.definitions.remove_dropfolder_image(filename=filename)
-    assert err.value.response.status_code == 404
 
 
 def test_node_with_unavailable_vnc(client_library_session: ClientLibrary):
@@ -597,24 +561,6 @@ def test_node_console_logs(client_library_session: ClientLibrary):
     lab.stop()
     lab.wipe()
     lab.remove()
-
-
-def test_upload_node_definition_invalid_body(client_library_session: ClientLibrary):
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.definitions.upload_node_definition(body=json.dumps(None))
-    assert err.value.response.status_code == 400
-
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.definitions.upload_node_definition(
-            body=json.dumps({"id": "test1"})
-        )
-    assert err.value.response.status_code == 400
-
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.definitions.upload_node_definition(
-            body=json.dumps({"general": {}})
-        )
-    assert err.value.response.status_code == 400
 
 
 def test_topology_owner(client_library_session: ClientLibrary):

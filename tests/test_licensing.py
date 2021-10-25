@@ -70,10 +70,10 @@ def ensure_default_features(client_library_session: ClientLibrary):
     features = client_library_session.licensing.features()
     if features[0]["in_use"] != 1 or features[1]["in_use"] != 0:
         client_library_session.licensing.update_features(
-            {
-                features[0]["id"]: 1,
-                features[1]["id"]: 0,
-            }
+            [
+                {"id": features[0]["id"], "count": 1},
+                {"id": features[1]["id"], "count": 0},
+            ]
         )
 
 
@@ -390,6 +390,79 @@ def test_registration_invalid_token(
     )
 
 
+def test_invalid_inputs(client_library_session: ClientLibrary, alpha_ssms_url):
+    cl = client_library_session
+    base_url = cl.licensing.base_url
+
+    # Empty inputs
+    for bad_value in []:  # ""cannot-be-enforced-sadly"]:
+        url = base_url + "/registration/renew"
+        response = cl.session.put(url, data=bad_value)
+        assert response.status_code == 400
+        assert "Bad input" in response.text
+
+        url = base_url + "/authorization/renew"
+        response = cl.session.put(url, data=bad_value)
+        assert response.status_code == 400
+        assert "Bad input" in response.text
+
+        url = base_url + "/reservation/request"
+        response = cl.session.post(url, data=bad_value)
+        assert response.status_code == 400
+        assert "Bad input" in response.text
+
+    # product license
+    for bad_value in [1, None, "/bad"]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.set_product_license(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+
+    # certificate
+    for bad_value in ["", "x" * 4097, "#!/bin/sh\ntouch /tmp/bad\n"]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.install_certificate(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+
+    # transport ssms url and proxy url
+    for bad_value in [1, True, "", "x" * 257, "somehost\0badcode"]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.set_transport(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.set_transport(alpha_ssms_url, bad_value, 80)
+        exc.match("400 Client Error: Bad Request for url")
+
+    # transport port
+    for bad_value in [-1, 66000, "123", 1.4, True]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.set_transport(alpha_ssms_url, "localhost", bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+
+    # registration
+    for bad_value in [-1, 66000, 1.4, None, "", "x" * 257, "token%a\0badcode"]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.register(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.register("atoken", bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+
+    # reservation mode
+    for bad_value in [-1, "false", 1.4, None, "", "none"]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.reservation_mode(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+
+    # reservation complete and discard
+    for bad_value in [-1, 66000, 1.4, True, "", "x" * 257, "token%a\0badcode"]:
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.complete_reservation(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+        with pytest.raises(requests.exceptions.HTTPError) as exc:
+            cl.licensing.discard_reservation(bad_value)
+        exc.match("400 Client Error: Bad Request for url")
+
+
 def test_license_count(
     client_library_session: ClientLibrary,
     registration_token,
@@ -415,7 +488,11 @@ def test_license_count(
 
     features = cl.licensing.features()
 
+    # If there are more features, then more must be allowed to be updated
+    assert 0 < len(features) <= 2
+
     # Set every feature to its maximum value
+    # old-style map of features
     max_features = {}
     for feature in features:
         max_features[feature["id"]] = feature["max"]
@@ -429,9 +506,10 @@ def test_license_count(
         assert feature["in_use"] == feature["max"]
 
     # Set every feature to its minimum value
-    min_features = {}
+    # new-style list of feature objects
+    min_features = []
     for feature in features:
-        min_features[feature["id"]] = 0
+        min_features.append({"id": feature["id"], "count": feature["min"]})
     cl.licensing.update_features(min_features)
     status = cl.licensing.status()
     assert status["registration"]["status"] == "COMPLETED"
@@ -464,23 +542,69 @@ def test_license_count(
         assert licensing_status["registration"]["status"] == "COMPLETED"
         assert licensing_status["authorization"]["status"] == "IN_COMPLIANCE"
 
+    def feature_count_map(feature_list):
+        return {feature["id"]: feature["count"] for feature in feature_list}
+
+    def unused_value(feature):
+        in_use = feature["in_use"]
+        result = feature["min"]
+        if result == in_use:
+            result += 1
+        return result
+
+    # At least one feature needs to change
+    check_bad_values([])
+    check_bad_values({})
+
+    # Too many features
+    bad_features_many = []
+    bad_features_many.append({"id": features[0]["id"], "count": feature["max"]})
+    bad_features_many.append({"id": features[0]["id"][1:], "count": feature["max"]})
+    bad_features_many.append({"id": features[0]["id"][2:], "count": feature["max"]})
+    check_bad_values(bad_features_many)
+    bad_features_many = feature_count_map(bad_features_many)
+    check_bad_values(bad_features_many)
+
+    # Id value
+    for bad_value in (1.3, None, '" ; bad code()'):
+        bad_features_type = [{"id": bad_value, "count": 1}]
+        check_bad_values(bad_features_type)
+
+    # Unknown feature mixed in
+    bad_features_unknown = [
+        {"id": features[0]["id"], "count": unused_value(features[0])},
+        {"id": "unknown", "count": 1},
+    ]
+    check_bad_values(bad_features_unknown)
+    bad_features_unknown = feature_count_map(bad_features_unknown)
+    check_bad_values(bad_features_unknown)
+
+    # Count value type
+    for bad_value in (1.3, None, "1", -1):
+        bad_features_type = [{"id": features[0]["id"], "count": bad_value}]
+        check_bad_values(bad_features_type)
+        bad_features_type = feature_count_map(bad_features_type)
+        check_bad_values(bad_features_type)
+
+    bad_features_unused = [
+        {"id": feature["id"], "count": unused_value(feature)} for feature in features
+    ]
     # Below minimum feature count
-    bad_features_min = {}
-    for feature in features:
-        bad_features_min[feature["id"]] = int(feature["min"] - 1)
-    check_bad_values(bad_features_min)
+    for idx, feature in enumerate(features):
+        bad_features_min = list(bad_features_unused)
+        bad_value = feature["min"] - 1
+        if bad_value < 0:
+            # negative check is in schema already
+            continue
+        bad_features_min[idx] = {"id": feature["id"], "count": bad_value}
+        check_bad_values(bad_features_min)
 
     # Above maximum feature count
-    bad_features_max = {}
-    for feature in features:
-        bad_features_max[feature["id"]] = int(feature["max"]) + 1
-    check_bad_values(bad_features_max)
-
-    # Negative count
-    bad_features_negative = {}
-    for feature in features:
-        bad_features_negative[feature["id"]] = -1
-    check_bad_values(bad_features_negative)
+    for idx, feature in enumerate(features):
+        bad_features_max = list(bad_features_unused)
+        bad_value = feature["max"] + 1
+        bad_features_max[idx] = {"id": feature["id"], "count": bad_value}
+        check_bad_values(bad_features_max)
 
 
 def test_slr_basic_actions(

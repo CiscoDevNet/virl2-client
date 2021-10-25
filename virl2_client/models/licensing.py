@@ -195,12 +195,12 @@ class Licensing(object):
         response.raise_for_status()
         return response.json()
 
-    def update_features(self, feature_dict):
+    def update_features(self, features):
         """
-        Update current licensing feature(s).
+        Update licensing feature's explicit count in reservation mode.
         """
         url = self.base_url + "/features"
-        response = self.ctx.session.patch(url, json=feature_dict)
+        response = self.ctx.session.patch(url, json=features)
         response.raise_for_status()
         if response.text:
             return response.json()
@@ -278,7 +278,7 @@ class Licensing(object):
         """
         # TODO
         url = self.base_url + "/reservation/discard"
-        response = self.ctx.session.delete(url, json=data)
+        response = self.ctx.session.post(url, json=data)
         response.raise_for_status()
         logger.info(
             "The discard code for an already cancelled reservation request received."

@@ -19,8 +19,10 @@
 #
 
 import pytest
-import requests
+import random
+import string
 import logging
+import requests
 
 from virl2_client import ClientLibrary
 
@@ -751,3 +753,49 @@ def test_token_invalidation(
     # response hook that catches 401 TokenAuth.handle_401_unauthorized
     # tried to authenticate and user no longer exists - so 403 Forbidden
     assert err.value.response.status_code == 403
+
+
+@pytest.mark.integration
+@pytest.mark.nomock
+def test_max_client_body_size(client_library_session: ClientLibrary):
+    """
+    Test nginx configuration.
+    Currently we have all endpoints limited to 100K (CSDL) in http block
+    of nginx configuration.
+    Then some specific location are allowed greater request body size:
+        /api/v0/images/upload                              16GB
+        /api/v0/labs/{lab_id}/nodes/{node_id}/config        2MB
+        /api/v0/labs/{lab_id}/nodes                         2MB
+        /api/v0/labs/{lab_id}/nodes/{node_id}               2MB
+        /api/v0/update_lab_topology                         2MB
+        /api/v0/import                                      2MB
+        /api/v0/import/virl-1x                              2MB
+
+    """
+    MB2 = 2_000_000
+    over_MB2 = 2_099_999
+    lab = client_library_session.create_lab("lab_space")
+    server = lab.create_node("s1", "server", 100, 100)
+
+    for size in (MB2, over_MB2):
+        # DEPRECATED PUT /api/v0/labs/{lab_id}/nodes/{node_id}/config
+        x = ''.join(random.choice(string.ascii_lowercase) for x in range(size))
+        try:
+            # deprecated API is no longer supported in client library
+            url = server._base_url + "/config"
+            response = client_library_session.session.put(url=url, data=x)
+            response.raise_for_status()
+            if size > MB2:
+                assert False, "Server config accepted!"
+        except requests.exceptions.HTTPError as err:
+            assert "413 Client Error: Request Entity Too Large" in err.args[0]
+
+        # PATCH /api/v0/labs/{lab_id}/nodes/{node_id}
+        try:
+            server.config = x
+            if size > MB2:
+                assert False, "Server config accepted!"
+        except requests.exceptions.HTTPError as err:
+            assert "413 Client Error: Request Entity Too Large" in err.args[0]
+
+    client_library_session.remove_lab(lab.id)

@@ -189,8 +189,8 @@ class Lab:
         :param value: The new lab title
         :type value: str
         """
-        url = self.lab_base_url + "/title"
-        response = self.session.put(url, json=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"title": value})
         response.raise_for_status()
         self._title = value
 
@@ -213,8 +213,8 @@ class Lab:
         :param value:
         :type value: str
         """
-        url = self.lab_base_url + "/notes"
-        response = self.session.put(url, json=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"notes": value})
         response.raise_for_status()
         self._notes = value
 
@@ -237,8 +237,8 @@ class Lab:
         :param value:
         :type value: str
         """
-        url = self.lab_base_url + "/description"
-        response = self.session.put(url, json=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"description": value})
         response.raise_for_status()
         self._description = value
 
@@ -780,7 +780,7 @@ class Lab:
         self._last_sync_statistics_time = time.time()
 
     def sync_states(self):
-        "Sync all the states of the various elements with the back end server."
+        """Sync all the states of the various elements with the back end server."""
         url = self.lab_base_url + "/lab_element_state"
         response = self.session.get(url)
         response.raise_for_status()
@@ -806,7 +806,7 @@ class Lab:
         self._last_sync_state_time = time.time()
 
     def wait_until_lab_converged(self, max_iterations=500):
-        "Wait until all the lab nodes have booted."
+        """Wait until all the lab nodes have booted."""
         logger.info("Waiting for lab %s to converge", self._lab_id)
         for index in range(max_iterations):
             converged = self.has_converged()

@@ -715,7 +715,7 @@ class ClientLibrary:
 
         :param show_all: Whether to get only labs owned by the admin or all user labs
         :type show_all: bool
-        :returns: A list of tuples
+        :returns: A list of tuples of Lab IDs, title and status
         :rtype: list[tuple]
         """
         # TODO: integrate this further with local labs - check if already exist

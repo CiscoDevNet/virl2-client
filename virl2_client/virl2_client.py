@@ -708,3 +708,27 @@ class ClientLibrary:
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
+    
+    def get_all_labs_status(self, show_all: bool=False) -> list:
+        """
+        Retrieves a list of all defined labs and their status.
+
+        :param show_all: Whether to get only labs owned by the admin or all user labs
+        :type show_all: bool
+        :returns: A list of tuples
+        :rtype: list[tuple]
+        """
+        # TODO: integrate this further with local labs - check if already exist
+        url = "labs"
+        if show_all:
+            url += "?show_all=true"
+        url = urljoin(self._base_url, url)
+        response = self.session.get(url)
+        response.raise_for_status()
+        lab_ids = response.json()
+        labs = []
+        for lab_id in lab_ids:
+            lab = self.join_existing_lab(lab_id)
+            labs.append((lab_id, lab.title, lab.state()))
+        
+        return labs

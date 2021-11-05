@@ -22,7 +22,7 @@ import uuid
 import pytest
 import requests
 
-from virl2_client import ClientLibrary
+from virl2_client import ClientConfig, ClientLibrary
 
 pytestmark = [pytest.mark.integration]
 
@@ -393,7 +393,9 @@ def test_group_api_lab_associations(client_library_session: ClientLibrary):
     assert cl.all_labs(show_all=True) == []
 
 
-def test_group_api_permissions(controller_url, client_library_session: ClientLibrary):
+def test_group_api_permissions(
+    client_config: ClientConfig, client_library_session: ClientLibrary
+):
     cl_admin = client_library_session
     # create non-admin user
     username = "satoshi"
@@ -403,7 +405,9 @@ def test_group_api_permissions(controller_url, client_library_session: ClientLib
         username="halfinney", pwd=satoshi_pwd
     )
     satoshi_uid = satoshi["id"]
-    cml2_uid = client_library_session.user_management.user_id(username="cml2")
+    cml2_uid = client_library_session.user_management.user_id(
+        username=client_config.username
+    )
     halfinn_uid = halfinn["id"]
     # assert there is no lab
     assert cl_admin.all_labs(show_all=True) == []
@@ -433,11 +437,11 @@ def test_group_api_permissions(controller_url, client_library_session: ClientLib
 
     # log in as non-admin satoshi user
     cl_satoshi = ClientLibrary(
-        controller_url,
+        client_config.url,
         username=username,
         password=satoshi_pwd,
-        ssl_verify=False,
-        allow_http=True,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
     )
     # satoshi must only see groups that he is part of
     satoshi_groups = cl_satoshi.group_management.groups()
@@ -608,11 +612,11 @@ def test_group_api_permissions(controller_url, client_library_session: ClientLib
     # owner and non-admin users can only see those associations where they are members of group
     # log in as non-admin satoshi user
     cl_halfinn = ClientLibrary(
-        controller_url,
+        client_config.url,
         username="halfinney",
         password=satoshi_pwd,
-        ssl_verify=False,
-        allow_http=True,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
     )
     # create lab owned by halfin
     lab2 = cl_halfinn.create_lab(title="lab2")

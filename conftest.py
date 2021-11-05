@@ -28,7 +28,7 @@ from requests import HTTPError
 from unittest.mock import patch
 from urllib3.exceptions import InsecureRequestWarning
 
-from virl2_client import ClientLibrary
+from virl2_client import ClientConfig, ClientLibrary
 
 
 def pytest_addoption(parser):
@@ -40,14 +40,40 @@ def pytest_addoption(parser):
 
     parser.addoption(
         "--controller-url",
-        default="http://127.0.0.1:8001",
+        default="https://127.0.0.1",
+        metavar="VIRL2_URL",
         help="The URL of a CML2 controller",
     )
 
+    parser.addoption(
+        "--controller-username",
+        default=None,
+        metavar="VIRL2_USER",
+        help="The user on CML2 controller",
+    )
 
-@pytest.fixture(scope="session")
-def controller_url(request):
-    return request.config.getoption("--controller-url")
+    parser.addoption(
+        "--controller-password",
+        default=None,
+        metavar="VIRL2_PASS",
+        help="The user's password on CML2 controller",
+    )
+
+    parser.addoption(
+        "--controller-ssl-verify",
+        default=False,
+        nargs="?",
+        const=True,
+        metavar="CA_BUNDLE",
+        help="Verify certificate of CML2 controller",
+    )
+
+    parser.addoption(
+        "--controller-allow-http",
+        default=False,
+        action="store_true",
+        help="Allow HTTP for CML2 controller URL",
+    )
 
 
 @pytest.fixture
@@ -67,54 +93,58 @@ def stop_wipe_and_remove_all_labs(client_library: ClientLibrary):
         client_library.remove_lab(lab_id)
 
 
-def client_library_keep_labs_base(
-    url, usr="cml2", pwd="cml2cml2", ssl_verify=False, allow_http=True
-):
-    username = environ.get("VIRL_USERNAME") or usr
-    password = environ.get("VIRL_PASSWORD") or pwd
-    clientlibrary = ClientLibrary(
-        url,
-        username=username,
-        password=password,
-        ssl_verify=ssl_verify,
-        allow_http=allow_http,
+@pytest.fixture(scope="session")
+def client_config(request) -> ClientConfig:
+    return ClientConfig(
+        url=request.config.getoption("--controller-url"),
+        username=request.config.getoption("--controller-username"),
+        password=request.config.getoption("--controller-password"),
+        ssl_verify=request.config.getoption("--controller-ssl-verify"),
+        allow_http=request.config.getoption("--controller-allow-http"),
+        raise_for_auth_failure=True,
     )
+
+
+def client_library_keep_labs_base(client_config: ClientConfig) -> ClientLibrary:
+    client_library = client_config.make_client()
     for _ in range(5):
         try:
-            clientlibrary.is_system_ready()
+            client_library.is_system_ready()
         except HTTPError as err:
             if err.errno == 504:
                 # system still initialising, wait longer
                 time.sleep(2)
 
-    return clientlibrary
+    return client_library
 
 
 @pytest.fixture
-def client_library_keep_labs(no_ssl_warnings, controller_url: str) -> ClientLibrary:
+def client_library_keep_labs(
+    no_ssl_warnings, client_config: ClientConfig
+) -> ClientLibrary:
     # for integration testing, the client library needs to connect to a mock simulator
     # running via HTTP on a non SSL servr / non-standard port. We therefore need to
     # set the allow_http to True. Otherwise the client library would enforce the HTTPS
     # scheme and the tests would fail. This should never be required in the wild.
-    yield client_library_keep_labs_base(url=controller_url)
+    yield client_library_keep_labs_base(client_config)
 
 
 @pytest.fixture(scope="session")
-def client_library_session(controller_url: str) -> ClientLibrary:
+def client_library_session(client_config: ClientConfig) -> ClientLibrary:
     """This client library has session lifetime"""
-    yield client_library_keep_labs_base(url=controller_url)
+    yield client_library_keep_labs_base(client_config)
 
 
 @pytest.fixture
 def client_library(client_library_keep_labs: ClientLibrary) -> ClientLibrary:
-    clientlibrary = client_library_keep_labs
-    stop_wipe_and_remove_all_labs(clientlibrary)
+    client_library = client_library_keep_labs
+    stop_wipe_and_remove_all_labs(client_library)
     # Reset "current" lab:
-    clientlibrary.lab = None
-    yield clientlibrary
+    client_library.lab = None
+    yield client_library
     # tear down - delete labs from the tests
     # TODO: see if these need updating now remove_all_labs doesnt stop the lab
-    stop_wipe_and_remove_all_labs(clientlibrary)
+    stop_wipe_and_remove_all_labs(client_library)
 
 
 @pytest.fixture(scope="function")

@@ -24,7 +24,7 @@ import string
 import logging
 import requests
 
-from virl2_client import ClientLibrary
+from virl2_client import ClientConfig, ClientLibrary
 
 pytestmark = [pytest.mark.integration]
 
@@ -566,7 +566,9 @@ def test_node_console_logs(client_library_session: ClientLibrary):
 
 
 def test_topology_owner(client_library_session: ClientLibrary):
-    cml2_uid = client_library_session.user_management.user_id("cml2")
+    cml2_uid = client_library_session.user_management.user_id(
+        client_library_session.username
+    )
     lab = client_library_session.create_lab("owned_by_cml2")
     lab.sync(topology_only=True)
     assert lab.owner == cml2_uid
@@ -574,14 +576,16 @@ def test_topology_owner(client_library_session: ClientLibrary):
 
 
 @pytest.mark.nomock
-def test_server_tokens_off(controller_url):
-    resp = requests.get(controller_url, verify=False)
+def test_server_tokens_off(client_config: ClientConfig):
+    resp = requests.get(client_config.url, verify=client_config.ssl_verify)
     headers = resp.headers
     # has to equal to 'nginx' without version
     assert headers["Server"] == "nginx"
 
 
-def test_user_role_change(controller_url, client_library_session: ClientLibrary):
+def test_user_role_change(
+    client_config: ClientConfig, client_library_session: ClientLibrary
+):
     cl_admin = client_library_session
     cl_admin_uid = client_library_session.user_management.user_id(cl_admin.username)
     # create non admin users
@@ -593,18 +597,18 @@ def test_user_role_change(controller_url, client_library_session: ClientLibrary)
     cl_user2_uid = res["id"]
 
     cl_user1 = ClientLibrary(
-        controller_url,
+        client_config.url,
         username=user1,
         password=password,
-        ssl_verify=False,
-        allow_http=True,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
     )
     cl_user2 = ClientLibrary(
-        controller_url,
+        client_config.url,
         username=user2,
         password=password,
-        ssl_verify=False,
-        allow_http=True,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
     )
 
     cl_user1.create_lab("lab1-cl_user1")
@@ -668,7 +672,7 @@ def test_user_role_change(controller_url, client_library_session: ClientLibrary)
 
 
 def test_token_invalidation(
-    caplog, controller_url, client_library_session: ClientLibrary
+    caplog, client_config: ClientConfig, client_library_session: ClientLibrary
 ):
     cl_admin = client_library_session
 
@@ -676,11 +680,11 @@ def test_token_invalidation(
     test_user_uid = res["id"]
 
     cl_test_user = ClientLibrary(
-        controller_url,
+        client_config.url,
         username="test_user",
         password="moremore",
-        ssl_verify=False,
-        allow_http=True,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
     )
     # make sure user token works
     res = cl_test_user.user_management.users()
@@ -721,11 +725,11 @@ def test_token_invalidation(
     # CLEAR SESSION
     # create another client library object (this generates new token)
     cl_test_user1 = ClientLibrary(
-        controller_url,
+        client_config.url,
         username="test_user",
         password=new_pwd,
-        ssl_verify=False,
-        allow_http=True,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
     )
     # clear whole test_user session (remove all tokens)
     res = cl_test_user.logout(clear_all_sessions=True)
@@ -779,7 +783,7 @@ def test_max_client_body_size(client_library_session: ClientLibrary):
 
     for size in (MB2, over_MB2):
         # DEPRECATED PUT /api/v0/labs/{lab_id}/nodes/{node_id}/config
-        x = ''.join(random.choice(string.ascii_lowercase) for x in range(size))
+        x = "".join(random.choice(string.ascii_lowercase) for x in range(size))
         try:
             # deprecated API is no longer supported in client library
             url = server._base_url + "/config"

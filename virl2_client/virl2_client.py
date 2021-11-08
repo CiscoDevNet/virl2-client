@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import time
+import typing
 import urllib
 import warnings
 from functools import lru_cache
@@ -130,6 +131,29 @@ class Version(object):
         return self.minor_differs(other) or self.patch_differs(other)
 
 
+class ClientConfig(typing.NamedTuple):
+    url: str = None
+    username: str = None
+    password: str = None
+    ssl_verify: bool = True
+    allow_http: bool = False
+    auto_sync: float = 1.0
+    raise_for_auth_failure: bool = True
+
+    def make_client(self):
+        client = ClientLibrary(
+            url=self.url,
+            username=self.username,
+            password=self.password,
+            ssl_verify=self.ssl_verify,
+            raise_for_auth_failure=self.raise_for_auth_failure,
+            allow_http=self.allow_http,
+        )
+        client.auto_sync = self.auto_sync >= 0.0
+        client.auto_sync_interval = self.auto_sync
+        return client
+
+
 class ClientLibrary:
     """
     Initializes a ClientLibrary instance. Note that ssl_verify can
@@ -170,11 +194,7 @@ class ClientLibrary:
     ):
         """Constructor method"""
 
-        # check environment for host URL
-        env_url = os.environ.get("VIRL2_URL")
-        if env_url:
-            logger.info("using URL from environment: %s", env_url)
-            url = env_url
+        url = self._environ_get(url, "VIRL2_URL")
         if url is None or len(url) == 0:
             message = "no URL provided"
             raise InitializationError(message)
@@ -198,30 +218,24 @@ class ClientLibrary:
                 message = "invalid URL / hostname"
                 raise InitializationError(message)
 
-        url_parts_list = list(url_parts)
         if not allow_http and url_parts.scheme == "http":
-            url_parts_list[0] = "https"
-        if url_parts_list[0] not in ("http", "https"):
+            message = "invalid URL scheme (must be https)"
+            raise InitializationError(message)
+        if url_parts.scheme not in ("http", "https"):
             message = "invalid URL scheme (should be https)"
             raise InitializationError(message)
-        new_url = urlunsplit(url_parts_list)
-        base_url = urljoin(new_url, "api/v0/")
+        url = urlunsplit(url_parts)
+        base_url = urljoin(url, "api/v0/")
 
         # check environment for username
-        env_user = os.environ.get("VIRL2_USER")
-        if env_user:
-            logger.info("using username from environment")
-            username = env_user
+        username = self._environ_get(username, "VIRL2_USER")
         if username is None or len(username) == 0:
             message = "no username provided"
             raise InitializationError(message)
         self.username = username
 
         # check environment for password
-        env_pass = os.environ.get("VIRL2_PASS")
-        if env_pass:
-            logger.info("using password from environment")
-            password = env_pass
+        password = self._environ_get(password, "VIRL2_PASS")
         if password is None or len(password) == 0:
             message = "no password provided"
             raise InitializationError(message)
@@ -236,11 +250,9 @@ class ClientLibrary:
 
         # http://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
 
-        env_ca_bundle = os.environ.get("CA_BUNDLE")
-        if ssl_verify is True and env_ca_bundle:
-            self.session.verify = env_ca_bundle
-        else:
-            self.session.verify = ssl_verify
+        if ssl_verify is True:
+            ssl_verify = self._environ_get(None, "CA_BUNDLE", True)
+        self.session.verify = ssl_verify
 
         if ssl_verify is False:
             logger.warning("SSL Verification disabled")
@@ -311,6 +323,17 @@ class ClientLibrary:
         except requests.exceptions.ConnectionError as exc:
             # TODO: subclass InitializationError
             raise InitializationError(exc)
+
+    @staticmethod
+    def _environ_get(value, key, default=None):
+        # If the value is not set yet, fetch it from environment or return default
+        if value is None:
+            value = os.environ.get(key)
+            if value:
+                logger.info("Using value %s from environment")
+            else:
+                value = default
+        return value
 
     @property
     def session(self):

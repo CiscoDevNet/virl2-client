@@ -22,10 +22,8 @@ import os
 import pytest
 import time
 import warnings
-from os import environ
 
 from requests import HTTPError
-from unittest.mock import patch
 from urllib3.exceptions import InsecureRequestWarning
 
 from virl2_client import ClientConfig, ClientLibrary

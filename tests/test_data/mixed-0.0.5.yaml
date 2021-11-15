@@ -14,7 +14,7 @@ nodes:
     hide_links: true
     ram: 2048
     cpus: 4
-    cpu_limit: 100
+    cpu_limit: 50
     data_volume: 2
     boot_disk_size: 30
     tags:
@@ -616,12 +616,12 @@ nodes:
     y: -400
     configuration: ''
     hide_links: false
-    ram: 0
-    cpus: 0
-    cpu_limit: 100
-    data_volume: 0
-    boot_disk_size: 0
-    tags: []
+    ram: 3072
+    cpus: 6
+    cpu_limit: 80
+    data_volume: 10
+    boot_disk_size: 30
+    tags: ["test_tag"]
     interfaces:
       - id: i0
         slot: 0

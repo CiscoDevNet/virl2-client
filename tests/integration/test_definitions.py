@@ -1,9 +1,7 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+# This file is part of CML 2
 #
-# This file is part of VIRL 2
-#
-# Copyright 2020-2021 Cisco Systems Inc.
+# Copyright 2021 Cisco Systems Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,13 +57,13 @@ def test_add_image_definition(client_library_session: ClientLibrary, change_test
     # Remove first, in case it does exist.
     try:
         client_library_session.definitions.remove_image_definition(img_id)
-    except Exception:
+    except requests.exceptions.HTTPError:
         pass
     image_file = "dummy.qcow2"
     # Remove first, in case it does exist.
     try:
         client_library_session.definitions.remove_dropfolder_image(image_file)
-    except Exception:
+    except requests.exceptions.HTTPError:
         pass
     # Unable to create an image definition with no image file.
     img_def = dict(

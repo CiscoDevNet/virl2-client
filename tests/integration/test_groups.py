@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+"""Tests for Groups feature."""
+
 import uuid
 import pytest
 import requests
@@ -24,12 +26,12 @@ from virl2_client import ClientConfig, ClientLibrary
 
 pytestmark = [pytest.mark.integration]
 
-
-# TODO: cleanup users and groups in pytest hook
 # TODO: split into more granular test cases and document
 
 
-def test_group_api_basic(register_licensing, client_library_session: ClientLibrary):
+def test_group_api_basic(
+    cleanup_test_groups, register_licensing, client_library_session: ClientLibrary
+):
     cl = client_library_session
     g0 = cl.group_management.create_group(name="g0")
     assert isinstance(g0, dict)
@@ -52,11 +54,6 @@ def test_group_api_basic(register_licensing, client_library_session: ClientLibra
         cl.group_management.get_group(group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc")
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
-
-    all_groups = cl.group_management.groups()
-    assert isinstance(all_groups, list)
-    g0_b = all_groups[0]
-    assert g0_b == g0_a and g0_b == g0
 
     # groups labs is empty list
     group_labs = cl.group_management.group_labs(group_id=g0["id"])
@@ -89,8 +86,6 @@ def test_group_api_basic(register_licensing, client_library_session: ClientLibra
     assert updated_g0["name"] == new_name
     updated_g0_a = cl.group_management.get_group(group_id=updated_g0["id"])
     assert updated_g0 == updated_g0_a
-    all_groups = cl.group_management.groups()
-    assert all_groups[0] == updated_g0
 
     # make sure name cannot be set to empty string
     with pytest.raises(requests.exceptions.HTTPError) as err:
@@ -116,14 +111,18 @@ def test_group_api_basic(register_licensing, client_library_session: ClientLibra
     assert "Group does not exist" in err.value.response.text
 
     assert cl.group_management.delete_group(group_id=updated_g0["id"]) is None
-    assert cl.group_management.groups() == []
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.group_management.get_group(group_id=updated_g0["id"])
     assert err.value.response.status_code == 404
     assert "Group does not exist" in err.value.response.text
 
 
-def test_group_api_invalid_request_data(client_library_session: ClientLibrary):
+def test_group_api_invalid_request_data(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_library_session: ClientLibrary,
+):
     cl = client_library_session
     with pytest.raises(requests.exceptions.HTTPError) as err:
         cl.group_management.create_group(name="")
@@ -193,7 +192,9 @@ def test_group_api_invalid_request_data(client_library_session: ClientLibrary):
     cl.group_management.delete_group(gg0_uid)
 
 
-def test_group_api_user_associations(client_library_session: ClientLibrary):
+def test_group_api_user_associations(
+    cleanup_test_users, cleanup_test_groups, client_library_session: ClientLibrary
+):
     cl = client_library_session
     # create non admin users
     satoshi = cl.user_management.create_user(username="satoshi", pwd="super-secret-pwd")
@@ -277,6 +278,7 @@ def test_group_api_user_associations(client_library_session: ClientLibrary):
         user_obj["username"] for user_obj in cl.user_management.users()
     ]
 
+    # TODO: let pytest fixture clean this up, create separate test case for deletes
     # CLEAN UP
     # remove nocoiner group and draghi user
     assert cl.user_management.delete_user(user_id=mario_draghi_uid) is None
@@ -290,14 +292,20 @@ def test_group_api_user_associations(client_library_session: ClientLibrary):
     assert cl.group_management.group_members(group_id=students_group["id"]) == []
     assert cl.group_management.delete_group(group_id=students_group["id"]) is None
     # check if clean
-    assert cl.group_management.groups() == []
-    assert len(cl.user_management.users()) == 1  # only cml2 user left
+    for group_id in (nocoiners["id"], teachers_group["id"], students_group["id"]):
+        with pytest.raises(requests.exceptions.HTTPError) as err:
+            cl.group_management.get_group(group_id=group_id)
+        assert err.value.response.status_code == 404
+    for user_id in (mario_draghi_uid, satoshi_uid, nick_szabo_uid):
+        with pytest.raises(requests.exceptions.HTTPError) as err:
+            cl.user_management.get_user(user_id=user_id)
+        assert err.value.response.status_code == 404
 
 
-def test_group_api_lab_associations(client_library_session: ClientLibrary):
+def test_group_api_lab_associations(
+    cleanup_test_labs, cleanup_test_groups, client_library_session: ClientLibrary
+):
     cl = client_library_session
-    # assert there is no lab
-    assert cl.all_labs(show_all=True) == []
     # create lab
     lab0 = cl.create_lab(title="lab0")
     # create group and add lab into it with rw
@@ -378,7 +386,7 @@ def test_group_api_lab_associations(client_library_session: ClientLibrary):
     # remove lab first
     lab1.remove()
     assert cl.find_labs_by_title(title="lab1") == []
-    # assert associtation is removed also
+    # assert association is removed also
     students_group_labs = cl.group_management.group_labs(group_id=students_group["id"])
     assert students_group_labs == []
     assert cl.group_management.get_group(group_id=students_group["id"])["labs"] == []
@@ -391,12 +399,14 @@ def test_group_api_lab_associations(client_library_session: ClientLibrary):
     assert "Group does not exist" in err.value.response.text
     assert lab0.groups == []
     lab0.remove()
-    assert cl.group_management.groups() == []
-    assert cl.all_labs(show_all=True) == []
 
 
 def test_group_api_permissions(
-    client_config: ClientConfig, client_library_session: ClientLibrary
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
 ):
     cl_admin = client_library_session
     # create non-admin user
@@ -411,8 +421,6 @@ def test_group_api_permissions(
         username=client_config.username
     )
     halfinn_uid = halfinn["id"]
-    # assert there is no lab
-    assert cl_admin.all_labs(show_all=True) == []
     # create lab
     lab0 = cl_admin.create_lab(title="lab0")
     lab1 = cl_admin.create_lab(title="lab1")
@@ -432,7 +440,6 @@ def test_group_api_permissions(
         name="teachers", description="teachers group", members=[], labs=lab0_1_rw
     )
     all_groups = cl_admin.group_management.groups()
-    assert len(all_groups) == 2
     all_groups_names = [group["id"] for group in all_groups]
     assert students_group["id"] in all_groups_names
     assert teachers_group["id"] in all_groups_names
@@ -746,6 +753,3 @@ def test_group_api_permissions(
     cl_admin.user_management.delete_user(user_id=halfinn_uid)
     assert cl_admin.group_management.delete_group(group_id=students_group["id"]) is None
     assert cl_admin.group_management.delete_group(group_id=teachers_group["id"]) is None
-
-    assert cl_admin.group_management.groups() == []
-    assert cl_admin.all_labs(show_all=True) == []

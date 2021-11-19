@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+"""Tests for labs, nodes interfaces, links, etc."""
+
 import pytest
 import re
 import requests
@@ -26,10 +28,14 @@ from virl2_client.models.cl_pyats import ClPyats
 
 pytestmark = [pytest.mark.integration]
 
+# TODO: reduce code duplication
+# TODO: split into more granular test cases and document
 
-def test_sync_lab(client_library: ClientLibrary):
-    lab = client_library.create_lab("my test lab name")
-    lab = client_library.join_existing_lab(lab.id)
+
+def test_sync_lab(cleanup_test_labs, client_library_session: ClientLibrary):
+    # TODO: figure out what this is, add asserts and document
+    lab = client_library_session.create_lab("my test lab name")
+    lab = client_library_session.join_existing_lab(lab.id)
 
     r1 = lab.create_node("r1", "server", 5, 100)
     r2 = lab.create_node("r2", "server", 102, 201)
@@ -48,7 +54,6 @@ def test_sync_lab(client_library: ClientLibrary):
     r3_i1 = r3.create_interface()
     r3_i2 = r3.create_interface()
 
-    #
     lab.create_link(r1_i1, r2_i1)
     lab.create_link(r2_i2, r3_i1)
     lab.create_link(r3_i2, r1_i2)
@@ -76,8 +81,9 @@ def test_sync_lab(client_library: ClientLibrary):
     # lab.sync_events()
 
 
-def test_import(client_library: ClientLibrary):
-    lab = client_library.import_sample_lab("server-triangle.yaml")
+def test_import(cleanup_test_labs, client_library_session: ClientLibrary):
+    # TODO: split into multiple cases - import lab, start/stop/wipe, add/remove nodes/interfaces/links
+    lab = client_library_session.import_sample_lab("server-triangle.yaml")
     s0 = lab.get_node_by_label("server-0")
     assert lab.get_node_by_label("server-1") is not None
     assert lab.get_node_by_label("server-2") is not None
@@ -98,8 +104,10 @@ def test_import(client_library: ClientLibrary):
     lab.stop()
 
 
-def test_create_client_lab(client_library: ClientLibrary):
-    lab = client_library.create_lab()
+def test_create_client_lab(cleanup_test_labs, client_library_session: ClientLibrary):
+    # TODO: figure out what this is, add asserts and document
+    # almost a duplicate of test_sync_lab, do we need them both?
+    lab = client_library_session.create_lab()
     lab.auto_sync = False
 
     print("Created lab {}".format(lab.id))
@@ -169,9 +177,9 @@ def test_create_client_lab(client_library: ClientLibrary):
     lab.remove()
 
 
-def test_connect(client_library: ClientLibrary):
-    lab = client_library.create_lab("my lab name")
-    lab = client_library.join_existing_lab(lab.id)
+def test_connect(cleanup_test_labs, client_library_session: ClientLibrary):
+    lab = client_library_session.create_lab("my lab name")
+    lab = client_library_session.join_existing_lab(lab.id)
 
     lab.auto_sync = False
 
@@ -196,8 +204,8 @@ def test_connect(client_library: ClientLibrary):
     assert [link for link in lab.links() if link.state is not None] == []
 
 
-def test_server_node_deletion(client_library: ClientLibrary):
-    lab = client_library.create_lab("lab_1")
+def test_server_node_deletion(cleanup_test_labs, client_library_session: ClientLibrary):
+    lab = client_library_session.create_lab("lab_1")
 
     lab.auto_sync = False
 
@@ -230,20 +238,24 @@ def test_server_node_deletion(client_library: ClientLibrary):
     lab.remove_node(s3)
 
 
-def test_import_yaml(client_library_session: ClientLibrary):
+def test_import_sample_lab_yaml(
+    cleanup_test_labs, client_library_session: ClientLibrary
+):
     lab = client_library_session.import_sample_lab("server-triangle.yaml")
     assert lab is not None
     lab.remove()
 
 
-def test_import_virl(client_library_session: ClientLibrary):
+def test_import_sample_lab_virl(
+    cleanup_test_labs, client_library_session: ClientLibrary
+):
     lab = client_library_session.import_sample_lab("dual-server.virl")
     assert lab is not None
     lab.remove()
 
 
-def test_lab_state(client_library: ClientLibrary):
-    lab = client_library.create_lab("lab_1")
+def test_lab_state(cleanup_test_labs, client_library_session: ClientLibrary):
+    lab = client_library_session.create_lab("lab_1")
 
     s1 = lab.create_node("s1", "server", 5, 100)
     s2 = lab.create_node("s2", "server", 102, 201)
@@ -270,8 +282,8 @@ def test_lab_state(client_library: ClientLibrary):
     assert state == "DEFINED_ON_CORE"
 
 
-def test_lab_details(client_library: ClientLibrary):
-    lab = client_library.create_lab("lab_1")
+def test_lab_details(cleanup_test_labs, client_library_session: ClientLibrary):
+    lab = client_library_session.create_lab("lab_1")
 
     s1 = lab.create_node("s1", "server", 5, 100)
     s2 = lab.create_node("s2", "server", 102, 201)
@@ -297,8 +309,8 @@ def test_lab_details(client_library: ClientLibrary):
     assert details["state"] == "DEFINED_ON_CORE"
 
 
-def test_labels_and_tags(client_library: ClientLibrary):
-    lab = client_library.import_sample_lab("server-triangle.yaml")
+def test_labels_and_tags(cleanup_test_labs, client_library_session: ClientLibrary):
+    lab = client_library_session.import_sample_lab("server-triangle.yaml")
 
     lab.sync(topology_only=True)
 
@@ -348,7 +360,9 @@ def test_labels_and_tags(client_library: ClientLibrary):
     assert sorted(node_3.tags()) == tags
 
 
-def test_node_with_unavailable_vnc(client_library_session: ClientLibrary):
+def test_node_with_unavailable_vnc(
+    cleanup_test_labs, client_library_session: ClientLibrary
+):
     lab = client_library_session.create_lab("lab_111")
     node = lab.create_node("s1", "unmanaged_switch", 5, 100)
     lab.start()
@@ -362,7 +376,7 @@ def test_node_with_unavailable_vnc(client_library_session: ClientLibrary):
 
 
 @pytest.mark.nomock
-def test_node_console_logs(client_library_session: ClientLibrary):
+def test_node_console_logs(cleanup_test_labs, client_library_session: ClientLibrary):
     lab = client_library_session.create_lab("lab_space")
     ext_conn = lab.create_node("ec", "external_connector", 100, 50, wait=False)
     server = lab.create_node("s1", "server", 100, 100)
@@ -406,7 +420,7 @@ def test_node_console_logs(client_library_session: ClientLibrary):
     lab.remove()
 
 
-def test_topology_owner(client_library_session: ClientLibrary):
+def test_topology_owner(cleanup_test_labs, client_library_session: ClientLibrary):
     cml2_uid = client_library_session.user_management.user_id(
         client_library_session.username
     )
@@ -416,7 +430,9 @@ def test_topology_owner(client_library_session: ClientLibrary):
     lab.remove()
 
 
-def test_start_stop_start_stop_cycle(client_library: ClientLibrary):
+def test_start_stop_start_stop_cycle(
+    cleanup_test_labs, client_library_session: ClientLibrary
+):
     """we need to test if the entire lifecycle works... e.g.
     - define
     - start
@@ -428,7 +444,7 @@ def test_start_stop_start_stop_cycle(client_library: ClientLibrary):
     - stopped
     - ...
     """
-    lab = client_library.import_sample_lab("server-triangle.yaml")
+    lab = client_library_session.import_sample_lab("server-triangle.yaml")
 
     lab.start()
     lab.stop()
@@ -437,12 +453,14 @@ def test_start_stop_start_stop_cycle(client_library: ClientLibrary):
     lab.wipe()
 
 
-def test_links_on_various_slots(client_library: ClientLibrary):
+def test_links_on_various_slots(
+    cleanup_test_labs, client_library_session: ClientLibrary
+):
     """
     Create a link between two nodes on higher interfaces,
     then remove the link and re-add a link on lower interfaces.
     """
-    lab = client_library.create_lab()
+    lab = client_library_session.create_lab()
 
     s1 = lab.create_node("s1", "server", 50, 100)
     s2 = lab.create_node("s2", "server", 50, 200)
@@ -502,13 +520,13 @@ def test_links_on_various_slots(client_library: ClientLibrary):
 
 
 @pytest.mark.nomock
-def test_link_conditioning(client_library_keep_labs: ClientLibrary):
+def test_link_conditioning(cleanup_test_labs, client_library_session: ClientLibrary):
     response_packets = (
         r"(\d+) packets transmitted, (\d+) packets received, (\d+)% packet loss"
     )
     response_roundtrip = r"round-trip min/avg/max = [\d\.]+/([\d\.]+)/[\d\.]+ ms"
 
-    lab = client_library_keep_labs.create_lab()
+    lab = client_library_session.create_lab()
 
     alpine = lab.create_node("alpine-0", "alpine", 0, 0)
     ums = lab.create_node("unmanaged-switch-0", "unmanaged_switch", 100, 0)

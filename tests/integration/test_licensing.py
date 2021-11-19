@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+"""Tests for Licensing feature."""
+
 import pytest
 import requests.exceptions
 

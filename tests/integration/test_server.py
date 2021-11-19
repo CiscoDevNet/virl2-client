@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+"""Tests for the server connection and configuration."""
+
 import pytest
 import requests
 import random
@@ -29,6 +31,8 @@ LIMITED_ENDPOINTS = ["/api/v0/authenticate", "/api/v0/auth_extended"]
 
 
 def test_webtoken_config(client_library_session: ClientLibrary):
+    """Configure web session timeout, verify the setting was saved."""
+    # TODO: can we set this to just a few seconds and verify the timeout?
     orig = client_library_session.system_management.get_web_session_timeout()
 
     client_library_session.system_management.set_web_session_timeout(3600)
@@ -40,6 +44,8 @@ def test_webtoken_config(client_library_session: ClientLibrary):
 
 
 def test_mac_addr_block_config(client_library_session: ClientLibrary):
+    """Configure MAC address block, verify the setting was saved."""
+    # TODO: revert config in pytest fixture
     orig = client_library_session.system_management.get_mac_address_block()
 
     client_library_session.system_management.set_mac_address_block(7)
@@ -50,25 +56,24 @@ def test_mac_addr_block_config(client_library_session: ClientLibrary):
     res = client_library_session.system_management.get_mac_address_block()
     assert res == orig
 
-    # client validation
+
+@pytest.mark.parametrize(argnames="address_block", argvalues=[8, -1])
+def test_mac_addr_block_negative(address_block, client_library_session: ClientLibrary):
+    """Configure MAC address block to an invalid value, expect code 400."""
+    # TODO: move client-side validation out of integration tests
+    # validated client-side
     with pytest.raises(ValueError):
-        client_library_session.system_management.set_mac_address_block(8)
+        client_library_session.system_management.set_mac_address_block(address_block)
 
-    with pytest.raises(ValueError):
-        client_library_session.system_management.set_mac_address_block(-1)
-
-    # server validation
+    # validated server-side
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.system_management._set_mac_address_block(8)
-    assert err.value.response.status_code == 400
-
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        client_library_session.system_management._set_mac_address_block(-1)
+        client_library_session.system_management._set_mac_address_block(address_block)
     assert err.value.response.status_code == 400
 
 
 @pytest.mark.nomock
 def test_server_tokens_off(client_config: ClientConfig):
+    """Send a GET request to the base URL and verify server header in the response."""
     resp = requests.get(client_config.url, verify=client_config.ssl_verify)
     headers = resp.headers
     # has to equal 'nginx' without version
@@ -76,6 +81,7 @@ def test_server_tokens_off(client_config: ClientConfig):
 
 
 def test_sending_requests_without_auth_token(client_config: ClientConfig):
+    """Send a request without auth token, expect 401."""
     client_library = client_config.make_client()
     # it probably won't be a common case to override `auth` by ClientLibrary users
     # but missing auth token may happen when using API directly via HTTP:
@@ -87,6 +93,8 @@ def test_sending_requests_without_auth_token(client_config: ClientConfig):
 
 @pytest.mark.nomock
 def test_rate_limit(client_config: ClientConfig):
+    """Send a number of bad auth requests, but not enough to trigger the limit."""
+    # TODO: somehow test the rate limit without breaking the remaining tests
     for endpoint in LIMITED_ENDPOINTS:
         for i in range(30):
             r = requests.post(
@@ -98,12 +106,12 @@ def test_rate_limit(client_config: ClientConfig):
 
 
 @pytest.mark.nomock
-def test_max_client_body_size(client_library_session: ClientLibrary):
+def test_max_client_body_size(cleanup_test_labs, client_library_session: ClientLibrary):
     """
     Test nginx configuration.
     Currently we have all endpoints limited to 100K (CSDL) in http block
     of nginx configuration.
-    Then some specific location are allowed greater request body size:
+    Then some specific locations are allowed greater request body size:
         /api/v0/images/upload                              16GB
         /api/v0/labs/{lab_id}/nodes/{node_id}/config        2MB
         /api/v0/labs/{lab_id}/nodes                         2MB

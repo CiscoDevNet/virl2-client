@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+"""Tests for importing and exporting topology files."""
+
 import pytest
 import yaml
 
@@ -36,6 +38,7 @@ TOPOLOGY_ID_KEYS = [
 
 
 # TODO: also import .virl topology
+
 
 @pytest.mark.integration
 @pytest.mark.nomock
@@ -97,6 +100,7 @@ def test_import_export_yaml(
         # Import warnings are appended to lab notes, if there are any the re-import should have them twice
         # We don't know if they're import warnings or actual notes, so do nothing
         pass
+
     compare_structures(imported_lab_data, reimported_lab_data, False)
     compare_structures(imported_lab_data, reimported_lab_data, True)
 

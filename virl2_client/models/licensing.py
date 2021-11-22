@@ -202,8 +202,6 @@ class Licensing(object):
         url = self.base_url + "/features"
         response = self.ctx.session.patch(url, json=features)
         response.raise_for_status()
-        if response.text:
-            return response.json()
 
     def reservation_mode(self, data):
         """
@@ -214,8 +212,6 @@ class Licensing(object):
         response.raise_for_status()
         msg = "enabled" if data else "disabled"
         logger.info("The reservation mode has been %s.", msg)
-        if response.text:
-            return response.json()
 
     def enable_reservation_mode(self):
         """

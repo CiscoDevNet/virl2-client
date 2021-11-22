@@ -1,9 +1,7 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+# This file is part of CML 2
 #
-# This file is part of VIRL 2
-#
-# Copyright 2020 Cisco Systems Inc.
+# Copyright 2021 Cisco Systems Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +25,11 @@ from virl2_client import ClientConfig, ClientLibrary
 pytestmark = [pytest.mark.integration]
 
 
-def test_group_api_basic(client_library_session: ClientLibrary):
+# TODO: cleanup users and groups in pytest hook
+# TODO: split into more granular test cases and document
+
+
+def test_group_api_basic(register_licensing, client_library_session: ClientLibrary):
     cl = client_library_session
     g0 = cl.group_management.create_group(name="g0")
     assert isinstance(g0, dict)
@@ -277,14 +279,14 @@ def test_group_api_user_associations(client_library_session: ClientLibrary):
 
     # CLEAN UP
     # remove nocoiner group and draghi user
-    assert cl.user_management.delete_user(user_id=mario_draghi_uid) == None
+    assert cl.user_management.delete_user(user_id=mario_draghi_uid) is None
     assert cl.group_management.delete_group(group_id=nocoiners["id"]) is None
     # remove teachers group - check if not in user_groups
     assert cl.group_management.delete_group(group_id=teachers_group["id"]) is None
     assert cl.user_management.user_groups(user_id=satoshi_uid) == []
-    assert cl.user_management.delete_user(user_id=satoshi_uid) == None
+    assert cl.user_management.delete_user(user_id=satoshi_uid) is None
     # remove user first - check if not part of the group
-    assert cl.user_management.delete_user(user_id=nick_szabo_uid) == None
+    assert cl.user_management.delete_user(user_id=nick_szabo_uid) is None
     assert cl.group_management.group_members(group_id=students_group["id"]) == []
     assert cl.group_management.delete_group(group_id=students_group["id"]) is None
     # check if clean

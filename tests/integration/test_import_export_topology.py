@@ -1,9 +1,7 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+# This file is part of CML 2
 #
-# This file is part of VIRL 2
-#
-# Copyright 2020 Cisco Systems Inc.
+# Copyright 2021 Cisco Systems Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,17 +35,7 @@ TOPOLOGY_ID_KEYS = [
 ]
 
 
-@pytest.fixture
-def cleanup_test_labs(client_library_session: ClientLibrary):
-    """Remove all labs after the test."""
-    yield
-    lab_list = client_library_session.get_lab_list()
-    for lab_id in lab_list:
-        lab = client_library_session.join_existing_lab(lab_id)
-        lab.stop()
-        lab.wipe()
-        client_library_session.remove_lab(lab_id)
-
+# TODO: also import .virl topology
 
 @pytest.mark.integration
 @pytest.mark.nomock

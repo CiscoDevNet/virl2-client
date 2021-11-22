@@ -1,9 +1,7 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+# This file is part of CML 2
 #
-# This file is part of VIRL 2
-#
-# Copyright 2020 Cisco Systems Inc.
+# Copyright 2021 Cisco Systems Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,11 +114,13 @@ def cleanup_licensing(
 def cleanup_reservation_mode(
     client_library_session: ClientLibrary,
 ):
+    """Make sure reservation mode is disabled after the test."""
     yield
     client_library_session.licensing.disable_reservation_mode()
 
 
 def register_wait_fail(client_library_session: ClientLibrary, token, reregister=False):
+    """Wait for registration to enter a failed state."""
     client_library_session.licensing.register(token, reregister)
     client_library_session.licensing.wait_for_status(
         "registration", "FAILED", "RETRY_IN_PROGRESS"
@@ -369,7 +369,7 @@ def test_registration_invalid_transport(
 def test_registration_invalid_token(
     client_library_session: ClientLibrary,
 ):
-
+    """Attempt registration with invalid token."""
     cl = client_library_session
     bad_token = "BadRegistrationToken"
 

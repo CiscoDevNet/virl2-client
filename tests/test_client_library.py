@@ -39,51 +39,13 @@ from virl2_client.virl2_client import (
     InitializationError,
 )
 
-
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
-
 
 python36_or_newer = pytest.mark.skipif(
     sys.version_info < (3, 6), reason="requires Python3.6"
 )
 
-
-def client_library_patched_system_info(version):
-    with patch.object(
-        ClientLibrary, "system_info", return_value={"version": version, "ready": True}
-    ) as cl:
-        yield cl
-
-
-@pytest.fixture
-def client_library_server_current():
-    yield from client_library_patched_system_info(version=CURRENT_VERSION)
-
-
-@pytest.fixture
-def client_library_server_2_0_0():
-    yield from client_library_patched_system_info(version="2.0.0")
-
-
-@pytest.fixture
-def client_library_server_1_0_0():
-    yield from client_library_patched_system_info(version="1.0.0")
-
-
-@pytest.fixture
-def client_library_server_2_9_0():
-    yield from client_library_patched_system_info(version="2.9.0")
-
-
-@pytest.fixture
-def client_library_server_2_19_0():
-    yield from client_library_patched_system_info(version="2.19.0")
-
-
-@pytest.fixture
-def mocked_session():
-    with patch.object(requests, "Session", autospec=True) as session:
-        yield session
+# TODO: split into multiple test modules, by feature
 
 
 @python36_or_newer

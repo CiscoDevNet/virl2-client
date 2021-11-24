@@ -30,11 +30,45 @@ pytestmark = [pytest.mark.integration]
 node_def_id = "integration_test_node_definition"
 image_def_id = "integration_test_image_definition"
 image_file_name = "integration_test_dummy.qcow2"
-image_def = dict(
-    id=image_def_id,
-    node_definition_id="alpine",
-    label="Integration Test Dummy",
-    disk_image=image_file_name,
+image_def = {
+    "id": image_def_id,
+    "node_definition_id": "alpine",
+    "label": "Integration Test Dummy",
+    "disk_image": image_file_name,
+}
+node_def = json.dumps(
+    {
+        "id": node_def_id,
+        "general": {"nature": "server", "read_only": False},
+        "device": {
+            "interfaces": {
+                "has_loopback_zero": True,
+                "physical": ["eth0"],
+                "serial_ports": 1,
+                "loopback": ["l0"],
+            }
+        },
+        "ui": {"visible": True, "label_prefix": "-b", "icon": "server", "label": "a"},
+        "sim": {"linux_native": {"libvirt_domain_driver": "none", "driver": "server"}},
+        "boot": {"timeout": 1},
+        "inherited": {
+            "image": {
+                "ram": True,
+                "cpus": True,
+                "cpu_limit": True,
+                "data_volume": True,
+                "boot_disk_size": True,
+            },
+            "node": {
+                "ram": True,
+                "cpus": True,
+                "cpu_limit": True,
+                "data_volume": True,
+                "boot_disk_size": True,
+            },
+        },
+        "configuration": {"generator": {"driver": None}},
+    }
 )
 
 
@@ -92,10 +126,15 @@ def cleanup_image_def(client_library_session: ClientLibrary):
         pass
 
 
-# TODO: test adding valid node def
-# TODO: test removing non-existant image def
-# TODO: test removing non-existant image file
-# TODO: negative cases for adding image def
+def test_upload_node_definition(
+    cleanup_node_def, client_library_session: ClientLibrary
+):
+    """Add a valid Node definition, verify it was added."""
+
+    client_library_session.definitions.upload_node_definition(body=node_def)
+
+    node_defs = client_library_session.definitions.node_definitions()
+    assert node_def_id in [definition["id"] for definition in node_defs]
 
 
 def test_remove_non_existent_node_definition(

@@ -457,11 +457,11 @@ def test_invalid_inputs(client_library_session: ClientLibrary, alpha_ssms_url):
         with pytest.raises(requests.exceptions.HTTPError) as exc:
             cl.licensing.complete_reservation(bad_value)
         exc.match("400 Client Error: Bad Request for url")
-        assert 'reservation mode is disabled' not in exc.value.response.text
+        assert "reservation mode is disabled" not in exc.value.response.text
         with pytest.raises(requests.exceptions.HTTPError) as exc:
             cl.licensing.discard_reservation(bad_value)
         exc.match("400 Client Error: Bad Request for url")
-        assert 'reservation mode is disabled' not in exc.value.response.text
+        assert "reservation mode is disabled" not in exc.value.response.text
 
 
 def test_license_count(
@@ -554,7 +554,7 @@ def test_license_count(
     bad_features_many = [
         {"id": features[0]["id"], "count": feature["max"]},
         {"id": features[0]["id"][1:], "count": feature["max"]},
-        {"id": features[0]["id"][2:], "count": feature["max"]}
+        {"id": features[0]["id"][2:], "count": feature["max"]},
     ]
     check_bad_values(bad_features_many)
     bad_features_many = feature_count_map(bad_features_many)

@@ -50,7 +50,7 @@ python36_or_newer = pytest.mark.skipif(
 
 @python36_or_newer
 def test_import_lab_from_path_virl(
-    client_library_server_2_0_0, mocked_session, tmp_path: Path
+    client_library_server_current, mocked_session, tmp_path: Path
 ):
     cl = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
@@ -73,7 +73,7 @@ def test_import_lab_from_path_virl(
     sync_mock.assert_called_once_with()
 
 
-def test_ssl_certificate(client_library_server_2_0_0, mocked_session):
+def test_ssl_certificate(client_library_server_current, mocked_session):
     cl = ClientLibrary(
         url="https://0.0.0.0/fake_url/",
         username="test",
@@ -90,7 +90,7 @@ def test_ssl_certificate(client_library_server_2_0_0, mocked_session):
 
 
 def test_ssl_certificate_from_env_variable(
-    client_library_server_2_0_0, monkeypatch, mocked_session
+    client_library_server_current, monkeypatch, mocked_session
 ):
     monkeypatch.setitem(os.environ, "CA_BUNDLE", "/home/user/cert.pem")
     cl = ClientLibrary(
@@ -107,7 +107,7 @@ def test_ssl_certificate_from_env_variable(
 
 @python36_or_newer
 @responses.activate
-def test_auth_and_reauth_token(client_library_server_2_0_0):
+def test_auth_and_reauth_token(client_library_server_current):
     # mock failed authentication:
     responses.add(
         responses.POST, "https://0.0.0.0/fake_url/api/v0/authenticate", status=403
@@ -170,7 +170,7 @@ def test_auth_and_reauth_token(client_library_server_2_0_0):
     assert len(responses.calls) == 6
 
 
-def test_client_library_init_allow_http(client_library_server_2_0_0):
+def test_client_library_init_allow_http(client_library_server_current):
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
     url_parts = urlsplit(cl._context.base_url)
     assert url_parts.scheme == "http"
@@ -181,11 +181,11 @@ def test_client_library_init_allow_http(client_library_server_2_0_0):
     assert cl.password == "virl2"
 
 
-def test_client_library_init_disallow_http(client_library_server_2_0_0):
+def test_client_library_init_disallow_http(client_library_server_current):
     with pytest.raises(InitializationError, match="must be https"):
-        cl = ClientLibrary("http://somehost", "virl2", "virl2")
+        ClientLibrary("http://somehost", "virl2", "virl2")
     with pytest.raises(InitializationError, match="must be https"):
-        cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
+        ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
 
 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
@@ -201,7 +201,7 @@ def test_client_library_init_disallow_http(client_library_server_2_0_0):
         (True, None),
     ],
 )
-def test_client_library_init_url(client_library_server_2_0_0, monkeypatch, via, params):
+def test_client_library_init_url(client_library_server_current, monkeypatch, via, params):
     (fail, url) = params
     expected_parts = None if fail else urlsplit(url)
     if via == "environment":
@@ -231,7 +231,7 @@ def test_client_library_init_url(client_library_server_2_0_0, monkeypatch, via, 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_server_2_0_0, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, params
 ):
     url = "validhostname"
     (fail, user) = params
@@ -258,7 +258,7 @@ def test_client_library_init_user(
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_server_2_0_0, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, params
 ):
     url = "validhostname"
     (fail, password) = params
@@ -293,7 +293,7 @@ def test_client_library_init_password(
         ClientConfig("https://somehost", "virl4", "somepass", auto_sync=2.3),
     ],
 )
-def test_client_library_config(client_library_server_2_0_0, mocked_session, config):
+def test_client_library_config(client_library_server_current, mocked_session, config):
     client_library = config.make_client()
     assert client_library._base_url.startswith(config.url)
     assert client_library.username == config.username
@@ -308,7 +308,7 @@ def test_client_library_config(client_library_server_2_0_0, mocked_session, conf
     ]
 
 
-def test_client_library_str_and_repr(client_library_server_2_0_0):
+def test_client_library_str_and_repr(client_library_server_current):
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         repr(client_library)
@@ -337,7 +337,7 @@ def test_incompatible_version(client_library_server_2_0_0):
     )
 
 
-def test_client_minor_version_gt_nowarn(client_library_server_2_0_0, caplog):
+def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
@@ -664,7 +664,7 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline(
-    change_test_dir, client_library_server_2_0_0, mocked_session, tmp_path: Path
+    change_test_dir, client_library_server_current, mocked_session, tmp_path: Path
 ):
     client_library = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"

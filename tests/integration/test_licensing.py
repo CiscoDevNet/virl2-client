@@ -608,13 +608,34 @@ def test_slr_basic_actions(
     cl = client_library_session
     # Enable reservation mode
     assert cl.licensing.enable_reservation_mode() is None
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
     # Request reservation
-    assert len(cl.licensing.request_reservation()) > 0
-    assert_status(cl.licensing.status(), mode=True, reg="RESERVATION_IN_PROGRESS")
+    request_code = cl.licensing.request_reservation()
+    assert len(request_code) > 0
+    assert_status(
+        cl.licensing.status(),
+        mode=True,
+        reg="RESERVATION_IN_PROGRESS",
+        auth=("NOT_AUTHORIZED",),
+    )
+    # Request code is remembered
+    assert cl.licensing.request_reservation() == request_code
     # Cancel reservation request
     assert cl.licensing.cancel_reservation()
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
+    # Request reservation again
+    request_code_2 = cl.licensing.request_reservation()
+    assert len(request_code_2) > 0
+    assert request_code_2 != request_code
+    assert_status(
+        cl.licensing.status(),
+        mode=True,
+        reg="RESERVATION_IN_PROGRESS",
+        auth=("NOT_AUTHORIZED",),
+    )
+    # Cancel reservation request
+    assert cl.licensing.cancel_reservation()
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
     # Disable reservation mode
     assert cl.licensing.disable_reservation_mode() is None
     assert_status(cl.licensing.status())
@@ -651,35 +672,35 @@ def test_slr_negatives(client_library_session: ClientLibrary, cleanup_reservatio
     with pytest.raises(requests.exceptions.HTTPError) as exc:
         cl.licensing.enable_reservation_mode()
     exc.match("400 Client Error: Bad Request for url*")
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
 
     # Complete reservation request with invalid reservation authorization code
     with pytest.raises(requests.exceptions.HTTPError) as exc:
         cl.licensing.complete_reservation(invalid_auth_code)
     exc.match("400 Client Error: Bad Request for url*")
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
 
     # Release reservation request when no reservation is complete
     with pytest.raises(requests.exceptions.HTTPError) as exc:
         cl.licensing.release_reservation()
     exc.match("400 Client Error: Bad Request for url*")
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
 
     # Discard reservation authorization code when requested code is present
     with pytest.raises(requests.exceptions.HTTPError) as exc:
         cl.licensing.discard_reservation(invalid_auth_code)
     exc.match("400 Client Error: Bad Request for url*")
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
 
     # Cancel reservation when no reservation request has been made
     assert cl.licensing.cancel_reservation()
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
 
     # Discard invalid reservation authorization code
     with pytest.raises(requests.exceptions.HTTPError) as exc:
         cl.licensing.discard_reservation(invalid_auth_code)
     exc.match("400 Client Error: Bad Request for url*")
-    assert_status(cl.licensing.status(), mode=True)
+    assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
 
     # Disable reservation mode when already disabled
     assert cl.licensing.disable_reservation_mode() is None

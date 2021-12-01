@@ -145,6 +145,16 @@ def assert_status(status, mode=False, reg="NOT_REGISTERED", auth=("INIT", "EVAL"
     assert status["authorization"]["status"] in auth
 
 
+def assert_features(features, base_use=1, expn_use=0):
+    assert len(features) > 0
+    assert features[0]["in_use"] == base_use
+    if expn_use is None:
+        assert len(features) == 1
+    else:
+        assert len(features) == 2
+        assert features[1]["in_use"] == expn_use
+
+
 @pytest.fixture(
     params=[
         "empty",
@@ -620,9 +630,12 @@ def test_slr_basic_actions(
     )
     # Request code is remembered
     assert cl.licensing.request_reservation() == request_code
+    # Feature counts are zeroed
+    assert_features(cl.licensing.features(), 0, 0)
     # Cancel reservation request
     assert cl.licensing.cancel_reservation()
     assert_status(cl.licensing.status(), mode=True, auth=("NOT_AUTHORIZED",))
+    assert_features(cl.licensing.features(), 0, 0)
     # Request reservation again
     request_code_2 = cl.licensing.request_reservation()
     assert len(request_code_2) > 0
@@ -639,6 +652,8 @@ def test_slr_basic_actions(
     # Disable reservation mode
     assert cl.licensing.disable_reservation_mode() is None
     assert_status(cl.licensing.status())
+    # Features' explicit counts restored to defaults
+    assert_features(cl.licensing.features(), 1, 0)
 
 
 def test_slr_negatives(client_library_session: ClientLibrary, cleanup_reservation_mode):

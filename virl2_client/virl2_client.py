@@ -18,7 +18,6 @@
 # limitations under the License.
 #
 
-# TODO: make this Python <3.5 compatible
 import json
 import logging
 import os
@@ -26,7 +25,6 @@ import re
 import time
 import typing
 import urllib
-import warnings
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -68,7 +66,7 @@ class Version(object):
 
     @staticmethod
     def parse_version_str(version_str: str):
-        regex = r"^(\d+)\.(\d+).(\d+)(.*)$"
+        regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")
@@ -179,9 +177,18 @@ class ClientLibrary:
     """
 
     # current client version
-    VERSION = Version(version_str="2.2.0")
+    VERSION = Version("2.3.0")
     # list of Version objects
-    INCOMPATIBLE_CONTROLLER_VERSIONS = []
+    INCOMPATIBLE_CONTROLLER_VERSIONS = [
+        Version("2.0.0"),
+        Version("2.0.1"),
+        Version("2.1.0"),
+        Version("2.1.1"),
+        Version("2.1.2"),
+        Version("2.2.1"),
+        Version("2.2.2"),
+        Version("2.2.3"),
+    ]
 
     def __init__(
         self,

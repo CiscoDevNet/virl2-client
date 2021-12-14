@@ -23,8 +23,12 @@ import re
 import requests
 import uuid
 
+from time import sleep
+from unicon.core.errors import SubCommandFailure
+
 from virl2_client import ClientLibrary
 from virl2_client.models.cl_pyats import ClPyats
+
 
 pytestmark = [pytest.mark.integration]
 
@@ -592,3 +596,41 @@ def test_link_conditioning(cleanup_test_labs, client_library_session: ClientLibr
     lab.stop()
     lab.wipe()
     lab.remove()
+
+
+@pytest.mark.nomock
+def test_node_shutdown(cleanup_test_labs, client_library_session: ClientLibrary):
+    """Start a lab with one ubuntu node, have the node shut itself down
+    then verify the lab is stopped and can be deleted."""
+
+    lab = client_library_session.create_lab()
+    lab_id = lab.id
+    node1 = lab.create_node("node1", "ubuntu", 0, 0)
+
+    lab.start(wait=True)
+
+    pyats_instance = ClPyats(lab=lab)
+    pyats_instance.sync_testbed("cml2", "cml2cml2")
+    try:
+        pyats_instance.run_command(node_label="node1", command="sudo shutdown -h now")
+    except SubCommandFailure as e:
+        if "TimeoutError" in str(e):
+            pass
+        else:
+            raise
+
+    # May take a few seconds to power off and enter STOPPED state, wait
+    for i in range(20):
+        if node1.state == "STOPPED" and lab.has_converged():
+            break
+        else:
+            sleep(1)
+
+    # Make sure both the node and lab are in STOPPED state
+    assert node1.state == "STOPPED"
+    assert lab.state() == "STOPPED"
+
+    # Make sure the lab is not stuck, can be wiped and deleted
+    lab.wipe()
+    lab.remove()
+    assert lab_id not in client_library_session.get_lab_list(show_all=True)

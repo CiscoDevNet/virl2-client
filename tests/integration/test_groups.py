@@ -22,734 +22,812 @@ import uuid
 import pytest
 import requests
 
-from virl2_client import ClientConfig, ClientLibrary
+from virl2_client import ClientConfig, ClientLibrary, LabNotFound
 
 pytestmark = [pytest.mark.integration]
 
-# TODO: split into more granular test cases and document
+test_group_name = "integration_test_group"
+test_username = "integration_test_user_groups"
+test_username2 = "integration_test_user_groups_2"
+test_password = "whatev3r"
+test_lab_name = "integration_test_lab_groups"
+
+groups_invalid = {
+    "empty_name": {"name": ""},
+    "name_not_string": {"name": 458},
+    "bad_description": {"name": test_group_name, "description": [{}]},
+    "bad_member_field_id": {"name": test_group_name, "members": ["Joe"]},
+    "bad_labs_field_dict": {"name": test_group_name, "labs": [{}]},
+    "bad_labs_field_string": {"name": test_group_name, "labs": ["abc"]},
+    "bad_labs_field_id": {"name": test_group_name, "labs": [{"id": "abc"}]},
+    "bad_labs_field_missing_id": {
+        "name": test_group_name,
+        "labs": [{"permissions": "read_only"}],
+    },
+}
+
+users_invalid = {
+    "id_not_string": 123,
+    "invalid_id_format": "abc123-def456",
+    "non_existent_group": "8ee2051d-3adb-4e76-9e51-ae63238f15bc",
+}
+
+labs_invalid = {
+    "missing_permissions": [{"id": "8ee2051d-3adb-4e76-9e51-ae63238f15bc"}],
+    "bad_permissions": [
+        {"id": "8ee2051d-3adb-4e76-9e51-ae63238f15bc", "permission": "whatever"}
+    ],
+    "id_not_string": [{"id": 123, "permission": "red-only"}],
+    "invalid_id_format": [{"id": "abc123-def456", "permission": "read_only"}],
+}
 
 
-def test_group_api_basic(
-    cleanup_test_groups, register_licensing, client_library_session: ClientLibrary
+@pytest.fixture(params=groups_invalid.keys())
+def invalid_group_data(request):
+    return groups_invalid[request.param]
+
+
+@pytest.fixture(params=users_invalid.keys())
+def invalid_user_data(request):
+    return users_invalid[request.param]
+
+
+@pytest.fixture(params=labs_invalid.keys())
+def invalid_lab_data(request):
+    return labs_invalid[request.param]
+
+
+def test_create_group(cleanup_test_groups, client_library_session: ClientLibrary):
+    """Create a valid group."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    assert isinstance(test_group1, dict)
+    assert "id" in test_group1 and uuid.UUID(test_group1["id"], version=4)
+    assert test_group1["description"] == ""
+    assert test_group1["members"] == [] and test_group1["labs"] == []
+    assert test_group1["id"] in [
+        group["id"] for group in client_library_session.group_management.groups()
+    ]
+
+    assert test_group1 == client_library_session.group_management.get_group(
+        test_group1["id"]
+    )
+
+
+def test_update_group_description(
+    cleanup_test_groups, client_library_session: ClientLibrary
 ):
-    cl = client_library_session
-    g0 = cl.group_management.create_group(name="g0")
-    assert isinstance(g0, dict)
-    assert "id" in g0 and uuid.UUID(g0["id"], version=4)
-    assert g0["description"] == ""
-    assert g0["members"] == [] and g0["labs"] == []
+    """Create a group, then update its description and verify."""
 
-    # try to create group with same name
+    description = "integration test group"
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    client_library_session.group_management.update_group(
+        group_id=group1_id, description=description
+    )
+
+    test_group1 = client_library_session.group_management.get_group(group_id=group1_id)
+    assert test_group1["name"] == test_group_name
+    assert test_group1["description"] == description
+
+
+def test_rename_group(cleanup_test_groups, client_library_session: ClientLibrary):
+    """Create a group, rename it and verify."""
+
+    modified_name = "integration_test_group_renamed"
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    client_library_session.group_management.update_group(
+        group_id=group1_id, name=modified_name
+    )
+
+    test_group1 = client_library_session.group_management.get_group(group_id=group1_id)
+    assert test_group1["name"] == modified_name
+
+
+def test_update_nonexistent_group(client_library_session: ClientLibrary):
+    """Try to update a group that does not exist, expect to fail."""
+
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="g0")
+        client_library_session.group_management.update_group(
+            group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc",
+            description="non existent group",
+        )
+    assert err.value.response.status_code == 404
+
+
+def test_delete_group(cleanup_test_groups, client_library_session: ClientLibrary):
+    """Create a group, remove it and verify it is removed."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    client_library_session.group_management.delete_group(group_id=group1_id)
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.group_management.get_group(group_id=group1_id)
+    assert err.value.response.status_code == 404
+
+
+def test_delete_nonexistent_group(client_library_session: ClientLibrary):
+    """Try to delete a group that does not exit, expect to fail."""
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.group_management.delete_group(
+            group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc"
+        )
+    assert err.value.response.status_code == 404
+
+
+def test_create_group_duplicate(
+    cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a valid group, then try to create another with the same name and expect to fail."""
+
+    client_library_session.group_management.create_group(name=test_group_name)
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.group_management.create_group(name=test_group_name)
     assert err.value.response.status_code == 422
     assert "Group already exists" in err.value.response.text
 
-    # same object must be returned in get as upon create
-    g0_a = cl.group_management.get_group(group_id=g0["id"])
-    assert g0 == g0_a
 
-    # get non-existent group
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.get_group(group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc")
-    assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
-
-    # groups labs is empty list
-    group_labs = cl.group_management.group_labs(group_id=g0["id"])
-    assert group_labs == []
+def test_create_group_invalid_data(
+    invalid_group_data, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Try creating group with some invalid data, expect to fail."""
 
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.group_labs(group_id="ef490485-f0a4-4455-afb6-b71c2b97bb6b")
-    assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
+        client_library_session.group_management.create_group(**invalid_group_data)
+    assert err.value.response.status_code == 400
 
-    # groups members is empty list
-    group_members = cl.group_management.group_members(group_id=g0["id"])
-    assert group_members == []
 
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.group_members(
-            group_id="8a0aff6f-ed54-40b0-8246-081b0cb104db"
-        )
-    assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
+def test_add_user_to_group(
+    cleanup_test_users, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a group, create a user and add the user to the group through group endpoint."""
 
-    # update group
-    new_description = "new_description"
-    new_name = "g1"
-    updated_g0 = cl.group_management.update_group(
-        group_id=g0["id"], description=new_description, name=new_name
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
     )
-    assert updated_g0["id"] == g0["id"]
-    assert updated_g0["description"] == new_description
-    assert updated_g0["name"] == new_name
-    updated_g0_a = cl.group_management.get_group(group_id=updated_g0["id"])
-    assert updated_g0 == updated_g0_a
+    group1_id = test_group1["id"]
 
-    # make sure name cannot be set to empty string
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    client_library_session.group_management.update_group(
+        group_id=group1_id, members=[user1_id]
+    )
+
+    assert user1_id in client_library_session.group_management.group_members(
+        group_id=group1_id
+    )
+    assert group1_id in client_library_session.user_management.user_groups(
+        user_id=user1_id
+    )
+
+
+def test_add_group_to_user(
+    cleanup_test_users, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a group, create a user and add the user to the group through user endpoint."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    client_library_session.user_management.update_user(
+        user_id=user1_id, groups=[group1_id]
+    )
+
+    assert user1_id in client_library_session.group_management.group_members(
+        group_id=group1_id
+    )
+    assert group1_id in client_library_session.user_management.user_groups(
+        user_id=user1_id
+    )
+
+
+def test_add_lab_to_group(
+    cleanup_test_labs, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a group, create a lab and add the lab to the group through group endpoint."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry = {"id": lab_id, "permission": "read_only"}
+    group_entry = {"id": group1_id, "permission": "read_only"}
+
+    client_library_session.group_management.update_group(
+        group_id=group1_id, labs=[lab_entry]
+    )
+
+    assert lab_id in client_library_session.group_management.group_labs(
+        group_id=group1_id
+    )
+    assert group_entry in test_lab1.groups
+
+
+def test_add_group_to_lab(
+    cleanup_test_labs, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a group, create a lab and add the lab to the group through lab endpoint."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    group_entry = {"id": group1_id, "permission": "read_only"}
+
+    test_lab1.update_lab_groups([group_entry])
+
+    assert lab_id in client_library_session.group_management.group_labs(
+        group_id=group1_id
+    )
+    assert group_entry in test_lab1.groups
+
+
+def test_update_group_invalid_data(
+    invalid_group_data, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a group, try updating it with some invalid data, expect to fail."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(
-            group_id=updated_g0["id"], description=new_description, name=""
+        client_library_session.group_management.update_group(
+            group_id=test_group1["id"], **invalid_group_data
         )
     assert err.value.response.status_code == 400
 
-    # update non-existent group
+
+def test_get_non_existent_group(client_library_session: ClientLibrary):
+    """Try to get a group that doesn't exist, expect a clean failure."""
+
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(
-            group_id="d393bb36-08a2-4f6b-a1b4-9acddc4ea364", description=new_description
+        client_library_session.group_management.get_group(
+            group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc"
         )
     assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
 
-    # delete non existent group
+
+def test_get_users_of_non_existent_group(client_library_session: ClientLibrary):
+    """Try to get users of a group that does not exist, expect to fail."""
+
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.delete_group(
-            group_id="ca789cac-a0e1-4233-bd92-336685c0eba2"
+        client_library_session.group_management.group_members(
+            group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc"
         )
     assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
 
-    assert cl.group_management.delete_group(group_id=updated_g0["id"]) is None
+
+def test_get_labs_of_non_existent_group(client_library_session: ClientLibrary):
+    """Try to get labs of a group that does not exist, expect to fail."""
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.get_group(group_id=updated_g0["id"])
+        client_library_session.group_management.group_labs(
+            group_id="8ee2051d-3adb-4e76-9e51-ae63238f15bc"
+        )
     assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
 
 
-def test_group_api_invalid_request_data(
+def test_create_user_with_group(
+    cleanup_test_users, cleanup_test_groups, client_library_session: ClientLibrary
+):
+    """Create a group, then create an user already assigned to the group and verify."""
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password, groups=[group1_id]
+    )
+    user1_id = test_user1["id"]
+
+    assert user1_id in client_library_session.group_management.group_members(
+        group_id=group1_id
+    )
+
+
+def test_create_group_with_user_lab(
     cleanup_test_labs,
     cleanup_test_users,
     cleanup_test_groups,
     client_library_session: ClientLibrary,
 ):
-    cl = client_library_session
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="")
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="xxx", description=[{}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name=458)
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="xxx", members="incorrect type")
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="xxx", labs=[{}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="xxx", labs=["dsdsds"])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="xxx", labs=[{"id": "x"}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(name="xxx", labs=[{"permission": "read_only"}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(
-            name="xxx", labs=[{"id": "dsd", "permission": "rw"}]
-        )
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.user_management.create_user("xxx", "hardpass", groups="pedro")
-    assert err.value.response.status_code == 400
-    lab = cl.create_lab()
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab.update_lab_groups(["x"])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab.update_lab_groups([{"not_id": "x", "permission": "read_write"}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab.update_lab_groups([{"id": "x", "perm": "read_write"}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab.update_lab_groups([{"id": "x", "perm": "not_one_of_read_write_only"}])
-    assert err.value.response.status_code == 400
-    lab.remove()
-    gg0 = cl.group_management.create_group("gg0")
-    gg0_uid = gg0["id"]
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(gg0_uid, labs=["labs"])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(gg0_uid, labs=[{"id": "dsdsd"}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(gg0_uid, labs=[{"permission": "read_only"}])
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(
-            "gg0", labs=[{"id": "dsdsd", "permission": "xxx"}]
-        )
-    assert err.value.response.status_code == 400
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(gg0_uid, name="")
-    assert err.value.response.status_code == 400
-    cl.group_management.delete_group(gg0_uid)
+    """Create a user, create a lab, then create a group assigned to both and verify."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry = {"id": lab_id, "permission": "read_only"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id], labs=[lab_entry]
+    )
+    group1_id = test_group1["id"]
+
+    group_entry = {"id": group1_id, "permission": "read_only"}
+
+    assert group1_id in client_library_session.user_management.user_groups(
+        user_id=user1_id
+    )
+    assert group_entry in test_lab1.groups
 
 
-def test_group_api_user_associations(
+def test_add_group_to_user_negative(
+    invalid_user_data, cleanup_test_users, client_library_session: ClientLibrary
+):
+    """Create a user, try updating the user with invalid group data and expect to fail."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        client_library_session.user_management.update_user(
+            user_id=user1_id, groups=invalid_user_data
+        )
+    assert err.value.response.status_code == 400
+
+
+def test_add_group_to_lab_negative(
+    invalid_lab_data, cleanup_test_labs, client_library_session: ClientLibrary
+):
+    """Create a lab, try updating the lab with invalid group data and expect to fail."""
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        test_lab1.update_lab_groups(invalid_lab_data)
+    assert err.value.response.status_code == 400
+
+
+def test_remove_group_with_users_labs(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_library_session: ClientLibrary,
+):
+    """Create group, user, lab, add both to group. 
+    Remove the group and verify associations are removed."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry = {"id": lab_id, "permission": "read_only"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id], labs=[lab_entry]
+    )
+    group1_id = test_group1["id"]
+
+    client_library_session.group_management.delete_group(group1_id)
+    assert group1_id not in client_library_session.user_management.user_groups(
+        user_id=user1_id
+    )
+    assert lab_entry not in test_lab1.groups
+
+
+def test_delete_user_in_group(
     cleanup_test_users, cleanup_test_groups, client_library_session: ClientLibrary
 ):
-    cl = client_library_session
-    # create non admin users
-    satoshi = cl.user_management.create_user(username="satoshi", pwd="super-secret-pwd")
-    satoshi_uid = satoshi["id"]
-    assert uuid.UUID(satoshi_uid, version=4)
-    nick_szabo = cl.user_management.create_user(
-        username="nick_szabo", pwd="super-secret-pwd"
+    """Create group, user, add user to group. 
+    Remove the user and verify group association is removed."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
     )
-    nick_szabo_uid = nick_szabo["id"]
-    assert uuid.UUID(nick_szabo_uid, version=4)
-    # create teachers group and immediately add teacher user to it
-    teachers_group = cl.group_management.create_group(
-        name="teachers", description="teachers group", members=[satoshi_uid]
+    user1_id = test_user1["id"]
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id]
     )
-    assert "id" in teachers_group and uuid.UUID(teachers_group["id"], version=4)
-    assert teachers_group["members"] == [satoshi_uid]
-    assert (
-        cl.group_management.group_members(group_id=teachers_group["id"])
-        == teachers_group["members"]
-    )
-    assert cl.user_management.user_groups(user_id=satoshi_uid) == [teachers_group["id"]]
-    assert (
-        cl.group_management.get_group(group_id=teachers_group["id"]) == teachers_group
+    group1_id = test_group1["id"]
+
+    client_library_session.user_management.delete_user(user_id=user1_id)
+    assert user1_id not in client_library_session.group_management.group_members(
+        group_id=group1_id
     )
 
-    # create students group
-    students_group = cl.group_management.create_group(
-        name="students",
-        description="students group",
-    )
-    # add user to group subsequently
-    students_group = cl.group_management.update_group(
-        group_id=students_group["id"], members=[nick_szabo_uid]
-    )
-    assert "id" in students_group and uuid.UUID(students_group["id"], version=4)
-    assert students_group["members"] == [nick_szabo_uid]
-    assert (
-        cl.group_management.group_members(group_id=students_group["id"])
-        == students_group["members"]
-    )
-    assert cl.user_management.user_groups(user_id=nick_szabo_uid) == [
-        students_group["id"]
-    ]
-    assert (
-        cl.group_management.get_group(group_id=students_group["id"]) == students_group
-    )
 
-    # add group to user during user creation
-    nocoiners = cl.group_management.create_group(
-        name="nocoiners", description="group for nocoiners"
-    )
-    mario_draghi = cl.user_management.create_user(
-        username="mario_draghi", pwd="super-secret-pwd", groups=[nocoiners["id"]]
-    )
-    mario_draghi_uid = mario_draghi["id"]
-    assert cl.user_management.user_groups(user_id=mario_draghi_uid) == [nocoiners["id"]]
-    assert cl.group_management.group_members(group_id=nocoiners["id"]) == [
-        mario_draghi_uid
-    ]
-
-    # try add non-existent user to group
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(
-            group_id=teachers_group["id"],
-            members=["b78a563b-d4a9-45fb-9aed-d8b5de4c3a2b"],
-        )
-    assert err.value.response.status_code == 404
-    assert "User does not exist" in err.value.response.text
-
-    # try add non-existent group to user
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.user_management.create_user(
-            username="xxx",
-            pwd="super-secret-pwd",
-            groups=["fcd86c8b-a04f-4d1b-9a2d-81ce4dfae1b2"],
-        )
-    assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
-    # above should not create user
-    assert "xxx" not in [
-        user_obj["username"] for user_obj in cl.user_management.users()
-    ]
-
-    # TODO: let pytest fixture clean this up, create separate test case for deletes
-    # CLEAN UP
-    # remove nocoiner group and draghi user
-    assert cl.user_management.delete_user(user_id=mario_draghi_uid) is None
-    assert cl.group_management.delete_group(group_id=nocoiners["id"]) is None
-    # remove teachers group - check if not in user_groups
-    assert cl.group_management.delete_group(group_id=teachers_group["id"]) is None
-    assert cl.user_management.user_groups(user_id=satoshi_uid) == []
-    assert cl.user_management.delete_user(user_id=satoshi_uid) is None
-    # remove user first - check if not part of the group
-    assert cl.user_management.delete_user(user_id=nick_szabo_uid) is None
-    assert cl.group_management.group_members(group_id=students_group["id"]) == []
-    assert cl.group_management.delete_group(group_id=students_group["id"]) is None
-    # check if clean
-    for group_id in (nocoiners["id"], teachers_group["id"], students_group["id"]):
-        with pytest.raises(requests.exceptions.HTTPError) as err:
-            cl.group_management.get_group(group_id=group_id)
-        assert err.value.response.status_code == 404
-    for user_id in (mario_draghi_uid, satoshi_uid, nick_szabo_uid):
-        with pytest.raises(requests.exceptions.HTTPError) as err:
-            cl.user_management.get_user(user_id=user_id)
-        assert err.value.response.status_code == 404
-
-
-def test_group_api_lab_associations(
+def test_delete_lab_in_group(
     cleanup_test_labs, cleanup_test_groups, client_library_session: ClientLibrary
 ):
-    cl = client_library_session
-    # create lab
-    lab0 = cl.create_lab(title="lab0")
-    # create group and add lab into it with rw
-    lab0_rw = [{"id": lab0.id, "permission": "read_write"}]
-    teachers_group = cl.group_management.create_group(
-        name="teachers", description="teachers group", labs=lab0_rw
-    )
-    assert teachers_group["labs"] == lab0_rw
-    teachers_group_labs = cl.group_management.group_labs(group_id=teachers_group["id"])
-    assert teachers_group_labs == [lab0.id]
-    assert lab0.groups == [{"id": teachers_group["id"], "permission": "read_write"}]
-    # remove association between group and lab using lab endpoint
-    assert lab0.update_lab_groups(group_list=[]) == []
-    assert lab0.groups == []
-    assert cl.group_management.get_group(group_id=teachers_group["id"])["labs"] == []
-    # reinstantiate association via group update - change to read_only
-    lab0_ro = [{"id": lab0.id, "permission": "read_only"}]
-    teachers_group = cl.group_management.update_group(
-        group_id=teachers_group["id"], labs=lab0_ro
-    )
-    assert teachers_group["labs"] == lab0_ro
-    assert lab0.groups == [{"id": teachers_group["id"], "permission": "read_only"}]
-    teachers_group_labs = cl.group_management.group_labs(group_id=teachers_group["id"])
-    assert teachers_group_labs == [lab0.id]
-    # remove association via group update endpoint
-    teachers_group = cl.group_management.update_group(
-        group_id=teachers_group["id"], labs=[]
-    )
-    assert lab0.groups == []
-    assert cl.group_management.get_group(group_id=teachers_group["id"])["labs"] == []
-    teachers_group_labs = cl.group_management.group_labs(group_id=teachers_group["id"])
-    assert teachers_group_labs == []
+    """Create group, lab, add lab to group. 
+    Remove the lab and verify group association is removed."""
 
-    # create on emore lab and group and create an association between them
-    # so that we can test both 1. lab removal 2. group removal
-    lab1 = cl.create_lab(title="lab1")
-    lab1_rw = [{"id": lab1.id, "permission": "read_write"}]
-    students_group = cl.group_management.create_group(
-        name="students", description="students group", labs=lab1_rw
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry = {"id": lab_id, "permission": "read_only"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, labs=[lab_entry]
     )
-    assert lab1.groups == [{"id": students_group["id"], "permission": "read_write"}]
-    students_group_labs = cl.group_management.group_labs(group_id=students_group["id"])
+    group1_id = test_group1["id"]
 
-    assert students_group_labs == [lab1.id]
+    test_lab1.remove()
 
-    # add non-existent lab to group (create)
-    non_existent_id = str(uuid.uuid4())
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.create_group(
-            name="xxx", labs=[{"id": non_existent_id, "permission": "read_only"}]
-        )
-    assert err.value.response.status_code == 404
-    assert "Lab not found" in err.value.response.text
-    assert "xxx" not in [group["name"] for group in cl.group_management.groups()]
-
-    # add non-existent lab to group (update)
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.update_group(
-            group_id=teachers_group["id"],
-            labs=[{"id": non_existent_id, "permission": "read_only"}],
-        )
-    assert err.value.response.status_code == 404
-    assert "Lab not found" in err.value.response.text
-    assert "non-existent" not in cl.group_management.group_labs(
-        group_id=teachers_group["id"]
+    assert lab_entry not in client_library_session.group_management.group_labs(
+        group_id=group1_id
     )
 
-    # add non-existent group to lab
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.update_lab_groups(
-            group_list=[{"id": non_existent_id, "permission": "read_only"}]
-        )
-    assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
-    assert "non-existent" not in [obj["id"] for obj in lab0.groups]
 
-    # CLEAN UP
-    # remove lab first
-    lab1.remove()
-    assert cl.find_labs_by_title(title="lab1") == []
-    # assert association is removed also
-    students_group_labs = cl.group_management.group_labs(group_id=students_group["id"])
-    assert students_group_labs == []
-    assert cl.group_management.get_group(group_id=students_group["id"])["labs"] == []
-    assert cl.group_management.delete_group(group_id=students_group["id"]) is None
-    # remove group first
-    assert cl.group_management.delete_group(group_id=teachers_group["id"]) is None
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl.group_management.group_labs(group_id=teachers_group["id"])
-    assert err.value.response.status_code == 404
-    assert "Group does not exist" in err.value.response.text
-    assert lab0.groups == []
-    lab0.remove()
+# ========== permissions ==========
 
 
-def test_group_api_permissions(
+def test_default_permissions(
     cleanup_test_labs,
     cleanup_test_users,
     cleanup_test_groups,
     client_config: ClientConfig,
     client_library_session: ClientLibrary,
 ):
-    cl_admin = client_library_session
-    # create non-admin user
-    username = "satoshi"
-    satoshi_pwd = "super-secret-pwd"
-    satoshi = cl_admin.user_management.create_user(username=username, pwd=satoshi_pwd)
-    halfinn = cl_admin.user_management.create_user(
-        username="halfinney", pwd=satoshi_pwd
-    )
-    satoshi_uid = satoshi["id"]
-    cml2_uid = client_library_session.user_management.user_id(
-        username=client_config.username
-    )
-    halfinn_uid = halfinn["id"]
-    # create lab
-    lab0 = cl_admin.create_lab(title="lab0")
-    lab1 = cl_admin.create_lab(title="lab1")
-    # create students group
-    lab0_ro = [{"id": lab0.id, "permission": "read_only"}]
-    lab0_1_rw = [
-        {"id": lab0.id, "permission": "read_write"},
-        {"id": lab1.id, "permission": "read_write"},
-    ]
-    students_group = cl_admin.group_management.create_group(
-        name="students",
-        description="students group",
-        members=[satoshi_uid],
-        labs=lab0_ro,
-    )
-    teachers_group = cl_admin.group_management.create_group(
-        name="teachers", description="teachers group", members=[], labs=lab0_1_rw
-    )
-    all_groups = cl_admin.group_management.groups()
-    all_groups_names = [group["id"] for group in all_groups]
-    assert students_group["id"] in all_groups_names
-    assert teachers_group["id"] in all_groups_names
+    """Create group, two users and lab.
+    Verify non-admin user cannot see any groups, labs or other users."""
 
-    # log in as non-admin satoshi user
-    cl_satoshi = ClientLibrary(
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password, admin=False
+    )
+    user1_id = test_user1["id"]
+    test_user2 = client_library_session.user_management.create_user(
+        username=test_username2, pwd=test_password, admin=False
+    )
+    user2_id = test_user2["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name
+    )
+    group1_id = test_group1["id"]
+
+    test_user_session = ClientLibrary(
         client_config.url,
-        username=username,
-        password=satoshi_pwd,
+        username=test_username,
+        password=test_password,
         ssl_verify=client_config.ssl_verify,
         allow_http=client_config.allow_http,
     )
-    # satoshi must only see groups that he is part of
-    satoshi_groups = cl_satoshi.group_management.groups()
-    assert len(satoshi_groups) == 1
-    assert satoshi_groups[0]["name"] == "students"
-    assert cl_satoshi.user_management.user_groups(user_id=satoshi_uid) == [
-        students_group["id"]
-    ]
 
-    # cannot check other user info
+    test_user_session.user_management.get_user(user1_id)
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.user_management.user_groups(user_id=cml2_uid)
+        test_user_session.user_management.get_user(user2_id)
     assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
 
-    # user cannot see groups he is not part of
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.group_management.get_group(group_id=teachers_group["id"])
+        test_user_session.group_management.get_group(group_id=group1_id)
     assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # can see those where he is member
-    students_group = cl_satoshi.group_management.get_group(
-        group_id=students_group["id"]
-    )
-    assert students_group["members"] == [satoshi_uid]
-    # only admin can create, delete and modify group
-    # create
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.group_management.create_group(name="xxx")
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # update
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.group_management.update_group(
-            group_id=teachers_group["id"], description="new"
-        )
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # delete
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.group_management.delete_group(group_id=teachers_group["id"])
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # user cannot see members of group that he is not part of
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.group_management.group_members(group_id=teachers_group["id"])
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # can see those where he is member
-    students_group_members = cl_satoshi.group_management.group_members(
-        group_id=students_group["id"]
-    )
-    assert students_group_members == [satoshi_uid]
-    # user cannot see labs of group that he is not part of
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        cl_satoshi.group_management.group_labs(group_id=teachers_group["id"])
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # can see those where he is member
-    students_group_labs = cl_satoshi.group_management.group_labs(
-        group_id=students_group["id"]
-    )
-    assert students_group_labs == [lab0.id]
 
-    # we need to get lab objects again so that they are bound to satoshi user
-    lab0 = cl_satoshi.find_labs_by_title(title="lab0")[0]
-    # satishi can only see groups where he is a member - in this case students
-    assert lab0.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-    ]
-    # we cannot modify groups associations as satoshi is not owner or admin
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.update_lab_groups(group_list=[])
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
+    with pytest.raises(LabNotFound):
+        test_user_session.join_existing_lab(lab_id=lab_id)
 
-    # we cannot modify notes
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.notes = "new note"
-    assert err.value.response.status_code == 403
-    assert "User does not have write permission to lab" in err.value.response.text
 
-    # we cannot modify description
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.description = "new description"
-    assert err.value.response.status_code == 403
-    assert "User does not have write permission to lab" in err.value.response.text
+def test_group_permissions(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
+):
+    """Create group and user, add user to group.
+    Verify user can see the group, but cannot modify the group."""
 
-    # change students association to lab0 to read_write
-    assert cl_admin.group_management.update_group(
-        group_id=students_group["id"],
-        labs=[{"id": lab0.id, "permission": "read_write"}],
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password, admin=False
     )
-    # now user can perform writes to associated lab
-    lab0.notes = "new note"
-    assert lab0.notes == "new note"
-    lab0.description = "new description"
-    assert lab0.description == "new description"
-    # get students groups association to lab0 back to read only
-    # satoshi cannot - he is not admin or owner
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.update_lab_groups(
-            group_list=[
-                {"id": students_group["id"], "permission": "read_only"},
-            ]
-        )
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # admin can
-    lab0 = cl_admin.find_labs_by_title(title="lab0")[0]
-    lab0.update_lab_groups(
-        group_list=[
-            {"id": students_group["id"], "permission": "read_only"},
-        ]
-    )
-    lab0 = cl_satoshi.find_labs_by_title(title="lab0")[0]
-    assert lab0.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-    ]
-    # add teachers group rw association to lab0 (admin action)
-    teachers_group = cl_admin.group_management.update_group(
-        group_id=teachers_group["id"], labs=lab0_1_rw
-    )
-    assert len(teachers_group["labs"]) == 2
-    # we cannot modify groups associations as satoshi is not admin or owner
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.update_lab_groups(group_list=[])
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
+    user1_id = test_user1["id"]
 
-    # we cannot modify notes
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.notes = "new note"
-    assert err.value.response.status_code == 403
-    assert "User does not have write permission to lab" in err.value.response.text
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id]
+    )
+    group1_id = test_group1["id"]
 
-    # we cannot modify description
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        lab0.description = "new description"
-    assert err.value.response.status_code == 403
-    assert "User does not have write permission to lab" in err.value.response.text
-
-    # as satoshi has no access to lab1 - below list is empty
-    assert cl_satoshi.find_labs_by_title(title="lab1") == []
-    # add satoshi to teachers group - by doing this now he gains read write
-    # access to both lab0 and lab1
-    teachers_group = cl_admin.group_management.update_group(
-        group_id=teachers_group["id"], members=[satoshi_uid]
-    )
-    # now we can access teachers group and related data
-    assert cl_satoshi.group_management.get_group(group_id=teachers_group["id"])
-    assert cl_satoshi.group_management.group_members(group_id=teachers_group["id"]) == [
-        satoshi_uid
-    ]
-    assert (
-        len(cl_satoshi.group_management.group_labs(group_id=teachers_group["id"])) == 2
-    )
-    user_groups = cl_satoshi.user_management.user_groups(user_id=satoshi_uid)
-    assert students_group["id"] in user_groups and teachers_group["id"] in user_groups
-    associated_groups_names = [
-        group["name"] for group in cl_satoshi.group_management.groups()
-    ]
-    assert (
-        "students" in associated_groups_names and "teachers" in associated_groups_names
-    )
-    # test adjusting lab groups (only owner and admin can change lab group associations)
-    # admin must see all associations
-    # owner and non-admin users can only see those associations where they are members of group
-    # log in as non-admin satoshi user
-    cl_halfinn = ClientLibrary(
+    test_user_session = ClientLibrary(
         client_config.url,
-        username="halfinney",
-        password=satoshi_pwd,
+        username=test_username,
+        password=test_password,
         ssl_verify=client_config.ssl_verify,
         allow_http=client_config.allow_http,
     )
-    # create lab owned by halfin
-    lab2 = cl_halfinn.create_lab(title="lab2")
-    # only satoshi in students group + add lab2 association
-    cl_admin.group_management.update_group(
-        group_id=students_group["id"],
-        members=[satoshi_uid],
-        labs=[{"id": lab2.id, "permission": "read_only"}],
-    )
-    # only halfinney in teachers group + add lab2 association
-    cl_admin.group_management.update_group(
-        group_id=teachers_group["id"],
-        members=[halfinn_uid],
-        labs=[{"id": lab2.id, "permission": "read_only"}],
-    )
-    halfinn_lab2 = cl_halfinn.find_labs_by_title(title="lab2")[0]
-    # get lab owned by halfinney with satoshi (who is not owner)
-    satoshi_lab2 = cl_satoshi.find_labs_by_title(title="lab2")[0]
-    # get lab owned by halfinney with admin
-    admin_lab2 = cl_admin.find_labs_by_title(title="lab2")[0]
 
-    # admin must see both groups associated with lab2
-    assert admin_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    # halfinney only sees group that he is member of (teachers)
-    assert halfinn_lab2.groups == [
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    # satoshi only sees group that he is member of (students)
-    assert satoshi_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-    ]
-    # satoshi cannot update lab groups associations for lab2 -> 403 (not owner or admin)
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        satoshi_lab2.update_lab_groups(group_list=[])
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # associations mus still be present after above failure
-    assert admin_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    # halfinney cannot add/remove students association to lab2 as he is not member of students
-    halfinn_lab2.update_lab_groups(group_list=[])
-    # above only removed the group teachers as halfinn is owner and also member of teachers
-    assert halfinn_lab2.groups == []  # sees nothing
-    assert satoshi_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-    ]  # sees students
-    assert admin_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-    ]  # admin too sees only students as that is now only associtation
-    # halfinney cannot add students group as he is not member
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        halfinn_lab2.update_lab_groups(
-            group_list=[{"id": students_group["id"], "permission": "read_only"}]
-        )
-    assert err.value.response.status_code == 403
-    assert "User does not have required access" in err.value.response.text
-    # halfinney can add teachers as he is a member
-    halfinn_lab2.update_lab_groups(
-        group_list=[{"id": teachers_group["id"], "permission": "read_only"}]
-    )
-    # halfinney only sees group that he is member of (teachers)
-    assert halfinn_lab2.groups == [
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    # add halfinney to students group
-    cl_admin.group_management.update_group(
-        group_id=students_group["id"],
-        members=[satoshi_uid, halfinn_uid],
-    )
-    # halfinney now sees both students and teachers
-    # associations mus still be present after above failure
-    assert halfinn_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    # he can now also remove both associations
-    halfinn_lab2.update_lab_groups(group_list=[])
-    assert admin_lab2.groups == []
-    assert halfinn_lab2.groups == []
-    # satoshi lost access --> 404
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        assert satoshi_lab2.groups == []
-    assert err.value.response.status_code == 404
-    assert "Lab not found" in err.value.response.text
-    # add also possible
-    halfinn_lab2.update_lab_groups(
-        group_list=[
-            {"id": students_group["id"], "permission": "read_only"},
-            {"id": teachers_group["id"], "permission": "read_only"},
-        ]
-    )
-    assert halfinn_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    assert satoshi_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-    ]  # sees students as he is only part of students not teachers
-    assert admin_lab2.groups == [
-        {"id": students_group["id"], "permission": "read_only"},
-        {"id": teachers_group["id"], "permission": "read_only"},
-    ]
-    # admin can do whatever he pleases
-    admin_lab2.update_lab_groups(group_list=[])
-    assert admin_lab2.groups == []
-    assert halfinn_lab2.groups == []
-    # satoshi lost access --> 404
-    with pytest.raises(requests.exceptions.HTTPError) as err:
-        assert satoshi_lab2.groups == []
-    assert err.value.response.status_code == 404
-    assert "Lab not found" in err.value.response.text
+    test_user_session.group_management.get_group(group_id=group1_id)
 
-    # CLEAN UP
-    # again need to get lab0 from admin account
-    lab0 = cl_admin.find_labs_by_title(title="lab0")[0]
-    lab0.remove()
-    lab1.remove()
-    lab2.remove()
-    cl_admin.user_management.delete_user(user_id=satoshi_uid)
-    cl_admin.user_management.delete_user(user_id=halfinn_uid)
-    assert cl_admin.group_management.delete_group(group_id=students_group["id"]) is None
-    assert cl_admin.group_management.delete_group(group_id=teachers_group["id"]) is None
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        test_user_session.group_management.update_group(group_id=group1_id, members=[])
+    assert err.value.response.status_code == 403
+
+
+def test_user_permissions(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
+):
+    """Create group and two users, add both to group. 
+    Verify one user can see but not modify the other user."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password, admin=False
+    )
+    user1_id = test_user1["id"]
+    test_user2 = client_library_session.user_management.create_user(
+        username=test_username2, pwd=test_password, admin=False
+    )
+    user2_id = test_user2["id"]
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id, user2_id]
+    )
+    group1_id = test_group1["id"]
+
+    test_user_session = ClientLibrary(
+        client_config.url,
+        username=test_username,
+        password=test_password,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
+    )
+
+    # Can see user ID in group members
+    assert user2_id in test_user_session.group_management.group_members(
+        group_id=group1_id
+    )
+
+    # Can't see the user directly
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        test_user_session.user_management.get_user(user_id=user2_id)
+    assert err.value.response.status_code == 403
+
+    # Can't modify the user
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        test_user_session.user_management.update_user(user_id=user2_id, groups=[])
+    assert err.value.response.status_code == 403
+
+
+def test_lab_permissions(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
+):
+    """Create group, user and three labs. 
+    Setup permissions for read-only, read-write and none, verify permissions. 
+    Verify user cannot change lab group membership."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password, admin=False
+    )
+    user1_id = test_user1["id"]
+
+    test_lab_readonly = client_library_session.create_lab(title=test_lab_name)
+    lab_id_readonly = test_lab_readonly.id
+    test_lab_readwrite = client_library_session.create_lab(title=test_lab_name)
+    lab_id_readwrite = test_lab_readwrite.id
+    test_lab_unallowed = client_library_session.create_lab(title=test_lab_name)
+    lab_id_unallowed = test_lab_unallowed.id
+
+    lab_entry_readonly = {"id": lab_id_readonly, "permission": "read_only"}
+    lab_entry_readwrite = {"id": lab_id_readwrite, "permission": "read_write"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name,
+        members=[user1_id],
+        labs=[lab_entry_readonly, lab_entry_readwrite],
+    )
+
+    test_user_session = ClientLibrary(
+        client_config.url,
+        username=test_username,
+        password=test_password,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
+    )
+
+    labs = test_user_session.get_lab_list(show_all=True)
+    assert lab_id_unallowed not in labs
+    assert lab_id_readonly in labs and lab_id_readwrite in labs
+
+    with pytest.raises(LabNotFound):
+        test_user_session.join_existing_lab(lab_id_unallowed)
+
+    lab_readonly = test_user_session.join_existing_lab(lab_id_readonly)
+    lab_readwrite = test_user_session.join_existing_lab(lab_id_readwrite)
+
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        lab_readonly.description = "should not be editable"
+    assert err.value.response.status_code == 403
+
+    lab_readwrite.description = "integration test lab group permissions read-write"
+
+
+def test_lab_permission_update(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
+):
+    """Create group, user and lab, assign to group. 
+    Update lab permission from read-only to read-write, verify user can now modify lab."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry_readonly = {"id": lab_id, "permission": "read_only"}
+    lab_entry_readwrite = {"id": lab_id, "permission": "read_write"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id], labs=[lab_entry_readonly]
+    )
+    group1_id = test_group1["id"]
+
+    test_user_session = ClientLibrary(
+        client_config.url,
+        username=test_username,
+        password=test_password,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
+    )
+
+    lab = test_user_session.join_existing_lab(lab_id=lab_id)
+
+    # Check lab is not editable
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        lab.description = "should not be editable"
+    assert err.value.response.status_code == 403
+
+    # Update to read_write, check it is editable
+    client_library_session.group_management.update_group(
+        group_id=group1_id, labs=[lab_entry_readwrite]
+    )
+    lab.description = "integration test lab group permissions read-write"
+
+    # Revert to read-only, check it is not editable
+    client_library_session.group_management.update_group(
+        group_id=group1_id, labs=[lab_entry_readonly]
+    )
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        lab.description = "should not be editable"
+    assert err.value.response.status_code == 403
+
+
+def test_remove_user_from_group(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
+):
+    """Create group, user and lab, assign to group. 
+    Remove user from group, verify user loses permissions."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry = {"id": lab_id, "permission": "read_only"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id], labs=[lab_entry]
+    )
+    group1_id = test_group1["id"]
+
+    test_user_session = ClientLibrary(
+        client_config.url,
+        username=test_username,
+        password=test_password,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
+    )
+
+    # Check that user has access to lab
+    lab = test_user_session.join_existing_lab(lab_id=lab_id)
+
+    # Remove user from group and verify he loses lab access
+    client_library_session.group_management.update_group(group_id=group1_id, members=[])
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        lab.description = "should not be editable"
+    assert err.value.response.status_code == 404
+    with pytest.raises(LabNotFound):
+        test_user_session.join_existing_lab(lab_id=lab_id)
+
+
+def test_remove_lab_from_group(
+    cleanup_test_labs,
+    cleanup_test_users,
+    cleanup_test_groups,
+    client_config: ClientConfig,
+    client_library_session: ClientLibrary,
+):
+    """Create group, user and lab, assign to group. 
+    Remove lab from group, verify user can no longer access it."""
+
+    test_user1 = client_library_session.user_management.create_user(
+        username=test_username, pwd=test_password
+    )
+    user1_id = test_user1["id"]
+
+    test_lab1 = client_library_session.create_lab(title=test_lab_name)
+    lab_id = test_lab1.id
+
+    lab_entry = {"id": lab_id, "permission": "read_only"}
+
+    test_group1 = client_library_session.group_management.create_group(
+        name=test_group_name, members=[user1_id], labs=[lab_entry]
+    )
+    group1_id = test_group1["id"]
+
+    test_user_session = ClientLibrary(
+        client_config.url,
+        username=test_username,
+        password=test_password,
+        ssl_verify=client_config.ssl_verify,
+        allow_http=client_config.allow_http,
+    )
+
+    # Check that user has access to lab
+    lab = test_user_session.join_existing_lab(lab_id=lab_id)
+
+    # Remove lab from group and verify user loses lab access
+    client_library_session.group_management.update_group(group_id=group1_id, labs=[])
+    with pytest.raises(requests.exceptions.HTTPError) as err:
+        lab.description = "should not be editable"
+    assert err.value.response.status_code == 404
+    with pytest.raises(LabNotFound):
+        test_user_session.join_existing_lab(lab_id=lab_id)

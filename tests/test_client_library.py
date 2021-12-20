@@ -673,3 +673,29 @@ def test_import_lab_offline(
     with open(topology_file_path) as fh:
         topology_file = fh.read()
         client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
+
+
+def test_convergence_parametrization(client_library_server_current, mocked_session):
+    MAX_ITER = 2
+    WAIT_TIME = 1
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/",
+        username="test",
+        password="pa$$",
+        convergence_wait_max_iter=MAX_ITER,
+        convergence_wait_time=WAIT_TIME
+    )
+    #check that passing of value from client to lab is working
+    lab = cl.create_lab()
+    assert lab.wait_max_iterations == MAX_ITER
+    assert lab.wait_time == WAIT_TIME
+    with patch.object(Lab, "has_converged", return_value=False):
+        with pytest.raises(RuntimeError)as err:
+            lab.wait_until_lab_converged()
+        assert ("has not converged, maximum tries %s exceeded" % MAX_ITER) in err.value.args[0]
+
+        # try to override values on function
+        with pytest.raises(RuntimeError)as err:
+            lab.wait_until_lab_converged(max_iterations=1)
+        assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
+

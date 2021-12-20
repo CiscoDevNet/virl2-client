@@ -147,9 +147,11 @@ class Link:
         response = self.session.delete(url)
         response.raise_for_status()
 
-    def wait_until_converged(self, max_iterations=500):
+    def wait_until_converged(self, max_iterations=None, wait_time=None):
         logger.info("Waiting for link %s to converge", self.id)
-        for index in range(max_iterations):
+        max_iter = self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        wait_time = self.lab.wait_time if wait_time is None else wait_time
+        for index in range(max_iter):
             converged = self.has_converged()
             if converged:
                 logger.info("Link %s has booted", self.id)
@@ -159,14 +161,19 @@ class Link:
                 logging.info(
                     "Link has not converged, attempt %s/%s, waiting...",
                     index,
-                    max_iterations,
+                    max_iter,
                 )
-            time.sleep(5)
-        logger.info(
-            "Link %s has not converged, maximum tries %s exceeded",
-            self.id,
-            max_iterations,
+            time.sleep(wait_time)
+        
+        msg = "Link %s has not converged, maximum tries %s exceeded" % (
+            self.id, max_iter
         )
+        logger.error(msg)
+        # after maximum retries are exceeded and link has not converged
+        # error must be raised - it makes no sense to just log info
+        # and let client fail with something else if wait is explicitly
+        # specified
+        raise RuntimeError(msg)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"

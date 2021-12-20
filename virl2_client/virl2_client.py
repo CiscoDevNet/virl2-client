@@ -137,6 +137,8 @@ class ClientConfig(typing.NamedTuple):
     allow_http: bool = False
     auto_sync: float = 1.0
     raise_for_auth_failure: bool = True
+    convergence_wait_max_iter: int = 500
+    convergence_wait_time: typing.Union[int, float] = 5
 
     def make_client(self):
         client = ClientLibrary(
@@ -146,6 +148,8 @@ class ClientConfig(typing.NamedTuple):
             ssl_verify=self.ssl_verify,
             raise_for_auth_failure=self.raise_for_auth_failure,
             allow_http=self.allow_http,
+            convergence_wait_max_iter=self.convergence_wait_max_iter,
+            convergence_wait_time=self.convergence_wait_time,
         )
         client.auto_sync = self.auto_sync >= 0.0
         client.auto_sync_interval = self.auto_sync
@@ -169,9 +173,15 @@ class ClientLibrary:
     :type ssl_verify: bool
     :param raise_for_auth_failure: Raise an exception if unable
         to connect to controller (use for scripting scenarios)
-    :type allow_http: bool
-    :param allow_http: If set, a https URL will not be enforced
     :type raise_for_auth_failure: bool
+    :param allow_http: If set, a https URL will not be enforced
+    :type allow_http: bool
+    :param convergence_wait_max_iter: maximum number of iterations to wait for
+        lab to converge
+    :type convergence_wait_max_iter: int
+    :param convergence_wait_time: wait interval in seconds to wait during one
+        iteration during lab convergence wait
+    :type convergence_wait_time: int
     :raises InitializationError: If no URL is provided or
         authentication fails or host can't be reached
     """
@@ -198,6 +208,8 @@ class ClientLibrary:
         ssl_verify=True,
         raise_for_auth_failure=False,
         allow_http=False,
+        convergence_wait_max_iter=500,
+        convergence_wait_time=5,
     ):
         """Constructor method"""
 
@@ -276,6 +288,9 @@ class ClientLibrary:
 
         self.auto_sync = True
         self.auto_sync_interval = 1.0  # seconds
+
+        self.convergence_wait_max_iter = convergence_wait_max_iter
+        self.convergence_wait_time = convergence_wait_time
 
         self.allow_http = allow_http
         self.definitions = NodeImageDefinitions(self._context)
@@ -451,10 +466,17 @@ class ClientLibrary:
             loops = int(max_wait / sleep)
         ready = False
         while not ready and loops > 0:
-            result = self.system_info()
-            ready = result.get("ready")
+            try:
+                result = self.system_info()
+                ready = result.get("ready")
+            except requests.HTTPError:
+                # 502 Bad Gateway is expected and hints
+                # that system is not ready - no need to 
+                # raise - just wait
+                ready = False
             if not ready and loops > 0:
-                time.sleep(int(sleep))
+                time.sleep(sleep)
+            loops -= 1
         return ready
 
     def wait_for_lld_connected(self):
@@ -622,6 +644,8 @@ class ClientLibrary:
             self.password,
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
+            wait_max_iterations=self.convergence_wait_max_iter,
+            wait_time=self.convergence_wait_time,
         )
         self._labs[lab_id] = lab
         return lab

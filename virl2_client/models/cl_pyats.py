@@ -39,14 +39,17 @@ class ClPyats:
 
     :param lab: The lab which should be used with pyATS
     :type lab: models.Lab
+    :param hostname: Force hostname/ip and port for console terminal server
+    :type hostname: str
     :raises PyatsNotInstalled: when pyATS can not be found
     :raises PyatsDeviceNotFound: when the device can not be found
     """
 
-    def __init__(self, lab):
+    def __init__(self, lab, hostname=None):
         """Constructor method"""
         self._pyats_installed = False
         self._lab = lab
+        self._hostname = hostname
         try:
             import pyats  # noqa: F401
         except ImportError:
@@ -75,7 +78,7 @@ class ClPyats:
         self._check_pyats_installed()
         from pyats.topology import loader
 
-        testbed_yaml = self._lab.get_pyats_testbed()
+        testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
         data = loader.load(io.StringIO(testbed_yaml))
         data.devices.terminal_server.credentials.default.username = username
         data.devices.terminal_server.credentials.default.password = password

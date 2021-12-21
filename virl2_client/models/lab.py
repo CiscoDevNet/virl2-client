@@ -55,6 +55,8 @@ class Lab:
     :type wait_max_iterations: int
     :param wait_time: Time to sleep between calls for convergence on backend
     :type wait_time: int
+    :param hostname: Force hostname/ip and port for pyATS console terminal server
+    :type hostname: str
     """
 
     def __init__(
@@ -69,6 +71,7 @@ class Lab:
         wait=True,
         wait_max_iterations=500,
         wait_time=5,
+        hostname=None,
     ):
         """Constructor method"""
         self.username = username
@@ -96,7 +99,7 @@ class Lab:
         It maps interface identifier to `virl2_client.models.Interface`
         """
         self.events = []
-        self.pyats = ClPyats(self)
+        self.pyats = ClPyats(self, hostname)
         self.auto_sync = auto_sync
         self.auto_sync_interval = auto_sync_interval
 
@@ -1185,7 +1188,7 @@ class Lab:
         # if cannot find, is an internal structure error
         return
 
-    def get_pyats_testbed(self):
+    def get_pyats_testbed(self, hostname=None):
         """
         Return lab's pyATS YAML testbed. Example usage::
 
@@ -1201,11 +1204,16 @@ class Lab:
 
             aetest.main(testbed=testbed)
 
+        :param hostname: Force hostname/ip and port for console terminal server
+        :type hostname: str
         :returns: The pyATS testbed for the lab in YAML format
         :rtype: str
         """
         url = self._context.base_url + "labs/{}".format(self._lab_id) + "/pyats_testbed"
-        result = self.session.get(url)
+        params = {}
+        if hostname is not None:
+            params["hostname"] = hostname
+        result = self.session.get(url, params=params)
         return result.text
 
     def sync_pyats(self):

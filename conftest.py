@@ -73,6 +73,12 @@ def pytest_addoption(parser):
         help="Allow HTTP for CML2 controller URL",
     )
 
+    parser.addoption(
+        "--controller-pyats-hostname",
+        default=None,
+        help="Host:port for making PyATS termws connections",
+    )
+
 
 @pytest.fixture
 def no_ssl_warnings():
@@ -101,6 +107,11 @@ def client_config(request) -> ClientConfig:
         allow_http=request.config.getoption("--controller-allow-http"),
         raise_for_auth_failure=True,
     )
+
+
+@pytest.fixture(scope="session")
+def pyats_hostname(request) -> str:
+    return request.config.getoption("--controller-pyats-hostname")
 
 
 def client_library_keep_labs_base(client_config: ClientConfig) -> ClientLibrary:

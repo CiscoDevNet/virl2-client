@@ -524,7 +524,9 @@ def test_links_on_various_slots(
 
 
 @pytest.mark.nomock
-def test_link_conditioning(cleanup_test_labs, client_library_session: ClientLibrary):
+def test_link_conditioning(
+    cleanup_test_labs, client_library_session: ClientLibrary, pyats_hostname: str
+):
     response_packets = (
         r"(\d+) packets transmitted, (\d+) packets received, (\d+)% packet loss"
     )
@@ -545,8 +547,8 @@ def test_link_conditioning(cleanup_test_labs, client_library_session: ClientLibr
     ums = lab.get_node_by_label("unmanaged-switch-0")
     link = lab.get_link_by_nodes(alpine, ums)
 
-    pylab = ClPyats(lab)
-    pylab.sync_testbed("cml2", "cml2cml2")
+    pylab = ClPyats(lab, hostname=pyats_hostname)
+    pylab.sync_testbed(lab.username, lab.password)
 
     # ensure there's no link condition
     result = link.get_condition()
@@ -599,7 +601,9 @@ def test_link_conditioning(cleanup_test_labs, client_library_session: ClientLibr
 
 
 @pytest.mark.nomock
-def test_node_shutdown(cleanup_test_labs, client_library_session: ClientLibrary):
+def test_node_shutdown(
+    cleanup_test_labs, client_library_session: ClientLibrary, pyats_hostname: str
+):
     """Start a lab with one ubuntu node, have the node shut itself down
     then verify the lab is stopped and can be deleted."""
 
@@ -609,8 +613,8 @@ def test_node_shutdown(cleanup_test_labs, client_library_session: ClientLibrary)
 
     lab.start(wait=True)
 
-    pyats_instance = ClPyats(lab=lab)
-    pyats_instance.sync_testbed("cml2", "cml2cml2")
+    pyats_instance = ClPyats(lab=lab, hostname=pyats_hostname)
+    pyats_instance.sync_testbed(lab.username, lab.password)
     try:
         pyats_instance.run_command(node_label="node1", command="sudo shutdown -h now")
     except SubCommandFailure as e:

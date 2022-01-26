@@ -600,6 +600,7 @@ def test_link_conditioning(
     lab.remove()
 
 
+@pytest.mark.xfail(reason="expected failure SIMPLE-3970")
 @pytest.mark.nomock
 def test_node_shutdown(
     cleanup_test_labs, client_library_session: ClientLibrary, pyats_hostname: str

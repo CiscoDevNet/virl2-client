@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020-2021 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -471,7 +471,7 @@ class ClientLibrary:
                 ready = result.get("ready")
             except requests.HTTPError:
                 # 502 Bad Gateway is expected and hints
-                # that system is not ready - no need to 
+                # that system is not ready - no need to
                 # raise - just wait
                 ready = False
             if not ready and loops > 0:

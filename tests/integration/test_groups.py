@@ -1,7 +1,9 @@
 #
-# This file is part of CML 2
+# This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2021 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -426,7 +428,7 @@ def test_remove_group_with_users_labs(
     cleanup_test_groups,
     client_library_session: ClientLibrary,
 ):
-    """Create group, user, lab, add both to group. 
+    """Create group, user, lab, add both to group.
     Remove the group and verify associations are removed."""
 
     test_user1 = client_library_session.user_management.create_user(
@@ -454,7 +456,7 @@ def test_remove_group_with_users_labs(
 def test_delete_user_in_group(
     cleanup_test_users, cleanup_test_groups, client_library_session: ClientLibrary
 ):
-    """Create group, user, add user to group. 
+    """Create group, user, add user to group.
     Remove the user and verify group association is removed."""
 
     test_user1 = client_library_session.user_management.create_user(
@@ -476,7 +478,7 @@ def test_delete_user_in_group(
 def test_delete_lab_in_group(
     cleanup_test_labs, cleanup_test_groups, client_library_session: ClientLibrary
 ):
-    """Create group, lab, add lab to group. 
+    """Create group, lab, add lab to group.
     Remove the lab and verify group association is removed."""
 
     test_lab1 = client_library_session.create_lab(title=test_lab_name)
@@ -589,7 +591,7 @@ def test_user_permissions(
     client_config: ClientConfig,
     client_library_session: ClientLibrary,
 ):
-    """Create group and two users, add both to group. 
+    """Create group and two users, add both to group.
     Verify one user can see but not modify the other user."""
 
     test_user1 = client_library_session.user_management.create_user(
@@ -637,8 +639,8 @@ def test_lab_permissions(
     client_config: ClientConfig,
     client_library_session: ClientLibrary,
 ):
-    """Create group, user and three labs. 
-    Setup permissions for read-only, read-write and none, verify permissions. 
+    """Create group, user and three labs.
+    Setup permissions for read-only, read-write and none, verify permissions.
     Verify user cannot change lab group membership."""
 
     test_user1 = client_library_session.user_management.create_user(
@@ -694,7 +696,7 @@ def test_lab_permission_update(
     client_config: ClientConfig,
     client_library_session: ClientLibrary,
 ):
-    """Create group, user and lab, assign to group. 
+    """Create group, user and lab, assign to group.
     Update lab permission from read-only to read-write, verify user can now modify lab."""
 
     test_user1 = client_library_session.user_management.create_user(
@@ -750,7 +752,7 @@ def test_remove_user_from_group(
     client_config: ClientConfig,
     client_library_session: ClientLibrary,
 ):
-    """Create group, user and lab, assign to group. 
+    """Create group, user and lab, assign to group.
     Remove user from group, verify user loses permissions."""
 
     test_user1 = client_library_session.user_management.create_user(
@@ -795,7 +797,7 @@ def test_remove_lab_from_group(
     client_config: ClientConfig,
     client_library_session: ClientLibrary,
 ):
-    """Create group, user and lab, assign to group. 
+    """Create group, user and lab, assign to group.
     Remove lab from group, verify user can no longer access it."""
 
     test_user1 = client_library_session.user_management.create_user(

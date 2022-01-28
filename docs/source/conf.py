@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019, Cisco Systems, Inc.
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
 # All rights reserved.
 #
 # -*- coding: utf-8 -*-
@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.abspath("../virl2_client"))
 # -- Project information -----------------------------------------------------
 
 project = "virl2_client"
-copyright = "2020, Cisco Systems, Inc"
+copyright = "Copyright (c) 2019-2022, Cisco Systems, Inc."
 author = "VIRL2 team <virl@cisco.com>"
 
 # The short X.Y version

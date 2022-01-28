@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "virl2_client"
-version = "2.3.0-dev0"
+version = "2.4.0-dev0"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"

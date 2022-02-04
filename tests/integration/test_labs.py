@@ -87,7 +87,7 @@ def test_sync_lab(cleanup_test_labs, client_library_session: ClientLibrary):
     # lab.sync_events()
 
 
-def test_import(cleanup_test_labs, client_library_session: ClientLibrary):
+def test_import(register_licensing, cleanup_test_labs, client_library_session: ClientLibrary):
     # TODO: split into multiple cases - import lab, start/stop/wipe, add/remove nodes/interfaces/links
     lab = client_library_session.import_sample_lab("server-triangle.yaml")
     s0 = lab.get_node_by_label("server-0")

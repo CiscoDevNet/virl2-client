@@ -89,6 +89,7 @@ def verify_token_invalidation(caplog, session: ClientLibrary):
 
 
 def test_create_user_admin(
+    register_licensing,
     cleanup_test_users,
     client_config: ClientConfig,
     client_library_session: ClientLibrary,

@@ -1020,16 +1020,13 @@ class Lab:
             node_id = node["id"]
             if node_id in self._nodes:
                 raise Exception("Node already exists")
-            node_data = node["data"]
-            self._import_node(node_id, node_data)
+            self._import_node(node_id, node)
 
-        for iface in topology["interfaces"]:
-            iface_id = iface["id"]
-            if iface_id in self._interfaces:
-                raise Exception("Interface already exists")
-            iface_data = iface["data"]
-            node_id = iface["node"]
-            self._import_interface(iface_id, node_id, iface_data)
+            for iface in node["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in self._interfaces:
+                    raise Exception("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
 
         for link in topology["links"]:
             link_id = link["id"]
@@ -1046,7 +1043,7 @@ class Lab:
 
     def _import_interface(self, iface_id, node_id, iface_data):
         label = iface_data["label"]
-        slot = iface_data["slot"]
+        slot = iface_data.get("slot")
         iface_type = iface_data["type"]
         node = self._nodes[node_id]
         return self.create_interface_local(iface_id, label, node, slot, iface_type)
@@ -1056,7 +1053,7 @@ class Lab:
         x = node_data["x"]
         y = node_data["y"]
         node_definition = node_data["node_definition"]
-        image_definition = node_data["image_definition"]
+        image_definition = node_data.get("image_definition", None)
         ram = node_data["ram"]
         cpus = node_data["cpus"]
         cpu_limit = node_data.get("cpu_limit", 100)
@@ -1096,7 +1093,7 @@ class Lab:
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
         update_interface_keys = set(
-            interface["id"] for interface in topology["interfaces"]
+            interface["id"] for node in topology["nodes"] for interface in node["interfaces"]
         )
 
         # removed elements
@@ -1124,18 +1121,17 @@ class Lab:
         new_links = update_link_keys - existing_link_keys
         new_interfaces = update_interface_keys - existing_interface_keys
 
-        for node_id in new_nodes:
-            node = self._find_node_in_topology(node_id, topology)
-            node_data = node["data"]
-            node = self._import_node(node_id, node_data)
-            logger.info("Added node %s", node)
+        for node in topology["nodes"]:
+            node_id = node["id"]
+            if node_id in new_nodes:
+                node = self._import_node(node_id, node)
+                logger.info("Added node %s", node)
 
-        for interface_id in new_interfaces:
-            interface = self._find_interface_in_topology(interface_id, topology)
-            interface_data = interface["data"]
-            node_id = interface["node"]
-            interface = self._import_interface(interface_id, node_id, interface_data)
-            logger.info("Added interface %s", interface)
+            for interface in node["interfaces"]:
+                interface_id = interface["id"]
+                if interface_id in new_interfaces:
+                    interface = self._import_interface(interface_id, node_id, interface)
+                    logger.info("Added interface %s", interface)
 
         for link_id in new_links:
             link_data = self._find_link_in_topology(link_id, topology)
@@ -1151,9 +1147,8 @@ class Lab:
 
         for node_id in kept_nodes:
             node = self._find_node_in_topology(node_id, topology)
-            node_data = node["data"]
             lab_node = self._nodes[node_id]
-            lab_node.update(node_data, exclude_configurations)
+            lab_node.update(node, exclude_configurations)
 
         for interface_id in kept_interfaces:
             interface_data = self._find_interface_in_topology(interface_id, topology)
@@ -1167,21 +1162,25 @@ class Lab:
             # with tags
             pass
 
-    def _find_link_in_topology(self, link_id, topology):
+    @staticmethod
+    def _find_link_in_topology(link_id, topology):
         for link in topology["links"]:
             if link["id"] == link_id:
                 return link
         # if cannot find, is an internal structure error
         return
 
-    def _find_interface_in_topology(self, interface_id, topology):
-        for interface in topology["interfaces"]:
-            if interface["id"] == interface_id:
-                return interface
+    @staticmethod
+    def _find_interface_in_topology(interface_id, topology):
+        for node in topology["nodes"]:
+            for interface in node["interfaces"]:
+                if interface["id"] == interface_id:
+                    return interface
         # if cannot find, is an internal structure error
         return
 
-    def _find_node_in_topology(self, node_id, topology):
+    @staticmethod
+    def _find_node_in_topology(node_id, topology):
         for node in topology["nodes"]:
             if node["id"] == node_id:
                 return node
@@ -1220,7 +1219,7 @@ class Lab:
         self.pyats.sync_testbed(self.username, self.password)
 
     def sync_layer3_addresses(self):
-        "Syncs all layer 3 IP addresses from the backend server."
+        """Syncs all layer 3 IP addresses from the backend server."""
         url = self.lab_base_url + "/layer3_addresses"
         response = self.session.get(url)
         response.raise_for_status()
@@ -1232,7 +1231,7 @@ class Lab:
         self._last_sync_l3_address_time = time.time()
 
     def cleanup_pyats_connections(self):
-        "Closes and cleans up connection that pyATS might still hold."
+        """Closes and cleans up connection that pyATS might still hold."""
         self.pyats.cleanup()
 
     def download(self):

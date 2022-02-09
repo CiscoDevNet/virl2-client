@@ -503,7 +503,7 @@ class Node:
         self._x = node_data["x"]
         self._y = node_data["y"]
         self._node_definition = node_data["node_definition"]
-        self._image_definition = node_data["image_definition"]
+        self._image_definition = node_data.get("image_definition", None)
         self._ram = node_data["ram"]
         self._cpus = node_data["cpus"]
         self._cpu_limit = node_data.get("cpu_limit", 100)

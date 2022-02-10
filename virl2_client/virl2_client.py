@@ -486,19 +486,27 @@ class ClientLibrary:
         """
         raise Exception("this is deprecated, use is_system_ready(wait=True), if needed")
 
-    def import_lab(self, topology, title, offline=False):
+    @staticmethod
+    def is_virl_1x(path: Path):
+        if path.suffix == ".virl":
+            return True
+        return False
+
+    def import_lab(self, topology, title=None, offline=False, virl_1x=False):
         """
         Imports an existing topology from a string.
 
         :param topology: Topology representation as a string
         :type topology: str
-        :param title: Title of the lab
-        :type title: str
+        :param title: Title of the lab (optional)
+        :type title: str (otherwise ignored)
         :param offline: whether the ClientLibrary should import the
             lab locally.  The topology parameter has to be a JSON string
             in this case.  This can not be XML or YAML representation of
             the lab.  Compatible JSON from `GET /labs/{lab_id}/topology`.
         :type offline: bool
+        :param virl_1x: Is this old virl-1x topology format (default=False)
+        :type virl_1x: bool
         :returns: A Lab instance
         :rtype: models.Lab
         :raises ValueError: if there's no lab ID in the API response
@@ -508,10 +516,12 @@ class ClientLibrary:
         if offline:
             lab_id = "offline_lab"
         else:
-            if title.endswith(".virl"):
-                url = f"{self._base_url}import/virl-1x?title={title}"
+            if virl_1x:
+                url = "{}import/virl-1x".format(self._base_url)
             else:
-                url = f"{self._base_url}import?title={title}"
+                url = "{}import".format(self._base_url)
+            if isinstance(title, str):
+                url = "{}?title={}".format(url, title)
             response = self.session.post(url, data=topology)
             response.raise_for_status()
             result = response.json()
@@ -519,10 +529,8 @@ class ClientLibrary:
             if lab_id is None:
                 raise ValueError("No lab ID returned!")
 
-        # remove the extension (.yaml) to name the lab
-        lab_title = title.replace(Path(title).suffix, "")
         lab = Lab(
-            lab_title,
+            title,
             lab_id,
             self._context,
             self.username,
@@ -534,6 +542,7 @@ class ClientLibrary:
         if offline:
             topology_dict = json.loads(topology)
             # ensure the lab owner is not properly set
+            # how does below get to offline? user_id is calling controller
             topology_dict["lab_owner"] = self.user_management.user_id(self.username)
             lab.import_lab(topology_dict)
         else:
@@ -541,25 +550,28 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def import_lab_from_path(self, topology, title=None):
+    def import_lab_from_path(self, path, title=None):
         """
         Imports an existing topology from a file / path.
 
-        :param topology: Topology filename / path
-        :type topology: str
+        :param path: Topology filename / path
+        :type path: str
         :param title: Title of the lab
         :type title: str
         :returns: A Lab instance
         :rtype: models.Lab
         """
-        topology_path = Path(topology)
+        topology_path = Path(path)
         if not topology_path.exists():
-            message = "{} can not be found".format(topology)
+            message = "{} can not be found".format(path)
             raise Exception(message)
 
         topology = topology_path.read_text()
-        title = title or topology_path.name
-        return self.import_lab(topology, title)
+        return self.import_lab(
+            topology,
+            title=title,
+            virl_1x=self.is_virl_1x(topology_path)
+        )
 
     def import_sample_lab(self, title):
         """
@@ -574,7 +586,11 @@ class ClientLibrary:
         topology = pkg_resources.resource_string(
             "simple_common", topology_file_path.as_posix()
         )
-        return self.import_lab(topology=topology.decode(), title=title)
+        return self.import_lab(
+            topology=topology.decode(),
+            title=title,
+            virl_1x=self.is_virl_1x(topology_file_path)
+        )
 
     def all_labs(self, show_all=False):
         """

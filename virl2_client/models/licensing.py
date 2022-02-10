@@ -338,8 +338,8 @@ class Licensing(object):
             if count > self.max_wait:
                 timeout = self.max_wait * self.wait_interval
                 raise RuntimeError(
-                    f"Timeout: licensing {what} did not reach {target_status} status after {timeout} secs. "
-                    f"Last status was {status}"
+                    "Timeout: licensing {} did not reach {} status after {} secs. "
+                    "Last status was {}".format(what, target_status, timeout, status)
                 )
             status = self.status()[what]["status"]
             logger.debug("%s status: %s", what, status)

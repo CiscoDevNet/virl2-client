@@ -59,18 +59,39 @@ def test_import_lab_from_path_virl(
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
     with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = cl.import_lab_from_path(topology=(tmp_path / "topology.virl").as_posix())
+        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
     assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
 
     cl.session.post.assert_called_once_with(
-        "https://0.0.0.0/fake_url/api/v0/import/virl-1x?title=topology.virl",
+        "https://0.0.0.0/fake_url/api/v0/import/virl-1x",
         data="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl.session.post.assert_called_once()
     cl.session.post.return_value.raise_for_status.assert_called_once()
     sync_mock.assert_called_once_with()
+
+
+@python36_or_newer
+def test_import_lab_from_path_virl_title(
+        client_library_server_current, mocked_session, tmp_path: Path
+):
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
+    )
+    Lab.sync = Mock()
+    new_title = "new_title"
+    (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
+    with patch.object(Lab, "sync", autospec=True) as sync_mock:
+        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix(), title=new_title)
+    assert lab.title is not None
+    assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
+
+    cl.session.post.assert_called_once_with(
+        f"https://0.0.0.0/fake_url/api/v0/import/virl-1x?title={new_title}",
+        data="<?xml version='1.0' encoding='UTF-8'?>",
+    )
 
 
 def test_ssl_certificate(client_library_server_current, mocked_session):

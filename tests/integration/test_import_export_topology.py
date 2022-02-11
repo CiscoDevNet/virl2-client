@@ -50,7 +50,7 @@ TOPOLOGY_ID_KEYS = [
 
 def _import(topology: dict, client):
     with pytest.raises(requests.exceptions.HTTPError) as err:
-        client.import_lab(topology=yaml.safe_dump(topology), title="minimal.yaml")
+        client.import_lab(topology=yaml.safe_dump(topology))
     assert err.value.response.status_code == 400
 
 
@@ -235,5 +235,5 @@ def compare_structures(original: dict, compared: dict):
     assert original["lab_notes"] == compared["lab_notes"]
     assert original["lab_owner"] == compared["lab_owner"]
     assert original["version"] == compared["version"]
-    # do not compare timestamp and lab_title
-    #  title is changed on export/import
+    assert original["lab_title"] == compared["lab_title"]
+    # do not compare timestamp

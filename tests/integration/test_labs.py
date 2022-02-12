@@ -427,12 +427,9 @@ def test_node_console_logs(cleanup_test_labs, client_library_session: ClientLibr
 
 
 def test_topology_owner(cleanup_test_labs, client_library_session: ClientLibrary):
-    cml2_uid = client_library_session.user_management.user_id(
-        client_library_session.username
-    )
     lab = client_library_session.create_lab("owned_by_cml2")
     lab.sync(topology_only=True)
-    assert lab.owner == cml2_uid
+    assert lab.owner == "cml2"  # no more owner in topology (just username)
     lab.remove()
 
 

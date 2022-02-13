@@ -1010,10 +1010,7 @@ class Lab:
         self._last_sync_topology_time = time.time()
 
     def import_lab(self, topology):
-        self._title = topology["lab_title"]
-        self._description = topology["lab_description"]
-        self._notes = topology["lab_notes"]
-        self._owner = self.username
+        self._import_lab(topology)
         # TODO: add support for origin_id etc
 
         for node in topology["nodes"]:
@@ -1035,6 +1032,13 @@ class Lab:
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
             self._import_link(link_id, iface_b_id, iface_a_id)
+
+    def _import_lab(self, topology):
+        lab_dict = topology["lab"]
+        self._title = lab_dict["title"]
+        self._description = lab_dict["description"]
+        self._notes = lab_dict["notes"]
+        self._owner = lab_dict.get("owner", self.username)
 
     def _import_link(self, link_id, iface_b_id, iface_a_id):
         iface_a = self._interfaces[iface_a_id]
@@ -1078,10 +1082,7 @@ class Lab:
         )
 
     def update_lab(self, topology, exclude_configurations):
-        self._title = topology["lab_title"]
-        self._description = topology["lab_description"]
-        self._notes = topology["lab_notes"]
-        self._owner = self.username
+        self._import_lab(topology)
         # TODO: add support for origin_id etc
 
         # add in order: node -> interface -> link

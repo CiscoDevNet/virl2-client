@@ -146,7 +146,7 @@ def test_import_export_yaml(
     reimported_lab_data = response.json()
 
     # Compare the initial import with the reimport
-    for item in ["lab_description", "lab_owner"]:
+    for item in ["lab_description"]:
         assert imported_lab_data[item] == reimported_lab_data[item]
 
     lab_notes = imported_lab_data["lab_notes"]
@@ -230,10 +230,8 @@ def compare_structures(original: dict, compared: dict):
     for org, cmp in zip(original_interfaces, compared_interfaces):
         compare_items(org, cmp)
 
-    assert original["compute_id"] == compared["compute_id"]
     assert original["lab_description"] == compared["lab_description"]
     assert original["lab_notes"] == compared["lab_notes"]
-    assert original["lab_owner"] == compared["lab_owner"]
     assert original["version"] == compared["version"]
     assert original["lab_title"] == compared["lab_title"]
     # do not compare timestamp

@@ -1,9 +1,11 @@
-compute_id: compute_0
-created_timestamp: '2022-02-08T10:34:01+00:00'
-lab_description: Lab containing different node types
-lab_notes: ''
-lab_owner: 00000000-0000-4000-a000-000000000000
-lab_title: Mixed Node Types
+lab:
+  compute_id: compute_0
+  created_timestamp: '2022-02-08T10:34:01+00:00'
+  description: Lab containing different node types
+  notes: ''
+  owner: 00000000-0000-4000-a000-000000000000
+  title: Mixed Node Types
+  version: 0.1.0
 links:
   - id: l0
     source: n0-i1
@@ -1255,4 +1257,3 @@ nodes:
         label: eth1
         slot: 1
         type: physical
-version: 0.1.0

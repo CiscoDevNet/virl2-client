@@ -146,13 +146,13 @@ def test_import_export_yaml(
     reimported_lab_data = response.json()
 
     # Compare the initial import with the reimport
-    for item in ["lab_description"]:
-        assert imported_lab_data[item] == reimported_lab_data[item]
+    for item in ["description", "owner"]:
+        assert imported_lab_data["lab"][item] == reimported_lab_data["lab"][item]
 
-    lab_notes = imported_lab_data["lab_notes"]
+    lab_notes = imported_lab_data["lab"]["notes"]
     if not lab_notes:
         # If the lab had no notes, the reimport should be empty as well.
-        assert lab_notes == reimported_lab_data["lab_notes"]
+        assert lab_notes == reimported_lab_data["lab"]["notes"]
     else:
         # Import warnings are appended to lab notes, if there are any the re-import should have them twice
         # We don't know if they're import warnings or actual notes, so do nothing
@@ -230,8 +230,10 @@ def compare_structures(original: dict, compared: dict):
     for org, cmp in zip(original_interfaces, compared_interfaces):
         compare_items(org, cmp)
 
-    assert original["lab_description"] == compared["lab_description"]
-    assert original["lab_notes"] == compared["lab_notes"]
-    assert original["version"] == compared["version"]
-    assert original["lab_title"] == compared["lab_title"]
-    # do not compare timestamp
+    assert original["lab"]["compute_id"] == compared["lab"]["compute_id"]
+    assert original["lab"]["description"] == compared["lab"]["description"]
+    assert original["lab"]["notes"] == compared["lab"]["notes"]
+    assert original["lab"]["owner"] == compared["lab"]["owner"]
+    assert original["lab"]["version"] == compared["lab"]["version"]
+    # do not compare timestamp and lab_title
+    #  title is changed on export/import

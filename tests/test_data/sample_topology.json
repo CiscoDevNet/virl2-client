@@ -28,12 +28,14 @@
       }
     ],
     "links": [],
-    "lab_notes": "",
-    "lab_title": "Lab at Fri 13:33 PM",
-    "lab_description": "",
-    "lab_owner": "cml2",
-    "state": "STOPPED",
-    "created_timestamp": 1600428834.497289,
-    "cluster_id": "cluster_1",
-    "version": "0.0.4"
+    "lab": {
+      "notes": "",
+      "title": "Lab at Fri 13:33 PM",
+      "description": "",
+      "owner": "cml2",
+      "state": "STOPPED",
+      "created_timestamp": 1600428834.497289,
+      "cluster_id": "cluster_1",
+      "version": "0.0.4"
+    }
   }

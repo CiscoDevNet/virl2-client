@@ -543,7 +543,7 @@ class ClientLibrary:
             topology_dict = json.loads(topology)
             # ensure the lab owner is not properly set
             # how does below get to offline? user_id is calling controller
-            topology_dict["lab_owner"] = self.user_management.user_id(self.username)
+            topology_dict["lab"]["owner"] = self.user_management.user_id(self.username)
             lab.import_lab(topology_dict)
         else:
             lab.sync()

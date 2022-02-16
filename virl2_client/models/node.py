@@ -376,7 +376,7 @@ class Node:
         raise RuntimeError(msg)
 
     def has_converged(self):
-        url = self.lab_base_url + "/check_if_converged"
+        url = self._base_url + "/check_if_converged"
         response = self.session.get(url)
         response.raise_for_status()
         converged = response.json()

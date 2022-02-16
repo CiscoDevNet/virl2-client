@@ -230,10 +230,10 @@ def compare_structures(original: dict, compared: dict):
     for org, cmp in zip(original_interfaces, compared_interfaces):
         compare_items(org, cmp)
 
-    assert original["lab"]["compute_id"] == compared["lab"]["compute_id"]
+    # assert original["lab"]["compute_id"] == compared["lab"]["compute_id"]
     assert original["lab"]["description"] == compared["lab"]["description"]
     assert original["lab"]["notes"] == compared["lab"]["notes"]
-    assert original["lab"]["owner"] == compared["lab"]["owner"]
+    # assert original["lab"]["owner"] == compared["lab"]["owner"]
     assert original["lab"]["version"] == compared["lab"]["version"]
     # do not compare timestamp and lab_title
     #  title is changed on export/import

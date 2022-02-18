@@ -231,7 +231,6 @@ class NodeImageDefinitions:
         url = self._base_url + "node_definitions/" + definition_id
         response = self.session.delete(url)
         response.raise_for_status()
-        return response.json()
 
     def remove_image_definition(self, definition_id):
         """
@@ -250,7 +249,6 @@ class NodeImageDefinitions:
         url = self._base_url + "image_definitions/" + definition_id
         response = self.session.delete(url)
         response.raise_for_status()
-        return response.json()
 
 
 def progress_callback(monitor):

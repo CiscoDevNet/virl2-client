@@ -27,11 +27,17 @@ import yaml
 from virl2_client import ClientLibrary
 
 
-TEST_TOPOLOGIES = [
+pytestmark = [pytest.mark.integration, pytest.mark.nomock]
+
+TEST_TOPOLOGIES_YAML = [
     "mixed-0.0.1.yaml",
     "mixed-0.0.4.yaml",
     "mixed-0.0.5.yaml",
     "mixed-0.1.0.yaml",
+]
+
+TEST_TOPOLOGIES_VIRL = [
+    "mixed.virl",
 ]
 
 TOPOLOGY_ID_KEYS = [
@@ -54,8 +60,6 @@ def _import(topology: dict, client):
     assert err.value.response.status_code == 400
 
 
-@pytest.mark.integration
-@pytest.mark.nomock
 def test_import_validation(client_library_session: ClientLibrary):
     """Try requests with topology prohibited by schema"""
     cl = client_library_session
@@ -97,9 +101,7 @@ def test_import_validation(client_library_session: ClientLibrary):
     _import(topo, cl)
 
 
-@pytest.mark.integration
-@pytest.mark.nomock
-@pytest.mark.parametrize(argnames="topology", argvalues=TEST_TOPOLOGIES)
+@pytest.mark.parametrize(argnames="topology", argvalues=TEST_TOPOLOGIES_YAML)
 def test_import_export_yaml(
     client_library_session: ClientLibrary,
     topology,
@@ -111,16 +113,63 @@ def test_import_export_yaml(
     then import it back and compare with the initial import.
     """
 
-    # Import lab from test data YAML file
+    imported_lab, reimported_lab = export_reimport_verify(client_library_session, topology, tmpdir)
+
+    # YAML specific verification
+    if "0.0.1" in topology:
+        return
+
+    for lab in [imported_lab, reimported_lab]:
+        node = lab.get_node_by_label("iosv-0")
+        assert node.node_definition == "iosv"
+        assert sorted(node.tags()) == ["core", "test_tag"]
+        assert node.cpu_limit == 50
+        assert node.ram == 2048
+        # node definition disallows setting these; here
+        # they are 0 instead of None as in the backend
+        assert node.cpus == 0
+        assert node.boot_disk_size == 0
+        assert node.data_volume == 0
+
+        node = lab.get_node_by_label("lxc-0")
+        assert node.node_definition == "alpine"
+        assert sorted(node.tags()) == ["test_tag"]
+        assert node.cpu_limit == 80
+        assert node.ram == 3072
+        assert node.cpus == 6
+        assert node.boot_disk_size == 30
+        assert node.data_volume == 10
+
+
+@pytest.mark.parametrize(argnames="topology", argvalues=TEST_TOPOLOGIES_VIRL)
+def test_import_export_virl(
+    client_library_session: ClientLibrary,
+    topology,
+    change_test_dir,
+    cleanup_test_labs,
+    tmpdir,
+):
+    """Use the API to import a topology from .virl file, export it,
+    then import it back and compare with the initial import.
+    """
+
+    _, _ = export_reimport_verify(client_library_session, topology, tmpdir)
+
+    # VIRL specific verification
+    # nothing for now
+
+
+def export_reimport_verify(client_library_session: ClientLibrary, topology, tmpdir):
+    """Core of the import_export tests, compatible with both .yaml and .virl topologies."""
+
+    # Import lab from test data file
     reimported_lab_title = "export_import_test.yaml"
     topology_file_path = f"test_data/{topology}"
-    topology_lab_data = yaml.safe_load(open(topology_file_path))
 
     imported_lab = client_library_session.import_lab_from_path(topology_file_path)
 
     # Export the lab we just imported, save to YAML file
     exported_lab_yaml = imported_lab.download()
-    exported_lab_data = yaml.safe_load(exported_lab_yaml)
 
     exported_file_path = tmpdir.mkdir("yaml").join(reimported_lab_title)
     exported_file_path.write(exported_lab_yaml)
@@ -160,29 +209,7 @@ def test_import_export_yaml(
 
     compare_structures(imported_lab_data, reimported_lab_data)
 
-    if "0.0.1" in topology:
-        return
-
-    for lab in [imported_lab, reimported_lab]:
-        node = lab.get_node_by_label("iosv-0")
-        assert node.node_definition == "iosv"
-        assert sorted(node.tags()) == ["core", "test_tag"]
-        assert node.cpu_limit == 50
-        assert node.ram == 2048
-        # node definition disallows setting these; here
-        # they are 0 instead of None as in the backend
-        assert node.cpus == 0
-        assert node.boot_disk_size == 0
-        assert node.data_volume == 0
-
-        node = lab.get_node_by_label("lxc-0")
-        assert node.node_definition == "alpine"
-        assert sorted(node.tags()) == ["test_tag"]
-        assert node.cpu_limit == 80
-        assert node.ram == 3072
-        assert node.cpus == 6
-        assert node.boot_disk_size == 30
-        assert node.data_volume == 10
+    return imported_lab, reimported_lab
 
 
 def compare_structures(original: dict, compared: dict):
@@ -205,7 +232,7 @@ def compare_structures(original: dict, compared: dict):
                     id_map[original_item[key]] = compared_item[key]
             elif key == "configuration":
                 # config gets stripped at some point
-                assert original_item[key].strip() == compared_item[key]
+                assert original_item[key].strip() == compared_item[key].strip()
             elif key == "version":
                 pass
             elif key == "interfaces":

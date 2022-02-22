@@ -258,6 +258,20 @@ def test_set_transport(client_library_session: ClientLibrary, alpha_ssms_url):
     assert transport["proxy"]["server"] == "127.0.0.1"
     assert transport["proxy"]["port"] == 49152
 
+    http_url = "http://on-prem.test.org/Transportgateway/services/DeviceRequestHandler"
+    cl.licensing.set_transport(http_url)
+    transport = cl.licensing.status()["transport"]
+    assert transport["ssms"] == http_url
+    assert transport["proxy"]["server"] is None
+    assert transport["proxy"]["port"] is None
+
+    http_url = "http://1.2.3.4/Transportgateway/services/DeviceRequestHandler"
+    cl.licensing.set_transport(http_url)
+    transport = cl.licensing.status()["transport"]
+    assert transport["ssms"] == http_url
+    assert transport["proxy"]["server"] is None
+    assert transport["proxy"]["port"] is None
+
 
 def test_registration_actions(
     client_library_session: ClientLibrary,

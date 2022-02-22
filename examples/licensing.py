@@ -97,12 +97,12 @@ Prints:
     },
     "reservation_mode": false,
     "transport": {
-        "ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService",
+        "ssms": "https://smartreceiver.cisco.com/licservice/license",
         "proxy": {
             "server": null,
             "port": null
         },
-        "default_ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService"
+        "default_ssms": "https://smartreceiver.cisco.com/licservice/license"
     },
     "features": [
         {

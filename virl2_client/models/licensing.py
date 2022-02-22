@@ -25,7 +25,6 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_SSMS = "https://tools.cisco.com/its/service/oddce/services/DDCEService"
 DEFAULT_PROXY_SERVER = None
 DEFAULT_PROXY_PORT = None
 
@@ -84,8 +83,9 @@ class Licensing(object):
         """
         Setup licensing transport configuration to default values.
         """
+        default_ssms = self.status()["transport"]["default_ssms"]
         return self.set_transport(
-            ssms=DEFAULT_SSMS,
+            ssms=default_ssms,
             proxy_server=DEFAULT_PROXY_SERVER,
             proxy_port=DEFAULT_PROXY_PORT,
         )

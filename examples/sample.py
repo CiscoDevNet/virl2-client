@@ -94,5 +94,5 @@ assert [link for link in lab.links() if link.state is not None] == []
 status = cl.licensing.deregister()
 cl.licensing.remove_certificate()
 # set licensing back to default transport
-# default ssms is "https://tools.cisco.com/its/service/oddce/services/DDCEService"
+# default ssms is "https://smartreceiver.cisco.com/licservice/license"
 cl.licensing.set_default_transport()

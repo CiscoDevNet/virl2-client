@@ -308,7 +308,7 @@ class Node:
 
     def _set_node_property(self, key, val):
         logger.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}?origin_uuid={}".format(self._base_url, self.lab.client_uuid)
+        node_url = "{}".format(self._base_url)
         response = self.session.patch(url=node_url, json={key: val})
         response.raise_for_status()
 

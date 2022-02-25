@@ -107,46 +107,60 @@ def test_rate_limit(client_config: ClientConfig):
             assert r.status_code != 429
 
 
+@pytest.mark.parametrize("size", (20_000_000, 20_999_999))
 @pytest.mark.nomock
-def test_max_client_body_size(cleanup_test_labs, client_library_session: ClientLibrary):
+def test_max_client_body_size(cleanup_test_labs, client_library_session: ClientLibrary, size: int):
     """
     Test nginx configuration.
     Currently we have all endpoints limited to 100K (CSDL) in http block
     of nginx configuration.
     Then some specific locations are allowed greater request body size:
-        /api/v0/images/upload                              16GB
-        /api/v0/labs/{lab_id}/nodes/{node_id}/config        2MB
-        /api/v0/labs/{lab_id}/nodes                         2MB
-        /api/v0/labs/{lab_id}/nodes/{node_id}               2MB
-        /api/v0/update_lab_topology                         2MB
-        /api/v0/import                                      2MB
-        /api/v0/import/virl-1x                              2MB
+        /api/v0/images/upload                         16GB
+        /api/v0/labs/{lab_id}/nodes/{node_id}/config  20MB
+        /api/v0/labs/{lab_id}/nodes                   20MB
+        /api/v0/labs/{lab_id}/nodes/{node_id}         20MB
+        /api/v0/import                                20MB
+        /api/v0/import/virl-1x                        20MB
 
     """
-    max_size = 2_000_000  # 2MB
-    over_max_size = 2_099_999  # 2.1MB
+    max_size = 20_000_000  # 20MB
     lab = client_library_session.create_lab("lab_space")
-    server = lab.create_node("s1", "server", 100, 100)
 
-    for size in (max_size, over_max_size):
-        # DEPRECATED PUT /api/v0/labs/{lab_id}/nodes/{node_id}/config
-        data = "".join(random.choice(string.ascii_lowercase) for _ in range(size))
-        try:
-            # deprecated API is no longer supported in client library
-            url = server._base_url + "/config"
-            response = client_library_session.session.put(url=url, data=data)
-            response.raise_for_status()
-            if size > max_size:
-                assert False, "Server config accepted!"
-        except requests.exceptions.HTTPError as err:
-            assert "413 Client Error: Request Entity Too Large" in err.args[0]
+    data = "".join(random.choice(string.ascii_lowercase) for _ in range(size))
+    # POST /api/v0/labs/{lab_id}/nodes
+    try:
+        server = lab.create_node("s1", "server", 100, 100, configuration=data)
+    except requests.exceptions.HTTPError as err:
+        assert "413 Client Error: Request Entity Too Large" in err.args[0]
+        server = lab.create_node("s1", "server", 100, 100)
 
-        # PATCH /api/v0/labs/{lab_id}/nodes/{node_id}
-        try:
-            server.config = data
+    # DEPRECATED PUT /api/v0/labs/{lab_id}/nodes/{node_id}/config
+    try:
+        # deprecated API is no longer supported in client library
+        url = server._base_url + "/config"
+        response = client_library_session.session.put(url=url, data=data)
+        response.raise_for_status()
+        if size > max_size:
+            assert False, "Server config accepted!"
+    except requests.exceptions.HTTPError as err:
+        assert "413 Client Error: Request Entity Too Large" in err.args[0]
+
+    # PATCH /api/v0/labs/{lab_id}/nodes/{node_id}
+    try:
+        server.config = data
+        if size > max_size:
+            assert False, "Server config accepted!"
+    except requests.exceptions.HTTPError as err:
+        assert "413 Client Error: Request Entity Too Large" in err.args[0]
+
+    # POST /api/v0/import(/virl-1x)?
+    for title in ("test.virl", "test.yaml"):
+        with pytest.raises(requests.exceptions.HTTPError) as exc_info:
+            client_library_session.import_lab(data, title)
+            message = exc_info.value.args[0]
             if size > max_size:
-                assert False, "Server config accepted!"
-        except requests.exceptions.HTTPError as err:
-            assert "413 Client Error: Request Entity Too Large" in err.args[0]
+                assert "413 Client Error: Request Entity Too Large" in message
+            else:
+                assert "400 Client Error: Bad Request" in message
 
     client_library_session.remove_lab(lab.id)

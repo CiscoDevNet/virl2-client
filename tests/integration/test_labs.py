@@ -20,12 +20,13 @@
 
 """Tests for labs, nodes interfaces, links, etc."""
 
-import pytest
+import inspect
 import re
-import requests
 import uuid
-
 from time import sleep
+
+import requests
+import pytest
 from unicon.core.errors import SubCommandFailure
 
 from virl2_client import ClientLibrary
@@ -38,53 +39,41 @@ pytestmark = [pytest.mark.integration]
 # TODO: split into more granular test cases and document
 
 
-def test_sync_lab(cleanup_test_labs, client_library_session: ClientLibrary):
-    # TODO: figure out what this is, add asserts and document
-    lab = client_library_session.create_lab("my test lab name")
+def create_lab(client_library_session: ClientLibrary, node_types: list, sync: bool = False):
+    lab = client_library_session.create_lab(inspect.stack()[1].function)
     lab = client_library_session.join_existing_lab(lab.id)
+    lab.auto_sync = sync
 
-    r1 = lab.create_node("r1", "server", 5, 100)
-    r2 = lab.create_node("r2", "server", 102, 201)
-    r3 = lab.create_node("r3", "server", 200, 400)
-    # print(r1, r2, r3)
+    for idx in range(len(node_types)):
+        _ = lab.create_node("r{}".format(idx), node_types[idx], idx * 100, 0)
 
-    r1.x = 400
-    r1.label = "abc"
+    nodes = lab.nodes()
+    for idx in range(len(node_types) - 1):
+        _ = lab.connect_two_nodes(nodes[idx], nodes[idx+1])
+    return lab
 
-    r1_i1 = r1.create_interface()
-    r1_i2 = r1.create_interface()
 
-    r2_i1 = r2.create_interface()
-    r2_i2 = r2.create_interface()
+@pytest.mark.parametrize("sync", [True, False])
+def test_sync_lab(cleanup_test_labs, client_library_session: ClientLibrary, sync: bool):
+    # TODO: figure out what this is, add asserts and document
+    lab = create_lab(client_library_session, ["server"] * 3)
 
-    r3_i1 = r3.create_interface()
-    r3_i2 = r3.create_interface()
+    for node in lab.nodes():
+        node.start()
+    for node in lab.nodes():
+        node.stop()
+        node.wipe()
 
-    lab.create_link(r1_i1, r2_i1)
-    lab.create_link(r2_i2, r3_i1)
-    lab.create_link(r3_i2, r1_i2)
+    for link in lab.links():
+        lab.remove_link(link)
+    for node in lab.nodes():
+        lab.remove_node(node)
 
-    r1.start()
-    r2.start()
-    r3.start()
+    assert not lab.nodes()
+    assert not lab.interfaces()
+    assert not lab.links()
 
-    # lab.stop()
-    r1.stop()
-    r2.stop()
-    r3.stop()
-
-    # lab.remove_link(link_1)
-    # lab.remove_link(link_2)
-    # lab.remove_link(link_3)
-    # lab.remove_node(r1)
-    # lab.remove_node(r2)
-    # lab.remove_node(r3)
-
-    # TODO: wait for convergence here
-    lab.stop()
-
-    # lab.clear()
-    # lab.sync_events()
+    lab.remove()
 
 
 def test_import(register_licensing, cleanup_test_labs, client_library_session: ClientLibrary):
@@ -110,127 +99,23 @@ def test_import(register_licensing, cleanup_test_labs, client_library_session: C
     lab.stop()
 
 
-def test_create_client_lab(cleanup_test_labs, client_library_session: ClientLibrary):
-    # TODO: figure out what this is, add asserts and document
-    # almost a duplicate of test_sync_lab, do we need them both?
-    lab = client_library_session.create_lab()
-    lab.auto_sync = False
+def test_link_removal(cleanup_test_labs, client_library_session: ClientLibrary):
+    lab = create_lab(client_library_session, ["server"] * 3)
 
-    print("Created lab {}".format(lab.id))
-    # using server nodes, not IOSv nodes as they are not available
-    # without a reference platform ISO attached
-    r1 = lab.create_node("r1", "server", 5, 100)
-    r2 = lab.create_node("r2", "server", 102, 201)
-    r3 = lab.create_node("r3", "server", 200, 400)
-    print(r1, r2, r3)
+    lab.remove_node(lab.nodes()[0])
+    assert len(lab.nodes()) == 2
+    assert len(lab.interfaces()) == 3
+    assert len(lab.links()) == 1
 
-    r1_i1 = r1.create_interface()
-    r1_i2 = r1.create_interface()
-    print(r1_i1, r1_i2)
-
-    r2_i1 = r2.create_interface()
-    r2_i2 = r2.create_interface()
-
-    r3_i1 = r3.create_interface()
-    r3_i2 = r3.create_interface()
-
-    link_1 = lab.create_link(r1_i1, r2_i1)
-    link_2 = lab.create_link(r2_i2, r3_i1)
-    link_3 = lab.create_link(r3_i2, r1_i2)
-
-    # r1.config = "test"
-    # r2.x = 50
-    # r2.y = 200
-    #
-
-    # r1.start()
-    # r2.start()
-    # r3.start()
-
-    # r1.stop()
-    # r2.stop()
-    # r3.stop()
-
-    r1.label = "r1_test"
-
-    # lab.remove_node(r1)
-    lab.remove_link(link_1)
-    lab.remove_link(link_2)
-    lab.remove_link(link_3)
-    lab.remove_node(r1)
-    lab.remove_node(r2)
-    lab.remove_node(r3)
-
-    lab.sync_states()
-
-    for node in lab.nodes():
-        print(node, node.state)
-        for iface in node.interfaces():
-            print(iface, iface.state)
-
-    for link in lab.links():
-        print(link, link.state)
-
-    # lab.remove()
-
-    # print("clear lab")
-    # lab.clear()
-    # print("remove lab")
-    # events = lab.sync_events()
-    # for event in lab.events:
-    #     print(event)
-    # lab.wait_until_lab_converged()
-    lab.remove()
-
-
-def test_connect(cleanup_test_labs, client_library_session: ClientLibrary):
-    lab = client_library_session.create_lab("my lab name")
-    lab = client_library_session.join_existing_lab(lab.id)
-
-    lab.auto_sync = False
-
-    s1 = lab.create_node("s1", "server", 50, 100)
-    s2 = lab.create_node("s2", "server", 50, 200)
-    print(s1, s2)
-
-    # create a link between s1 and s2
-    s1_i1 = s1.create_interface()
-    s2_i1 = s2.create_interface()
-    lab.create_link(s1_i1, s2_i1)
-
-    # this must remove the link between s1 and s2
-    lab.remove_node(s2)
-
-    lab.sync_states()
-    for node in lab.nodes():
-        print(node, node.state)
-        for iface in node.interfaces():
-            print(iface, iface.state)
-
-    assert [link for link in lab.links() if link.state is not None] == []
+    lab.remove_node(lab.nodes()[0])
+    assert len(lab.nodes()) == 1
+    assert len(lab.interfaces()) == 1
+    assert not lab.links()
 
 
 def test_server_node_deletion(cleanup_test_labs, client_library_session: ClientLibrary):
-    lab = client_library_session.create_lab("lab_1")
-
-    lab.auto_sync = False
-
-    s1 = lab.create_node("s1", "server", 5, 100)
-    s2 = lab.create_node("s2", "server", 102, 201)
-
-    s1_iface = lab.create_interface(s1, 2)
-    s2_iface = lab.create_interface(s2, 2)
-    lab.create_link(s1_iface, s2_iface)
-
-    lab.start()
-
-    s3 = lab.create_node("s3", "server", 200, 400)
-    s3_iface = lab.create_interface(s3)
-
-    s2.stop()
-
-    lab.create_link(s2.interfaces()[0], s3_iface)
-
+    lab = create_lab(client_library_session, ["server"] * 3)
+    s3 = lab.nodes()[2]
     lab.start()
 
     # can't remove node while running
@@ -261,42 +146,23 @@ def test_import_sample_lab_virl(
 
 
 def test_lab_state(cleanup_test_labs, client_library_session: ClientLibrary):
-    lab = client_library_session.create_lab("lab_1")
+    lab = create_lab(client_library_session, ["server"] * 2, sync=True)
 
-    s1 = lab.create_node("s1", "server", 5, 100)
-    s2 = lab.create_node("s2", "server", 102, 201)
-
-    s1_iface = lab.create_interface(s1, 2)
-    s2_iface = lab.create_interface(s2, 2)
-    lab.create_link(s1_iface, s2_iface)
-
-    state = lab.state()
-    assert state == "DEFINED_ON_CORE"
+    assert lab.state() == "DEFINED_ON_CORE"
 
     lab.start()
-    state = lab.state()
-    assert state == "STARTED"
-
+    assert  lab.state() == "STARTED"
     assert lab.is_active()
 
     lab.stop()
-    state = lab.state()
-    assert state == "STOPPED"
+    assert lab.state() == "STOPPED"
 
     lab.wipe()
-    state = lab.state()
-    assert state == "DEFINED_ON_CORE"
+    assert lab.state() == "DEFINED_ON_CORE"
 
 
 def test_lab_details(cleanup_test_labs, client_library_session: ClientLibrary):
-    lab = client_library_session.create_lab("lab_1")
-
-    s1 = lab.create_node("s1", "server", 5, 100)
-    s2 = lab.create_node("s2", "server", 102, 201)
-
-    s1_iface = lab.create_interface(s1, 2)
-    s2_iface = lab.create_interface(s2, 2)
-    lab.create_link(s1_iface, s2_iface)
+    lab = create_lab(client_library_session, ["server"] * 2, sync=True)
 
     expected_keys = (
         "state",
@@ -369,8 +235,8 @@ def test_labels_and_tags(cleanup_test_labs, client_library_session: ClientLibrar
 def test_node_with_unavailable_vnc(
     cleanup_test_labs, client_library_session: ClientLibrary
 ):
-    lab = client_library_session.create_lab("lab_111")
-    node = lab.create_node("s1", "unmanaged_switch", 5, 100)
+    lab = create_lab(client_library_session, ["unmanaged_switch"], sync=True)
+    node = lab.nodes()[0]
     lab.start()
     assert lab.state() == "STARTED"
     with pytest.raises(requests.exceptions.HTTPError) as err:
@@ -383,10 +249,9 @@ def test_node_with_unavailable_vnc(
 
 @pytest.mark.nomock
 def test_node_console_logs(cleanup_test_labs, client_library_session: ClientLibrary):
-    lab = client_library_session.create_lab("lab_space")
-    ext_conn = lab.create_node("ec", "external_connector", 100, 50, wait=False)
-    server = lab.create_node("s1", "server", 100, 100)
-    iosv = lab.create_node("n", "iosv", 50, 0)
+    lab = create_lab(client_library_session, ["external_connector", "server", "iosv"], sync=True)
+    ext_conn, server, iosv = lab.nodes()
+
     lab.start()
     assert lab.state() == "STARTED"
     # server has one serial console on id 0
@@ -463,15 +328,10 @@ def test_links_on_various_slots(
     Create a link between two nodes on higher interfaces,
     then remove the link and re-add a link on lower interfaces.
     """
-    lab = client_library_session.create_lab()
-
-    s1 = lab.create_node("s1", "server", 50, 100)
-    s2 = lab.create_node("s2", "server", 50, 200)
-
-    assert s1.interfaces() == []
-    assert s2.interfaces() == []
+    lab = create_lab(client_library_session, ["server"] * 2, sync=True)
 
     # create a link between s1 and s2
+    s1, s2 = lab.nodes()
     s1_i1 = s1.create_interface(slot=4)
     s2_i1 = s2.create_interface(slot=4)
 
@@ -490,30 +350,19 @@ def test_links_on_various_slots(
     assert len(s2.interfaces()) == 5
 
     # create a link between s1 and s2 on lower slot than before
-    s1_i1 = s1.create_interface(slot=0)
-    s2_i1 = s2.create_interface(slot=0)
+    s1_i1, s2_i1 = s1.interfaces()[1], s2.interfaces()[1]
     link = lab.create_link(s1_i1, s2_i1)
-    assert link.interface_a.slot == 0
-    assert link.interface_b.slot == 0
+    assert link.interface_a.slot == 1
+    assert link.interface_b.slot == 1
 
-    assert all(
-        uuid.UUID(interface_id, version=4) for interface_id in lab._interfaces.keys()
-    )
-    assert [ifc.label for ifc in lab.interfaces()] == [
-        "eth0",
-        "eth1",
-        "eth2",
-        "eth3",
-        "eth4",
-        "eth0",
-        "eth1",
-        "eth2",
-        "eth3",
-        "eth4",
-    ]
+    # both nodes should have 5 interfaces and all of them must match UUIDv4
+    expected_int_list = ["eth0", "eth1", "eth2", "eth3", "eth4"] * 2
+    for interface in lab.interfaces():
+        assert uuid.UUID(interface.id, version=4)
+        expected_int_list.remove(interface.label)
+
     # create a link between s1 and s2, again on the 4th slot
-    s1_i1 = s1.create_interface(slot=4)
-    s2_i1 = s2.create_interface(slot=4)
+    s1_i1, s2_i1 = s1.interfaces()[4], s2.interfaces()[4]
     link = lab.create_link(s1_i1, s2_i1)
 
     assert link.interface_a.slot == 4
@@ -522,6 +371,7 @@ def test_links_on_various_slots(
     lab.remove_link(link)
 
 
+@pytest.mark.xfail(reason="expected failure")
 @pytest.mark.nomock
 def test_link_conditioning(
     cleanup_test_labs, client_library_session: ClientLibrary, pyats_hostname: str
@@ -531,19 +381,10 @@ def test_link_conditioning(
     )
     response_roundtrip = r"round-trip min/avg/max = [\d\.]+/([\d\.]+)/[\d\.]+ ms"
 
-    lab = client_library_session.create_lab()
-
-    alpine = lab.create_node("alpine-0", "alpine", 0, 0)
-    ums = lab.create_node("unmanaged-switch-0", "unmanaged_switch", 100, 0)
-    ext = lab.create_node("ext", "external_connector", 200, 0)
-
-    lab.connect_two_nodes(alpine, ums)
-    lab.connect_two_nodes(ums, ext)
-
+    lab = create_lab(client_library_session, ["alpine", "unmanaged_switch", "external_connector"], sync=True)
     lab.start(wait=True)
 
-    alpine = lab.get_node_by_label("alpine-0")
-    ums = lab.get_node_by_label("unmanaged-switch-0")
+    alpine, ums = lab.nodes()[:2]
     link = lab.get_link_by_nodes(alpine, ums)
 
     pylab = ClPyats(lab, hostname=pyats_hostname)
@@ -557,11 +398,9 @@ def test_link_conditioning(
     link.remove_condition()
 
     def check_result(result_input, has_loss, min_avg, max_avg):
-        print(result_input)
         rm = re.search(response_packets, result_input, re.MULTILINE)
         assert len(rm.groups()) == 3
         transmitted, received, loss = [int(a) for a in rm.groups()]
-        # print(transmitted, received, loss)
         if has_loss:
             assert transmitted != received
             assert loss > 0
@@ -572,7 +411,6 @@ def test_link_conditioning(
         rm = re.search(response_roundtrip, result_input, re.MULTILINE)
         assert len(rm.groups()) == 1
         avg = float(rm.group(1))
-        # print("avg:", avg)
         assert min_avg <= avg <= max_avg
 
     result = pylab.run_command("alpine-0", "time ping -Aqc100  192.168.255.1")
@@ -599,7 +437,6 @@ def test_link_conditioning(
     lab.remove()
 
 
-@pytest.mark.xfail(reason="expected failure SIMPLE-3970")
 @pytest.mark.nomock
 def test_node_shutdown(
     cleanup_test_labs, client_library_session: ClientLibrary, pyats_hostname: str
@@ -607,16 +444,16 @@ def test_node_shutdown(
     """Start a lab with one ubuntu node, have the node shut itself down
     then verify the lab is stopped and can be deleted."""
 
-    lab = client_library_session.create_lab()
+    lab = create_lab(client_library_session, ["ubuntu"], sync=True)
+    node1 = lab.nodes()[0]
     lab_id = lab.id
-    node1 = lab.create_node("node1", "ubuntu", 0, 0)
 
     lab.start(wait=True)
 
     pyats_instance = ClPyats(lab=lab, hostname=pyats_hostname)
     pyats_instance.sync_testbed(lab.username, lab.password)
     try:
-        pyats_instance.run_command(node_label="node1", command="sudo shutdown -h now")
+        pyats_instance.run_command(node1.label, "sudo shutdown -h now")
     except SubCommandFailure as e:
         if "TimeoutError" in str(e):
             pass

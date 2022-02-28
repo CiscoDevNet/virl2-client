@@ -1,99 +1,140 @@
 lab:
-  compute_id: compute_0
-  created_timestamp: '2022-02-08T10:34:01+00:00'
   description: Lab containing different node types
   notes: ''
-  owner: 00000000-0000-4000-a000-000000000000
   title: Mixed Node Types
   version: 0.1.0
 links:
   - id: l0
-    source: n0-i1
-    destination: n4-i2
+    n1: n0
+    n2: n4
+    i1: i1
+    i2: i2
     label: iosv-0-GigabitEthernet0/0<->csr1000v-0-GigabitEthernet2
   - id: l1
-    source: n2-i2
-    destination: n0-i5
+    n1: n2
+    n2: n0
+    i1: i2
+    i2: i5
     label: asav-0-GigabitEthernet0/1<->iosv-0-GigabitEthernet0/4
   - id: l2
-    source: n3-i2
-    destination: n1-i3
+    n1: n3
+    n2: n1
+    i1: i2
+    i2: i3
     label: asav-1-GigabitEthernet0/1<->iosv-1-GigabitEthernet0/2
   - id: l3
-    source: n0-i6
-    destination: n1-i2
+    n1: n0
+    n2: n1
+    i1: i6
+    i2: i2
     label: iosv-0-GigabitEthernet0/5<->iosv-1-GigabitEthernet0/1
   - id: l4
-    source: n1-i4
-    destination: n5-i2
+    n1: n1
+    n2: n5
+    i1: i4
+    i2: i2
     label: iosv-1-GigabitEthernet0/3<->csr1000v-1-GigabitEthernet2
   - id: l5
-    source: n21-i2
-    destination: n8-i7
+    n1: n21
+    n2: n8
+    i1: i2
+    i2: i7
     label: trex-1-eth2<->xr9kv-0-GigabitEthernet0/0/0/3
   - id: l6
-    source: n7-i0
-    destination: n1-i7
+    n1: n7
+    n2: n1
+    i1: i0
+    i2: i7
     label: ext-conn-1-port<->iosv-1-GigabitEthernet0/6
   - id: l7
-    source: n0-i7
-    destination: n5-i5
+    n1: n0
+    n2: n5
+    i1: i7
+    i2: i5
     label: iosv-0-GigabitEthernet0/6<->csr1000v-1-GigabitEthernet5
   - id: l8
-    source: n5-i7
-    destination: n8-i6
+    n1: n5
+    n2: n8
+    i1: i7
+    i2: i6
     label: csr1000v-1-GigabitEthernet7<->xr9kv-0-GigabitEthernet0/0/0/2
   - id: l9
-    source: n9-i5
-    destination: n4-i9
+    n1: n9
+    n2: n4
+    i1: i5
+    i2: i9
     label: xr9kv-1-GigabitEthernet0/0/0/1<->csr1000v-0-GigabitEthernet9
   - id: l10
-    source: n11-i5
-    destination: n13-i4
+    n1: n11
+    n2: n13
+    i1: i5
+    i2: i4
     label: iosv-3-GigabitEthernet0/4<->iosvl2-1-GigabitEthernet0/3
   - id: l11
-    source: n9-i6
-    destination: n20-i2
+    n1: n9
+    n2: n20
+    i1: i6
+    i2: i2
     label: xr9kv-1-GigabitEthernet0/0/0/2<->trex-0-eth2
   - id: l12
-    source: n11-i7
-    destination: n10-i7
+    n1: n11
+    n2: n10
+    i1: i7
+    i2: i7
     label: iosv-3-GigabitEthernet0/6<->iosv-2-GigabitEthernet0/6
   - id: l13
-    source: n10-i6
-    destination: n12-i5
+    n1: n10
+    n2: n12
+    i1: i6
+    i2: i5
     label: iosv-2-GigabitEthernet0/5<->iosvl2-0-GigabitEthernet1/0
   - id: l14
-    source: n13-i8
-    destination: n12-i4
+    n1: n13
+    n2: n12
+    i1: i8
+    i2: i4
     label: iosvl2-1-GigabitEthernet1/3<->iosvl2-0-GigabitEthernet0/3
   - id: l15
-    source: n16-i9
-    destination: n17-i6
+    n1: n16
+    n2: n17
+    i1: i9
+    i2: i6
     label: nxos9000-0-Ethernet1/8<->nxos9000-1-Ethernet1/5
   - id: l16
-    source: n23-i7
-    destination: n24-i0
+    n1: n23
+    n2: n24
+    i1: i7
+    i2: i0
     label: unmanaged-switch-1-port7<->wan-em-0-eth0
   - id: l17
-    source: n24-i1
-    destination: n17-i7
+    n1: n24
+    n2: n17
+    i1: i1
+    i2: i7
     label: wan-em-0-eth1<->nxos9000-1-Ethernet1/6
   - id: l18
-    source: n25-i0
-    destination: n17-i3
+    n1: n25
+    n2: n17
+    i1: i0
+    i2: i3
     label: wan-em-1-eth0<->nxos9000-1-Ethernet1/2
   - id: l19
-    source: n10-i3
-    destination: n13-i6
+    n1: n10
+    n2: n13
+    i1: i3
+    i2: i6
     label: iosv-2-GigabitEthernet0/2<->iosvl2-1-GigabitEthernet1/1
   - id: l20
-    source: n0-i8
-    destination: n1-i8
+    n1: n0
+    n2: n1
+    i1: i8
+    i2: i8
     label: iosv-0-GigabitEthernet0/7<->iosv-1-GigabitEthernet0/7
   - id: l21
-    source: n0-i10
-    destination: n1-i10
+    n1: n0
+    n2: n1
+    i1: i10
+    i2: i10
     label: iosv-0-GigabitEthernet0/9<->iosv-1-GigabitEthernet0/9
 nodes:
   - boot_disk_size: 0
@@ -164,7 +205,7 @@ nodes:
     id: n1
     label: iosv-1
     node_definition: iosv
-    ram: 2048
+    ram: 0
     tags: []
     x: -450
     y: 100
@@ -215,13 +256,13 @@ nodes:
   - boot_disk_size: 0
     configuration: ''
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n2
     label: asav-0
     node_definition: asav
-    ram: 2048
+    ram: 0
     tags: []
     x: -700
     y: -200
@@ -241,13 +282,13 @@ nodes:
   - boot_disk_size: 0
     configuration: ''
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n3
     label: asav-1
     node_definition: asav
-    ram: 2048
+    ram: 0
     tags: []
     x: -700
     y: 150
@@ -269,13 +310,13 @@ nodes:
       hostname inserthostname_here
       end
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n4
     label: csr1000v-0
     node_definition: csr1000v
-    ram: 2048
+    ram: 0
     tags: []
     x: -300
     y: -200
@@ -324,13 +365,13 @@ nodes:
       hostname inserthostname_here
       end
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n5
     label: csr1000v-1
     node_definition: csr1000v
-    ram: 2048
+    ram: 0
     tags: []
     x: -300
     y: 100
@@ -422,13 +463,13 @@ nodes:
       !
       end
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n8
     label: xr9kv-0
     node_definition: iosxrv9000
-    ram: 2048
+    ram: 0
     tags: []
     x: 50
     y: -200
@@ -484,13 +525,13 @@ nodes:
       !
       end
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n9
     label: xr9kv-1
     node_definition: iosxrv9000
-    ram: 2048
+    ram: 0
     tags: []
     x: 50
     y: 100
@@ -555,7 +596,7 @@ nodes:
     id: n10
     label: iosv-2
     node_definition: iosv
-    ram: 2048
+    ram: 0
     tags: []
     x: 400
     y: -200
@@ -600,7 +641,7 @@ nodes:
     id: n11
     label: iosv-3
     node_definition: iosv
-    ram: 2048
+    ram: 0
     tags: []
     x: 400
     y: 150
@@ -645,7 +686,7 @@ nodes:
     id: n12
     label: iosvl2-0
     node_definition: iosvl2
-    ram: 2048
+    ram: 0
     tags: []
     x: 550
     y: -200
@@ -698,7 +739,7 @@ nodes:
     id: n13
     label: iosvl2-1
     node_definition: iosvl2
-    ram: 2048
+    ram: 0
     tags: []
     x: 550
     y: 150
@@ -782,13 +823,13 @@ nodes:
       USERNAME=cisco
       PASSWORD=cisco
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n15
     label: lxc-1
     node_definition: alpine
-    ram: 2048
+    ram: 0
     tags: []
     x: 200
     y: 350
@@ -837,13 +878,13 @@ nodes:
       username cisco role network-admin
       username cisco password cisco role network-admin
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n16
     label: nxos9000-0
     node_definition: nxosv9000
-    ram: 2048
+    ram: 0
     tags: []
     x: 950
     y: -200
@@ -915,13 +956,13 @@ nodes:
       username cisco role network-admin
       username cisco password cisco role network-admin
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n17
     label: nxos9000-1
     node_definition: nxosv9000
-    ram: 2048
+    ram: 0
     tags: []
     x: 950
     y: 100
@@ -975,13 +1016,13 @@ nodes:
       # no password for tc user by default
       TC_PASSWORD=
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n18
     label: server-0
     node_definition: server
-    ram: 2048
+    ram: 0
     tags: []
     x: 750
     y: 350
@@ -1020,13 +1061,13 @@ nodes:
       # no password for tc user by default
       TC_PASSWORD=
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n19
     label: server-1
     node_definition: server
-    ram: 2048
+    ram: 0
     tags: []
     x: 650
     y: -450
@@ -1055,13 +1096,13 @@ nodes:
       USERNAME=cisco
       PASSWORD=cisco
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n20
     label: trex-0
     node_definition: trex
-    ram: 2048
+    ram: 0
     tags: []
     x: 0
     y: 300
@@ -1086,13 +1127,13 @@ nodes:
       USERNAME=cisco
       PASSWORD=cisco
     cpu_limit: 100
-    cpus: 1
+    cpus: 0
     data_volume: 0
     hide_links: false
     id: n21
     label: trex-1
     node_definition: trex
-    ram: 2048
+    ram: 0
     tags: []
     x: 50
     y: -400

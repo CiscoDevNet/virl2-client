@@ -254,16 +254,6 @@ class Lab:
         self._description = value
 
     @property
-    def client_uuid(self):
-        """
-        Returns the client UUID This random ID identifies a client session.
-
-        :returns: A UUID4
-        :rtype: str
-        """
-        return self._context.uuid
-
-    @property
     def session(self):
         """
         Returns the Requests session from the given context.
@@ -424,7 +414,7 @@ class Lab:
         return [node for node in self.nodes() if tag in node.tags()]
 
     def create_node(
-        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False
+        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False, **kwargs
     ):
         """
         Creates a node in the lab with the given parameters.
@@ -447,13 +437,11 @@ class Lab:
         url = self.lab_base_url + "/nodes"
         if populate_interfaces:
             url += "?populate_interfaces=true"
-        data = {
-            "label": label,
-            "node_definition": node_definition,
-            "x": x,
-            "y": y,
-        }
-        response = self.session.post(url, json=data)
+        kwargs["label"] = label
+        kwargs["node_definition"] = node_definition
+        kwargs["x"] = x
+        kwargs["y"] = y
+        response = self.session.post(url, json=kwargs)
         result = response.json()
         response.raise_for_status()
         node_id = result["id"]

@@ -870,9 +870,15 @@ class Lab:
         return response.json()
 
     def is_active(self):
-        "Returns if the lab is running."
-        simulated_states = {"STARTED", "QUEUED", "BOOTED"}
-        return self.state() in simulated_states
+        """
+        Returns whether the lab is started.
+
+        Deprecated since 2.4 (will be removed in 2.5)
+        :returns: Whether the lab is started
+        :rtype: bool
+        """
+        logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+        return self.state() == "STARTED"
 
     def details(self):
         """

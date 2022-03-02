@@ -151,8 +151,7 @@ def test_lab_state(cleanup_test_labs, client_library_session: ClientLibrary):
     assert lab.state() == "DEFINED_ON_CORE"
 
     lab.start()
-    assert  lab.state() == "STARTED"
-    assert lab.is_active()
+    assert lab.state() == "STARTED"
 
     lab.stop()
     assert lab.state() == "STOPPED"

@@ -187,7 +187,7 @@ class ClientLibrary:
     """
 
     # current client version
-    VERSION = Version("2.3.0")
+    VERSION = Version("2.4.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -198,6 +198,7 @@ class ClientLibrary:
         Version("2.2.1"),
         Version("2.2.2"),
         Version("2.2.3"),
+        Version("2.3.0"),
     ]
 
     def __init__(

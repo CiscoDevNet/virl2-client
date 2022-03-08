@@ -109,7 +109,9 @@ def test_rate_limit(client_config: ClientConfig):
 
 @pytest.mark.parametrize("size", (20_000_000, 20_999_999))
 @pytest.mark.nomock
-def test_max_client_body_size(cleanup_test_labs, client_library_session: ClientLibrary, size: int):
+def test_max_client_body_size(
+    cleanup_test_labs, client_library_session: ClientLibrary, size: int
+):
     """
     Test nginx configuration.
     Currently we have all endpoints limited to 100K (CSDL) in http block

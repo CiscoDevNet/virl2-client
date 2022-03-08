@@ -75,7 +75,7 @@ def test_import_lab_from_path_virl(
 
 @python36_or_newer
 def test_import_lab_from_path_virl_title(
-        client_library_server_current, mocked_session, tmp_path: Path
+    client_library_server_current, mocked_session, tmp_path: Path
 ):
     cl = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
@@ -84,7 +84,9 @@ def test_import_lab_from_path_virl_title(
     new_title = "new_title"
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
     with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix(), title=new_title)
+        lab = cl.import_lab_from_path(
+            path=(tmp_path / "topology.virl").as_posix(), title=new_title
+        )
     assert lab.title is not None
     assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
 
@@ -222,7 +224,9 @@ def test_client_library_init_disallow_http(client_library_server_current):
         (True, None),
     ],
 )
-def test_client_library_init_url(client_library_server_current, monkeypatch, via, params):
+def test_client_library_init_url(
+    client_library_server_current, monkeypatch, via, params
+):
     (fail, url) = params
     expected_parts = None if fail else urlsplit(url)
     if via == "environment":
@@ -704,19 +708,20 @@ def test_convergence_parametrization(client_library_server_current, mocked_sessi
         username="test",
         password="pa$$",
         convergence_wait_max_iter=MAX_ITER,
-        convergence_wait_time=WAIT_TIME
+        convergence_wait_time=WAIT_TIME,
     )
-    #check that passing of value from client to lab is working
+    # check that passing of value from client to lab is working
     lab = cl.create_lab()
     assert lab.wait_max_iterations == MAX_ITER
     assert lab.wait_time == WAIT_TIME
     with patch.object(Lab, "has_converged", return_value=False):
-        with pytest.raises(RuntimeError)as err:
+        with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged()
-        assert ("has not converged, maximum tries %s exceeded" % MAX_ITER) in err.value.args[0]
+        assert (
+            "has not converged, maximum tries %s exceeded" % MAX_ITER
+        ) in err.value.args[0]
 
         # try to override values on function
-        with pytest.raises(RuntimeError)as err:
+        with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged(max_iterations=1)
         assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
-

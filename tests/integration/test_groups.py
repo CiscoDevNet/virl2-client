@@ -79,7 +79,9 @@ def invalid_lab_data(request):
     return labs_invalid[request.param]
 
 
-def test_create_group(register_licensing, cleanup_test_groups, client_library_session: ClientLibrary):
+def test_create_group(
+    register_licensing, cleanup_test_groups, client_library_session: ClientLibrary
+):
     """Create a valid group."""
 
     test_group1 = client_library_session.group_management.create_group(

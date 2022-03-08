@@ -414,7 +414,14 @@ class Lab:
         return [node for node in self.nodes() if tag in node.tags()]
 
     def create_node(
-        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False, **kwargs
+        self,
+        label,
+        node_definition,
+        x=0,
+        y=0,
+        wait=None,
+        populate_interfaces=False,
+        **kwargs
     ):
         """
         Creates a node in the lab with the given parameters.
@@ -807,7 +814,9 @@ class Lab:
 
     def wait_until_lab_converged(self, max_iterations=None, wait_time=None):
         """Wait until lab converge."""
-        max_iter = self.wait_max_iterations if max_iterations is None else max_iterations
+        max_iter = (
+            self.wait_max_iterations if max_iterations is None else max_iterations
+        )
         wait_time = self.wait_time if wait_time is None else wait_time
         logger.info("Waiting for lab %s to converge", self._lab_id)
         for index in range(max_iter):
@@ -825,7 +834,8 @@ class Lab:
             time.sleep(wait_time)
 
         msg = "Lab %s has not converged, maximum tries %s exceeded" % (
-            self.id, max_iter
+            self.id,
+            max_iter,
         )
         logger.error(msg)
         # after maximum retries are exceeded and lab has not converged
@@ -1088,7 +1098,9 @@ class Lab:
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
         update_interface_keys = set(
-            interface["id"] for node in topology["nodes"] for interface in node["interfaces"]
+            interface["id"]
+            for node in topology["nodes"]
+            for interface in node["interfaces"]
         )
 
         # removed elements

@@ -569,9 +569,7 @@ class ClientLibrary:
 
         topology = topology_path.read_text()
         return self.import_lab(
-            topology,
-            title=title,
-            virl_1x=self.is_virl_1x(topology_path)
+            topology, title=title, virl_1x=self.is_virl_1x(topology_path)
         )
 
     def import_sample_lab(self, title):
@@ -590,7 +588,7 @@ class ClientLibrary:
         return self.import_lab(
             topology=topology.decode(),
             title=title,
-            virl_1x=self.is_virl_1x(topology_file_path)
+            virl_1x=self.is_virl_1x(topology_file_path),
         )
 
     def all_labs(self, show_all=False):

@@ -149,7 +149,9 @@ class Link:
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
         logger.info("Waiting for link %s to converge", self.id)
-        max_iter = self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        max_iter = (
+            self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        )
         wait_time = self.lab.wait_time if wait_time is None else wait_time
         for index in range(max_iter):
             converged = self.has_converged()
@@ -166,7 +168,8 @@ class Link:
             time.sleep(wait_time)
 
         msg = "Link %s has not converged, maximum tries %s exceeded" % (
-            self.id, max_iter
+            self.id,
+            max_iter,
         )
         logger.error(msg)
         # after maximum retries are exceeded and link has not converged

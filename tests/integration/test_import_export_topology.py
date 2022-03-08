@@ -64,11 +64,7 @@ def test_import_validation(client_library_session: ClientLibrary):
     """Try requests with topology prohibited by schema"""
     cl = client_library_session
     # minimal working topology
-    topology = {
-        "version": "0.1.0",
-        "nodes": [],
-        "links": []
-    }
+    topology = {"version": "0.1.0", "nodes": [], "links": []}
     # version not allowed
     topo = copy.deepcopy(topology)
     topo["version"] = "0.1.1"
@@ -96,7 +92,14 @@ def test_import_validation(client_library_session: ClientLibrary):
     # interface missing node attribute
     topo = copy.deepcopy(topology)
     topo["nodes"] = [
-        {"id": "n1", "x": 50, "y": 100, "label": "server1", "node_definition": "server", "interfaces": [{"id:": "i1"}]}
+        {
+            "id": "n1",
+            "x": 50,
+            "y": 100,
+            "label": "server1",
+            "node_definition": "server",
+            "interfaces": [{"id:": "i1"}],
+        }
     ]
     _import(topo, cl)
 
@@ -113,7 +116,9 @@ def test_import_export_yaml(
     then import it back and compare with the initial import.
     """
 
-    imported_lab, reimported_lab = export_reimport_verify(client_library_session, topology, tmpdir)
+    imported_lab, reimported_lab = export_reimport_verify(
+        client_library_session, topology, tmpdir
+    )
 
     # YAML specific verification
     if "0.0.1" in topology:

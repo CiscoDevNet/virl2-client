@@ -39,17 +39,21 @@ pytestmark = [pytest.mark.integration]
 # TODO: split into more granular test cases and document
 
 
-def create_lab(client_library_session: ClientLibrary, node_types: list, sync: bool = False):
+def create_lab(
+    client_library_session: ClientLibrary, node_types: list, sync: bool = False
+):
     lab = client_library_session.create_lab(inspect.stack()[1].function)
     lab = client_library_session.join_existing_lab(lab.id)
     lab.auto_sync = sync
 
     for idx in range(len(node_types)):
-        _ = lab.create_node("r{}".format(idx), node_types[idx], idx * 100, 0)
+        _ = lab.create_node(
+            "{}-{}".format(node_types[idx], idx), node_types[idx], idx * 100, 0
+        )
 
     nodes = lab.nodes()
     for idx in range(len(node_types) - 1):
-        _ = lab.connect_two_nodes(nodes[idx], nodes[idx+1])
+        _ = lab.connect_two_nodes(nodes[idx], nodes[idx + 1])
     return lab
 
 
@@ -76,7 +80,9 @@ def test_sync_lab(cleanup_test_labs, client_library_session: ClientLibrary, sync
     lab.remove()
 
 
-def test_import(register_licensing, cleanup_test_labs, client_library_session: ClientLibrary):
+def test_import(
+    register_licensing, cleanup_test_labs, client_library_session: ClientLibrary
+):
     # TODO: split into multiple cases - import lab, start/stop/wipe, add/remove nodes/interfaces/links
     lab = client_library_session.import_sample_lab("server-triangle.yaml")
     s0 = lab.get_node_by_label("server-0")
@@ -248,7 +254,9 @@ def test_node_with_unavailable_vnc(
 
 @pytest.mark.nomock
 def test_node_console_logs(cleanup_test_labs, client_library_session: ClientLibrary):
-    lab = create_lab(client_library_session, ["external_connector", "server", "iosv"], sync=True)
+    lab = create_lab(
+        client_library_session, ["external_connector", "server", "iosv"], sync=True
+    )
     ext_conn, server, iosv = lab.nodes()
 
     lab.start()
@@ -380,7 +388,11 @@ def test_link_conditioning(
     )
     response_roundtrip = r"round-trip min/avg/max = [\d\.]+/([\d\.]+)/[\d\.]+ ms"
 
-    lab = create_lab(client_library_session, ["alpine", "unmanaged_switch", "external_connector"], sync=True)
+    lab = create_lab(
+        client_library_session,
+        ["alpine", "unmanaged_switch", "external_connector"],
+        sync=True,
+    )
     lab.start(wait=True)
 
     alpine, ums = lab.nodes()[:2]
@@ -428,7 +440,7 @@ def test_link_conditioning(
     check_result(result, True, 90.0, 110.0)
 
     link.remove_condition()
-    result = pylab.run_command("alpine-0", "time ping -Aqc100  192.168.255.1")
+    result = pylab.run_command("alpine-0", "time ping -Aqc100 192.168.255.1")
     check_result(result, False, 0.0, 10.0)
 
     lab.stop()
@@ -440,37 +452,44 @@ def test_link_conditioning(
 def test_node_shutdown(
     cleanup_test_labs, client_library_session: ClientLibrary, pyats_hostname: str
 ):
-    """Start a lab with one ubuntu node, have the node shut itself down
-    then verify the lab is stopped and can be deleted."""
-
-    lab = create_lab(client_library_session, ["ubuntu"], sync=True)
-    node1 = lab.nodes()[0]
-    lab_id = lab.id
-
+    """
+    Start a lab with few nodes, have them shut themselves down
+    and verify the lab is stopped and can be deleted.
+    """
+    lab = create_lab(
+        client_library_session,
+        # trex and wan_emulator are not supported
+        # coreos needs a lot of memory
+        # ubuntu takes long to boot and power off
+        ["alpine", "desktop", "server"],
+        sync=True,
+    )
     lab.start(wait=True)
 
     pyats_instance = ClPyats(lab=lab, hostname=pyats_hostname)
     pyats_instance.sync_testbed(lab.username, lab.password)
-    try:
-        pyats_instance.run_command(node1.label, "sudo shutdown -h now")
-    except SubCommandFailure as e:
-        if "TimeoutError" in str(e):
-            pass
-        else:
-            raise
 
-    # May take a few seconds to power off and enter STOPPED state, wait
-    for i in range(20):
-        if node1.state == "STOPPED" and lab.has_converged():
-            break
-        else:
-            sleep(1)
+    for node in lab.nodes():
+        try:
+            pyats_instance.run_command(node.label, "sudo poweroff")
+        except SubCommandFailure as e:
+            if "TimeoutError" in str(e):
+                pass
+            else:
+                raise
 
-    # Make sure both the node and lab are in STOPPED state
-    assert node1.state == "STOPPED"
+        # May take a few seconds to power off and enter STOPPED state, wait
+        for i in range(20):
+            if node.state == "STOPPED" and lab.has_converged():
+                break
+            else:
+                sleep(1)
+
+        # Make sure both the node and lab are in STOPPED state
+        assert node.state == "STOPPED"
     assert lab.state() == "STOPPED"
 
     # Make sure the lab is not stuck, can be wiped and deleted
     lab.wipe()
     lab.remove()
-    assert lab_id not in client_library_session.get_lab_list(show_all=True)
+    assert lab.id not in client_library_session.get_lab_list(show_all=True)

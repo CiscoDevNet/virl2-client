@@ -158,7 +158,10 @@ def test_max_client_body_size(
     # POST /api/v0/import(/virl-1x)?
     for title in ("test.virl", "test.yaml"):
         with pytest.raises(requests.exceptions.HTTPError) as exc_info:
-            client_library_session.import_lab(data, title)
+            if title.endswith(".virl"):
+                client_library_session.import_lab(data, title, virl_1x=True)
+            else:
+                client_library_session.import_lab(data, title)
             message = exc_info.value.args[0]
             if size > max_size:
                 assert "413 Client Error: Request Entity Too Large" in message

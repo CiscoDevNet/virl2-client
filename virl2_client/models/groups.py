@@ -48,7 +48,7 @@ class GroupManagement(object):
         """
         Gets the info for specified group..
 
-        :param group_id: group name
+        :param group_id: group uuid4
         :type group_id: str
         :return: group object
         :rtype: dict
@@ -62,7 +62,7 @@ class GroupManagement(object):
         """
         Deletes a group.
 
-        :param group_id: group name
+        :param group_id: group uuid4
         :type group_id: str
         :return: None
         """
@@ -101,7 +101,7 @@ class GroupManagement(object):
         """
         Updates a group.
 
-        :param group_id: group name
+        :param group_id: group uuid4
         :type group_id: str
         :param name: new group name
         :type name: str
@@ -124,7 +124,7 @@ class GroupManagement(object):
         if labs is not None:
             data["labs"] = labs
         url = self.base_url + "/{}".format(group_id)
-        response = self.ctx.session.put(url, json=data)
+        response = self.ctx.session.patch(url, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -132,7 +132,7 @@ class GroupManagement(object):
         """
         Gets group members.
 
-        :param group_id: group name
+        :param group_id: group uuid4
         :type group_id: str
         :return: list of users associated with this group
         :rtype: List[str]
@@ -146,12 +146,26 @@ class GroupManagement(object):
         """
         Get the list of labs that are associated with this group.
 
-        :param group_id: group name
+        :param group_id: group uuid4
         :type group_id: str
         :return: list of labs associated with this group
         :rtype: List[str]
         """
         url = self.base_url + "/{}/labs".format(group_id)
+        response = self.ctx.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def group_id(self, group_name):
+        """
+        Get unique user uuid4.
+
+        :param group_name: group name
+        :type group_name: str
+        :return: group unique identifier
+        :rtype: str
+        """
+        url = self.base_url + "/{}/id".format(group_name)
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()

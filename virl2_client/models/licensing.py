@@ -25,7 +25,6 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-DEFAULT_SSMS = "https://tools.cisco.com/its/service/oddce/services/DDCEService"
 DEFAULT_PROXY_SERVER = None
 DEFAULT_PROXY_PORT = None
 
@@ -84,8 +83,9 @@ class Licensing(object):
         """
         Setup licensing transport configuration to default values.
         """
+        default_ssms = self.status()["transport"]["default_ssms"]
         return self.set_transport(
-            ssms=DEFAULT_SSMS,
+            ssms=default_ssms,
             proxy_server=DEFAULT_PROXY_SERVER,
             proxy_port=DEFAULT_PROXY_PORT,
         )
@@ -102,14 +102,13 @@ class Licensing(object):
 
     def get_certificate(self):
         """
-        Setup a licensing public certificate for internal deployment
-        of an unregistered product instance.
+        Get the currently installed licensing public certificate.
         """
         url = self.base_url + "/certificate"
         response = self.ctx.session.get(url)
         response.raise_for_status()
-        logger.info("Certificate was accepted by the agent.")
         if response:
+            logger.info("Certificate received.")
             return response.json()
 
     def install_certificate(self, cert):
@@ -162,8 +161,8 @@ class Licensing(object):
         to be COMPLETED and authorization status to be IN_COMPLIANCE.
         """
         res = self.register(token=token, reregister=reregister)
-        self.wait_for_completed_registration()
-        self.wait_for_completed_authorization()
+        self.wait_for_status("registration", "COMPLETED")
+        self.wait_for_status("authorization", "IN_COMPLIANCE")
         return res
 
     def deregister(self):
@@ -179,7 +178,7 @@ class Licensing(object):
                 "unable to deregister from Smart Software Licensing due to a "
                 "communication timeout."
             )
-            # TODO try to register agsain and unregister
+            # TODO try to register again and unregister
         if response.status_code == 204:
             logger.info(
                 "The Product Instance was successfully deregistered from Smart "
@@ -196,14 +195,13 @@ class Licensing(object):
         response.raise_for_status()
         return response.json()
 
-    def update_features(self, feature_dict):
+    def update_features(self, features):
         """
-        Update current licensing feature(s).
+        Update licensing feature's explicit count in reservation mode.
         """
         url = self.base_url + "/features"
-        response = self.ctx.session.patch(url, json=feature_dict)
+        response = self.ctx.session.patch(url, json=features)
         response.raise_for_status()
-        return response.json()
 
     def reservation_mode(self, data):
         """
@@ -214,7 +212,6 @@ class Licensing(object):
         response.raise_for_status()
         msg = "enabled" if data else "disabled"
         logger.info("The reservation mode has been %s.", msg)
-        return response.json()
 
     def enable_reservation_mode(self):
         """
@@ -277,7 +274,7 @@ class Licensing(object):
         """
         # TODO
         url = self.base_url + "/reservation/discard"
-        response = self.ctx.session.delete(url, json=data)
+        response = self.ctx.session.post(url, json=data)
         response.raise_for_status()
         logger.info(
             "The discard code for an already cancelled reservation request received."
@@ -324,25 +321,26 @@ class Licensing(object):
         logger.info("The return code has been removed.")
         return response.status_code == 204
 
-    def _wait_for_status(self, what, target_status):
+    def wait_for_status(self, what, *target_status):
+        """
+        Repeatedly check licensing registration or authorization status,
+        until status matches one of the expected statuses or timeout is reached.
+        :param what: "registration", "authorization" or other status in licensing API.
+        :param target_status: One or more expected statuses.
+        :type what: str
+        :type target_status: str
+        :raises RuntimeError: When timeout is reached.
+        """
         count = 0
         status = self.status()[what]["status"]
-        while status != target_status:
+        while status not in target_status:
             time.sleep(self.wait_interval)
             if count > self.max_wait:
-                logger.error(
-                    "%s timeout: status %s after %d sec of waiting",
-                    what,
-                    status,
-                    self.max_wait * self.wait_interval,
+                timeout = self.max_wait * self.wait_interval
+                raise RuntimeError(
+                    f"Timeout: licensing {what} did not reach {target_status} status after {timeout} secs. "
+                    f"Last status was {status}"
                 )
-                break
             status = self.status()[what]["status"]
             logger.debug("%s status: %s", what, status)
             count += 1
-
-    def wait_for_completed_registration(self):
-        self._wait_for_status(what="registration", target_status="COMPLETED")
-
-    def wait_for_completed_authorization(self):
-        self._wait_for_status(what="authorization", target_status="IN_COMPLIANCE")

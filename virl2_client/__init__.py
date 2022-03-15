@@ -21,5 +21,5 @@ limitations under the License.
 # flake8: noqa: F401
 
 from .exceptions import InterfaceNotFound, LabNotFound, LinkNotFound, NodeNotFound
-from .virl2_client import ClientLibrary, InitializationError
+from .virl2_client import ClientConfig, ClientLibrary, InitializationError
 from .models.authentication import Context

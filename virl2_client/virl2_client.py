@@ -18,14 +18,13 @@
 # limitations under the License.
 #
 
-# TODO: make this Python <3.5 compatible
 import json
 import logging
 import os
 import re
 import time
+import typing
 import urllib
-import warnings
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -33,7 +32,6 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 import pkg_resources
 import requests
 import urllib3
-from urllib3.exceptions import LocationParseError
 
 from .exceptions import LabNotFound
 from .models import (
@@ -68,7 +66,7 @@ class Version(object):
 
     @staticmethod
     def parse_version_str(version_str: str):
-        regex = r"^(\d+)\.(\d+).(\d+)(.*)$"
+        regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")
@@ -131,6 +129,33 @@ class Version(object):
         return self.minor_differs(other) or self.patch_differs(other)
 
 
+class ClientConfig(typing.NamedTuple):
+    url: str = None
+    username: str = None
+    password: str = None
+    ssl_verify: bool = True
+    allow_http: bool = False
+    auto_sync: float = 1.0
+    raise_for_auth_failure: bool = True
+    convergence_wait_max_iter: int = 500
+    convergence_wait_time: typing.Union[int, float] = 5
+
+    def make_client(self):
+        client = ClientLibrary(
+            url=self.url,
+            username=self.username,
+            password=self.password,
+            ssl_verify=self.ssl_verify,
+            raise_for_auth_failure=self.raise_for_auth_failure,
+            allow_http=self.allow_http,
+            convergence_wait_max_iter=self.convergence_wait_max_iter,
+            convergence_wait_time=self.convergence_wait_time,
+        )
+        client.auto_sync = self.auto_sync >= 0.0
+        client.auto_sync_interval = self.auto_sync
+        return client
+
+
 class ClientLibrary:
     """
     Initializes a ClientLibrary instance. Note that ssl_verify can
@@ -148,17 +173,32 @@ class ClientLibrary:
     :type ssl_verify: bool
     :param raise_for_auth_failure: Raise an exception if unable
         to connect to controller (use for scripting scenarios)
-    :type allow_http: bool
-    :param allow_http: If set, a https URL will not be enforced
     :type raise_for_auth_failure: bool
+    :param allow_http: If set, a https URL will not be enforced
+    :type allow_http: bool
+    :param convergence_wait_max_iter: maximum number of iterations to wait for
+        lab to converge
+    :type convergence_wait_max_iter: int
+    :param convergence_wait_time: wait interval in seconds to wait during one
+        iteration during lab convergence wait
+    :type convergence_wait_time: int
     :raises InitializationError: If no URL is provided or
         authentication fails or host can't be reached
     """
 
     # current client version
-    VERSION = Version(version_str="2.2.0")
+    VERSION = Version("2.3.0")
     # list of Version objects
-    INCOMPATIBLE_CONTROLLER_VERSIONS = []
+    INCOMPATIBLE_CONTROLLER_VERSIONS = [
+        Version("2.0.0"),
+        Version("2.0.1"),
+        Version("2.1.0"),
+        Version("2.1.1"),
+        Version("2.1.2"),
+        Version("2.2.1"),
+        Version("2.2.2"),
+        Version("2.2.3"),
+    ]
 
     def __init__(
         self,
@@ -168,14 +208,12 @@ class ClientLibrary:
         ssl_verify=True,
         raise_for_auth_failure=False,
         allow_http=False,
+        convergence_wait_max_iter=500,
+        convergence_wait_time=5,
     ):
         """Constructor method"""
 
-        # check environment for host URL
-        env_url = os.environ.get("VIRL2_URL")
-        if env_url:
-            logger.info("using URL from environment: %s", env_url)
-            url = env_url
+        url = self._environ_get(url, "VIRL2_URL")
         if url is None or len(url) == 0:
             message = "no URL provided"
             raise InitializationError(message)
@@ -183,7 +221,7 @@ class ClientLibrary:
         # prepare the URL
         try:
             url_parts = urlsplit(url, "https")
-        except LocationParseError:
+        except ValueError:
             message = "invalid URL / hostname"
             raise InitializationError(message)
 
@@ -193,31 +231,30 @@ class ClientLibrary:
         # input is presumed to be a relative URL and thus to start with
         # a path component.
         if len(url_parts.netloc) == 0:
-            url_parts = urlsplit("//" + url, "https")
-        url_parts_list = list(url_parts)
+            try:
+                url_parts = urlsplit("//" + url, "https")
+            except ValueError:
+                message = "invalid URL / hostname"
+                raise InitializationError(message)
+
         if not allow_http and url_parts.scheme == "http":
-            url_parts_list[0] = "https"
-        if url_parts_list[0] not in ("http", "https"):
+            message = "invalid URL scheme (must be https)"
+            raise InitializationError(message)
+        if url_parts.scheme not in ("http", "https"):
             message = "invalid URL scheme (should be https)"
             raise InitializationError(message)
-        new_url = urlunsplit(url_parts_list)
-        base_url = urljoin(new_url, "api/v0/")
+        url = urlunsplit(url_parts)
+        base_url = urljoin(url, "api/v0/")
 
         # check environment for username
-        env_user = os.environ.get("VIRL2_USER")
-        if env_user:
-            logger.info("using username from environment")
-            username = env_user
+        username = self._environ_get(username, "VIRL2_USER")
         if username is None or len(username) == 0:
             message = "no username provided"
             raise InitializationError(message)
         self.username = username
 
         # check environment for password
-        env_pass = os.environ.get("VIRL2_PASS")
-        if env_pass:
-            logger.info("using password from environment")
-            password = env_pass
+        password = self._environ_get(password, "VIRL2_PASS")
         if password is None or len(password) == 0:
             message = "no password provided"
             raise InitializationError(message)
@@ -232,11 +269,9 @@ class ClientLibrary:
 
         # http://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
 
-        env_ca_bundle = os.environ.get("CA_BUNDLE")
-        if ssl_verify is True and env_ca_bundle:
-            self.session.verify = env_ca_bundle
-        else:
-            self.session.verify = ssl_verify
+        if ssl_verify is True:
+            ssl_verify = self._environ_get(None, "CA_BUNDLE", True)
+        self.session.verify = ssl_verify
 
         if ssl_verify is False:
             logger.warning("SSL Verification disabled")
@@ -253,6 +288,9 @@ class ClientLibrary:
 
         self.auto_sync = True
         self.auto_sync_interval = 1.0  # seconds
+
+        self.convergence_wait_max_iter = convergence_wait_max_iter
+        self.convergence_wait_time = convergence_wait_time
 
         self.allow_http = allow_http
         self.definitions = NodeImageDefinitions(self._context)
@@ -307,6 +345,17 @@ class ClientLibrary:
         except requests.exceptions.ConnectionError as exc:
             # TODO: subclass InitializationError
             raise InitializationError(exc)
+
+    @staticmethod
+    def _environ_get(value, key, default=None):
+        # If the value is not set yet, fetch it from environment or return default
+        if value is None:
+            value = os.environ.get(key)
+            if value:
+                logger.info("Using value %s from environment")
+            else:
+                value = default
+        return value
 
     @property
     def session(self):
@@ -417,10 +466,17 @@ class ClientLibrary:
             loops = int(max_wait / sleep)
         ready = False
         while not ready and loops > 0:
-            result = self.system_info()
-            ready = result.get("ready")
+            try:
+                result = self.system_info()
+                ready = result.get("ready")
+            except requests.HTTPError:
+                # 502 Bad Gateway is expected and hints
+                # that system is not ready - no need to 
+                # raise - just wait
+                ready = False
             if not ready and loops > 0:
-                time.sleep(int(sleep))
+                time.sleep(sleep)
+            loops -= 1
         return ready
 
     def wait_for_lld_connected(self):
@@ -452,21 +508,18 @@ class ClientLibrary:
         if offline:
             lab_id = "offline_lab"
         else:
-            # TODO: reformat with params=params not string formatting
             if title.endswith(".virl"):
-                url = "{}import/virl-1x?title={}".format(self._base_url, title)
-            elif title.endswith(".ng"):
-                url = "{}import?is_json=true&title={}".format(self._base_url, title)
+                url = f"{self._base_url}import/virl-1x?title={title}"
             else:
-                url = "{}import?title={}".format(self._base_url, title)
+                url = f"{self._base_url}import?title={title}"
             response = self.session.post(url, data=topology)
             response.raise_for_status()
             result = response.json()
             lab_id = result.get("id")
             if lab_id is None:
-                raise ValueError("no lab ID returned!")
+                raise ValueError("No lab ID returned!")
 
-        # remove the extension (.ng, .yaml) to name the lab
+        # remove the extension (.yaml) to name the lab
         lab_title = title.replace(Path(title).suffix, "")
         lab = Lab(
             lab_title,
@@ -481,7 +534,7 @@ class ClientLibrary:
         if offline:
             topology_dict = json.loads(topology)
             # ensure the lab owner is not properly set
-            topology_dict["lab_owner"] = self.username
+            topology_dict["lab_owner"] = self.user_management.user_id(self.username)
             lab.import_lab(topology_dict)
         else:
             lab.sync()
@@ -510,14 +563,13 @@ class ClientLibrary:
 
     def import_sample_lab(self, title):
         """
-        Imports a built-in sample lab (this will be going away in the future).
+        Imports a built-in sample lab.
 
         :param title: Sample lab name with extension
         :type title: str
         :returns: A Lab instance
         :rtype: models.Lab
         """
-        warnings.warn("deprecated", DeprecationWarning)
         topology_file_path = Path("import_export") / "SampleData" / title
         topology = pkg_resources.resource_string(
             "simple_common", topology_file_path.as_posix()
@@ -592,6 +644,8 @@ class ClientLibrary:
             self.password,
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
+            wait_max_iterations=self.convergence_wait_max_iter,
+            wait_time=self.convergence_wait_time,
         )
         self._labs[lab_id] = lab
         return lab

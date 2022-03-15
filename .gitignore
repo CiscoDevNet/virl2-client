@@ -1,3 +1,4 @@
+.idea/
 .envrc
 .python-version
 .venv
@@ -7,3 +8,4 @@ dist/
 docs/build/*
 *.pyc
 *.egg-info
+pytest_integration.xml

@@ -1,0 +1,25 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+#
+# for the eslint command to work, this is needed:
+#
+# yarn global add eslint
+#
+# however, this might still not be the correct solution
+# as the eslintrc.json and some eslint plugins are
+# probably only available when in the proper directory
+#
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v2.4.0
+  hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-added-large-files
+- repo: https://github.com/psf/black
+  rev: 21.5b1
+  hooks:
+    - id: black
+      language_version: python3

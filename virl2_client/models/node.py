@@ -281,9 +281,7 @@ class Node:
 
     @config.setter
     def config(self, value):
-        url = self._base_url + "/config?origin_uuid={}".format(self.lab.client_uuid)
-        response = self.session.put(url, data=value)
-        response.raise_for_status()
+        self._set_node_property("configuration", value)
         self._config = value
 
     @property
@@ -349,9 +347,11 @@ class Node:
                 return iface
         raise InterfaceNotFound("{}:{}".format(slot, self))
 
-    def wait_until_converged(self, max_iterations=500):
+    def wait_until_converged(self, max_iterations=None, wait_time=None):
         logger.info("Waiting for node %s to converge", self.id)
-        for index in range(max_iterations):
+        max_iter = self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        wait_time = self.lab.wait_time if wait_time is None else wait_time
+        for index in range(max_iter):
             converged = self.has_converged()
             if converged:
                 logger.info("Node %s has converged", self.id)
@@ -361,14 +361,19 @@ class Node:
                 logging.info(
                     "Node has not converged, attempt %s/%s, waiting...",
                     index,
-                    max_iterations,
+                    max_iter,
                 )
-            time.sleep(5)
-        logger.info(
-            "Node %s has not converged, maximum tries %s exceeded",
-            self.id,
-            max_iterations,
+            time.sleep(wait_time)
+
+        msg = "Node %s has not converged, maximum tries %s exceeded" % (
+            self.id, max_iter
         )
+        logger.error(msg)
+        # after maximum retries are exceeded and node has not converged
+        # error must be raised - it makes no sense to just log info
+        # and let client fail with something else if wait is explicitly
+        # specified
+        raise RuntimeError(msg)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"
@@ -434,14 +439,13 @@ class Node:
         return self._tags
 
     def add_tag(self, tag):
-        current = self._tags
+        current = self.tags()
         if tag not in current:
             current.append(tag)
-            # Push single tag to API
-            self._set_node_property("tags", [tag])
+            self._set_node_property("tags", current)
 
     def remove_tag(self, tag):
-        current = self._tags
+        current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
 

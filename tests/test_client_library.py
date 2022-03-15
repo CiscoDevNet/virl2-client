@@ -27,94 +27,34 @@ from pathlib import Path
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlsplit
 
-import pkg_resources
 import pytest
 import requests
 import responses
 
 from virl2_client.models import Lab
-from virl2_client.virl2_client import ClientLibrary, Version, InitializationError
-
+from virl2_client.virl2_client import (
+    ClientConfig,
+    ClientLibrary,
+    Version,
+    InitializationError,
+)
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
-
 
 python36_or_newer = pytest.mark.skipif(
     sys.version_info < (3, 6), reason="requires Python3.6"
 )
 
-
-def client_library_patched_system_info(version):
-    with patch.object(
-        ClientLibrary, "system_info", return_value={"version": version, "ready": True}
-    ) as cl:
-        yield cl
-
-
-@pytest.fixture
-def client_library_server_current():
-    yield from client_library_patched_system_info(version=CURRENT_VERSION)
-
-
-@pytest.fixture
-def client_library_server_2_0_0():
-    yield from client_library_patched_system_info(version="2.0.0")
-
-
-@pytest.fixture
-def client_library_server_1_0_0():
-    yield from client_library_patched_system_info(version="1.0.0")
-
-
-@pytest.fixture
-def client_library_server_2_9_0():
-    yield from client_library_patched_system_info(version="2.9.0")
-
-
-@pytest.fixture
-def client_library_server_2_19_0():
-    yield from client_library_patched_system_info(version="2.19.0")
-
-
-@pytest.fixture
-def mocked_session():
-    with patch.object(requests, "Session", autospec=True) as session:
-        yield session
-
-
-@python36_or_newer
-def test_import_lab_from_path_ng(
-    client_library_server_2_0_0, mocked_session, tmp_path: Path
-):
-    client_library = ClientLibrary(
-        url="http://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
-    Lab.sync = Mock()
-
-    topology_data = '{"nodes": [], "links": [], "interfaces": []}'
-    (tmp_path / "topology.ng").write_text(topology_data)
-    with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = client_library.import_lab_from_path(
-            topology=(tmp_path / "topology.ng").as_posix()
-        )
-
-    assert lab.title is not None
-    assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
-
-    client_library.session.post.assert_called_once_with(
-        "https://0.0.0.0/fake_url/api/v0/import?is_json=true&title=topology.ng",
-        data=topology_data,
-    )
-    client_library.session.post.assert_called_once()
-    client_library.session.post.return_value.raise_for_status.assert_called_once()
-    sync_mock.assert_called_once_with()
+# TODO: split into multiple test modules, by feature
 
 
 @python36_or_newer
 def test_import_lab_from_path_virl(
-    client_library_server_2_0_0, mocked_session, tmp_path: Path
+    client_library_server_current, mocked_session, tmp_path: Path
 ):
-    cl = ClientLibrary(url="http://0.0.0.0/fake_url/", username="test", password="pa$$")
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
+    )
     Lab.sync = Mock()
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
@@ -133,9 +73,9 @@ def test_import_lab_from_path_virl(
     sync_mock.assert_called_once_with()
 
 
-def test_ssl_certificate(client_library_server_2_0_0, mocked_session):
+def test_ssl_certificate(client_library_server_current, mocked_session):
     cl = ClientLibrary(
-        url="http://0.0.0.0/fake_url/",
+        url="https://0.0.0.0/fake_url/",
         username="test",
         password="pa$$",
         ssl_verify="/home/user/cert.pem",
@@ -150,10 +90,12 @@ def test_ssl_certificate(client_library_server_2_0_0, mocked_session):
 
 
 def test_ssl_certificate_from_env_variable(
-    client_library_server_2_0_0, monkeypatch, mocked_session
+    client_library_server_current, monkeypatch, mocked_session
 ):
     monkeypatch.setitem(os.environ, "CA_BUNDLE", "/home/user/cert.pem")
-    cl = ClientLibrary(url="http://0.0.0.0/fake_url/", username="test", password="pa$$")
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
+    )
 
     assert cl.is_system_ready()
     assert cl.session.verify == "/home/user/cert.pem"
@@ -165,19 +107,7 @@ def test_ssl_certificate_from_env_variable(
 
 @python36_or_newer
 @responses.activate
-def test_auth_and_reauth_token(client_library_server_2_0_0):
-    # TODO: need to check what the purpose of this test is, and how it
-    # works with the automatic auth check on CL init
-    # if there's environ vars for username and password set
-    # then delete them b/c we rely on specific usernames
-    # and passwords for this test!
-    # docs: https://github.com/getsentry/responses
-    try:
-        del os.environ["VIRL2_PASS"]
-        del os.environ["VIRL2_USER"]
-    except KeyError:
-        pass
-
+def test_auth_and_reauth_token(client_library_server_current):
     # mock failed authentication:
     responses.add(
         responses.POST, "https://0.0.0.0/fake_url/api/v0/authenticate", status=403
@@ -198,13 +128,15 @@ def test_auth_and_reauth_token(client_library_server_2_0_0):
     with pytest.raises(InitializationError):
         # Test returns custom exception when instructed to raise on failure
         ClientLibrary(
-            url="http://0.0.0.0/fake_url/",
+            url="https://0.0.0.0/fake_url/",
             username="test",
             password="pa$$",
             raise_for_auth_failure=True,
         )
 
-    cl = ClientLibrary(url="http://0.0.0.0/fake_url/", username="test", password="pa$$")
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
+    )
 
     cl.all_labs()
 
@@ -238,7 +170,7 @@ def test_auth_and_reauth_token(client_library_server_2_0_0):
     assert len(responses.calls) == 6
 
 
-def test_client_library_init_allow_http(client_library_server_2_0_0):
+def test_client_library_init_allow_http(client_library_server_current):
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
     url_parts = urlsplit(cl._context.base_url)
     assert url_parts.scheme == "http"
@@ -247,6 +179,13 @@ def test_client_library_init_allow_http(client_library_server_2_0_0):
     assert cl._context.base_url.endswith("/api/v0/")
     assert cl.username == "virl2"
     assert cl.password == "virl2"
+
+
+def test_client_library_init_disallow_http(client_library_server_current):
+    with pytest.raises(InitializationError, match="must be https"):
+        ClientLibrary("http://somehost", "virl2", "virl2")
+    with pytest.raises(InitializationError, match="must be https"):
+        ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
 
 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
@@ -258,22 +197,32 @@ def test_client_library_init_allow_http(client_library_server_2_0_0):
         (False, "https://somehost:443"),
         (True, "xyz://somehost:443"),
         (True, "https:@somehost:4:4:3"),
+        (True, ""),
+        (True, None),
     ],
 )
-def test_client_library_init_url(client_library_server_2_0_0, monkeypatch, via, params):
+def test_client_library_init_url(client_library_server_current, monkeypatch, via, params):
     (fail, url) = params
+    expected_parts = None if fail else urlsplit(url)
     if via == "environment":
-        monkeypatch.setenv("VIRL2_URL", url)
+        env = url
         url = None
+    else:
+        env = "http://badhost" if url else None
+    if env is None:
+        monkeypatch.delenv("VIRL2_URL", raising=False)
+    else:
+        monkeypatch.setenv("VIRL2_URL", env)
     if fail:
         with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
-            ClientLibrary(url=url, username="virl2", password="virl2")
+            ClientLibrary(url=url, username="virl2", password="virl2", allow_http=True)
     else:
-        cl = ClientLibrary(url, username="virl2", password="virl2")
+        cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
         url_parts = urlsplit(cl._context.base_url)
-        assert url_parts.scheme == "https"
-        assert url_parts.hostname == "somehost"
-        assert url_parts.port == 443 or url_parts.port is None
+        assert url_parts.scheme == (expected_parts.scheme or "https")
+        assert url_parts.hostname == (expected_parts.hostname or expected_parts.path)
+        assert url_parts.port == expected_parts.port
+        assert url_parts.path == "/api/v0/"
         assert cl._context.base_url.endswith("/api/v0/")
         assert cl.username == "virl2"
         assert cl.password == "virl2"
@@ -282,14 +231,20 @@ def test_client_library_init_url(client_library_server_2_0_0, monkeypatch, via, 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_server_2_0_0, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, params
 ):
     url = "validhostname"
     (fail, user) = params
     if via == "environment":
         # can't set a None value for an environment variable
-        monkeypatch.setenv("VIRL2_USER", user or "")
+        env = user or ""
         user = None
+    else:
+        env = "baduser" if user else None
+    if env is None:
+        monkeypatch.delenv("VIRL2_USER", raising=False)
+    else:
+        monkeypatch.setenv("VIRL2_USER", env)
     if fail:
         with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
             ClientLibrary(url=url, username=user, password="virl2")
@@ -303,14 +258,20 @@ def test_client_library_init_user(
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_server_2_0_0, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, params
 ):
     url = "validhostname"
     (fail, password) = params
     if via == "environment":
         # can't set a None value for an environment variable
-        monkeypatch.setenv("VIRL2_PASS", password or "")
+        env = password or ""
         password = None
+    else:
+        env = "badpass" if password else None
+    if env is None:
+        monkeypatch.delenv("VIRL2_PASS", raising=False)
+    else:
+        monkeypatch.setenv("VIRL2_PASS", env)
     if fail:
         with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
             ClientLibrary(url=url, username="virl2", password=password)
@@ -321,11 +282,37 @@ def test_client_library_init_password(
         assert cl._context.base_url == "https://validhostname/api/v0/"
 
 
-def test_client_library_str_and_repr(client_library_server_2_0_0):
+@pytest.mark.parametrize(
+    "config",
+    [
+        ClientConfig("http://somehost", "virl2", "pa$$", allow_http=True),
+        ClientConfig("https://somehost:443", "virl4", "somepass", ssl_verify=False),
+        ClientConfig("https://somehost", "virl4", "somepass", ssl_verify="/path.pem"),
+        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=-1),
+        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=0.0),
+        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=2.3),
+    ],
+)
+def test_client_library_config(client_library_server_current, mocked_session, config):
+    client_library = config.make_client()
+    assert client_library._base_url.startswith(config.url)
+    assert client_library.username == config.username
+    assert client_library.password == config.password
+    assert client_library.allow_http == config.allow_http
+    assert client_library.session.verify == config.ssl_verify
+    assert client_library.auto_sync == (config.auto_sync >= 0.0)
+    assert client_library.auto_sync_interval == config.auto_sync
+    assert client_library.session.mock_calls[:4] == [
+        call.get(client_library._base_url + "authok"),
+        call.get().raise_for_status(),
+    ]
+
+
+def test_client_library_str_and_repr(client_library_server_current):
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         repr(client_library)
-        == "ClientLibrary('somehost', 'virl2', 'virl2', True, False, False)"
+        == "ClientLibrary('https://somehost', 'virl2', 'virl2', True, False, False)"
     )
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
@@ -350,7 +337,7 @@ def test_incompatible_version(client_library_server_2_0_0):
     )
 
 
-def test_client_minor_version_gt_nowarn(client_library_server_2_0_0, caplog):
+def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
@@ -677,12 +664,38 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline(
-    client_library_server_2_0_0, mocked_session, tmp_path: Path
+    change_test_dir, client_library_server_current, mocked_session, tmp_path: Path
 ):
     client_library = ClientLibrary(
-        url="http://0.0.0.0/fake_url/", username="test", password="pa$$"
+        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
-    topology_file_path = "tests/test_data/sample_topology.json"
+    topology_file_path = "test_data/sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
         client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
+
+
+def test_convergence_parametrization(client_library_server_current, mocked_session):
+    MAX_ITER = 2
+    WAIT_TIME = 1
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/",
+        username="test",
+        password="pa$$",
+        convergence_wait_max_iter=MAX_ITER,
+        convergence_wait_time=WAIT_TIME
+    )
+    #check that passing of value from client to lab is working
+    lab = cl.create_lab()
+    assert lab.wait_max_iterations == MAX_ITER
+    assert lab.wait_time == WAIT_TIME
+    with patch.object(Lab, "has_converged", return_value=False):
+        with pytest.raises(RuntimeError)as err:
+            lab.wait_until_lab_converged()
+        assert ("has not converged, maximum tries %s exceeded" % MAX_ITER) in err.value.args[0]
+
+        # try to override values on function
+        with pytest.raises(RuntimeError)as err:
+            lab.wait_until_lab_converged(max_iterations=1)
+        assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
+

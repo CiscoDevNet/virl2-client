@@ -48,9 +48,15 @@ class Lab:
     :param auto_sync: Should local changes sync to the server automatically
     :type auto_sync: bool
     :param auto_sync_interval: Interval to auto sync in seconds
-    :type auto_sync_interval: int
+    :type auto_sync_interval: float
     :param wait: Wait for convergence on backend
-    :type auto_sync: bool
+    :type wait: bool
+    :param wait_max_iterations: Maximum number of tries or calls for convergence
+    :type wait_max_iterations: int
+    :param wait_time: Time to sleep between calls for convergence on backend
+    :type wait_time: int
+    :param hostname: Force hostname/ip and port for pyATS console terminal server
+    :type hostname: str
     """
 
     def __init__(
@@ -63,6 +69,9 @@ class Lab:
         auto_sync=True,
         auto_sync_interval=1.0,
         wait=True,
+        wait_max_iterations=500,
+        wait_time=5,
+        hostname=None,
     ):
         """Constructor method"""
         self.username = username
@@ -90,7 +99,7 @@ class Lab:
         It maps interface identifier to `virl2_client.models.Interface`
         """
         self.events = []
-        self.pyats = ClPyats(self)
+        self.pyats = ClPyats(self, hostname)
         self.auto_sync = auto_sync
         self.auto_sync_interval = auto_sync_interval
 
@@ -102,6 +111,8 @@ class Lab:
         self._initialized = False
 
         self.wait_for_convergence = wait
+        self.wait_max_iterations = wait_max_iterations
+        self.wait_time = wait_time
 
     def __len__(self):
         return len(self._nodes)
@@ -189,8 +200,8 @@ class Lab:
         :param value: The new lab title
         :type value: str
         """
-        url = self.lab_base_url + "/title"
-        response = self.session.put(url, data=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"title": value})
         response.raise_for_status()
         self._title = value
 
@@ -213,8 +224,8 @@ class Lab:
         :param value:
         :type value: str
         """
-        url = self.lab_base_url + "/notes"
-        response = self.session.put(url, data=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"notes": value})
         response.raise_for_status()
         self._notes = value
 
@@ -237,8 +248,8 @@ class Lab:
         :param value:
         :type value: str
         """
-        url = self.lab_base_url + "/description"
-        response = self.session.put(url, data=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"description": value})
         response.raise_for_status()
         self._description = value
 
@@ -413,7 +424,7 @@ class Lab:
         return [node for node in self.nodes() if tag in node.tags()]
 
     def create_node(
-        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False
+        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False, **kwargs
     ):
         """
         Creates a node in the lab with the given parameters.
@@ -436,13 +447,11 @@ class Lab:
         url = self.lab_base_url + "/nodes"
         if populate_interfaces:
             url += "?populate_interfaces=true"
-        data = {
-            "label": label,
-            "node_definition": node_definition,
-            "x": x,
-            "y": y,
-        }
-        response = self.session.post(url, json=data)
+        kwargs["label"] = label
+        kwargs["node_definition"] = node_definition
+        kwargs["x"] = x
+        kwargs["y"] = y
+        response = self.session.post(url, json=kwargs)
         result = response.json()
         response.raise_for_status()
         node_id = result["id"]
@@ -454,7 +463,6 @@ class Lab:
 
         # fetch default image def
         image_definition = None
-        config = ""
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
@@ -507,8 +515,8 @@ class Lab:
         """
         Removes a node from the lab.
 
-        :param node: the node id
-        :type node: str
+        :param node: the node
+        :type node: Node
         :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
         :type wait: bool
         """
@@ -554,8 +562,8 @@ class Lab:
         """
         Removes a link from the lab.
 
-        :param link: the link ID
-        :type link: str
+        :param link: the link
+        :type link: Link
         :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
         :type wait: bool
         """
@@ -574,8 +582,8 @@ class Lab:
         """
         Removes an interface from the lab.
 
-        :param iface: the interface ID
-        :type iface: str
+        :param iface: the interface
+        :type iface: Interface
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
         :type wait: bool
@@ -644,7 +652,7 @@ class Lab:
         return self.create_link(iface1, iface2)
 
     def create_link_local(self, i1, i2, link_id):
-        "Helper function to create a link in the client library."
+        """Helper function to create a link in the client library."""
         link = Link(self, link_id, i1, i2)
         self._links[link_id] = link
         return link
@@ -695,7 +703,7 @@ class Lab:
     def create_interface_local(
         self, iface_id, label, node, slot, iface_type="physical"
     ):
-        "Helper function to create an interface in the client library."
+        """Helper function to create an interface in the client library."""
         if iface_id not in self._interfaces:
             iface = Interface(iface_id, node, label, slot, iface_type)
             self._interfaces[iface_id] = iface
@@ -707,7 +715,7 @@ class Lab:
         return self._interfaces[iface_id]
 
     def sync_statistics(self):
-        "Retrieve the simulation statistic data from the back end server."
+        """Retrieve the simulation statistic data from the back end server."""
         url = self.lab_base_url + "/simulation_stats"
         response = self.session.get(url)
         response.raise_for_status()
@@ -780,7 +788,9 @@ class Lab:
         self._last_sync_statistics_time = time.time()
 
     def sync_states(self):
-        "Sync all the states of the various elements with the back end server."
+        """
+        Sync all the states of the various elements with the back end server.
+        """
         url = self.lab_base_url + "/lab_element_state"
         response = self.session.get(url)
         response.raise_for_status()
@@ -805,10 +815,12 @@ class Lab:
 
         self._last_sync_state_time = time.time()
 
-    def wait_until_lab_converged(self, max_iterations=500):
-        "Wait until all the lab nodes have booted."
+    def wait_until_lab_converged(self, max_iterations=None, wait_time=None):
+        """Wait until lab converge."""
+        max_iter = self.wait_max_iterations if max_iterations is None else max_iterations
+        wait_time = self.wait_time if wait_time is None else wait_time
         logger.info("Waiting for lab %s to converge", self._lab_id)
-        for index in range(max_iterations):
+        for index in range(max_iter):
             converged = self.has_converged()
             if converged:
                 logger.info("Lab %s has booted", self._lab_id)
@@ -818,14 +830,19 @@ class Lab:
                 logging.info(
                     "Lab has not converged, attempt %s/%s, waiting...",
                     index,
-                    max_iterations,
+                    max_iter,
                 )
-            time.sleep(5)
-        logger.info(
-            "Lab %s has not converged, maximum tries %s exceeded",
-            self._lab_id,
-            max_iterations,
+            time.sleep(wait_time)
+
+        msg = "Lab %s has not converged, maximum tries %s exceeded" % (
+            self.id, max_iter
         )
+        logger.error(msg)
+        # after maximum retries are exceeded and lab has not converged
+        # error must be raised - it makes no sense to just log info
+        # and let client fail with something else if wait is explicitly
+        # specified
+        raise RuntimeError(msg)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"
@@ -1169,7 +1186,7 @@ class Lab:
         # if cannot find, is an internal structure error
         return
 
-    def get_pyats_testbed(self):
+    def get_pyats_testbed(self, hostname=None):
         """
         Return lab's pyATS YAML testbed. Example usage::
 
@@ -1185,11 +1202,16 @@ class Lab:
 
             aetest.main(testbed=testbed)
 
+        :param hostname: Force hostname/ip and port for console terminal server
+        :type hostname: str
         :returns: The pyATS testbed for the lab in YAML format
         :rtype: str
         """
         url = self._context.base_url + "labs/{}".format(self._lab_id) + "/pyats_testbed"
-        result = self.session.get(url)
+        params = {}
+        if hostname is not None:
+            params["hostname"] = hostname
+        result = self.session.get(url, params=params)
         return result.text
 
     def sync_pyats(self):

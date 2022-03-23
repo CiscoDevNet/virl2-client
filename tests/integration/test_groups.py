@@ -260,12 +260,12 @@ def test_add_lab_to_group(
         name=test_group_name
     )
     group1_id = test_group1["id"]
-
+    group1_name = test_group1["name"]
+    group_entry = {"id": group1_id, "name": group1_name, "permission": "read_only"}
     test_lab1 = client_library_session.create_lab(title=test_lab_name)
     lab_id = test_lab1.id
 
     lab_entry = {"id": lab_id, "permission": "read_only"}
-    group_entry = {"id": group1_id, "permission": "read_only"}
 
     client_library_session.group_management.update_group(
         group_id=group1_id, labs=[lab_entry]
@@ -286,11 +286,11 @@ def test_add_group_to_lab(
         name=test_group_name
     )
     group1_id = test_group1["id"]
+    group1_name = test_group1["name"]
+    group_entry = {"id": group1_id, "name": group1_name, "permission": "read_only"}
 
     test_lab1 = client_library_session.create_lab(title=test_lab_name)
     lab_id = test_lab1.id
-
-    group_entry = {"id": group1_id, "permission": "read_only"}
 
     test_lab1.update_lab_groups([group_entry])
 
@@ -386,8 +386,8 @@ def test_create_group_with_user_lab(
         name=test_group_name, members=[user1_id], labs=[lab_entry]
     )
     group1_id = test_group1["id"]
-
-    group_entry = {"id": group1_id, "permission": "read_only"}
+    group1_name = test_group1["name"]
+    group_entry = {"id": group1_id, "name": group1_name, "permission": "read_only"}
 
     assert group1_id in client_library_session.user_management.user_groups(
         user_id=user1_id

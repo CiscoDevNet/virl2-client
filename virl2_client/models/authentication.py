@@ -19,7 +19,6 @@
 #
 
 import logging
-import uuid
 from urllib.parse import urljoin, urlparse
 
 import requests

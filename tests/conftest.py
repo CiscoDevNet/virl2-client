@@ -18,6 +18,7 @@
 # limitations under the License.
 #
 
+import os
 import pytest
 import requests
 
@@ -63,3 +64,10 @@ def client_library_server_2_19_0():
 def mocked_session():
     with patch.object(requests, "Session", autospec=True) as session:
         yield session
+
+
+@pytest.fixture(scope="function")
+def change_test_dir(request):
+    os.chdir(request.fspath.dirname)
+    yield
+    os.chdir(request.config.invocation_dir)

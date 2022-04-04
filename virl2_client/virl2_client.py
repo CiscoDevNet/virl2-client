@@ -727,6 +727,17 @@ class ClientLibrary:
         response.raise_for_status()
         return response.json()
 
+    def get_system_health(self):
+        """Returns the controller system health data as JSON
+
+        :returns: system health data
+        :rtype: str
+        """
+        url = self._base_url + "system_health"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
     def find_labs_by_title(self, title):
         """
         Return a list of labs which match the given title

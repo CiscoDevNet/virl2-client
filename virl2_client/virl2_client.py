@@ -199,6 +199,7 @@ class ClientLibrary:
         Version("2.2.2"),
         Version("2.2.3"),
         Version("2.3.0"),
+        Version("2.3.1"),
     ]
 
     def __init__(

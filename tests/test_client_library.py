@@ -41,14 +41,14 @@ from virl2_client.virl2_client import (
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
 
-python36_or_newer = pytest.mark.skipif(
-    sys.version_info < (3, 6), reason="requires Python3.6"
+python37_or_newer = pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="requires Python3.7"
 )
 
 # TODO: split into multiple test modules, by feature
 
 
-@python36_or_newer
+@python37_or_newer
 def test_import_lab_from_path_virl(
     client_library_server_current, mocked_session, tmp_path: Path
 ):
@@ -73,7 +73,7 @@ def test_import_lab_from_path_virl(
     sync_mock.assert_called_once_with()
 
 
-@python36_or_newer
+@python37_or_newer
 def test_import_lab_from_path_virl_title(
     client_library_server_current, mocked_session, tmp_path: Path
 ):
@@ -128,7 +128,7 @@ def test_ssl_certificate_from_env_variable(
     ]
 
 
-@python36_or_newer
+@python37_or_newer
 @responses.activate
 def test_auth_and_reauth_token(client_library_server_current):
     # mock failed authentication:

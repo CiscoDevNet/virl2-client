@@ -7,9 +7,9 @@ tests/requirements.txt: poetry.lock
 	poetry export --format=requirements.txt --dev --without-hashes --output=$@
 
 clean:
-	rm -rf dist virl2_client.egg-info .built
-	find . -type f -name '*.pyc' -exec rm {} \; || true
-	find . -type d -name '__pycache__' -exec rmdir {} \; || true
+	rm -rf dist virl2_client.egg-info .built .pytest_cache
+	find . -depth -type f -name '*.pyc' -exec rm {} \; || true
+	find . -depth -type d -name '__pycache__' -exec rmdir {} \; || true
 	cd docs && make clean
 
 poetry:

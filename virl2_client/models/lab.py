@@ -732,7 +732,7 @@ class Lab:
                 disk_write = 0
 
             self._nodes[node_id].statistics = {
-                "cpu_usage": float(node_data["cpu_usage"]),
+                "cpu_usage": float(node_data.get("cpu_usage", 0)),
                 "disk_read": disk_read,
                 "disk_write": disk_write,
             }

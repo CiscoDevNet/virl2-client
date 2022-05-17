@@ -103,7 +103,7 @@ class ClPyats:
 
         # TODO: later check if connected
         # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False)
+        pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
         return pyats_device.execute(command, log_stdout=False)
 
@@ -127,7 +127,7 @@ class ClPyats:
 
         # TODO: later check if connected
         # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False)
+        pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
         return pyats_device.configure(command, log_stdout=False)
 

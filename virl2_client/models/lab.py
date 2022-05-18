@@ -1015,7 +1015,6 @@ class Lab:
 
     def import_lab(self, topology):
         self._import_lab(topology)
-        # TODO: add support for origin_id etc
 
         for node in topology["nodes"]:
             node_id = node["id"]
@@ -1023,8 +1022,21 @@ class Lab:
                 raise Exception("Node already exists")
             self._import_node(node_id, node)
 
+            if "interfaces" not in node:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
             for iface in node["interfaces"]:
                 iface_id = iface["id"]
+                if iface_id in self._interfaces:
+                    raise Exception("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
+
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                node_id = iface["node"]
                 if iface_id in self._interfaces:
                     raise Exception("Interface already exists")
                 self._import_interface(iface_id, node_id, iface)
@@ -1038,11 +1050,19 @@ class Lab:
             self._import_link(link_id, iface_b_id, iface_a_id)
 
     def _import_lab(self, topology):
-        lab_dict = topology["lab"]
-        self._title = lab_dict["title"]
-        self._description = lab_dict["description"]
-        self._notes = lab_dict["notes"]
-        self._owner = lab_dict.get("owner", self.username)
+        lab_dict = topology.get("lab")
+        if lab_dict is None:
+            logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            self._title = topology["lab_title"]
+            self._description = topology["lab_description"]
+            self._notes = topology["lab_notes"]
+            self._owner = topology["lab_owner"]
+            # topology.get("lab_owner", self.username)
+        else:
+            self._title = lab_dict["title"]
+            self._description = lab_dict["description"]
+            self._notes = lab_dict["notes"]
+            self._owner = lab_dict.get("owner", self.username)
 
     def _import_link(self, link_id, iface_b_id, iface_a_id):
         iface_a = self._interfaces[iface_a_id]
@@ -1050,6 +1070,9 @@ class Lab:
         return self.create_link_local(iface_a, iface_b, link_id)
 
     def _import_interface(self, iface_id, node_id, iface_data):
+        if "data" in iface_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            iface_data = iface_data["data"]
         label = iface_data["label"]
         slot = iface_data.get("slot")
         iface_type = iface_data["type"]
@@ -1057,6 +1080,9 @@ class Lab:
         return self.create_interface_local(iface_id, label, node, slot, iface_type)
 
     def _import_node(self, node_id, node_data):
+        if "data" in node_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            node_data = node_data["data"]
         label = node_data["label"]
         x = node_data["x"]
         y = node_data["y"]
@@ -1087,7 +1113,6 @@ class Lab:
 
     def update_lab(self, topology, exclude_configurations):
         self._import_lab(topology)
-        # TODO: add support for origin_id etc
 
         # add in order: node -> interface -> link
         # remove in reverse, eg link -> interface -> node
@@ -1097,11 +1122,15 @@ class Lab:
 
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
-        update_interface_keys = set(
-            interface["id"]
-            for node in topology["nodes"]
-            for interface in node["interfaces"]
-        )
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            update_interface_keys = set(iface["id"] for iface in topology["interfaces"])
+        else:
+            update_interface_keys = set(
+                interface["id"]
+                for node in topology["nodes"]
+                for interface in node["interfaces"]
+            )
 
         # removed elements
         removed_nodes = existing_node_keys - update_node_keys
@@ -1134,11 +1163,23 @@ class Lab:
                 node = self._import_node(node_id, node)
                 logger.info("Added node %s", node)
 
+            if "interfaces" in topology:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
             for interface in node["interfaces"]:
                 interface_id = interface["id"]
                 if interface_id in new_interfaces:
                     interface = self._import_interface(interface_id, node_id, interface)
                     logger.info("Added interface %s", interface)
+
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in new_interfaces:
+                    node_id = iface["node"]
+                    self._import_interface(iface_id, node_id, iface)
 
         for link_id in new_links:
             link_data = self._find_link_in_topology(link_id, topology)
@@ -1149,25 +1190,21 @@ class Lab:
 
         # kept elements
         kept_nodes = update_node_keys.intersection(existing_node_keys)
-        kept_links = update_link_keys.intersection(existing_link_keys)
-        kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
+        # kept_links = update_link_keys.intersection(existing_link_keys)
+        # kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
 
         for node_id in kept_nodes:
             node = self._find_node_in_topology(node_id, topology)
             lab_node = self._nodes[node_id]
             lab_node.update(node, exclude_configurations)
 
-        for interface_id in kept_interfaces:
-            interface_data = self._find_interface_in_topology(interface_id, topology)
-            # For now, can't update interface data server-side, this will
-            # change with tags
-            pass
+        # For now, can't update interface data server-side, this will change with tags
+        # for interface_id in kept_interfaces:
+        #     interface_data = self._find_interface_in_topology(interface_id, topology)
 
-        for link_id in kept_links:
-            link_data = self._find_link_in_topology(link_id, topology)
-            # For now, can't update link data server-side, this will change
-            # with tags
-            pass
+        # For now, can't update link data server-side, this will change with tags
+        # for link_id in kept_links:
+        #     link_data = self._find_link_in_topology(link_id, topology)
 
     @staticmethod
     def _find_link_in_topology(link_id, topology):
@@ -1177,14 +1214,14 @@ class Lab:
         # if cannot find, is an internal structure error
         return
 
-    @staticmethod
-    def _find_interface_in_topology(interface_id, topology):
-        for node in topology["nodes"]:
-            for interface in node["interfaces"]:
-                if interface["id"] == interface_id:
-                    return interface
-        # if cannot find, is an internal structure error
-        return
+    # @staticmethod
+    # def _find_interface_in_topology(interface_id, topology):
+    #     for node in topology["nodes"]:
+    #         for interface in node["interfaces"]:
+    #             if interface["id"] == interface_id:
+    #                 return interface
+    #     # if cannot find, is an internal structure error
+    #     return
 
     @staticmethod
     def _find_node_in_topology(node_id, topology):

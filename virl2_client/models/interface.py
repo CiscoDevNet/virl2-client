@@ -179,5 +179,5 @@ class Interface:
 
     @property
     def state(self):
-        self.lab.sync_states_if_outdated()
+        self.node.lab.sync_states_if_outdated()
         return self._state

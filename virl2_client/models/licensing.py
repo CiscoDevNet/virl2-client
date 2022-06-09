@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -338,8 +338,8 @@ class Licensing(object):
             if count > self.max_wait:
                 timeout = self.max_wait * self.wait_interval
                 raise RuntimeError(
-                    f"Timeout: licensing {what} did not reach {target_status} status after {timeout} secs. "
-                    f"Last status was {status}"
+                    "Timeout: licensing {} did not reach {} status after {} secs. "
+                    "Last status was {}".format(what, target_status, timeout, status)
                 )
             status = self.status()[what]["status"]
             logger.debug("%s status: %s", what, status)

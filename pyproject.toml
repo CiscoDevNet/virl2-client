@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "virl2_client"
-version = "2.3.0"
+version = "2.4.0"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"
@@ -20,22 +20,25 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6.0"
+python = "^3.7.0"
 requests = "^2"
 requests-toolbelt = "^0.9.1"
+urllib3 = "^1.26.9"
+
+# optional pyats package
+# (this pulls in a lot more dependencies)
+pyats = {version = "^22.4", optional = true}
 
 [tool.poetry.dev-dependencies]
-# For integration tests, pyATS is needed (Unicon)
-# (this pulls in a lot more dependencies)
-# pyats = {extras = ["library"], version = "^21.8"}
+flake8 = "^4.0.1"
+pre-commit = "^2.17.0"
 pytest = "*"
 requests-mock = "^1.9.2"
-responses = "*"
-# only needed when interested in test coverage
-# pytest-cov = "^3.0.0"
-flake8 = "^4.0.1"
+responses = "^0.20.0"
+
+[tool.poetry.extras]
+pyats = ["pyats"]
 
 [build-system]
 requires = ["poetry>=1.1.8"]
 build-backend = "poetry.masonry.api"
-

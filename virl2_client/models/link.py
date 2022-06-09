@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -149,7 +149,9 @@ class Link:
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
         logger.info("Waiting for link %s to converge", self.id)
-        max_iter = self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        max_iter = (
+            self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        )
         wait_time = self.lab.wait_time if wait_time is None else wait_time
         for index in range(max_iter):
             converged = self.has_converged()
@@ -164,9 +166,10 @@ class Link:
                     max_iter,
                 )
             time.sleep(wait_time)
-        
+
         msg = "Link %s has not converged, maximum tries %s exceeded" % (
-            self.id, max_iter
+            self.id,
+            max_iter,
         )
         logger.error(msg)
         # after maximum retries are exceeded and link has not converged
@@ -176,7 +179,7 @@ class Link:
         raise RuntimeError(msg)
 
     def has_converged(self):
-        url = self.lab_base_url + "/check_if_converged"
+        url = self.base_url + "/check_if_converged"
         response = self.session.get(url)
         response.raise_for_status()
         converged = response.json()

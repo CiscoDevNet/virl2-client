@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #
 
 import logging
-import uuid
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -93,23 +92,18 @@ class TokenAuth(requests.auth.AuthBase):
 
 
 class Context:
-    def __init__(self, base_url, requests_session=None, client_uuid=None):
+    def __init__(self, base_url, requests_session=None):
         self._base_url = base_url
-        if client_uuid is None:
-            self._client_uuid = str(uuid.uuid4())
-        else:
-            self._client_uuid = client_uuid
         if requests_session is None:
             self._requests_session = requests.Session()
         else:
             self._requests_session = requests_session
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r})".format(
+        return "{}({!r}, {!r}".format(
             self.__class__.__name__,
             self._base_url,
             self._requests_session,
-            self._client_uuid,
         )
 
     @property
@@ -119,7 +113,3 @@ class Context:
     @property
     def session(self):
         return self._requests_session
-
-    @property
-    def uuid(self):
-        return self._client_uuid

@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ class ClPyats:
 
         # TODO: later check if connected
         # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False)
+        pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
         return pyats_device.execute(command, log_stdout=False)
 
@@ -127,7 +127,7 @@ class ClPyats:
 
         # TODO: later check if connected
         # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False)
+        pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
         return pyats_device.configure(command, log_stdout=False)
 

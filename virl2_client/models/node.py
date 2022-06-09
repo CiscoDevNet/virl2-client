@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -308,7 +308,7 @@ class Node:
 
     def _set_node_property(self, key, val):
         logger.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}?origin_uuid={}".format(self._base_url, self.lab.client_uuid)
+        node_url = "{}".format(self._base_url)
         response = self.session.patch(url=node_url, json={key: val})
         response.raise_for_status()
 
@@ -349,7 +349,9 @@ class Node:
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
         logger.info("Waiting for node %s to converge", self.id)
-        max_iter = self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        max_iter = (
+            self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        )
         wait_time = self.lab.wait_time if wait_time is None else wait_time
         for index in range(max_iter):
             converged = self.has_converged()
@@ -366,7 +368,8 @@ class Node:
             time.sleep(wait_time)
 
         msg = "Node %s has not converged, maximum tries %s exceeded" % (
-            self.id, max_iter
+            self.id,
+            max_iter,
         )
         logger.error(msg)
         # after maximum retries are exceeded and node has not converged
@@ -376,7 +379,7 @@ class Node:
         raise RuntimeError(msg)
 
     def has_converged(self):
-        url = self.lab_base_url + "/check_if_converged"
+        url = self._base_url + "/check_if_converged"
         response = self.session.get(url)
         response.raise_for_status()
         converged = response.json()
@@ -499,11 +502,14 @@ class Node:
             }
 
     def update(self, node_data, exclude_configurations):
+        if "data" in node_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            node_data = node_data["data"]
         self._label = node_data["label"]
         self._x = node_data["x"]
         self._y = node_data["y"]
         self._node_definition = node_data["node_definition"]
-        self._image_definition = node_data["image_definition"]
+        self._image_definition = node_data.get("image_definition", None)
         self._ram = node_data["ram"]
         self._cpus = node_data["cpus"]
         self._cpu_limit = node_data.get("cpu_limit", 100)

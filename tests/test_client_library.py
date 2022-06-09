@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,14 +41,14 @@ from virl2_client.virl2_client import (
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
 
-python36_or_newer = pytest.mark.skipif(
-    sys.version_info < (3, 6), reason="requires Python3.6"
+python37_or_newer = pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="requires Python3.7"
 )
 
 # TODO: split into multiple test modules, by feature
 
 
-@python36_or_newer
+@python37_or_newer
 def test_import_lab_from_path_virl(
     client_library_server_current, mocked_session, tmp_path: Path
 ):
@@ -59,18 +59,41 @@ def test_import_lab_from_path_virl(
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
     with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = cl.import_lab_from_path(topology=(tmp_path / "topology.virl").as_posix())
+        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
     assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
 
     cl.session.post.assert_called_once_with(
-        "https://0.0.0.0/fake_url/api/v0/import/virl-1x?title=topology.virl",
+        "https://0.0.0.0/fake_url/api/v0/import/virl-1x",
         data="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl.session.post.assert_called_once()
     cl.session.post.return_value.raise_for_status.assert_called_once()
     sync_mock.assert_called_once_with()
+
+
+@python37_or_newer
+def test_import_lab_from_path_virl_title(
+    client_library_server_current, mocked_session, tmp_path: Path
+):
+    cl = ClientLibrary(
+        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
+    )
+    Lab.sync = Mock()
+    new_title = "new_title"
+    (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
+    with patch.object(Lab, "sync", autospec=True) as sync_mock:
+        lab = cl.import_lab_from_path(
+            path=(tmp_path / "topology.virl").as_posix(), title=new_title
+        )
+    assert lab.title is not None
+    assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
+
+    cl.session.post.assert_called_once_with(
+        f"https://0.0.0.0/fake_url/api/v0/import/virl-1x?title={new_title}",
+        data="<?xml version='1.0' encoding='UTF-8'?>",
+    )
 
 
 def test_ssl_certificate(client_library_server_current, mocked_session):
@@ -105,7 +128,7 @@ def test_ssl_certificate_from_env_variable(
     ]
 
 
-@python36_or_newer
+@python37_or_newer
 @responses.activate
 def test_auth_and_reauth_token(client_library_server_current):
     # mock failed authentication:
@@ -201,7 +224,9 @@ def test_client_library_init_disallow_http(client_library_server_current):
         (True, None),
     ],
 )
-def test_client_library_init_url(client_library_server_current, monkeypatch, via, params):
+def test_client_library_init_url(
+    client_library_server_current, monkeypatch, via, params
+):
     (fail, url) = params
     expected_parts = None if fail else urlsplit(url)
     if via == "environment":
@@ -683,19 +708,20 @@ def test_convergence_parametrization(client_library_server_current, mocked_sessi
         username="test",
         password="pa$$",
         convergence_wait_max_iter=MAX_ITER,
-        convergence_wait_time=WAIT_TIME
+        convergence_wait_time=WAIT_TIME,
     )
-    #check that passing of value from client to lab is working
+    # check that passing of value from client to lab is working
     lab = cl.create_lab()
     assert lab.wait_max_iterations == MAX_ITER
     assert lab.wait_time == WAIT_TIME
     with patch.object(Lab, "has_converged", return_value=False):
-        with pytest.raises(RuntimeError)as err:
+        with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged()
-        assert ("has not converged, maximum tries %s exceeded" % MAX_ITER) in err.value.args[0]
+        assert (
+            "has not converged, maximum tries %s exceeded" % MAX_ITER
+        ) in err.value.args[0]
 
         # try to override values on function
-        with pytest.raises(RuntimeError)as err:
+        with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged(max_iterations=1)
         assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
-

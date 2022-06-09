@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,12 +97,12 @@ Prints:
     },
     "reservation_mode": false,
     "transport": {
-        "ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService",
+        "ssms": "https://smartreceiver.cisco.com/licservice/license",
         "proxy": {
             "server": null,
             "port": null
         },
-        "default_ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService"
+        "default_ssms": "https://smartreceiver.cisco.com/licservice/license"
     },
     "features": [
         {

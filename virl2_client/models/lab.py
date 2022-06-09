@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -254,16 +254,6 @@ class Lab:
         self._description = value
 
     @property
-    def client_uuid(self):
-        """
-        Returns the client UUID This random ID identifies a client session.
-
-        :returns: A UUID4
-        :rtype: str
-        """
-        return self._context.uuid
-
-    @property
     def session(self):
         """
         Returns the Requests session from the given context.
@@ -424,7 +414,14 @@ class Lab:
         return [node for node in self.nodes() if tag in node.tags()]
 
     def create_node(
-        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False, **kwargs
+        self,
+        label,
+        node_definition,
+        x=0,
+        y=0,
+        wait=None,
+        populate_interfaces=False,
+        **kwargs
     ):
         """
         Creates a node in the lab with the given parameters.
@@ -735,7 +732,7 @@ class Lab:
                 disk_write = 0
 
             self._nodes[node_id].statistics = {
-                "cpu_usage": float(node_data["cpu_usage"]),
+                "cpu_usage": float(node_data.get("cpu_usage", 0)),
                 "disk_read": disk_read,
                 "disk_write": disk_write,
             }
@@ -817,7 +814,9 @@ class Lab:
 
     def wait_until_lab_converged(self, max_iterations=None, wait_time=None):
         """Wait until lab converge."""
-        max_iter = self.wait_max_iterations if max_iterations is None else max_iterations
+        max_iter = (
+            self.wait_max_iterations if max_iterations is None else max_iterations
+        )
         wait_time = self.wait_time if wait_time is None else wait_time
         logger.info("Waiting for lab %s to converge", self._lab_id)
         for index in range(max_iter):
@@ -835,7 +834,8 @@ class Lab:
             time.sleep(wait_time)
 
         msg = "Lab %s has not converged, maximum tries %s exceeded" % (
-            self.id, max_iter
+            self.id,
+            max_iter,
         )
         logger.error(msg)
         # after maximum retries are exceeded and lab has not converged
@@ -880,9 +880,15 @@ class Lab:
         return response.json()
 
     def is_active(self):
-        "Returns if the lab is running."
-        simulated_states = {"STARTED", "QUEUED", "BOOTED"}
-        return self.state() in simulated_states
+        """
+        Returns whether the lab is started.
+
+        Deprecated since 2.4 (will be removed in 2.5)
+        :returns: Whether the lab is started
+        :rtype: bool
+        """
+        logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+        return self.state() == "STARTED"
 
     def details(self):
         """
@@ -1008,26 +1014,32 @@ class Lab:
         self._last_sync_topology_time = time.time()
 
     def import_lab(self, topology):
-        self._title = topology["lab_title"]
-        self._description = topology["lab_description"]
-        self._notes = topology["lab_notes"]
-        self._owner = topology.get("lab_owner", self.username)
-        # TODO: add support for origin_id etc
+        self._import_lab(topology)
 
         for node in topology["nodes"]:
             node_id = node["id"]
             if node_id in self._nodes:
                 raise Exception("Node already exists")
-            node_data = node["data"]
-            self._import_node(node_id, node_data)
+            self._import_node(node_id, node)
 
-        for iface in topology["interfaces"]:
-            iface_id = iface["id"]
-            if iface_id in self._interfaces:
-                raise Exception("Interface already exists")
-            iface_data = iface["data"]
-            node_id = iface["node"]
-            self._import_interface(iface_id, node_id, iface_data)
+            if "interfaces" not in node:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
+            for iface in node["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in self._interfaces:
+                    raise Exception("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
+
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                node_id = iface["node"]
+                if iface_id in self._interfaces:
+                    raise Exception("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
 
         for link in topology["links"]:
             link_id = link["id"]
@@ -1037,24 +1049,45 @@ class Lab:
             iface_b_id = link["interface_b"]
             self._import_link(link_id, iface_b_id, iface_a_id)
 
+    def _import_lab(self, topology):
+        lab_dict = topology.get("lab")
+        if lab_dict is None:
+            logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            self._title = topology["lab_title"]
+            self._description = topology["lab_description"]
+            self._notes = topology["lab_notes"]
+            self._owner = topology["lab_owner"]
+            # topology.get("lab_owner", self.username)
+        else:
+            self._title = lab_dict["title"]
+            self._description = lab_dict["description"]
+            self._notes = lab_dict["notes"]
+            self._owner = lab_dict.get("owner", self.username)
+
     def _import_link(self, link_id, iface_b_id, iface_a_id):
         iface_a = self._interfaces[iface_a_id]
         iface_b = self._interfaces[iface_b_id]
         return self.create_link_local(iface_a, iface_b, link_id)
 
     def _import_interface(self, iface_id, node_id, iface_data):
+        if "data" in iface_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            iface_data = iface_data["data"]
         label = iface_data["label"]
-        slot = iface_data["slot"]
+        slot = iface_data.get("slot")
         iface_type = iface_data["type"]
         node = self._nodes[node_id]
         return self.create_interface_local(iface_id, label, node, slot, iface_type)
 
     def _import_node(self, node_id, node_data):
+        if "data" in node_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            node_data = node_data["data"]
         label = node_data["label"]
         x = node_data["x"]
         y = node_data["y"]
         node_definition = node_data["node_definition"]
-        image_definition = node_data["image_definition"]
+        image_definition = node_data.get("image_definition", None)
         ram = node_data["ram"]
         cpus = node_data["cpus"]
         cpu_limit = node_data.get("cpu_limit", 100)
@@ -1079,11 +1112,7 @@ class Lab:
         )
 
     def update_lab(self, topology, exclude_configurations):
-        self._title = topology["lab_title"]
-        self._description = topology["lab_description"]
-        self._notes = topology["lab_notes"]
-        self._owner = topology.get("lab_owner", self.username)
-        # TODO: add support for origin_id etc
+        self._import_lab(topology)
 
         # add in order: node -> interface -> link
         # remove in reverse, eg link -> interface -> node
@@ -1093,9 +1122,15 @@ class Lab:
 
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
-        update_interface_keys = set(
-            interface["id"] for interface in topology["interfaces"]
-        )
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            update_interface_keys = set(iface["id"] for iface in topology["interfaces"])
+        else:
+            update_interface_keys = set(
+                interface["id"]
+                for node in topology["nodes"]
+                for interface in node["interfaces"]
+            )
 
         # removed elements
         removed_nodes = existing_node_keys - update_node_keys
@@ -1122,18 +1157,29 @@ class Lab:
         new_links = update_link_keys - existing_link_keys
         new_interfaces = update_interface_keys - existing_interface_keys
 
-        for node_id in new_nodes:
-            node = self._find_node_in_topology(node_id, topology)
-            node_data = node["data"]
-            node = self._import_node(node_id, node_data)
-            logger.info("Added node %s", node)
+        for node in topology["nodes"]:
+            node_id = node["id"]
+            if node_id in new_nodes:
+                node = self._import_node(node_id, node)
+                logger.info("Added node %s", node)
 
-        for interface_id in new_interfaces:
-            interface = self._find_interface_in_topology(interface_id, topology)
-            interface_data = interface["data"]
-            node_id = interface["node"]
-            interface = self._import_interface(interface_id, node_id, interface_data)
-            logger.info("Added interface %s", interface)
+            if "interfaces" in topology:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
+            for interface in node["interfaces"]:
+                interface_id = interface["id"]
+                if interface_id in new_interfaces:
+                    interface = self._import_interface(interface_id, node_id, interface)
+                    logger.info("Added interface %s", interface)
+
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in new_interfaces:
+                    node_id = iface["node"]
+                    self._import_interface(iface_id, node_id, iface)
 
         for link_id in new_links:
             link_data = self._find_link_in_topology(link_id, topology)
@@ -1144,42 +1190,41 @@ class Lab:
 
         # kept elements
         kept_nodes = update_node_keys.intersection(existing_node_keys)
-        kept_links = update_link_keys.intersection(existing_link_keys)
-        kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
+        # kept_links = update_link_keys.intersection(existing_link_keys)
+        # kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
 
         for node_id in kept_nodes:
             node = self._find_node_in_topology(node_id, topology)
-            node_data = node["data"]
             lab_node = self._nodes[node_id]
-            lab_node.update(node_data, exclude_configurations)
+            lab_node.update(node, exclude_configurations)
 
-        for interface_id in kept_interfaces:
-            interface_data = self._find_interface_in_topology(interface_id, topology)
-            # For now, can't update interface data server-side, this will
-            # change with tags
-            pass
+        # For now, can't update interface data server-side, this will change with tags
+        # for interface_id in kept_interfaces:
+        #     interface_data = self._find_interface_in_topology(interface_id, topology)
 
-        for link_id in kept_links:
-            link_data = self._find_link_in_topology(link_id, topology)
-            # For now, can't update link data server-side, this will change
-            # with tags
-            pass
+        # For now, can't update link data server-side, this will change with tags
+        # for link_id in kept_links:
+        #     link_data = self._find_link_in_topology(link_id, topology)
 
-    def _find_link_in_topology(self, link_id, topology):
+    @staticmethod
+    def _find_link_in_topology(link_id, topology):
         for link in topology["links"]:
             if link["id"] == link_id:
                 return link
         # if cannot find, is an internal structure error
         return
 
-    def _find_interface_in_topology(self, interface_id, topology):
-        for interface in topology["interfaces"]:
-            if interface["id"] == interface_id:
-                return interface
-        # if cannot find, is an internal structure error
-        return
+    # @staticmethod
+    # def _find_interface_in_topology(interface_id, topology):
+    #     for node in topology["nodes"]:
+    #         for interface in node["interfaces"]:
+    #             if interface["id"] == interface_id:
+    #                 return interface
+    #     # if cannot find, is an internal structure error
+    #     return
 
-    def _find_node_in_topology(self, node_id, topology):
+    @staticmethod
+    def _find_node_in_topology(node_id, topology):
         for node in topology["nodes"]:
             if node["id"] == node_id:
                 return node
@@ -1218,7 +1263,7 @@ class Lab:
         self.pyats.sync_testbed(self.username, self.password)
 
     def sync_layer3_addresses(self):
-        "Syncs all layer 3 IP addresses from the backend server."
+        """Syncs all layer 3 IP addresses from the backend server."""
         url = self.lab_base_url + "/layer3_addresses"
         response = self.session.get(url)
         response.raise_for_status()
@@ -1230,7 +1275,7 @@ class Lab:
         self._last_sync_l3_address_time = time.time()
 
     def cleanup_pyats_connections(self):
-        "Closes and cleans up connection that pyATS might still hold."
+        """Closes and cleans up connection that pyATS might still hold."""
         self.pyats.cleanup()
 
     def download(self):

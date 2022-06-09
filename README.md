@@ -9,7 +9,7 @@ This is the client library for the Cisco VIRL 2 Network Simulation Platform
 edit, delete and control network simulations on a VIRL 2 controller.
 
 It is a pure Python implementation that requires Python3. We've tested and
-written the package with Python 3.6.8.
+written the package with Python 3.8.10.
 
 The **status** of this package can be considered **Beta**. We're not aware of
 any major issues at the time of release. However, since this is the first
@@ -45,6 +45,11 @@ proper version/build information. For example
     pip3 install virl2_client-2.0.0b10-py3-none-any.whl
 
 We recommend the use of a virtual environment for installation.
+
+If you want to interact with devices via the client library, you need to
+install pyATS library.
+
+    pip3 install pyats
 
 ## Usage
 

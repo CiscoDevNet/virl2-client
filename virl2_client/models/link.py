@@ -156,7 +156,7 @@ class Link:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Link %s has booted", self.id)
+                logger.info("Link %s has converged", self.id)
                 return
 
             if index % 10 == 0:

@@ -33,7 +33,7 @@ import pkg_resources
 import requests
 import urllib3
 
-from .exceptions import LabNotFound
+from .exceptions import LabNotFound, InitializationError
 from .models import (
     Context,
     Lab,
@@ -47,10 +47,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
-
-
-class InitializationError(Exception):
-    pass
 
 
 class Version(object):
@@ -479,13 +475,6 @@ class ClientLibrary:
             loops -= 1
         return ready
 
-    def wait_for_lld_connected(self):
-        """
-        Waits until the controller has a compute node connected.
-        (Deprecated)
-        """
-        raise Exception("this is deprecated, use is_system_ready(wait=True), if needed")
-
     @staticmethod
     def is_virl_1x(path: Path):
         if path.suffix == ".virl":
@@ -564,7 +553,7 @@ class ClientLibrary:
         topology_path = Path(path)
         if not topology_path.exists():
             message = "{} can not be found".format(path)
-            raise Exception(message)
+            raise FileNotFoundError(message)
 
         topology = topology_path.read_text()
         return self.import_lab(

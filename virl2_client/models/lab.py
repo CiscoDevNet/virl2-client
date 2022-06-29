@@ -330,7 +330,7 @@ class Lab:
         :type node_id: str
         :returns: A Node object
         :rtype: models.Node
-        :raises KeyError: if node not found
+        :raises NodeNotFound: if node not found
         """
         self.sync_topology_if_outdated()
         try:
@@ -1019,7 +1019,7 @@ class Lab:
         for node in topology["nodes"]:
             node_id = node["id"]
             if node_id in self._nodes:
-                raise Exception("Node already exists")
+                raise ElementAlreadyExists("Node already exists")
             self._import_node(node_id, node)
 
             if "interfaces" not in node:
@@ -1029,7 +1029,7 @@ class Lab:
             for iface in node["interfaces"]:
                 iface_id = iface["id"]
                 if iface_id in self._interfaces:
-                    raise Exception("Interface already exists")
+                    raise ElementAlreadyExists("Interface already exists")
                 self._import_interface(iface_id, node_id, iface)
 
         if "interfaces" in topology:
@@ -1038,13 +1038,13 @@ class Lab:
                 iface_id = iface["id"]
                 node_id = iface["node"]
                 if iface_id in self._interfaces:
-                    raise Exception("Interface already exists")
+                    raise ElementAlreadyExists("Interface already exists")
                 self._import_interface(iface_id, node_id, iface)
 
         for link in topology["links"]:
             link_id = link["id"]
             if link_id in self._links:
-                raise Exception("Link already exists")
+                raise ElementAlreadyExists("Link already exists")
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
             self._import_link(link_id, iface_b_id, iface_a_id)

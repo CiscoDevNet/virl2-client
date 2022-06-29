@@ -287,12 +287,12 @@ class Link:
         }
 
         if name not in options.keys():
-            logger.error(
-                "unknown condition name '%s', known values: '%s'",
+            msg = "unknown condition name '{}', known values: '{}'".format(
                 name,
                 ", ".join(list(options.keys())),
             )
-            raise ValueError
+            logger.error(msg)
+            raise ValueError(msg)
 
         latency, bandwidth, loss = options[name]
         self.set_condition(bandwidth, latency, 0, loss)

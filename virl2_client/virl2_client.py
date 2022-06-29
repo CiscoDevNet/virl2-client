@@ -709,7 +709,7 @@ class ClientLibrary:
         """Returns the controller diagnostic data as JSON
 
         :returns: diagnostic data
-        :rtype: str
+        :rtype: dict
         """
         url = self._base_url + "diagnostics"
         response = self.session.get(url)
@@ -720,9 +720,20 @@ class ClientLibrary:
         """Returns the controller system health data as JSON
 
         :returns: system health data
-        :rtype: str
+        :rtype: dict
         """
         url = self._base_url + "system_health"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def get_system_stats(self):
+        """Returns the controller resource statistics as JSON
+
+        :returns: system resource statistics
+        :rtype: dict
+        """
+        url = self._base_url + "system_stats"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()

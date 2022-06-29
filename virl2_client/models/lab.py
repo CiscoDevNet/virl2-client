@@ -982,7 +982,7 @@ class Lab:
             of the nodes itself
         :type with_node_configurations: bool
         """
-        self._sync_topology(with_node_configurations)
+        self._sync_topology(not with_node_configurations)
 
         if not topology_only:
             self.sync_statistics()

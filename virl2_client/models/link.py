@@ -27,21 +27,20 @@ logger = logging.getLogger(__name__)
 
 @total_ordering
 class Link:
-    """A VIRL2 network link between two nodes, connecting
-    to two interfaces on these nodes.
-
-    :param lab: the lab object
-    :type lab: modles.Lab
-    :param lid: the lab ID
-    :type lid: str
-    :param iface_a: the first interface of the link
-    :type iface_a: a models.Interface
-    :param iface_b: the second interface of a the link
-    :type iface_b: models.Interface
-    """
-
     def __init__(self, lab, lid, iface_a, iface_b):
-        """Constructor method"""
+        """
+        A VIRL2 network link between two nodes, connecting
+        to two interfaces on these nodes.
+
+        :param lab: the lab object
+        :type lab: models.Lab
+        :param lid: the lab ID
+        :type lid: str
+        :param iface_a: the first interface of the link
+        :type iface_a: a models.Interface
+        :param iface_b: the second interface of the link
+        :type iface_b: models.Interface
+        """
         self.id = lid
         self.interface_a = iface_a
         self.interface_b = iface_b
@@ -89,7 +88,7 @@ class Link:
             str(self.lab),
             self.id,
             self.interface_a,
-            self.interface_a,
+            self.interface_b,
         )
 
     def __eq__(self, other: object):
@@ -200,7 +199,8 @@ class Link:
             self.wait_until_converged()
 
     def set_condition(self, bandwidth, latency, jitter, loss):
-        """set_condition applies conditioning to this link.
+        """
+        Applies conditioning to this link.
 
         :param bandwidth: desired bandwidth, 0-10000000 kbps
         :type bandwidth: int
@@ -222,7 +222,8 @@ class Link:
         response.raise_for_status()
 
     def get_condition(self):
-        """get_condition retrieves the current condition on this link.
+        """
+        Retrieves the current condition on this link.
         If there is no link condition specified, None is returned.
 
         :return: the applied link condition
@@ -241,15 +242,17 @@ class Link:
         return result
 
     def remove_condition(self):
-        """remove_condition removes link conditioning. If
-        there's no condition applied then this is a no-op.
+        """
+        Removes link conditioning.
+        If there's no condition applied then this is a no-op for the controller.
         """
         url = self.base_url + "/condition"
         response = self.session.delete(url)
         response.raise_for_status()
 
     def set_condition_by_name(self, name):
-        """set_condition_by_name is a convenience function to provide
+        """
+        A convenience function to provide
         some commonly used link condition settings for various link types.
 
         Inspired by:  https://github.com/tylertreat/comcast

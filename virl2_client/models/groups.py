@@ -19,13 +19,14 @@
 #
 
 import logging
+from typing import Dict, List
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class GroupManagement(object):
+class GroupManagement:
     def __init__(self, context):
         self.ctx = context
 
@@ -38,7 +39,7 @@ class GroupManagement(object):
         Get the list of available groups.
 
         :return: list of group objects
-        :rtype:  list
+        :rtype: list
         """
         response = self.ctx.session.get(self.base_url)
         response.raise_for_status()
@@ -46,7 +47,7 @@ class GroupManagement(object):
 
     def get_group(self, group_id):
         """
-        Gets the info for specified group..
+        Gets info for the specified group.
 
         :param group_id: group uuid4
         :type group_id: str

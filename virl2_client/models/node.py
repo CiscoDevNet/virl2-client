@@ -32,36 +32,6 @@ flatten = chain.from_iterable
 
 @total_ordering
 class Node:
-    """A VIRL2 Node object. Typically a virtual machine representing a router, switch or server.
-
-    :param lab: the Lab this nodes belongs to
-    :type lab: models.Lab
-    :param nid: the Node ID
-    :type nid: str
-    :param node_definition: The node definition of this node
-    :type node_definition: str
-    :param image_definition: The image definition of this node
-    :type image_definition: str
-    :param config: The day0 configuration of this node
-    :type config: str
-    :param x: X coordinate on topology canvas
-    :type x: int
-    :param y: Y coordinate on topology canvas
-    :type y: int
-    :param ram: memory of node in MiB (if applicable)
-    :type ram: int
-    :param cpus: Amount of CPUs in this node (if applicable)
-    :type cpus: int
-    :param cpu_limit: CPU limit (default at 100%)
-    :type cpu_limit: int
-    :param data_volume: Size in GiB of 2nd HDD (if > 0)
-    :type data_volume: int
-    :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
-    :type boot_disk_size: int
-    :param tags: List of tags List[str, str]
-    :type tags: list
-    """
-
     def __init__(
         self,
         lab,
@@ -79,7 +49,36 @@ class Node:
         boot_disk_size,
         tags,
     ):
-        """Constructor method"""
+        """
+        A VIRL2 Node object. Typically a virtual machine representing a router, switch or server.
+
+        :param lab: the Lab this nodes belongs to
+        :type lab: models.Lab
+        :param nid: the Node ID
+        :type nid: str
+        :param node_definition: The node definition of this node
+        :type node_definition: str
+        :param image_definition: The image definition of this node
+        :type image_definition: str
+        :param config: The day0 configuration of this node
+        :type config: str
+        :param x: X coordinate on topology canvas
+        :type x: int
+        :param y: Y coordinate on topology canvas
+        :type y: int
+        :param ram: memory of node in MiB (if applicable)
+        :type ram: int
+        :param cpus: Amount of CPUs in this node (if applicable)
+        :type cpus: int
+        :param cpu_limit: CPU limit (default at 100%)
+        :type cpu_limit: int
+        :param data_volume: Size in GiB of 2nd HDD (if > 0)
+        :type data_volume: int
+        :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
+        :type boot_disk_size: int
+        :param tags: List of tags
+        :type tags: List[str, str]
+        """
         self.lab = lab
         self.id = nid
         self._label = label
@@ -170,7 +169,7 @@ class Node:
         to connect to other nodes!
 
         :returns: an interface or None, if all existing ones are connected
-        :rtype: models.interface
+        :rtype: models.Interface
         """
         for iface in self.interfaces():
             if not iface.is_connected() and iface.is_physical:

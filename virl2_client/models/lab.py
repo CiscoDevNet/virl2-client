@@ -21,44 +21,23 @@
 import json
 import logging
 import time
+from typing import Dict, List
 
 from .node import Node
 from .interface import Interface
 from .link import Link
-from ..exceptions import LabNotFound, LinkNotFound, NodeNotFound
+from ..exceptions import (
+    LabNotFound,
+    LinkNotFound,
+    NodeNotFound,
+    ElementAlreadyExists,
+)
 from .cl_pyats import ClPyats
 
 logger = logging.getLogger(__name__)
 
 
 class Lab:
-    """A VIRL2 lab network topology. Contains nodes, links and interfaces.
-    Initializes a Lab instance.
-
-    :param title: Name / title of the lab
-    :type title: str
-    :param lab_id: A lab ID
-    :type lab_id: str
-    :param context: The context of the ClientLibrary that holds the connection data to the server
-    :type context: Context
-    :param username: Username of the user to authenticate
-    :type username: str
-    :param password: Password of the user to authenticate
-    :type password: str
-    :param auto_sync: Should local changes sync to the server automatically
-    :type auto_sync: bool
-    :param auto_sync_interval: Interval to auto sync in seconds
-    :type auto_sync_interval: float
-    :param wait: Wait for convergence on backend
-    :type wait: bool
-    :param wait_max_iterations: Maximum number of tries or calls for convergence
-    :type wait_max_iterations: int
-    :param wait_time: Time to sleep between calls for convergence on backend
-    :type wait_time: int
-    :param hostname: Force hostname/ip and port for pyATS console terminal server
-    :type hostname: str
-    """
-
     def __init__(
         self,
         title,
@@ -73,7 +52,33 @@ class Lab:
         wait_time=5,
         hostname=None,
     ):
-        """Constructor method"""
+        """
+        A VIRL2 lab network topology. Contains nodes, links and interfaces.
+
+        :param title: Name / title of the lab
+        :type title: str
+        :param lab_id: A lab ID
+        :type lab_id: str
+        :param context: The context of the ClientLibrary that holds the connection data to the server
+        :type context: Context
+        :param username: Username of the user to authenticate
+        :type username: str
+        :param password: Password of the user to authenticate
+        :type password: str
+        :param auto_sync: Should local changes sync to the server automatically
+        :type auto_sync: bool
+        :param auto_sync_interval: Interval to auto sync in seconds
+        :type auto_sync_interval: float
+        :param wait: Wait for convergence on backend
+        :type wait: bool
+        :param wait_max_iterations: Maximum number of tries or calls for convergence
+        :type wait_max_iterations: int
+        :param wait_time: Time to sleep between calls for convergence on backend
+        :type wait_time: int
+        :param hostname: Force hostname/ip and port for pyATS console terminal server
+        :type hostname: str
+        """
+
         self.username = username
         self.password = password
 
@@ -81,22 +86,22 @@ class Lab:
         self._description = ""
         self._notes = ""
         self._lab_id = lab_id
-        self._nodes = {}
         self._context = context
         self._owner = username
+        self._nodes: Dict[str, Node] = {}
         """
         Dictionary containing all nodes in the lab.
-        It maps node identifier to `virl2_client.models.Node`
+        It maps node identifier to `models.Node`
         """
-        self._links = {}
+        self._links: Dict[str, Link] = {}
         """
         Dictionary containing all links in the lab.
-        It maps link identifier to `virl2_client.models.Link`
+        It maps link identifier to `models.Link`
         """
-        self._interfaces = {}
+        self._interfaces: Dict[str, Interface] = {}
         """
         Dictionary containing all interfaces in the lab.
-        It maps interface identifier to `virl2_client.models.Interface`
+        It maps interface identifier to `models.Interface`
         """
         self.events = []
         self.pyats = ClPyats(self, hostname)
@@ -279,7 +284,7 @@ class Lab:
         Returns the list of nodes in the lab.
 
         :returns: A list of Node objects
-        :rtype: list
+        :rtype: List[Node]
         """
         self.sync_topology_if_outdated()
         return list(self._nodes.values())
@@ -289,7 +294,7 @@ class Lab:
         Returns the list of links in the lab.
 
         :returns: A list of Link objects
-        :rtype: list
+        :rtype: List[Link]
         """
         self.sync_topology_if_outdated()
         return list(self._links.values())
@@ -299,7 +304,7 @@ class Lab:
         Returns the list of interfaces in the lab.
 
         :returns: A list of Interface objects
-        :rtype: list
+        :rtype: List[Interface]
         """
         self.sync_topology_if_outdated()
         return list(self._interfaces.values())
@@ -326,7 +331,7 @@ class Lab:
         """
         Returns the node identified by the node_id.
 
-        :param node_id:
+        :param node_id: ID of the node to be returned
         :type node_id: str
         :returns: A Node object
         :rtype: models.Node
@@ -342,7 +347,7 @@ class Lab:
         """
         Returns the node identified by the label.
 
-        :param label:
+        :param label: label of the node to be returned
         :type label: str
         :returns: A Node object
         :rtype: models.Node
@@ -352,8 +357,7 @@ class Lab:
         for node in self._nodes.values():
             if node.label == label:
                 return node
-        else:
-            raise NodeNotFound(label)
+        raise NodeNotFound(label)
 
     def get_link_by_nodes(self, node1, node2):
         """
@@ -370,21 +374,17 @@ class Lab:
         self.sync_topology_if_outdated()
         for link in self.links():
             link_node_pair = (link.interface_a.node, link.interface_b.node)
-
-            if (node1, node2) == link_node_pair:
+            if link_node_pair in ((node1, node2), (node2, node1)):
                 return link
-            elif (node2, node1) == link_node_pair:
-                return link
-        else:
-            raise LinkNotFound()
+        raise LinkNotFound()
 
     def get_link_by_interfaces(self, iface1, iface2):
         """
         Returns the link identified by two interfaces.
 
-        :param iface1: node id of first node
+        :param iface1: node ID of the first node
         :type iface1: str
-        :param iface2: node id of second node
+        :param iface2: node ID of the second node
         :type iface2: str
         :returns: A Link object
         :rtype: models.Link
@@ -393,22 +393,18 @@ class Lab:
         self.sync_topology_if_outdated()
         for link in self.links():
             link_iface_pair = (link.interface_a, link.interface_b)
-
-            if (iface1, iface2) == link_iface_pair:
+            if link_iface_pair in ((iface1, iface2), (iface2, iface1)):
                 return link
-            elif (iface2, iface1) == link_iface_pair:
-                return link
-        else:
-            raise LinkNotFound()
+        raise LinkNotFound()
 
     def find_nodes_by_tag(self, tag):
         """
-        Returns the node identified by the given tag.
+        Returns the nodes identified by the given tag.
 
-        :param tag:
+        :param tag: tag of the nodes to be returned
         :type tag: str
-        :returns: a list of tags
-        :rtype: list
+        :returns: a list of nodes
+        :rtype: List[Node]
         """
         self.sync_topology_if_outdated()
         return [node for node in self.nodes() if tag in node.tags()]
@@ -430,9 +426,9 @@ class Lab:
         :type label: str
         :param node_definition: Node definition to use
         :type label: str
-        :param x: x co-ordinate
+        :param x: x coordinate
         :type x: int
-        :param y: y co-ordinate
+        :param y: y coordinate
         :type y: int
         :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
         :type wait: bool
@@ -485,7 +481,7 @@ class Lab:
         boot_disk_size=0,
         tags=None,
     ):
-        "Helper function to add a node to the client library."
+        """Helper function to add a node to the client library."""
         if tags is None:
             # TODO: see if can deprecate now tags set automatically on server at creation
             tags = []
@@ -708,7 +704,7 @@ class Lab:
             self._interfaces[iface_id].node = node
             self._interfaces[iface_id].label = label
             self._interfaces[iface_id].slot = slot
-            self._interfaces[iface_id].iface_type = iface_type
+            self._interfaces[iface_id].type = iface_type
         return self._interfaces[iface_id]
 
     def sync_statistics(self):
@@ -989,7 +985,7 @@ class Lab:
             self.sync_layer3_addresses()
 
     def _sync_topology(self, exclude_configurations=False):
-        "Helper function to sync topologies from the backend server."
+        """Helper function to sync topologies from the backend server."""
         # TODO: check what happens if call twice
         url = self._context.base_url + "labs/{}".format(self._lab_id) + "/topology"
         params = {"exclude_configurations": exclude_configurations}
@@ -1050,6 +1046,7 @@ class Lab:
             self._import_link(link_id, iface_b_id, iface_a_id)
 
     def _import_lab(self, topology):
+        """Replaces lab properties. Will raise KeyError if not all properties are in topology."""
         lab_dict = topology.get("lab")
         if lab_dict is None:
             logger.warning("Deprecated since 2.4 (will be removed in 2.5)")

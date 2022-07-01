@@ -29,7 +29,7 @@ DEFAULT_PROXY_SERVER = None
 DEFAULT_PROXY_PORT = None
 
 
-class Licensing(object):
+class Licensing:
 
     max_wait = 30
     wait_interval = 1.5

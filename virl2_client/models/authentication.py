@@ -22,6 +22,7 @@ import logging
 from urllib.parse import urljoin, urlparse
 
 import requests
+import requests.auth
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 class TokenAuth(requests.auth.AuthBase):
     """
     Inspired by:
-    http://docs.python-requests.org/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
+    http://requests.readthedocs.io/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
     """
 
     def __init__(self, client_library):

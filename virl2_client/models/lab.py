@@ -59,7 +59,8 @@ class Lab:
         :type title: str
         :param lab_id: A lab ID
         :type lab_id: str
-        :param context: The context of the ClientLibrary that holds the connection data to the server
+        :param context: The context of the ClientLibrary that holds the connection data
+            to the server
         :type context: Context
         :param username: Username of the user to authenticate
         :type username: str
@@ -430,9 +431,11 @@ class Lab:
         :type x: int
         :param y: y coordinate
         :type y: int
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
-        :param populate_interfaces: automatically create pre-defined number of interfaces on node creation
+        :param populate_interfaces: automatically create pre-defined number
+            of interfaces on node creation
         :returns: a Node object
         :rtype: models.Node
         """
@@ -483,7 +486,8 @@ class Lab:
     ):
         """Helper function to add a node to the client library."""
         if tags is None:
-            # TODO: see if can deprecate now tags set automatically on server at creation
+            # TODO: see if can deprecate now tags set automatically
+            # on server at creation
             tags = []
         node = Node(
             self,
@@ -510,7 +514,8 @@ class Lab:
 
         :param node: the node
         :type node: Node
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         node.remove_on_server()
@@ -519,17 +524,20 @@ class Lab:
                 try:
                     del self._links[lnk.id]
                 except KeyError:
-                    # element may already have been deleted on server, and removed locally due to auto-sync
+                    # element may already have been deleted on server,
+                    # and removed locally due to auto-sync
                     pass
             try:
                 del self._interfaces[iface.id]
             except KeyError:
-                # element may already have been deleted on server, and removed locally due to auto-sync
+                # element may already have been deleted on server,
+                # and removed locally due to auto-sync
                 pass
         try:
             del self._nodes[node.id]
         except KeyError:
-            # element may already have been deleted on server, and removed locally due to auto-sync
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
             pass
 
         if self.need_to_wait(wait):
@@ -540,7 +548,8 @@ class Lab:
         """
         Remove all nodes from the lab.
 
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         # TODO: see if this is used - in testing?
@@ -557,14 +566,16 @@ class Lab:
 
         :param link: the link
         :type link: Link
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         link.remove_on_server()
         try:
             del self._links[link.id]
         except KeyError:
-            # element may already have been deleted on server, and removed locally due to auto-sync
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
             pass
 
         if self.need_to_wait(wait):
@@ -1046,7 +1057,10 @@ class Lab:
             self._import_link(link_id, iface_b_id, iface_a_id)
 
     def _import_lab(self, topology):
-        """Replaces lab properties. Will raise KeyError if not all properties are in topology."""
+        """
+        Replaces lab properties. Will raise KeyError if not all
+        properties are in topology.
+        """
         lab_dict = topology.get("lab")
         if lab_dict is None:
             logger.warning("Deprecated since 2.4 (will be removed in 2.5)")

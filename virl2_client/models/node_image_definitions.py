@@ -182,7 +182,8 @@ class NodeImageDefinitions:
         :type filename: str
         :param rename:  Optional filename to rename to
         :type rename: str
-        :param chunk_size_mb: Optional size of upload chunk (mb) (deprecated since 2.2.0)
+        :param chunk_size_mb: Optional size of upload chunk (mb)
+            (deprecated since 2.2.0)
         :type chunk_size_mb: int
         """
         url = self._base_url + "images/upload"

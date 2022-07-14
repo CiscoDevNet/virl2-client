@@ -51,7 +51,9 @@ cl = ClientLibrary("http://localhost:8001", "cml2", "cml2cml2", allow_http=True)
 cl.is_system_ready(wait=True)
 
 # set transport if needed - also proxy can be set if needed
-# cl.licensing.licensing.set_transport(ssms=ssms, proxy_server="172.16.1.100", proxy_port=8888)
+# cl.licensing.licensing.set_transport(
+#     ssms=ssms, proxy_server="172.16.1.100", proxy_port=8888
+# )
 cl.licensing.set_transport(ssms=SSMS)
 cl.licensing.install_certificate(cert=CERT)
 # 'register_wait' method waits max 45s for registration status to become COMPLETED

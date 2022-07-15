@@ -21,7 +21,7 @@
 import json
 import logging
 import time
-from typing import Dict, List
+from typing import Dict
 
 from .node import Node
 from .interface import Interface

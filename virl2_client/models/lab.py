@@ -32,6 +32,7 @@ from ..exceptions import (
     LinkNotFound,
     NodeNotFound,
     ElementAlreadyExists,
+    InterfaceNotFound,
 )
 from .cl_pyats import ClPyats
 
@@ -331,13 +332,13 @@ class Lab:
 
     def get_node_by_id(self, node_id):
         """
-        Returns the node identified by the node_id.
+        Returns the node identified by the ID.
 
         :param node_id: ID of the node to be returned
         :type node_id: str
         :returns: A Node object
         :rtype: models.Node
-        :raises NodeNotFound: if node not found
+        :raises NodeNotFound: If node not found
         """
         self.sync_topology_if_outdated()
         try:
@@ -353,7 +354,7 @@ class Lab:
         :type label: str
         :returns: A Node object
         :rtype: models.Node
-        :raises NodeNotFound: if node not found
+        :raises NodeNotFound: If node not found
         """
         self.sync_topology_if_outdated()
         for node in self._nodes.values():
@@ -361,42 +362,90 @@ class Lab:
                 return node
         raise NodeNotFound(label)
 
-    def get_link_by_nodes(self, node1, node2):
+    def get_interface_by_id(self, interface_id):
         """
-        Returns the link identified by two nodes.
+        Returns the interface identified by the ID.
 
-        :param node1: node id of first node
-        :type node1: str
-        :param node2: node id of second node
-        :type node2: str
-        :returns: A Link object
-        :rtype: models.Link
-        :raises LinkNotFound: if link not found
+        :param interface_id: ID of the interface to be returned
+        :type interface_id: str
+        :returns: An Interface object
+        :rtype: models.Interface
+        :raises InterfaceNotFound: If interface not found
         """
         self.sync_topology_if_outdated()
-        for link in self.links():
-            link_node_pair = (link.interface_a.node, link.interface_b.node)
-            if link_node_pair in ((node1, node2), (node2, node1)):
-                return link
-        raise LinkNotFound()
+        try:
+            return self._interfaces[interface_id]
+        except KeyError:
+            raise InterfaceNotFound(interface_id)
+
+    def get_link_by_id(self, link_id):
+        """
+        Returns the link identified by the ID.
+
+        :param link_id: ID of the interface to be returned
+        :type link_id: str
+        :returns: A Link object
+        :rtype: models.Link
+        :raises LinkNotFound: If interface not found
+        """
+        self.sync_topology_if_outdated()
+        try:
+            return self._links[link_id]
+        except KeyError:
+            raise LinkNotFound(link_id)
+
+    def get_link_by_nodes(self, node1, node2):
+        """
+        DEPRECATED
+
+        Returns ONE of the links identified by two node IDs, NOT NODE OBJECTS.
+
+        Deprecated. Get Node objects using `Lab.get_node_by_id` and use
+        `Node.get_link_to` to get one link or `Node.get_links_to` to get all links.
+
+        :param node1: ID of the first node
+        :type node1: str
+        :param node2: ID of the second node
+        :type node2: str
+        :returns: A list of Links
+        :rtype: list[models.Link]
+        :raises LinkNotFound: If no such link exists
+        """
+        warnings.warn(
+            "Deprecated, use Node.get_link_to or Node.get_links_to instead.",
+            DeprecationWarning,
+        )
+        node_a = self.get_node_by_id(node1)
+        node_b = self.get_node_by_id(node2)
+        if links := node_a.get_links_to(node_b) == []:
+            raise LinkNotFound()
+        return links
 
     def get_link_by_interfaces(self, iface1, iface2):
         """
-        Returns the link identified by two interfaces.
+        DEPRECATED
 
-        :param iface1: node ID of the first node
+        Returns the link identified by two interface IDs, NOT INTERFACE OBJECTS.
+
+        Deprecated. Get Interface objects using `Lab.get_interface_by_id` and use
+        `Interface.get_link_to` to get link.
+
+        :param iface1: ID of the first interface
         :type iface1: str
-        :param iface2: node ID of the second node
+        :param iface2: ID of the second interface
         :type iface2: str
         :returns: A Link object
         :rtype: models.Link
-        :raises LinkNotFound: if link not found
+        :raises LinkNotFound: If no such link exists
         """
-        self.sync_topology_if_outdated()
-        for link in self.links():
-            link_iface_pair = (link.interface_a, link.interface_b)
-            if link_iface_pair in ((iface1, iface2), (iface2, iface1)):
-                return link
+        warnings.warn(
+            "Deprecated, use Interface.get_link_to instead.", DeprecationWarning
+        )
+        interface_a = self.get_interface_by_id(iface1)
+        interface_b = self.get_interface_by_id(iface2)
+        link = interface_a.link
+        if interface_b in link.interfaces:
+            return link
         raise LinkNotFound()
 
     def find_nodes_by_tag(self, tag):
@@ -419,7 +468,7 @@ class Lab:
         y=0,
         wait=None,
         populate_interfaces=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Creates a node in the lab with the given parameters.

@@ -84,8 +84,17 @@ class Interface:
         return hash(self.id)
 
     @property
+    def lab_base_url(self):
+        return self.node.lab_base_url
+
+    @property
+    def _base_url(self):
+        return self.lab_base_url + "/interfaces/{}".format(self.id)
+
+    @property
     def physical(self):
         """Whether the interface is physical."""
+        self.node.lab.sync_topology_if_outdated()
         return self.type == "physical"
 
     @property
@@ -94,12 +103,9 @@ class Interface:
         return self.link is not None
 
     @property
-    def lab_base_url(self):
-        return self.node.lab_base_url
-
-    @property
-    def _base_url(self):
-        return self.lab_base_url + "/interfaces/{}".format(self.id)
+    def state(self):
+        self.node.lab.sync_states_if_outdated()
+        return self._state
 
     @property
     def link(self):
@@ -110,24 +116,21 @@ class Interface:
                 return link
 
     @property
-    def is_physical(self):
-        warnings.warn("Deprecated, use .physical instead.", DeprecationWarning)
-        return self.physical
-
-    def links(self):
-        warnings.warn("Deprecated, use .link instead.", DeprecationWarning)
+    def peer_interface(self):
         link = self.link
         if link is None:
-            return []
-        return [link]
+            return None
+        interfaces = link.interfaces
+        if interfaces[0] is self:
+            return interfaces[1]
+        return interfaces[0]
 
-    def degree(self):
-        warnings.warn("Deprecated, use .connected instead.", DeprecationWarning)
-        return int(self.connected)
-
-    def is_connected(self):
-        warnings.warn("Deprecated, use .connected instead.", DeprecationWarning)
-        return self.connected
+    @property
+    def peer_node(self):
+        peer_interface = self.peer_interface
+        if peer_interface is None:
+            return None
+        return peer_interface.node
 
     @property
     def readbytes(self):
@@ -165,29 +168,25 @@ class Interface:
         return self.ip_snooped_info["ipv6"]
 
     @property
-    def peer_interface(self):
+    def is_physical(self):
+        warnings.warn("Deprecated, use .physical instead.", DeprecationWarning)
+        return self.physical
+
+    def as_dict(self):
+        # TODO what should be here in 'data' key?
+        return {"id": self.id, "node": self.node.id, "data": self.id}
+
+    def get_link_to(self, other_interface):
+        """
+        Returns the link between this interface and another.
+
+        :param other_interface: the other interface
+        :type other_interface: models.Interface
+        :returns: A Link
+        :rtype: models.Link
+        """
         link = self.link
-        if link is None:
-            return None
-        interfaces = link.interfaces
-        if interfaces[0] is self:
-            return interfaces[1]
-        return interfaces[0]
-
-    @property
-    def peer_node(self):
-        peer_interface = self.peer_interface
-        if peer_interface is None:
-            return None
-        return peer_interface.node
-
-    def peer_interfaces(self):
-        warnings.warn("Deprecated, use .peer_interface instead.", DeprecationWarning)
-        return {self.peer_interface}
-
-    def peer_nodes(self):
-        warnings.warn("Deprecated, use .peer_node instead.", DeprecationWarning)
-        return {self.peer_node}
+        return link if other_interface in link.interfaces else None
 
     def remove_on_server(self):
         _LOGGER.info("Removing interface %s", self)
@@ -195,10 +194,6 @@ class Interface:
         url = self._base_url
         response = self.node.session.delete(url)
         response.raise_for_status()
-
-    def as_dict(self):
-        # TODO what should be here in 'data' key?
-        return {"id": self.id, "node": self.node.id, "data": self.id}
 
     def bring_up(self):
         url = self._base_url + "/state/start"
@@ -210,7 +205,25 @@ class Interface:
         response = self.session.put(url)
         response.raise_for_status()
 
-    @property
-    def state(self):
-        self.node.lab.sync_states_if_outdated()
-        return self._state
+    def peer_interfaces(self):
+        warnings.warn("Deprecated, use .peer_interface instead.", DeprecationWarning)
+        return {self.peer_interface}
+
+    def peer_nodes(self):
+        warnings.warn("Deprecated, use .peer_node instead.", DeprecationWarning)
+        return {self.peer_node}
+
+    def links(self):
+        warnings.warn("Deprecated, use .link instead.", DeprecationWarning)
+        link = self.link
+        if link is None:
+            return []
+        return [link]
+
+    def degree(self):
+        warnings.warn("Deprecated, use .connected instead.", DeprecationWarning)
+        return int(self.connected)
+
+    def is_connected(self):
+        warnings.warn("Deprecated, use .connected instead.", DeprecationWarning)
+        return self.connected

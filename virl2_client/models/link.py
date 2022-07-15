@@ -34,10 +34,10 @@ class Link:
 
         :param lab: the lab object
         :type lab: models.Lab
-        :param lid: the lab ID
+        :param lid: the link ID
         :type lid: str
         :param iface_a: the first interface of the link
-        :type iface_a: a models.Interface
+        :type iface_a: models.Interface
         :param iface_b: the second interface of the link
         :type iface_b: models.Interface
         """
@@ -116,7 +116,7 @@ class Link:
 
     @property
     def nodes(self):
-        """Return nodes this link connects"""
+        """Return nodes this link connects."""
         self.lab.sync_topology_if_outdated()
         return self.node_a, self.node_b
 

@@ -261,9 +261,11 @@ class ClientLibrary:
         self._context = Context(base_url)
         """
         Within the Client Library context:
-        `requests.Session()` instance that can be used to send requests to the controller.
+        `requests.Session()` instance that can be used to send requests
+            to the controller.
         `uuid.uuid4()` instance to uniquely identify this client library session.
-        `base_url` stores the base URL."""
+        `base_url` stores the base URL.
+        """
 
         # http://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
 
@@ -508,7 +510,8 @@ class ClientLibrary:
         :raises ValueError: if there's no lab ID in the API response
         :raises requests.exceptions.HTTPError: if there was a transport error
         """
-        # TODO: refactor to return the local lab, and sync it, if already exists in self._labs
+        # TODO: refactor to return the local lab, and sync it,
+        # if already exists in self._labs
         if offline:
             lab_id = "offline_lab"
         else:

@@ -125,7 +125,8 @@ def parse_line(line, keys, offsets):
         start = offsets[key]["start"]
         end = offsets[key]["end"]
         value = line[start:end]
-        # strip off whitespace as could be right padded if short entry relative to others in the column
+        # strip off whitespace as could be right padded if short entry relative
+        # to others in the column
         result[key] = value.rstrip()
     return result
 

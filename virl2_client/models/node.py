@@ -50,7 +50,8 @@ class Node:
         tags,
     ):
         """
-        A VIRL2 Node object. Typically a virtual machine representing a router, switch or server.
+        A VIRL2 Node object. Typically a virtual machine representing a router,
+        switch or server.
 
         :param lab: the Lab this nodes belongs to
         :type lab: models.Lab
@@ -107,22 +108,26 @@ class Node:
         return "Node: {}".format(self._label)
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self.lab),
-            self.id,
-            self._label,
-            self._node_definition,
-            self._image_definition,
-            self._config,
-            self._x,
-            self._y,
-            self._ram,
-            self._cpus,
-            self._cpu_limit,
-            self._data_volume,
-            self._boot_disk_size,
-            self._tags,
+        return (
+            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
+            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})"
+            .format(
+                self.__class__.__name__,
+                str(self.lab),
+                self.id,
+                self._label,
+                self._node_definition,
+                self._image_definition,
+                self._config,
+                self._x,
+                self._y,
+                self._ram,
+                self._cpus,
+                self._cpu_limit,
+                self._data_volume,
+                self._boot_disk_size,
+                self._tags,
+            )
         )
 
     def __eq__(self, other):
@@ -478,7 +483,8 @@ class Node:
         to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
         """
-        # TODO: can optimise the sync of l3 to only be for the node rather than whole lab
+        # TODO: can optimise the sync of l3 to only be for the node
+        # rather than whole lab
         url = self._base_url + "/layer3_addresses"
         response = self.session.get(url)
         response.raise_for_status()

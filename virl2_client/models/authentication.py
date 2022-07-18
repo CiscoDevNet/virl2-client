@@ -24,7 +24,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 import requests.auth
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class TokenAuth(requests.auth.AuthBase):
@@ -48,14 +48,14 @@ class TokenAuth(requests.auth.AuthBase):
         # As almost every library call uses "raise_for_status()"
         if resp.status_code != 401:
             if not resp.ok:
-                logger.error("API Error: %s", resp.text)
+                _LOGGER.error("API Error: %s", resp.text)
             return resp
 
         # reset existing token:
         self.token = None
         # repeat last request that has failed
         token = self.authenticate()
-        logger.warning("re-auth called on 401 unauthorized")
+        _LOGGER.warning("re-auth called on 401 unauthorized")
         request = resp.request.copy()
         request.headers["Authorization"] = "Bearer {}".format(token)
         request.deregister_hook("response", self.handle_401_unauthorized)
@@ -71,9 +71,9 @@ class TokenAuth(requests.auth.AuthBase):
         )  # pylint: disable=W0212
         parsed_url = urlparse(url)
         if parsed_url.port is not None and parsed_url.port != 443:
-            logger.warning("Not using SSL port of 443: %d", parsed_url.port)
+            _LOGGER.warning("Not using SSL port of 443: %d", parsed_url.port)
         if parsed_url.scheme != "https":
-            logger.warning("Not using https scheme: %s", parsed_url.scheme)
+            _LOGGER.warning("Not using https scheme: %s", parsed_url.scheme)
         data = {
             "username": self.client_library.username,
             "password": self.client_library.password,

@@ -25,7 +25,7 @@ from itertools import chain
 
 from ..exceptions import InterfaceNotFound
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 flatten = chain.from_iterable
 
@@ -311,7 +311,7 @@ class Node:
         self._image_definition = value
 
     def _set_node_property(self, key, val):
-        logger.info("Setting node property %s %s: %s", self, key, val)
+        _LOGGER.info("Setting node property %s %s: %s", self, key, val)
         node_url = "{}".format(self._base_url)
         response = self.session.patch(url=node_url, json={key: val})
         response.raise_for_status()
@@ -352,7 +352,7 @@ class Node:
         raise InterfaceNotFound("{}:{}".format(slot, self))
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
-        logger.info("Waiting for node %s to converge", self.id)
+        _LOGGER.info("Waiting for node %s to converge", self.id)
         max_iter = (
             self.lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -360,11 +360,11 @@ class Node:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Node %s has converged", self.id)
+                _LOGGER.info("Node %s has converged", self.id)
                 return
 
             if index % 10 == 0:
-                logging.info(
+                _LOGGER.info(
                     "Node has not converged, attempt %s/%s, waiting...",
                     index,
                     max_iter,
@@ -375,7 +375,7 @@ class Node:
             self.id,
             max_iter,
         )
-        logger.error(msg)
+        _LOGGER.error(msg)
         # after maximum retries are exceeded and node has not converged
         # error must be raised - it makes no sense to just log info
         # and let client fail with something else if wait is explicitly
@@ -435,7 +435,7 @@ class Node:
         return response.json()
 
     def remove_on_server(self):
-        logger.info("Removing node %s", self)
+        _LOGGER.info("Removing node %s", self)
         url = self._base_url
         response = self.session.delete(url)
         response.raise_for_status()

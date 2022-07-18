@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class UserManagement(object):
+class UserManagement:
     def __init__(self, context):
         self.ctx = context
 

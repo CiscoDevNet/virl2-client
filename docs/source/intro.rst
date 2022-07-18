@@ -6,7 +6,7 @@ This is the client library for the Cisco VIRL :sup:`2` Network Simulation Platfo
 delete and control network simulations on a VIRL :sup:`2` controller.
 
 It is a pure Python implementation that requires Python3. We've written and tested
-the package with Python 3.6.8.
+the package with Python 3.8.10.
 
 The **status** of this package can be considered **Beta**. We're not aware of
 any major issues at the time of release. However, since this is the first

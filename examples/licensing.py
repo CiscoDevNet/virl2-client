@@ -107,14 +107,16 @@ Prints:
     "features": [
         {
             "name": "CML - Enterprise License",
-            "description": "Cisco Modeling Labs - Enterprise License with 20 nodes capacity included",
+            "description": "Cisco Modeling Labs - Enterprise License with 20 nodes \
+                capacity included",
             "in_use": 1,
             "status": "IN_COMPLIANCE",
             "version": "1.0"
         },
         {
             "name": "CML \u2013 Expansion Nodes",
-            "description": "Cisco Modeling Labs - Expansion node capacity for CML Enterprise Servers",
+            "description": "Cisco Modeling Labs - Expansion node capacity for CML \
+                Enterprise Servers",
             "in_use": 50,
             "status": "IN_COMPLIANCE",
             "version": "1.0"
@@ -129,9 +131,11 @@ Prints:
 
 [
     {
-        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
+        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,\
+            1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
         "name": "CML - Enterprise License",
-        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes capacity included",
+        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes \
+            capacity included",
         "in_use": 1,
         "status": "IN_COMPLIANCE",
         "version": "1.0",
@@ -139,9 +143,11 @@ Prints:
         "max": 1
     },
     {
-        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
+        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,\
+            1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
         "name": "CML \u2013 Expansion Nodes",
-        "description": "Cisco Modeling Labs - Expansion node capacity for CML Enterprise Servers",
+        "description": "Cisco Modeling Labs - Expansion node capacity for \
+            CML Enterprise Servers",
         "in_use": 50,
         "status": "IN_COMPLIANCE",
         "version": "1.0",

@@ -27,15 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class NodeImageDefinitions:
-    """
-    VIRL2 Definition classes to specify a node VM and associated disk images.
-
-    :param context: the authentication context to use
-    :type context: authentication.Context
-    """
-
     def __init__(self, context):
-        """Constructor method"""
+        """
+        VIRL2 Definition classes to specify a node VM and associated disk images.
+
+        :param context: the authentication context to use
+        :type context: authentication.Context
+        """
         self._context = context
 
     @property
@@ -184,7 +182,8 @@ class NodeImageDefinitions:
         :type filename: str
         :param rename:  Optional filename to rename to
         :type rename: str
-        :param chunk_size_mb: Optional size of upload chunk (mb) (deprecated since 2.2.0)
+        :param chunk_size_mb: Optional size of upload chunk (mb)
+            (deprecated since 2.2.0)
         :type chunk_size_mb: int
         """
         url = self._base_url + "images/upload"

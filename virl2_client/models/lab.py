@@ -890,11 +890,9 @@ class Lab:
         """
         Returns whether the lab is started.
 
-        Deprecated since 2.4 (will be removed in 2.5)
         :returns: Whether the lab is started
         :rtype: bool
         """
-        logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
         return self.state() == "STARTED"
 
     def details(self):

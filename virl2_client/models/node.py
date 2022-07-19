@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,43 +25,13 @@ from itertools import chain
 
 from ..exceptions import InterfaceNotFound
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 flatten = chain.from_iterable
 
 
 @total_ordering
 class Node:
-    """A VIRL2 Node object. Typically a virtual machine representing a router, switch or server.
-
-    :param lab: the Lab this nodes belongs to
-    :type lab: models.Lab
-    :param nid: the Node ID
-    :type nid: str
-    :param node_definition: The node definition of this node
-    :type node_definition: str
-    :param image_definition: The image definition of this node
-    :type image_definition: str
-    :param config: The day0 configuration of this node
-    :type config: str
-    :param x: X coordinate on topology canvas
-    :type x: int
-    :param y: Y coordinate on topology canvas
-    :type y: int
-    :param ram: memory of node in MiB (if applicable)
-    :type ram: int
-    :param cpus: Amount of CPUs in this node (if applicable)
-    :type cpus: int
-    :param cpu_limit: CPU limit (default at 100%)
-    :type cpu_limit: int
-    :param data_volume: Size in GiB of 2nd HDD (if > 0)
-    :type data_volume: int
-    :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
-    :type boot_disk_size: int
-    :param tags: List of tags List[str, str]
-    :type tags: list
-    """
-
     def __init__(
         self,
         lab,
@@ -79,7 +49,37 @@ class Node:
         boot_disk_size,
         tags,
     ):
-        """Constructor method"""
+        """
+        A VIRL2 Node object. Typically a virtual machine representing a router,
+        switch or server.
+
+        :param lab: the Lab this nodes belongs to
+        :type lab: models.Lab
+        :param nid: the Node ID
+        :type nid: str
+        :param node_definition: The node definition of this node
+        :type node_definition: str
+        :param image_definition: The image definition of this node
+        :type image_definition: str
+        :param config: The day0 configuration of this node
+        :type config: str
+        :param x: X coordinate on topology canvas
+        :type x: int
+        :param y: Y coordinate on topology canvas
+        :type y: int
+        :param ram: memory of node in MiB (if applicable)
+        :type ram: int
+        :param cpus: Amount of CPUs in this node (if applicable)
+        :type cpus: int
+        :param cpu_limit: CPU limit (default at 100%)
+        :type cpu_limit: int
+        :param data_volume: Size in GiB of 2nd HDD (if > 0)
+        :type data_volume: int
+        :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
+        :type boot_disk_size: int
+        :param tags: List of tags
+        :type tags: List[str, str]
+        """
         self.lab = lab
         self.id = nid
         self._label = label
@@ -108,22 +108,25 @@ class Node:
         return "Node: {}".format(self._label)
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self.lab),
-            self.id,
-            self._label,
-            self._node_definition,
-            self._image_definition,
-            self._config,
-            self._x,
-            self._y,
-            self._ram,
-            self._cpus,
-            self._cpu_limit,
-            self._data_volume,
-            self._boot_disk_size,
-            self._tags,
+        return (
+            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
+            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
+                self.__class__.__name__,
+                str(self.lab),
+                self.id,
+                self._label,
+                self._node_definition,
+                self._image_definition,
+                self._config,
+                self._x,
+                self._y,
+                self._ram,
+                self._cpus,
+                self._cpu_limit,
+                self._data_volume,
+                self._boot_disk_size,
+                self._tags,
+            )
         )
 
     def __eq__(self, other):
@@ -170,7 +173,7 @@ class Node:
         to connect to other nodes!
 
         :returns: an interface or None, if all existing ones are connected
-        :rtype: models.interface
+        :rtype: models.Interface
         """
         for iface in self.interfaces():
             if not iface.is_connected() and iface.is_physical:
@@ -281,9 +284,7 @@ class Node:
 
     @config.setter
     def config(self, value):
-        url = self._base_url + "/config?origin_uuid={}".format(self.lab.client_uuid)
-        response = self.session.put(url, data=value)
-        response.raise_for_status()
+        self._set_node_property("configuration", value)
         self._config = value
 
     @property
@@ -309,8 +310,8 @@ class Node:
         self._image_definition = value
 
     def _set_node_property(self, key, val):
-        logger.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}?origin_uuid={}".format(self._base_url, self.lab.client_uuid)
+        _LOGGER.info("Setting node property %s %s: %s", self, key, val)
+        node_url = "{}".format(self._base_url)
         response = self.session.patch(url=node_url, json={key: val})
         response.raise_for_status()
 
@@ -349,29 +350,39 @@ class Node:
                 return iface
         raise InterfaceNotFound("{}:{}".format(slot, self))
 
-    def wait_until_converged(self, max_iterations=500):
-        logger.info("Waiting for node %s to converge", self.id)
-        for index in range(max_iterations):
+    def wait_until_converged(self, max_iterations=None, wait_time=None):
+        _LOGGER.info("Waiting for node %s to converge", self.id)
+        max_iter = (
+            self.lab.wait_max_iterations if max_iterations is None else max_iterations
+        )
+        wait_time = self.lab.wait_time if wait_time is None else wait_time
+        for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Node %s has converged", self.id)
+                _LOGGER.info("Node %s has converged", self.id)
                 return
 
             if index % 10 == 0:
-                logging.info(
+                _LOGGER.info(
                     "Node has not converged, attempt %s/%s, waiting...",
                     index,
-                    max_iterations,
+                    max_iter,
                 )
-            time.sleep(5)
-        logger.info(
-            "Node %s has not converged, maximum tries %s exceeded",
+            time.sleep(wait_time)
+
+        msg = "Node %s has not converged, maximum tries %s exceeded" % (
             self.id,
-            max_iterations,
+            max_iter,
         )
+        _LOGGER.error(msg)
+        # after maximum retries are exceeded and node has not converged
+        # error must be raised - it makes no sense to just log info
+        # and let client fail with something else if wait is explicitly
+        # specified
+        raise RuntimeError(msg)
 
     def has_converged(self):
-        url = self.lab_base_url + "/check_if_converged"
+        url = self._base_url + "/check_if_converged"
         response = self.session.get(url)
         response.raise_for_status()
         converged = response.json()
@@ -423,7 +434,7 @@ class Node:
         return response.json()
 
     def remove_on_server(self):
-        logger.info("Removing node %s", self)
+        _LOGGER.info("Removing node %s", self)
         url = self._base_url
         response = self.session.delete(url)
         response.raise_for_status()
@@ -434,14 +445,13 @@ class Node:
         return self._tags
 
     def add_tag(self, tag):
-        current = self._tags
+        current = self.tags()
         if tag not in current:
             current.append(tag)
-            # Push single tag to API
-            self._set_node_property("tags", [tag])
+            self._set_node_property("tags", current)
 
     def remove_tag(self, tag):
-        current = self._tags
+        current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
 
@@ -472,7 +482,8 @@ class Node:
         to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
         """
-        # TODO: can optimise the sync of l3 to only be for the node rather than whole lab
+        # TODO: can optimise the sync of l3 to only be for the node
+        # rather than whole lab
         url = self._base_url + "/layer3_addresses"
         response = self.session.get(url)
         response.raise_for_status()
@@ -495,11 +506,14 @@ class Node:
             }
 
     def update(self, node_data, exclude_configurations):
+        if "data" in node_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            node_data = node_data["data"]
         self._label = node_data["label"]
         self._x = node_data["x"]
         self._y = node_data["y"]
         self._node_definition = node_data["node_definition"]
-        self._image_definition = node_data["image_definition"]
+        self._image_definition = node_data.get("image_definition", None)
         self._ram = node_data["ram"]
         self._cpus = node_data["cpus"]
         self._cpu_limit = node_data.get("cpu_limit", 100)

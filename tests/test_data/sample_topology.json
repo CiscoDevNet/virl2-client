@@ -2,42 +2,40 @@
     "nodes": [
       {
         "id": "n0",
-        "data": {
-          "node_definition": "alpine",
-          "image_definition": "alpine-3-12-base",
-          "label": "alpine-0",
-          "configuration": "# this is a shell script which will be sourced at boot\n# if you change the hostname then you need to add a\n# /etc/hosts entry as well\n# hostname inserthostname_here\n# like this:\n# echo \"127.0.0.1   inserthostname_here\" >>/etc/hosts",
-          "x": -50,
-          "y": -200,
-          "state": "STOPPED",
-          "ram": null,
-          "cpus": null,
-          "cpu_limit": null,
-          "data_volume": null,
-          "boot_disk_size": null,
-          "tags": []
-        }
+        "node_definition": "alpine",
+        "image_definition": "alpine-3-12-base",
+        "label": "alpine-0",
+        "configuration": "# this is a shell script which will be sourced at boot\n# if you change the hostname then you need to add a\n# /etc/hosts entry as well\n# hostname inserthostname_here\n# like this:\n# echo \"127.0.0.1   inserthostname_here\" >>/etc/hosts",
+        "x": -50,
+        "y": -200,
+        "state": "STOPPED",
+        "ram": null,
+        "cpus": null,
+        "cpu_limit": null,
+        "data_volume": null,
+        "boot_disk_size": null,
+        "tags": [],
+        "interfaces": [
+          {
+            "id": "i0",
+            "node": "n0",
+            "label": "eth0",
+            "slot": 0,
+            "state": "STOPPED",
+            "type": "physical"
+          }
+        ]
       }
     ],
     "links": [],
-    "interfaces": [
-      {
-        "id": "i0",
-        "node": "n0",
-        "data": {
-          "label": "eth0",
-          "slot": 0,
-          "state": "STOPPED",
-          "type": "physical"
-        }
-      }
-    ],
-    "lab_notes": "",
-    "lab_title": "Lab at Fri 13:33 PM",
-    "lab_description": "",
-    "lab_owner": "cml2",
-    "state": "STOPPED",
-    "created_timestamp": 1600428834.497289,
-    "cluster_id": "cluster_1",
-    "version": "0.0.4"
+    "lab": {
+      "notes": "",
+      "title": "Lab at Fri 13:33 PM",
+      "description": "",
+      "owner": "cml2",
+      "state": "STOPPED",
+      "created_timestamp": 1600428834.497289,
+      "cluster_id": "cluster_1",
+      "version": "0.0.4"
+    }
   }

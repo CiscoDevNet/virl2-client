@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,18 +100,18 @@ def test_need_to_wait1():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
     lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=True)
-    assert lab.need_to_wait(None) == True
-    assert lab.need_to_wait(False) == False
-    assert lab.need_to_wait(True) == True
+    assert lab.need_to_wait(None) is True
+    assert lab.need_to_wait(False) is False
+    assert lab.need_to_wait(True) is True
 
 
 def test_need_to_wait2():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
     lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
-    assert lab.need_to_wait(None) == False
-    assert lab.need_to_wait(False) == False
-    assert lab.need_to_wait(True) == True
+    assert lab.need_to_wait(None) is False
+    assert lab.need_to_wait(False) is False
+    assert lab.need_to_wait(True) is True
 
 
 def test_str_and_repr():
@@ -182,6 +182,8 @@ def test_tags():
     node_a.add_tag("Europe")
     node_a.add_tag("Test")
     assert len(node_a.tags()) == 3
+    node_a.add_tag("Europe")
+    assert len(node_a.tags()) == 3
     node_a.remove_tag("Test")
     assert len(node_a.tags()) == 2
 
@@ -202,10 +204,10 @@ def test_find_by_label():
     username = password = "test"
     lab = Lab("laboratory", 1, context, username, password, auto_sync=0)
 
-    node_a = lab.add_node_local("n0", "server-a", "nd", "im", "cfg", 0, 0)
-    node_b = lab.add_node_local("n1", "server-b", "nd", "im", "cfg", 0, 0)
-    node_c = lab.add_node_local("n2", "server-c", "nd", "im", "cfg", 0, 0)
-    node_d = lab.add_node_local("n3", "server-d", "nd", "im", "cfg", 0, 0)
+    lab.add_node_local("n0", "server-a", "nd", "im", "cfg", 0, 0)
+    lab.add_node_local("n1", "server-b", "nd", "im", "cfg", 0, 0)
+    lab.add_node_local("n2", "server-c", "nd", "im", "cfg", 0, 0)
+    lab.add_node_local("n3", "server-d", "nd", "im", "cfg", 0, 0)
 
     node = lab.get_node_by_label("server-a")
     assert node.id == "n0"
@@ -224,17 +226,17 @@ def test_next_free_interface():
     node_b = lab.add_node_local("1", "node B", "nd", "im", "cfg", 1, 1)
 
     nf = node_a.next_available_interface()
-    assert nf == None
+    assert nf is None
 
     i1 = lab.create_interface_local("0", "iface 0", node_a, "slot 0")
     nf = node_a.next_available_interface()
     assert i1 == nf
 
     i2 = lab.create_interface_local("4", "iface 4", node_b, "slot 4")
-    lnk1 = lab.create_link_local(i1, i2, "0")
+    lab.create_link_local(i1, i2, "0")
 
     nf = node_a.next_available_interface()
-    assert nf == None
+    assert nf is None
 
 
 def test_connect_two_nodes(requests_mock):

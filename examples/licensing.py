@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,24 +97,26 @@ Prints:
     },
     "reservation_mode": false,
     "transport": {
-        "ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService",
+        "ssms": "https://smartreceiver.cisco.com/licservice/license",
         "proxy": {
             "server": null,
             "port": null
         },
-        "default_ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService"
+        "default_ssms": "https://smartreceiver.cisco.com/licservice/license"
     },
     "features": [
         {
             "name": "CML - Enterprise License",
-            "description": "Cisco Modeling Labs - Enterprise License with 20 nodes capacity included",
+            "description": "Cisco Modeling Labs - Enterprise License with 20 nodes \
+                capacity included",
             "in_use": 1,
             "status": "IN_COMPLIANCE",
             "version": "1.0"
         },
         {
             "name": "CML \u2013 Expansion Nodes",
-            "description": "Cisco Modeling Labs - Expansion node capacity for CML Enterprise Servers",
+            "description": "Cisco Modeling Labs - Expansion node capacity for CML \
+                Enterprise Servers",
             "in_use": 50,
             "status": "IN_COMPLIANCE",
             "version": "1.0"
@@ -129,9 +131,11 @@ Prints:
 
 [
     {
-        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
+        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,\
+            1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
         "name": "CML - Enterprise License",
-        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes capacity included",
+        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes \
+            capacity included",
         "in_use": 1,
         "status": "IN_COMPLIANCE",
         "version": "1.0",
@@ -139,9 +143,11 @@ Prints:
         "max": 1
     },
     {
-        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
+        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,\
+            1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
         "name": "CML \u2013 Expansion Nodes",
-        "description": "Cisco Modeling Labs - Expansion node capacity for CML Enterprise Servers",
+        "description": "Cisco Modeling Labs - Expansion node capacity for \
+            CML Enterprise Servers",
         "in_use": 50,
         "status": "IN_COMPLIANCE",
         "version": "1.0",

@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020-2021 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,13 @@
 # limitations under the License.
 #
 
-# TODO: make this Python <3.5 compatible
 import json
 import logging
 import os
 import re
 import time
+from typing import NamedTuple, Optional, Dict, Union
 import urllib
-import warnings
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -33,9 +32,8 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 import pkg_resources
 import requests
 import urllib3
-from urllib3.exceptions import LocationParseError
 
-from .exceptions import LabNotFound
+from .exceptions import LabNotFound, InitializationError
 from .models import (
     Context,
     Lab,
@@ -47,16 +45,11 @@ from .models import (
     GroupManagement,
 )
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
 
 
-class InitializationError(Exception):
-    pass
-
-
-class Version(object):
-
+class Version:
     __slots__ = ("version_str", "major", "minor", "patch")
 
     def __init__(self, version_str: str):
@@ -68,7 +61,7 @@ class Version(object):
 
     @staticmethod
     def parse_version_str(version_str: str):
-        regex = r"^(\d+)\.(\d+).(\d+)(.*)$"
+        regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")
@@ -131,34 +124,52 @@ class Version(object):
         return self.minor_differs(other) or self.patch_differs(other)
 
 
-class ClientLibrary:
-    """
-    Initializes a ClientLibrary instance. Note that ssl_verify can
-    also be a string that points to a cert (see class documentation).
+class ClientConfig(NamedTuple):
+    """Stores client library configuration, which can be used to create
+    any number of identically configured instances of ClientLibrary."""
 
-    :param url: URL of controller. It's also possible to pass the
-        URL via the ``VIRL2_URL`` environment variable. If no protocol
-        scheme is provided, "https:" is used.
-    :type url: str
-    :param username: Username of the user to authenticate
-    :type username: str
-    :param password: Password of the user to authenticate
-    :type password: str
-    :param ssl_verify: SSL controller certificate verification
-    :type ssl_verify: bool
-    :param raise_for_auth_failure: Raise an exception if unable
-        to connect to controller (use for scripting scenarios)
-    :type allow_http: bool
-    :param allow_http: If set, a https URL will not be enforced
-    :type raise_for_auth_failure: bool
-    :raises InitializationError: If no URL is provided or
-        authentication fails or host can't be reached
-    """
+    url: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    ssl_verify: bool = True
+    allow_http: bool = False
+    auto_sync: float = 1.0
+    raise_for_auth_failure: bool = True
+    convergence_wait_max_iter: int = 500
+    convergence_wait_time: Union[int, float] = 5
+
+    def make_client(self):
+        client = ClientLibrary(
+            url=self.url,
+            username=self.username,
+            password=self.password,
+            ssl_verify=self.ssl_verify,
+            raise_for_auth_failure=self.raise_for_auth_failure,
+            allow_http=self.allow_http,
+            convergence_wait_max_iter=self.convergence_wait_max_iter,
+            convergence_wait_time=self.convergence_wait_time,
+        )
+        client.auto_sync = self.auto_sync >= 0.0
+        client.auto_sync_interval = self.auto_sync
+        return client
+
+
+class ClientLibrary:
+    """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version(version_str="2.2.0")
+    VERSION = Version("2.4.0")
     # list of Version objects
-    INCOMPATIBLE_CONTROLLER_VERSIONS = []
+    INCOMPATIBLE_CONTROLLER_VERSIONS = [
+        Version("2.0.0"),
+        Version("2.0.1"),
+        Version("2.1.0"),
+        Version("2.1.1"),
+        Version("2.1.2"),
+        Version("2.2.1"),
+        Version("2.2.2"),
+        Version("2.2.3"),
+    ]
 
     def __init__(
         self,
@@ -168,14 +179,39 @@ class ClientLibrary:
         ssl_verify=True,
         raise_for_auth_failure=False,
         allow_http=False,
+        convergence_wait_max_iter=500,
+        convergence_wait_time=5,
     ):
-        """Constructor method"""
+        """
+        Initializes a ClientLibrary instance. Note that ssl_verify can
+        also be a string that points to a cert (see class documentation).
 
-        # check environment for host URL
-        env_url = os.environ.get("VIRL2_URL")
-        if env_url:
-            logger.info("using URL from environment: %s", env_url)
-            url = env_url
+        :param url: URL of controller. It's also possible to pass the
+            URL via the ``VIRL2_URL`` environment variable. If no protocol
+            scheme is provided, "https:" is used.
+        :type url: str
+        :param username: Username of the user to authenticate
+        :type username: str
+        :param password: Password of the user to authenticate
+        :type password: str
+        :param ssl_verify: SSL controller certificate verification
+        :type ssl_verify: bool
+        :param raise_for_auth_failure: Raise an exception if unable
+            to connect to controller (use for scripting scenarios)
+        :type raise_for_auth_failure: bool
+        :param allow_http: If set, a https URL will not be enforced
+        :type allow_http: bool
+        :param convergence_wait_max_iter: maximum number of iterations to wait for
+            lab to converge
+        :type convergence_wait_max_iter: int
+        :param convergence_wait_time: wait interval in seconds to wait during one
+            iteration during lab convergence wait
+        :type convergence_wait_time: int
+        :raises InitializationError: If no URL is provided or
+            authentication fails or host can't be reached
+        """
+
+        url = self._environ_get(url, "VIRL2_URL")
         if url is None or len(url) == 0:
             message = "no URL provided"
             raise InitializationError(message)
@@ -183,41 +219,40 @@ class ClientLibrary:
         # prepare the URL
         try:
             url_parts = urlsplit(url, "https")
-        except LocationParseError:
+        except ValueError:
             message = "invalid URL / hostname"
             raise InitializationError(message)
 
         # https://docs.python.org/3/library/urllib.parse.html
         # Following the syntax specifications in RFC 1808, urlparse recognizes
-        # a netloc only if it is properly introduced by ‘//’. Otherwise the
+        # a netloc only if it is properly introduced by ‘//’. Otherwise, the
         # input is presumed to be a relative URL and thus to start with
         # a path component.
         if len(url_parts.netloc) == 0:
-            url_parts = urlsplit("//" + url, "https")
-        url_parts_list = list(url_parts)
+            try:
+                url_parts = urlsplit("//" + url, "https")
+            except ValueError:
+                message = "invalid URL / hostname"
+                raise InitializationError(message)
+
         if not allow_http and url_parts.scheme == "http":
-            url_parts_list[0] = "https"
-        if url_parts_list[0] not in ("http", "https"):
+            message = "invalid URL scheme (must be https)"
+            raise InitializationError(message)
+        if url_parts.scheme not in ("http", "https"):
             message = "invalid URL scheme (should be https)"
             raise InitializationError(message)
-        new_url = urlunsplit(url_parts_list)
-        base_url = urljoin(new_url, "api/v0/")
+        url = urlunsplit(url_parts)
+        base_url = urljoin(url, "api/v0/")
 
         # check environment for username
-        env_user = os.environ.get("VIRL2_USER")
-        if env_user:
-            logger.info("using username from environment")
-            username = env_user
+        username = self._environ_get(username, "VIRL2_USER")
         if username is None or len(username) == 0:
             message = "no username provided"
             raise InitializationError(message)
         self.username = username
 
         # check environment for password
-        env_pass = os.environ.get("VIRL2_PASS")
-        if env_pass:
-            logger.info("using password from environment")
-            password = env_pass
+        password = self._environ_get(password, "VIRL2_PASS")
         if password is None or len(password) == 0:
             message = "no password provided"
             raise InitializationError(message)
@@ -226,40 +261,45 @@ class ClientLibrary:
         self._context = Context(base_url)
         """
         Within the Client Library context:
-        `requests.Session()` instance that can be used to send requests to the controller.
+        `requests.Session()` instance that can be used to send requests
+            to the controller.
         `uuid.uuid4()` instance to uniquely identify this client library session.
-        `base_url` stores the base URL."""
+        `base_url` stores the base URL.
+        """
 
         # http://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
 
-        env_ca_bundle = os.environ.get("CA_BUNDLE")
-        if ssl_verify is True and env_ca_bundle:
-            self.session.verify = env_ca_bundle
-        else:
-            self.session.verify = ssl_verify
+        if ssl_verify is True:
+            ssl_verify = self._environ_get(None, "CA_BUNDLE", True)
+        self.session.verify = ssl_verify
 
         if ssl_verify is False:
-            logger.warning("SSL Verification disabled")
+            _LOGGER.warning("SSL Verification disabled")
             urllib3.disable_warnings()
 
         # checks version from system_info against self.VERSION
         self.check_controller_version()
 
         self.session.auth = TokenAuth(self)
-        """
-        `auto_sync` automatically syncs data with the backend after a specific
-        time. The default expiry time is 1.0s. This time can be configured by
-        setting the `auto_sync_interval`."""
+        # Note: session.auth is defined in the requests module to be of type AuthBase,
+        #  which has no logout function; this TokenAuth function will, therefore,
+        #  not be visible to a type checker, causing warnings.
 
         self.auto_sync = True
+        """`auto_sync` automatically syncs data with the backend after a specific
+        time. The default expiry time is 1.0s. This time can be configured by
+        setting the `auto_sync_interval`."""
         self.auto_sync_interval = 1.0  # seconds
+
+        self.convergence_wait_max_iter = convergence_wait_max_iter
+        self.convergence_wait_time = convergence_wait_time
 
         self.allow_http = allow_http
         self.definitions = NodeImageDefinitions(self._context)
 
         self.url = url
         self.raise_for_auth_failure = raise_for_auth_failure
-        self._labs = {}
+        self._labs: Dict[str, Lab] = {}
 
         self.licensing = Licensing(context=self._context)
         self.user_management = UserManagement(context=self._context)
@@ -272,7 +312,7 @@ class ClientLibrary:
             if raise_for_auth_failure:
                 raise
             else:
-                logger.warning(exc)
+                _LOGGER.warning(exc)
                 return
 
     def __repr__(self):
@@ -290,7 +330,7 @@ class ClientLibrary:
         return "{} URL: {}".format(self.__class__.__name__, self._context.base_url)
 
     def _make_test_auth_call(self):
-        # make a call to confirm auth works by using the "authok" endpoint
+        """Make a call to confirm auth works by using the "authok" endpoint."""
         try:
             url = self._base_url + "authok"
             response = self.session.get(url)
@@ -308,20 +348,31 @@ class ClientLibrary:
             # TODO: subclass InitializationError
             raise InitializationError(exc)
 
+    @staticmethod
+    def _environ_get(value, key, default=None):
+        """If the value is not set yet, fetch it from environment or return default."""
+        if value is None:
+            value = os.environ.get(key)
+            if value:
+                _LOGGER.info("Using value %s from environment", key)
+            else:
+                value = default
+        return value
+
     @property
     def session(self):
         """
-        Returns the used Requests session object
+        Returns the used Requests session object.
 
         :returns: The Requests session object
-        :rtype: Requests.Session
+        :rtype: requests.Session
         """
         return self._context.session
 
     @property
     def _base_url(self):
         """
-        Returns the base URL to access the controller
+        Returns the base URL to access the controller.
 
         :returns: The base URL
         :rtype: str
@@ -332,7 +383,9 @@ class ClientLibrary:
         """
         Invalidate current token.
         """
+        # noinspection PyUnresolvedReferences
         return self.session.auth.logout(clear_all_sessions=clear_all_sessions)
+        # See session.auth assignment above for noinspection reasoning.
 
     def get_host(self):
         """
@@ -364,6 +417,7 @@ class ClientLibrary:
         raises exception if versions are incompatible or prints warning
         if client minor version is lower than controller minor version.
 
+        :type controller_version: str
         :rtype: None
         """
         controller_version = (
@@ -372,7 +426,7 @@ class ClientLibrary:
 
         # are we running against a test version?
         if controller_version == "testing":
-            logger.warning("testing version detected!")
+            _LOGGER.warning("testing version detected!")
             return
 
         controller_version = Version(controller_version)
@@ -392,7 +446,7 @@ class ClientLibrary:
         if self.VERSION.minor_differs(controller_version) and self.VERSION.minor_lt(
             controller_version
         ):
-            logger.warning(
+            _LOGGER.warning(
                 "Please ensure the client version is compatible with the controller"
                 " version. Client %s, controller %s.",
                 self.VERSION,
@@ -401,13 +455,13 @@ class ClientLibrary:
 
     def is_system_ready(self, wait=False, max_wait=60, sleep=5):
         """
-        is_system_ready reports whether the system is ready or not.
+        Reports whether the system is ready or not.
 
         :param wait: if this is true, the call will block until it's ready
         :type wait: bool
-        :param max_wait: wait for a maximum of 'max_wait' seconds
+        :param max_wait: maximum time to wait, in seconds
         :type wait: int
-        :param sleep: wait for 'sleep' seconds between tries
+        :param sleep: time to wait between tries, in seconds
         :type wait: int
         :returns: ready state
         :rtype: bool
@@ -417,59 +471,65 @@ class ClientLibrary:
             loops = int(max_wait / sleep)
         ready = False
         while not ready and loops > 0:
-            result = self.system_info()
-            ready = result.get("ready")
+            try:
+                result = self.system_info()
+                ready = result.get("ready")
+            except requests.HTTPError:
+                # 502 Bad Gateway is expected and hints
+                # that system is not ready - no need to
+                # raise - just wait
+                ready = False
             if not ready and loops > 0:
-                time.sleep(int(sleep))
+                time.sleep(sleep)
+            loops -= 1
         return ready
 
-    def wait_for_lld_connected(self):
-        """
-        Waits until the controller has a compute node connected.
-        (Deprecated)
-        """
-        raise Exception("this is deprecated, use is_system_ready(wait=True), if needed")
+    @staticmethod
+    def is_virl_1x(path: Path):
+        if path.suffix == ".virl":
+            return True
+        return False
 
-    def import_lab(self, topology, title, offline=False):
+    def import_lab(self, topology, title=None, offline=False, virl_1x=False):
         """
         Imports an existing topology from a string.
 
         :param topology: Topology representation as a string
         :type topology: str
-        :param title: Title of the lab
-        :type title: str
+        :param title: Title of the lab (optional)
+        :type title: str (otherwise ignored)
         :param offline: whether the ClientLibrary should import the
             lab locally.  The topology parameter has to be a JSON string
             in this case.  This can not be XML or YAML representation of
             the lab.  Compatible JSON from `GET /labs/{lab_id}/topology`.
         :type offline: bool
+        :param virl_1x: Is this old virl-1x topology format (default=False)
+        :type virl_1x: bool
         :returns: A Lab instance
         :rtype: models.Lab
         :raises ValueError: if there's no lab ID in the API response
         :raises requests.exceptions.HTTPError: if there was a transport error
         """
-        # TODO: refactor to return the local lab, and sync it, if already exists in self._labs
+        # TODO: refactor to return the local lab, and sync it,
+        # if already exists in self._labs
         if offline:
             lab_id = "offline_lab"
         else:
-            # TODO: reformat with params=params not string formatting
-            if title.endswith(".virl"):
-                url = "{}import/virl-1x?title={}".format(self._base_url, title)
-            elif title.endswith(".ng"):
-                url = "{}import?is_json=true&title={}".format(self._base_url, title)
+            if virl_1x:
+                url = "{}import/virl-1x".format(self._base_url)
             else:
-                url = "{}import?title={}".format(self._base_url, title)
+                url = "{}import".format(self._base_url)
+            if isinstance(title, str):
+                url = "{}?title={}".format(url, title)
             response = self.session.post(url, data=topology)
             response.raise_for_status()
             result = response.json()
             lab_id = result.get("id")
             if lab_id is None:
-                raise ValueError("no lab ID returned!")
+                raise ValueError("No lab ID returned!")
 
-        # remove the extension (.ng, .yaml) to name the lab
-        lab_title = title.replace(Path(title).suffix, "")
         lab = Lab(
-            lab_title,
+            title,
             lab_id,
             self._context,
             self.username,
@@ -481,48 +541,53 @@ class ClientLibrary:
         if offline:
             topology_dict = json.loads(topology)
             # ensure the lab owner is not properly set
-            topology_dict["lab_owner"] = self.username
+            # how does below get to offline? user_id is calling controller
+            topology_dict["lab"]["owner"] = self.user_management.user_id(self.username)
             lab.import_lab(topology_dict)
         else:
             lab.sync()
         self._labs[lab_id] = lab
         return lab
 
-    def import_lab_from_path(self, topology, title=None):
+    def import_lab_from_path(self, path, title=None):
         """
         Imports an existing topology from a file / path.
 
-        :param topology: Topology filename / path
-        :type topology: str
+        :param path: Topology filename / path
+        :type path: str
         :param title: Title of the lab
         :type title: str
         :returns: A Lab instance
         :rtype: models.Lab
         """
-        topology_path = Path(topology)
+        topology_path = Path(path)
         if not topology_path.exists():
-            message = "{} can not be found".format(topology)
-            raise Exception(message)
+            message = "{} can not be found".format(path)
+            raise FileNotFoundError(message)
 
         topology = topology_path.read_text()
-        title = title or topology_path.name
-        return self.import_lab(topology, title)
+        return self.import_lab(
+            topology, title=title, virl_1x=self.is_virl_1x(topology_path)
+        )
 
     def import_sample_lab(self, title):
         """
-        Imports a built-in sample lab (this will be going away in the future).
+        Imports a built-in sample lab.
 
         :param title: Sample lab name with extension
         :type title: str
         :returns: A Lab instance
         :rtype: models.Lab
         """
-        warnings.warn("deprecated", DeprecationWarning)
         topology_file_path = Path("import_export") / "SampleData" / title
         topology = pkg_resources.resource_string(
             "simple_common", topology_file_path.as_posix()
         )
-        return self.import_lab(topology=topology.decode(), title=title)
+        return self.import_lab(
+            topology=topology.decode(),
+            title=title,
+            virl_1x=self.is_virl_1x(topology_file_path),
+        )
 
     def all_labs(self, show_all=False):
         """
@@ -583,6 +648,7 @@ class ClientLibrary:
         response = self.session.post(url, params=params)
         response.raise_for_status()
         result = response.json()
+        # TODO: server generated title not loaded
         lab_id = result["id"]
         lab = Lab(
             title or lab_id,
@@ -592,6 +658,8 @@ class ClientLibrary:
             self.password,
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
+            wait_max_iterations=self.convergence_wait_max_iter,
+            wait_time=self.convergence_wait_time,
         )
         self._labs[lab_id] = lab
         return lab
@@ -623,7 +691,7 @@ class ClientLibrary:
 
             lab = client_library.join_existing_lab("2e6a18")
 
-        :param lab_id: The lab ID to be removed.
+        :param lab_id: The lab ID to be joined.
         :type lab_id: str
         :param sync_lab: Synchronize changes.
         :type sync_lab: bool
@@ -649,19 +717,44 @@ class ClientLibrary:
         return lab
 
     def get_diagnostics(self):
-        """Returns the controller diagnostic data as JSON
+        """
+        Returns the controller diagnostic data as JSON
 
         :returns: diagnostic data
-        :rtype: str
+        :rtype: dict
         """
         url = self._base_url + "diagnostics"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
+    def get_system_health(self):
+        """
+        Returns the controller system health data as JSON
+
+        :returns: system health data
+        :rtype: dict
+        """
+        url = self._base_url + "system_health"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def get_system_stats(self):
+        """
+        Returns the controller resource statistics as JSON
+
+        :returns: system resource statistics
+        :rtype: dict
+        """
+        url = self._base_url + "system_stats"
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
     def find_labs_by_title(self, title):
         """
-        Return a list of labs which match the given title
+        Return a list of labs which match the given title.
 
         :param title: The title to search for
         :type title: str
@@ -694,7 +787,8 @@ class ClientLibrary:
         return matched_labs
 
     def get_lab_list(self, show_all=False):
-        """Returns list of all lab IDs.
+        """
+        Returns list of all lab IDs.
 
         :param show_all: Whether to get only labs owned by the admin or all user labs
         :type show_all: bool

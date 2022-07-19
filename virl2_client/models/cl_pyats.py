@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,6 @@
 #
 
 import io
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class PyatsNotInstalled(Exception):
@@ -33,20 +30,22 @@ class PyatsDeviceNotFound(Exception):
 
 
 class ClPyats:
-    """Creates a pyATS object that can be used to run commands
-    against a device either in exec mode ``show version`` or in
-    configuration mode ``interface gi0/0\\\\nno shut``.
+    def __init__(self, lab, hostname=None):
+        """
+        Creates a pyATS object that can be used to run commands
+        against a device either in exec mode ``show version`` or in
+        configuration mode ``interface gi0/0 \\n no shut``.
 
-    :param lab: The lab which should be used with pyATS
-    :type lab: models.Lab
-    :raises PyatsNotInstalled: when pyATS can not be found
-    :raises PyatsDeviceNotFound: when the device can not be found
-    """
-
-    def __init__(self, lab):
-        """Constructor method"""
+        :param lab: The lab which should be used with pyATS
+        :type lab: models.Lab
+        :param hostname: Force hostname/ip and port for console terminal server
+        :type hostname: str
+        :raises PyatsNotInstalled: when pyATS can not be found
+        :raises PyatsDeviceNotFound: when the device can not be found
+        """
         self._pyats_installed = False
         self._lab = lab
+        self._hostname = hostname
         try:
             import pyats  # noqa: F401
         except ImportError:
@@ -62,7 +61,8 @@ class ClPyats:
             raise PyatsNotInstalled
 
     def sync_testbed(self, username, password):
-        """Syncs the the testbed from the server. Note that this
+        """
+        Syncs the testbed from the server. Note that this
         will always fetch the latest topology data from the server.
 
         :param username: the username that will be inserted into
@@ -75,14 +75,15 @@ class ClPyats:
         self._check_pyats_installed()
         from pyats.topology import loader
 
-        testbed_yaml = self._lab.get_pyats_testbed()
+        testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
         data = loader.load(io.StringIO(testbed_yaml))
         data.devices.terminal_server.credentials.default.username = username
         data.devices.terminal_server.credentials.default.password = password
         self._testbed = data
 
     def run_command(self, node_label, command):
-        """Run a command on the device in exec mode
+        """
+        Run a command on the device in `exec` mode.
 
         :param node_label: the label / title of the device
         :type node_label: str
@@ -100,13 +101,14 @@ class ClPyats:
 
         # TODO: later check if connected
         # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False)
+        pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
         return pyats_device.execute(command, log_stdout=False)
 
     def run_config_command(self, node_label, command):
-        """Run a command on the device in configure mode. pyATS
-        handles the change into configure mode automatically.
+        """
+        Run a command on the device in `configure` mode. pyATS
+        handles the change into `configure` mode automatically.
 
         :param node_label: the label / title of the device
         :type node_label: str
@@ -124,11 +126,11 @@ class ClPyats:
 
         # TODO: later check if connected
         # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False)
+        pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
         return pyats_device.configure(command, log_stdout=False)
 
     def cleanup(self):
-        """cleans up the pyATS connections"""
+        """Cleans up the pyATS connections."""
         for pyats_device in self._connections:
             pyats_device.destroy()

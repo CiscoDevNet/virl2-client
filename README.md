@@ -19,7 +19,9 @@ edit, delete and control network simulations on a CML 2 controller.
 It is a pure Python implementation that requires Python 3. We've tested and
 written the package with Python 3.8.10.
 
-The status of the package can be considered ***\*stable\****.  Issues with the software should be raised via the [GitHub issue tracker](https://github.com/CiscoDevNet/virl2-client/issues).
+The status of the package can be considered **stable**.  Issues with the
+software should be raised via the [GitHub issue
+tracker](https://github.com/CiscoDevNet/virl2-client/issues).
 
 ## Use Case Description
 
@@ -60,13 +62,20 @@ proper version/build information. For example
 
 We recommend the use of a virtual environment for installation.
 
-If you require the full version of the pyATS library including things like Genie then you need to do this in a subsequent step like shown here:
+If you require the full version of the pyATS library including things like Genie
+then you need to do this in a subsequent step like shown here:
 
     pip3 install "pyats[full]"
 
-> **IMPORTANT**: The version of the Python client library  must be compatible with the version of the controller.  If you are running an older controller version then it's likely that the latest client library version from PyPI can **not** be used.  In this case, you need to either use the version available from the controller itself or by specifying a version constraint.
+> **IMPORTANT**: The version of the Python client library  must be compatible
+> with the version of the controller.  If you are running an older controller
+> version then it's likely that the latest client library version from PyPI can
+> **not** be used.  In this case, you need to either use the version available
+> from the controller itself or by specifying a version constraint.
 >
-> Example: When on a controller version 2.2.x, then you'd need to install with `pip3 install "virl2-client<2.3.0"`. This will ensure that the version installed is compatible with 2.2.x.
+> Example: When on a controller version 2.2.x, then you'd need to install with
+> `pip3 install "virl2-client<2.3.0"`. This will ensure that the version
+> installed is compatible with 2.2.x.
 
 ## Usage
 

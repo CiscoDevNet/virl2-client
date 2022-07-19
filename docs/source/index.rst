@@ -1,7 +1,7 @@
 .. virl2_client documentation master file, created by
 
 CML 2 API Client Documentation
-=======================================
+==============================
 
 This is the CML 2 client library (`virl2_client`). It provides a Python package
 to programmatically create, edit, delete and control network simulations on a

@@ -33,8 +33,8 @@ pyats = {version = "^22.4", optional = true}
 
 # needed to build documentation, technically, this is a dev-dependency
 # https://github.com/python-poetry/poetry/pull/606 -- no support
-sphinx_rtd_theme = {version="*", optional = true}
-sphinx =  {version="*", optional = true}
+sphinx_rtd_theme = {version="^1", optional = true}
+sphinx =  {version="^5", optional = true}
 
 [tool.poetry.dev-dependencies]
 flake8 = "^4.0.1"

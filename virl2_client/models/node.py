@@ -110,8 +110,7 @@ class Node:
     def __repr__(self):
         return (
             "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
-            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})"
-            .format(
+            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
                 str(self.lab),
                 self.id,

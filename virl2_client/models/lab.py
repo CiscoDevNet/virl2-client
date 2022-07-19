@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,38 +21,23 @@
 import json
 import logging
 import time
+from typing import Dict
 
 from .node import Node
 from .interface import Interface
 from .link import Link
-from ..exceptions import LabNotFound, LinkNotFound, NodeNotFound
+from ..exceptions import (
+    LabNotFound,
+    LinkNotFound,
+    NodeNotFound,
+    ElementAlreadyExists,
+)
 from .cl_pyats import ClPyats
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class Lab:
-    """A VIRL2 lab network topology. Contains nodes, links and interfaces.
-    Initializes a Lab instance.
-
-    :param title: Name / title of the lab
-    :type title: str
-    :param lab_id: A lab ID
-    :type lab_id: str
-    :param context: The context of the ClientLibrary that holds the connection data to the server
-    :type context: Context
-    :param username: Username of the user to authenticate
-    :type username: str
-    :param password: Password of the user to authenticate
-    :type password: str
-    :param auto_sync: Should local changes sync to the server automatically
-    :type auto_sync: bool
-    :param auto_sync_interval: Interval to auto sync in seconds
-    :type auto_sync_interval: int
-    :param wait: Wait for convergence on backend
-    :type auto_sync: bool
-    """
-
     def __init__(
         self,
         title,
@@ -63,8 +48,38 @@ class Lab:
         auto_sync=True,
         auto_sync_interval=1.0,
         wait=True,
+        wait_max_iterations=500,
+        wait_time=5,
+        hostname=None,
     ):
-        """Constructor method"""
+        """
+        A VIRL2 lab network topology. Contains nodes, links and interfaces.
+
+        :param title: Name / title of the lab
+        :type title: str
+        :param lab_id: A lab ID
+        :type lab_id: str
+        :param context: The context of the ClientLibrary that holds the connection data
+            to the server
+        :type context: Context
+        :param username: Username of the user to authenticate
+        :type username: str
+        :param password: Password of the user to authenticate
+        :type password: str
+        :param auto_sync: Should local changes sync to the server automatically
+        :type auto_sync: bool
+        :param auto_sync_interval: Interval to auto sync in seconds
+        :type auto_sync_interval: float
+        :param wait: Wait for convergence on backend
+        :type wait: bool
+        :param wait_max_iterations: Maximum number of tries or calls for convergence
+        :type wait_max_iterations: int
+        :param wait_time: Time to sleep between calls for convergence on backend
+        :type wait_time: int
+        :param hostname: Force hostname/ip and port for pyATS console terminal server
+        :type hostname: str
+        """
+
         self.username = username
         self.password = password
 
@@ -72,25 +87,25 @@ class Lab:
         self._description = ""
         self._notes = ""
         self._lab_id = lab_id
-        self._nodes = {}
         self._context = context
         self._owner = username
+        self._nodes: Dict[str, Node] = {}
         """
         Dictionary containing all nodes in the lab.
-        It maps node identifier to `virl2_client.models.Node`
+        It maps node identifier to `models.Node`
         """
-        self._links = {}
+        self._links: Dict[str, Link] = {}
         """
         Dictionary containing all links in the lab.
-        It maps link identifier to `virl2_client.models.Link`
+        It maps link identifier to `models.Link`
         """
-        self._interfaces = {}
+        self._interfaces: Dict[str, Interface] = {}
         """
         Dictionary containing all interfaces in the lab.
-        It maps interface identifier to `virl2_client.models.Interface`
+        It maps interface identifier to `models.Interface`
         """
         self.events = []
-        self.pyats = ClPyats(self)
+        self.pyats = ClPyats(self, hostname)
         self.auto_sync = auto_sync
         self.auto_sync_interval = auto_sync_interval
 
@@ -102,6 +117,8 @@ class Lab:
         self._initialized = False
 
         self.wait_for_convergence = wait
+        self.wait_max_iterations = wait_max_iterations
+        self.wait_time = wait_time
 
     def __len__(self):
         return len(self._nodes)
@@ -189,8 +206,8 @@ class Lab:
         :param value: The new lab title
         :type value: str
         """
-        url = self.lab_base_url + "/title"
-        response = self.session.put(url, data=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"title": value})
         response.raise_for_status()
         self._title = value
 
@@ -213,8 +230,8 @@ class Lab:
         :param value:
         :type value: str
         """
-        url = self.lab_base_url + "/notes"
-        response = self.session.put(url, data=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"notes": value})
         response.raise_for_status()
         self._notes = value
 
@@ -237,20 +254,10 @@ class Lab:
         :param value:
         :type value: str
         """
-        url = self.lab_base_url + "/description"
-        response = self.session.put(url, data=value)
+        url = self.lab_base_url
+        response = self.session.patch(url, json={"description": value})
         response.raise_for_status()
         self._description = value
-
-    @property
-    def client_uuid(self):
-        """
-        Returns the client UUID This random ID identifies a client session.
-
-        :returns: A UUID4
-        :rtype: str
-        """
-        return self._context.uuid
 
     @property
     def session(self):
@@ -278,7 +285,7 @@ class Lab:
         Returns the list of nodes in the lab.
 
         :returns: A list of Node objects
-        :rtype: list
+        :rtype: List[Node]
         """
         self.sync_topology_if_outdated()
         return list(self._nodes.values())
@@ -288,7 +295,7 @@ class Lab:
         Returns the list of links in the lab.
 
         :returns: A list of Link objects
-        :rtype: list
+        :rtype: List[Link]
         """
         self.sync_topology_if_outdated()
         return list(self._links.values())
@@ -298,7 +305,7 @@ class Lab:
         Returns the list of interfaces in the lab.
 
         :returns: A list of Interface objects
-        :rtype: list
+        :rtype: List[Interface]
         """
         self.sync_topology_if_outdated()
         return list(self._interfaces.values())
@@ -325,11 +332,11 @@ class Lab:
         """
         Returns the node identified by the node_id.
 
-        :param node_id:
+        :param node_id: ID of the node to be returned
         :type node_id: str
         :returns: A Node object
         :rtype: models.Node
-        :raises KeyError: if node not found
+        :raises NodeNotFound: if node not found
         """
         self.sync_topology_if_outdated()
         try:
@@ -341,7 +348,7 @@ class Lab:
         """
         Returns the node identified by the label.
 
-        :param label:
+        :param label: label of the node to be returned
         :type label: str
         :returns: A Node object
         :rtype: models.Node
@@ -351,8 +358,7 @@ class Lab:
         for node in self._nodes.values():
             if node.label == label:
                 return node
-        else:
-            raise NodeNotFound(label)
+        raise NodeNotFound(label)
 
     def get_link_by_nodes(self, node1, node2):
         """
@@ -369,21 +375,17 @@ class Lab:
         self.sync_topology_if_outdated()
         for link in self.links():
             link_node_pair = (link.interface_a.node, link.interface_b.node)
-
-            if (node1, node2) == link_node_pair:
+            if link_node_pair in ((node1, node2), (node2, node1)):
                 return link
-            elif (node2, node1) == link_node_pair:
-                return link
-        else:
-            raise LinkNotFound()
+        raise LinkNotFound()
 
     def get_link_by_interfaces(self, iface1, iface2):
         """
         Returns the link identified by two interfaces.
 
-        :param iface1: node id of first node
+        :param iface1: node ID of the first node
         :type iface1: str
-        :param iface2: node id of second node
+        :param iface2: node ID of the second node
         :type iface2: str
         :returns: A Link object
         :rtype: models.Link
@@ -392,28 +394,31 @@ class Lab:
         self.sync_topology_if_outdated()
         for link in self.links():
             link_iface_pair = (link.interface_a, link.interface_b)
-
-            if (iface1, iface2) == link_iface_pair:
+            if link_iface_pair in ((iface1, iface2), (iface2, iface1)):
                 return link
-            elif (iface2, iface1) == link_iface_pair:
-                return link
-        else:
-            raise LinkNotFound()
+        raise LinkNotFound()
 
     def find_nodes_by_tag(self, tag):
         """
-        Returns the node identified by the given tag.
+        Returns the nodes identified by the given tag.
 
-        :param tag:
+        :param tag: tag of the nodes to be returned
         :type tag: str
-        :returns: a list of tags
-        :rtype: list
+        :returns: a list of nodes
+        :rtype: List[Node]
         """
         self.sync_topology_if_outdated()
         return [node for node in self.nodes() if tag in node.tags()]
 
     def create_node(
-        self, label, node_definition, x=0, y=0, wait=None, populate_interfaces=False
+        self,
+        label,
+        node_definition,
+        x=0,
+        y=0,
+        wait=None,
+        populate_interfaces=False,
+        **kwargs
     ):
         """
         Creates a node in the lab with the given parameters.
@@ -422,13 +427,15 @@ class Lab:
         :type label: str
         :param node_definition: Node definition to use
         :type label: str
-        :param x: x co-ordinate
+        :param x: x coordinate
         :type x: int
-        :param y: y co-ordinate
+        :param y: y coordinate
         :type y: int
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
-        :param populate_interfaces: automatically create pre-defined number of interfaces on node creation
+        :param populate_interfaces: automatically create pre-defined number
+            of interfaces on node creation
         :returns: a Node object
         :rtype: models.Node
         """
@@ -436,13 +443,11 @@ class Lab:
         url = self.lab_base_url + "/nodes"
         if populate_interfaces:
             url += "?populate_interfaces=true"
-        data = {
-            "label": label,
-            "node_definition": node_definition,
-            "x": x,
-            "y": y,
-        }
-        response = self.session.post(url, json=data)
+        kwargs["label"] = label
+        kwargs["node_definition"] = node_definition
+        kwargs["x"] = x
+        kwargs["y"] = y
+        response = self.session.post(url, json=kwargs)
         result = response.json()
         response.raise_for_status()
         node_id = result["id"]
@@ -454,7 +459,6 @@ class Lab:
 
         # fetch default image def
         image_definition = None
-        config = ""
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
@@ -480,9 +484,10 @@ class Lab:
         boot_disk_size=0,
         tags=None,
     ):
-        "Helper function to add a node to the client library."
+        """Helper function to add a node to the client library."""
         if tags is None:
-            # TODO: see if can deprecate now tags set automatically on server at creation
+            # TODO: see if can deprecate now tags set automatically
+            # on server at creation
             tags = []
         node = Node(
             self,
@@ -507,9 +512,10 @@ class Lab:
         """
         Removes a node from the lab.
 
-        :param node: the node id
-        :type node: str
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param node: the node
+        :type node: Node
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         node.remove_on_server()
@@ -518,28 +524,32 @@ class Lab:
                 try:
                     del self._links[lnk.id]
                 except KeyError:
-                    # element may already have been deleted on server, and removed locally due to auto-sync
+                    # element may already have been deleted on server,
+                    # and removed locally due to auto-sync
                     pass
             try:
                 del self._interfaces[iface.id]
             except KeyError:
-                # element may already have been deleted on server, and removed locally due to auto-sync
+                # element may already have been deleted on server,
+                # and removed locally due to auto-sync
                 pass
         try:
             del self._nodes[node.id]
         except KeyError:
-            # element may already have been deleted on server, and removed locally due to auto-sync
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
             pass
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("%s node removed from lab %s", node.id, self._lab_id)
+        _LOGGER.debug("%s node removed from lab %s", node.id, self._lab_id)
 
     def remove_nodes(self, wait=None):
         """
         Remove all nodes from the lab.
 
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         # TODO: see if this is used - in testing?
@@ -548,34 +558,36 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("all nodes removed from lab %s", self._lab_id)
+        _LOGGER.debug("all nodes removed from lab %s", self._lab_id)
 
     def remove_link(self, link, wait=None):
         """
         Removes a link from the lab.
 
-        :param link: the link ID
-        :type link: str
-        :param wait: Wait for convergence (if left at default, the lab wait property takes precedence)
+        :param link: the link
+        :type link: Link
+        :param wait: Wait for convergence (if left at default,
+            the lab wait property takes precedence)
         :type wait: bool
         """
         link.remove_on_server()
         try:
             del self._links[link.id]
         except KeyError:
-            # element may already have been deleted on server, and removed locally due to auto-sync
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
             pass
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("link %s removed from lab %s", link.id, self._lab_id)
+        _LOGGER.debug("link %s removed from lab %s", link.id, self._lab_id)
 
     def remove_interface(self, iface, wait=None):
         """
         Removes an interface from the lab.
 
-        :param iface: the interface ID
-        :type iface: str
+        :param iface: the interface
+        :type iface: Interface
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
         :type wait: bool
@@ -597,7 +609,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("interface %s removed from lab %s", iface.id, self._lab_id)
+        _LOGGER.debug("interface %s removed from lab %s", iface.id, self._lab_id)
 
     def create_link(self, i1, i2, wait=None):
         """
@@ -644,7 +656,7 @@ class Lab:
         return self.create_link(iface1, iface2)
 
     def create_link_local(self, i1, i2, link_id):
-        "Helper function to create a link in the client library."
+        """Helper function to create a link in the client library."""
         link = Link(self, link_id, i1, i2)
         self._links[link_id] = link
         return link
@@ -695,7 +707,7 @@ class Lab:
     def create_interface_local(
         self, iface_id, label, node, slot, iface_type="physical"
     ):
-        "Helper function to create an interface in the client library."
+        """Helper function to create an interface in the client library."""
         if iface_id not in self._interfaces:
             iface = Interface(iface_id, node, label, slot, iface_type)
             self._interfaces[iface_id] = iface
@@ -703,11 +715,11 @@ class Lab:
             self._interfaces[iface_id].node = node
             self._interfaces[iface_id].label = label
             self._interfaces[iface_id].slot = slot
-            self._interfaces[iface_id].iface_type = iface_type
+            self._interfaces[iface_id].type = iface_type
         return self._interfaces[iface_id]
 
     def sync_statistics(self):
-        "Retrieve the simulation statistic data from the back end server."
+        """Retrieve the simulation statistic data from the back end server."""
         url = self.lab_base_url + "/simulation_stats"
         response = self.session.get(url)
         response.raise_for_status()
@@ -727,7 +739,7 @@ class Lab:
                 disk_write = 0
 
             self._nodes[node_id].statistics = {
-                "cpu_usage": float(node_data["cpu_usage"]),
+                "cpu_usage": float(node_data.get("cpu_usage", 0)),
                 "disk_read": disk_read,
                 "disk_write": disk_write,
             }
@@ -780,7 +792,9 @@ class Lab:
         self._last_sync_statistics_time = time.time()
 
     def sync_states(self):
-        "Sync all the states of the various elements with the back end server."
+        """
+        Sync all the states of the various elements with the back end server.
+        """
         url = self.lab_base_url + "/lab_element_state"
         response = self.session.get(url)
         response.raise_for_status()
@@ -805,27 +819,37 @@ class Lab:
 
         self._last_sync_state_time = time.time()
 
-    def wait_until_lab_converged(self, max_iterations=500):
-        "Wait until all the lab nodes have booted."
-        logger.info("Waiting for lab %s to converge", self._lab_id)
-        for index in range(max_iterations):
+    def wait_until_lab_converged(self, max_iterations=None, wait_time=None):
+        """Wait until lab converge."""
+        max_iter = (
+            self.wait_max_iterations if max_iterations is None else max_iterations
+        )
+        wait_time = self.wait_time if wait_time is None else wait_time
+        _LOGGER.info("Waiting for lab %s to converge", self._lab_id)
+        for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Lab %s has booted", self._lab_id)
+                _LOGGER.info("Lab %s has booted", self._lab_id)
                 return
 
             if index % 10 == 0:
-                logging.info(
+                _LOGGER.info(
                     "Lab has not converged, attempt %s/%s, waiting...",
                     index,
-                    max_iterations,
+                    max_iter,
                 )
-            time.sleep(5)
-        logger.info(
-            "Lab %s has not converged, maximum tries %s exceeded",
-            self._lab_id,
-            max_iterations,
+            time.sleep(wait_time)
+
+        msg = "Lab %s has not converged, maximum tries %s exceeded" % (
+            self.id,
+            max_iter,
         )
+        _LOGGER.error(msg)
+        # after maximum retries are exceeded and lab has not converged
+        # error must be raised - it makes no sense to just log info
+        # and let client fail with something else if wait is explicitly
+        # specified
+        raise RuntimeError(msg)
 
     def has_converged(self):
         url = self.lab_base_url + "/check_if_converged"
@@ -847,7 +871,7 @@ class Lab:
         response.raise_for_status()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("started lab: %s", self._lab_id)
+        _LOGGER.debug("started lab: %s", self._lab_id)
 
     def state(self):
         """
@@ -859,13 +883,17 @@ class Lab:
         url = self.lab_base_url + "/state"
         response = self.session.get(url)
         response.raise_for_status()
-        logger.debug("lab state: %s -> %s", self._lab_id, response.text)
+        _LOGGER.debug("lab state: %s -> %s", self._lab_id, response.text)
         return response.json()
 
     def is_active(self):
-        "Returns if the lab is running."
-        simulated_states = {"STARTED", "QUEUED", "BOOTED"}
-        return self.state() in simulated_states
+        """
+        Returns whether the lab is started.
+
+        :returns: Whether the lab is started
+        :rtype: bool
+        """
+        return self.state() == "STARTED"
 
     def details(self):
         """
@@ -877,7 +905,7 @@ class Lab:
         url = self.lab_base_url
         response = self.session.get(url)
         response.raise_for_status()
-        logger.debug("lab state: %s -> %s", self._lab_id, response.text)
+        _LOGGER.debug("lab state: %s -> %s", self._lab_id, response.text)
         return response.json()
 
     def stop(self, wait=None):
@@ -893,7 +921,7 @@ class Lab:
         response.raise_for_status()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("stopped lab: %s", self._lab_id)
+        _LOGGER.debug("stopped lab: %s", self._lab_id)
 
     def wipe(self, wait=None):
         """
@@ -908,7 +936,7 @@ class Lab:
         response.raise_for_status()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("wiped lab: %s", self._lab_id)
+        _LOGGER.debug("wiped lab: %s", self._lab_id)
 
     def remove(self):
         """
@@ -924,7 +952,7 @@ class Lab:
         url = self.lab_base_url
         response = self.session.delete(url)
         response.raise_for_status()
-        logger.debug("removed lab: %s", response.text)
+        _LOGGER.debug("removed lab: %s", response.text)
 
     def sync_events(self):
         # TODO: return a boolean if events have changed since last run
@@ -959,14 +987,14 @@ class Lab:
             of the nodes itself
         :type with_node_configurations: bool
         """
-        self._sync_topology(with_node_configurations)
+        self._sync_topology(not with_node_configurations)
 
         if not topology_only:
             self.sync_statistics()
             self.sync_layer3_addresses()
 
     def _sync_topology(self, exclude_configurations=False):
-        "Helper function to sync topologies from the backend server."
+        """Helper function to sync topologies from the backend server."""
         # TODO: check what happens if call twice
         url = self._context.base_url + "labs/{}".format(self._lab_id) + "/topology"
         params = {"exclude_configurations": exclude_configurations}
@@ -991,34 +1019,59 @@ class Lab:
         self._last_sync_topology_time = time.time()
 
     def import_lab(self, topology):
-        self._title = topology["lab_title"]
-        self._description = topology["lab_description"]
-        self._notes = topology["lab_notes"]
-        self._owner = topology.get("lab_owner", self.username)
-        # TODO: add support for origin_id etc
+        self._import_lab(topology)
 
         for node in topology["nodes"]:
             node_id = node["id"]
             if node_id in self._nodes:
-                raise Exception("Node already exists")
-            node_data = node["data"]
-            self._import_node(node_id, node_data)
+                raise ElementAlreadyExists("Node already exists")
+            self._import_node(node_id, node)
 
-        for iface in topology["interfaces"]:
-            iface_id = iface["id"]
-            if iface_id in self._interfaces:
-                raise Exception("Interface already exists")
-            iface_data = iface["data"]
-            node_id = iface["node"]
-            self._import_interface(iface_id, node_id, iface_data)
+            if "interfaces" not in node:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
+            for iface in node["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in self._interfaces:
+                    raise ElementAlreadyExists("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
+
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                node_id = iface["node"]
+                if iface_id in self._interfaces:
+                    raise ElementAlreadyExists("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
 
         for link in topology["links"]:
             link_id = link["id"]
             if link_id in self._links:
-                raise Exception("Link already exists")
+                raise ElementAlreadyExists("Link already exists")
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
             self._import_link(link_id, iface_b_id, iface_a_id)
+
+    def _import_lab(self, topology):
+        """
+        Replaces lab properties. Will raise KeyError if not all
+        properties are in topology.
+        """
+        lab_dict = topology.get("lab")
+        if lab_dict is None:
+            _LOGGER.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            self._title = topology["lab_title"]
+            self._description = topology["lab_description"]
+            self._notes = topology["lab_notes"]
+            self._owner = topology["lab_owner"]
+            # topology.get("lab_owner", self.username)
+        else:
+            self._title = lab_dict["title"]
+            self._description = lab_dict["description"]
+            self._notes = lab_dict["notes"]
+            self._owner = lab_dict.get("owner", self.username)
 
     def _import_link(self, link_id, iface_b_id, iface_a_id):
         iface_a = self._interfaces[iface_a_id]
@@ -1026,18 +1079,24 @@ class Lab:
         return self.create_link_local(iface_a, iface_b, link_id)
 
     def _import_interface(self, iface_id, node_id, iface_data):
+        if "data" in iface_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            iface_data = iface_data["data"]
         label = iface_data["label"]
-        slot = iface_data["slot"]
+        slot = iface_data.get("slot")
         iface_type = iface_data["type"]
         node = self._nodes[node_id]
         return self.create_interface_local(iface_id, label, node, slot, iface_type)
 
     def _import_node(self, node_id, node_data):
+        if "data" in node_data:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            node_data = node_data["data"]
         label = node_data["label"]
         x = node_data["x"]
         y = node_data["y"]
         node_definition = node_data["node_definition"]
-        image_definition = node_data["image_definition"]
+        image_definition = node_data.get("image_definition", None)
         ram = node_data["ram"]
         cpus = node_data["cpus"]
         cpu_limit = node_data.get("cpu_limit", 100)
@@ -1062,11 +1121,7 @@ class Lab:
         )
 
     def update_lab(self, topology, exclude_configurations):
-        self._title = topology["lab_title"]
-        self._description = topology["lab_description"]
-        self._notes = topology["lab_notes"]
-        self._owner = topology.get("lab_owner", self.username)
-        # TODO: add support for origin_id etc
+        self._import_lab(topology)
 
         # add in order: node -> interface -> link
         # remove in reverse, eg link -> interface -> node
@@ -1076,9 +1131,15 @@ class Lab:
 
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
-        update_interface_keys = set(
-            interface["id"] for interface in topology["interfaces"]
-        )
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            update_interface_keys = set(iface["id"] for iface in topology["interfaces"])
+        else:
+            update_interface_keys = set(
+                interface["id"]
+                for node in topology["nodes"]
+                for interface in node["interfaces"]
+            )
 
         # removed elements
         removed_nodes = existing_node_keys - update_node_keys
@@ -1087,17 +1148,17 @@ class Lab:
 
         for link_id in removed_links:
             link = self._links[link_id]
-            logger.warning("Removed link %s", link)
+            _LOGGER.warning("Removed link %s", link)
             del self._links[link_id]
 
         for interface_id in removed_interfaces:
             interface = self._interfaces[interface_id]
-            logger.warning("Removed interface %s", interface)
+            _LOGGER.warning("Removed interface %s", interface)
             del self._interfaces[interface_id]
 
         for node_id in removed_nodes:
             node = self._nodes[node_id]
-            logger.warning("Removed node %s", node)
+            _LOGGER.warning("Removed node %s", node)
             del self._nodes[node_id]
 
         # new elements
@@ -1105,71 +1166,81 @@ class Lab:
         new_links = update_link_keys - existing_link_keys
         new_interfaces = update_interface_keys - existing_interface_keys
 
-        for node_id in new_nodes:
-            node = self._find_node_in_topology(node_id, topology)
-            node_data = node["data"]
-            node = self._import_node(node_id, node_data)
-            logger.info("Added node %s", node)
+        for node in topology["nodes"]:
+            node_id = node["id"]
+            if node_id in new_nodes:
+                node = self._import_node(node_id, node)
+                _LOGGER.info("Added node %s", node)
 
-        for interface_id in new_interfaces:
-            interface = self._find_interface_in_topology(interface_id, topology)
-            interface_data = interface["data"]
-            node_id = interface["node"]
-            interface = self._import_interface(interface_id, node_id, interface_data)
-            logger.info("Added interface %s", interface)
+            if "interfaces" in topology:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
+            for interface in node["interfaces"]:
+                interface_id = interface["id"]
+                if interface_id in new_interfaces:
+                    interface = self._import_interface(interface_id, node_id, interface)
+                    _LOGGER.info("Added interface %s", interface)
+
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in new_interfaces:
+                    node_id = iface["node"]
+                    self._import_interface(iface_id, node_id, iface)
 
         for link_id in new_links:
             link_data = self._find_link_in_topology(link_id, topology)
             iface_a_id = link_data["interface_a"]
             iface_b_id = link_data["interface_b"]
             link = self._import_link(link_id, iface_b_id, iface_a_id)
-            logger.info("Added link %s", link)
+            _LOGGER.info("Added link %s", link)
 
         # kept elements
         kept_nodes = update_node_keys.intersection(existing_node_keys)
-        kept_links = update_link_keys.intersection(existing_link_keys)
-        kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
+        # kept_links = update_link_keys.intersection(existing_link_keys)
+        # kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
 
         for node_id in kept_nodes:
             node = self._find_node_in_topology(node_id, topology)
-            node_data = node["data"]
             lab_node = self._nodes[node_id]
-            lab_node.update(node_data, exclude_configurations)
+            lab_node.update(node, exclude_configurations)
 
-        for interface_id in kept_interfaces:
-            interface_data = self._find_interface_in_topology(interface_id, topology)
-            # For now, can't update interface data server-side, this will
-            # change with tags
-            pass
+        # For now, can't update interface data server-side, this will change with tags
+        # for interface_id in kept_interfaces:
+        #     interface_data = self._find_interface_in_topology(interface_id, topology)
 
-        for link_id in kept_links:
-            link_data = self._find_link_in_topology(link_id, topology)
-            # For now, can't update link data server-side, this will change
-            # with tags
-            pass
+        # For now, can't update link data server-side, this will change with tags
+        # for link_id in kept_links:
+        #     link_data = self._find_link_in_topology(link_id, topology)
 
-    def _find_link_in_topology(self, link_id, topology):
+    @staticmethod
+    def _find_link_in_topology(link_id, topology):
         for link in topology["links"]:
             if link["id"] == link_id:
                 return link
         # if cannot find, is an internal structure error
         return
 
-    def _find_interface_in_topology(self, interface_id, topology):
-        for interface in topology["interfaces"]:
-            if interface["id"] == interface_id:
-                return interface
-        # if cannot find, is an internal structure error
-        return
+    # @staticmethod
+    # def _find_interface_in_topology(interface_id, topology):
+    #     for node in topology["nodes"]:
+    #         for interface in node["interfaces"]:
+    #             if interface["id"] == interface_id:
+    #                 return interface
+    #     # if cannot find, is an internal structure error
+    #     return
 
-    def _find_node_in_topology(self, node_id, topology):
+    @staticmethod
+    def _find_node_in_topology(node_id, topology):
         for node in topology["nodes"]:
             if node["id"] == node_id:
                 return node
         # if cannot find, is an internal structure error
         return
 
-    def get_pyats_testbed(self):
+    def get_pyats_testbed(self, hostname=None):
         """
         Return lab's pyATS YAML testbed. Example usage::
 
@@ -1185,18 +1256,23 @@ class Lab:
 
             aetest.main(testbed=testbed)
 
+        :param hostname: Force hostname/ip and port for console terminal server
+        :type hostname: str
         :returns: The pyATS testbed for the lab in YAML format
         :rtype: str
         """
         url = self._context.base_url + "labs/{}".format(self._lab_id) + "/pyats_testbed"
-        result = self.session.get(url)
+        params = {}
+        if hostname is not None:
+            params["hostname"] = hostname
+        result = self.session.get(url, params=params)
         return result.text
 
     def sync_pyats(self):
         self.pyats.sync_testbed(self.username, self.password)
 
     def sync_layer3_addresses(self):
-        "Syncs all layer 3 IP addresses from the backend server."
+        """Syncs all layer 3 IP addresses from the backend server."""
         url = self.lab_base_url + "/layer3_addresses"
         response = self.session.get(url)
         response.raise_for_status()
@@ -1208,7 +1284,7 @@ class Lab:
         self._last_sync_l3_address_time = time.time()
 
     def cleanup_pyats_connections(self):
-        "Closes and cleans up connection that pyATS might still hold."
+        """Closes and cleans up connection that pyATS might still hold."""
         self.pyats.cleanup()
 
     def download(self):

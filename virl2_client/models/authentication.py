@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,18 +19,18 @@
 #
 
 import logging
-import uuid
 from urllib.parse import urljoin, urlparse
 
 import requests
+import requests.auth
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class TokenAuth(requests.auth.AuthBase):
     """
     Inspired by:
-    http://docs.python-requests.org/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
+    http://requests.readthedocs.io/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
     """
 
     def __init__(self, client_library):
@@ -48,14 +48,14 @@ class TokenAuth(requests.auth.AuthBase):
         # As almost every library call uses "raise_for_status()"
         if resp.status_code != 401:
             if not resp.ok:
-                logger.error("API Error: %s", resp.text)
+                _LOGGER.error("API Error: %s", resp.text)
             return resp
 
         # reset existing token:
         self.token = None
         # repeat last request that has failed
         token = self.authenticate()
-        logger.warning("re-auth called on 401 unauthorized")
+        _LOGGER.warning("re-auth called on 401 unauthorized")
         request = resp.request.copy()
         request.headers["Authorization"] = "Bearer {}".format(token)
         request.deregister_hook("response", self.handle_401_unauthorized)
@@ -71,9 +71,9 @@ class TokenAuth(requests.auth.AuthBase):
         )  # pylint: disable=W0212
         parsed_url = urlparse(url)
         if parsed_url.port is not None and parsed_url.port != 443:
-            logger.warning("Not using SSL port of 443: %d", parsed_url.port)
+            _LOGGER.warning("Not using SSL port of 443: %d", parsed_url.port)
         if parsed_url.scheme != "https":
-            logger.warning("Not using https scheme: %s", parsed_url.scheme)
+            _LOGGER.warning("Not using https scheme: %s", parsed_url.scheme)
         data = {
             "username": self.client_library.username,
             "password": self.client_library.password,
@@ -93,23 +93,18 @@ class TokenAuth(requests.auth.AuthBase):
 
 
 class Context:
-    def __init__(self, base_url, requests_session=None, client_uuid=None):
+    def __init__(self, base_url, requests_session=None):
         self._base_url = base_url
-        if client_uuid is None:
-            self._client_uuid = str(uuid.uuid4())
-        else:
-            self._client_uuid = client_uuid
         if requests_session is None:
             self._requests_session = requests.Session()
         else:
             self._requests_session = requests_session
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r})".format(
+        return "{}({!r}, {!r}".format(
             self.__class__.__name__,
             self._base_url,
             self._requests_session,
-            self._client_uuid,
         )
 
     @property
@@ -119,7 +114,3 @@ class Context:
     @property
     def session(self):
         return self._requests_session
-
-    @property
-    def uuid(self):
-        return self._client_uuid

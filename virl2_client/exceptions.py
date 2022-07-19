@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,17 +19,37 @@
 #
 
 
-class NodeNotFound(Exception):
+class VirlException(Exception):
     pass
 
 
-class LinkNotFound(Exception):
+class InitializationError(VirlException):
     pass
 
 
-class InterfaceNotFound(Exception):
+class ElementAlreadyExists(VirlException, FileExistsError):
     pass
 
 
-class LabNotFound(Exception):
+class ElementNotFound(VirlException, KeyError):
+    pass
+
+
+class NodeNotFound(ElementNotFound):
+    pass
+
+
+class LinkNotFound(ElementNotFound):
+    pass
+
+
+class InterfaceNotFound(ElementNotFound):
+    pass
+
+
+class LabNotFound(ElementNotFound):
+    pass
+
+
+class DesynchronizedError(VirlException):
     pass

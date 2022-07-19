@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,7 +51,9 @@ cl = ClientLibrary("http://localhost:8001", "cml2", "cml2cml2", allow_http=True)
 cl.is_system_ready(wait=True)
 
 # set transport if needed - also proxy can be set if needed
-# cl.licensing.licensing.set_transport(ssms=ssms, proxy_server="172.16.1.100", proxy_port=8888)
+# cl.licensing.licensing.set_transport(
+#     ssms=ssms, proxy_server="172.16.1.100", proxy_port=8888
+# )
 cl.licensing.set_transport(ssms=SSMS)
 cl.licensing.install_certificate(cert=CERT)
 # 'register_wait' method waits max 45s for registration status to become COMPLETED
@@ -94,5 +96,5 @@ assert [link for link in lab.links() if link.state is not None] == []
 status = cl.licensing.deregister()
 cl.licensing.remove_certificate()
 # set licensing back to default transport
-# default ssms is "https://tools.cisco.com/its/service/oddce/services/DDCEService"
+# default ssms is "https://smartreceiver.cisco.com/licservice/license"
 cl.licensing.set_default_transport()

@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,24 +18,19 @@
 # limitations under the License.
 #
 
-import logging
 import os
 import time
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
-logger = logging.getLogger(__name__)
-
 
 class NodeImageDefinitions:
-    """
-    VIRL2 Definition classes to specify a node VM and associated disk images.
-
-    :param context: the authentication context to use
-    :type context: authentication.Context
-    """
-
     def __init__(self, context):
-        """Constructor method"""
+        """
+        VIRL2 Definition classes to specify a node VM and associated disk images.
+
+        :param context: the authentication context to use
+        :type context: authentication.Context
+        """
         self._context = context
 
     @property
@@ -59,12 +54,24 @@ class NodeImageDefinitions:
         return self._context.base_url
 
     def node_definitions(self):
+        """
+        Returns all node definitions.
+
+        :return: list of node definitions
+        :rtype: List[Dict]
+        """
         url = self._base_url + "node_definitions/"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
     def image_definitions(self):
+        """
+        Returns all image definitions.
+
+        :return: list of image definitions
+        :rtype: List[Dict]
+        """
         url = self._base_url + "image_definitions/"
         response = self.session.get(url)
         response.raise_for_status()
@@ -72,15 +79,16 @@ class NodeImageDefinitions:
 
     def image_definitions_for_node_definition(self, definition_id):
         """
-        Returns the image definition for a given node definition
+        Returns all image definitions for a given node definition
 
         example::
 
             client_library.definitions.image_definitions_for_node_definition("iosv")
 
-        :param definition_id:
-        :returns: the image definition as JSON
-        :rtype: str
+        :param definition_id: node definition id
+        :type definition_id: str
+        :returns: list of image definition objects
+        :rtype: List[Dict]
         """
         url = (
             self._base_url + "node_definitions/" + definition_id + "/image_definitions"
@@ -89,15 +97,43 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def upload_node_definition(self, body):
+    def upload_node_definition(self, body, json=False):
+        """
+        Upload new node definition.
+
+        :param body: node definition (yaml or json)
+        :type: str or dict
+        :param json: whether we are sending json data
+        :type json: bool
+        :return: "Success"
+        :rtype: str
+        """
         url = self._base_url + "node_definitions/"
-        response = self.session.post(url, data=body)
+        if json:
+            response = self.session.post(url, json=body)
+        else:
+            # YAML
+            response = self.session.post(url, data=body)
         response.raise_for_status()
         return response.json()
 
-    def upload_image_definition(self, body):
+    def upload_image_definition(self, body, json=False):
+        """
+        Upload new image definition.
+
+        :param body: image definition (yaml or json)
+        :type: str or dict
+        :param json: whether we are sending json data
+        :type json: bool
+        :return: "Success"
+        :rtype: str
+        """
         url = self._base_url + "image_definitions/"
-        response = self.session.post(url, data=body)
+        if json:
+            response = self.session.post(url, json=body)
+        else:
+            # YAML
+            response = self.session.post(url, data=body)
         response.raise_for_status()
         return response.json()
 
@@ -109,9 +145,9 @@ class NodeImageDefinitions:
 
             client_library.definitions.download_node_definition("iosv")
 
-        :param definition_id:
+        :param definition_id: the node definition ID
         :type definition_id: str
-        :returns: the node definition as JSON
+        :returns: the node definition as YAML
         :rtype: str
         """
         url = self._base_url + "node_definitions/" + definition_id
@@ -125,9 +161,9 @@ class NodeImageDefinitions:
 
             client_library.definitions.download_image_definition("iosv-158-3")
 
-        :param definition_id: the node definition ID
+        :param definition_id: the image definition ID
         :type definition_id: str
-        :returns: the image definition as JSON
+        :returns: the image definition as YAML
         :rtype: str
         """
 
@@ -143,7 +179,8 @@ class NodeImageDefinitions:
         :type filename: str
         :param rename:  Optional filename to rename to
         :type rename: str
-        :param chunk_size_mb: Optional size of upload chunk (mb) (deprecated since 2.2.0)
+        :param chunk_size_mb: Optional size of upload chunk (mb)
+            (deprecated since 2.2.0)
         :type chunk_size_mb: int
         """
         url = self._base_url + "images/upload"
@@ -183,12 +220,13 @@ class NodeImageDefinitions:
 
         :param definition_id: the definition ID to delete
         :type definition_id: str
+        :returns: "Success"
+        :rtype: str
         """
 
         url = self._base_url + "node_definitions/" + definition_id
         response = self.session.delete(url)
         response.raise_for_status()
-        return response.json()
 
     def remove_image_definition(self, definition_id):
         """
@@ -200,43 +238,13 @@ class NodeImageDefinitions:
 
         :param definition_id: the image definition ID to remove
         :type definition_id: str
+        :returns: "Success"
+        :rtype: str
         """
 
         url = self._base_url + "image_definitions/" + definition_id
         response = self.session.delete(url)
         response.raise_for_status()
-        return response.json()
-
-    def create_image_definition(self, image_id, node_definition_id, label, disk_image):
-        """
-        Creates a new image definition.
-
-        Example::
-
-            client_library.definitions.create_image_definition("test-1", "iosv", "test", "test.img")
-
-        :param image_id: the ID of the new image definition
-        :type image_id: str
-        :param node_definition_id: the node definition ID for this image definition
-        :type node_definition_id: str
-        :param label: the label of the new image definition
-        :type label: str
-        :param disk_image: the name of the .qcow2 disk image (must exist on server)
-        :type disk_image: str
-        """
-        body = {
-            "id": image_id,
-            "node_definition_id": node_definition_id,
-            "label": label,
-            "disk_image": disk_image,
-        }
-
-        params = {"json": True}
-
-        url = self._base_url + "image_definitions/" + image_id
-        response = self.session.post(url, json=body, params=params)
-        response.raise_for_status()
-        return response.json()
 
 
 def progress_callback(monitor):

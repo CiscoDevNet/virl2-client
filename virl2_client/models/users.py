@@ -1,9 +1,9 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020 Cisco Systems Inc.
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,8 @@
 # limitations under the License.
 #
 
-import logging
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-
-class UserManagement(object):
+class UserManagement:
     def __init__(self, context):
         self.ctx = context
 
@@ -37,40 +31,10 @@ class UserManagement(object):
         """
         Get the list of available users.
 
-        :return: mapping form username to user object
-        :rtype:  dict
+        :return: list of user objects
+        :rtype:  list
         """
         response = self.ctx.session.get(self.base_url)
-        response.raise_for_status()
-        return response.json()
-
-    def user_roles(self):
-        """
-        Get roles for this user.
-
-        :return: current user roles
-        :rtype: list
-        """
-        url = self.ctx.base_url + "/user/roles"
-        response = self.ctx.session.get(url)
-        response.raise_for_status()
-        return response.json()
-
-    def change_password(self, user_id, old_pwd, new_pwd):
-        """
-        Changes user password.
-
-        :param user_id: username
-        :type user_id: str
-        :param old_pwd: old password
-        :type old_pwd: str
-        :param new_pwd: new password
-        :type new_pwd: str
-        :return: None
-        """
-        data = {"old_password": old_pwd, "new_password": new_pwd}
-        url = self.base_url + "/{}/change_password".format(user_id)
-        response = self.ctx.session.put(url, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -78,7 +42,8 @@ class UserManagement(object):
         """
         Gets user info.
 
-        :param user_id: username
+        :param user_id: user uuid4
+        :type user_id: str
         :return: user object
         :rtype: dict
         """
@@ -91,45 +56,89 @@ class UserManagement(object):
         """
         Deletes user.
 
-        :param user_id: username
-        :return: OK
-        :rtype str
+        :param user_id: user uuid4
+        :type user_id: str
+        :return: None
         """
         url = self.base_url + "/{}".format(user_id)
         response = self.ctx.session.delete(url)
         response.raise_for_status()
-        return response.json()
 
     def create_user(
-        self, user_id, pwd, fullname="", description="", roles=None, groups=None
+        self, username, pwd, fullname="", description="", admin=False, groups=None
     ):
         """
         Creates user.
 
-        :param user_id: username
-        :type user_id: str
+        :param username: username
+        :type username: str
         :param pwd: desired password
         :type pwd: str
         :param fullname: full name
         :type fullname: str
         :param description: description
         :type description: str
-        :param roles: roles to give to user
-        :type roles: List[str]
+        :param admin: whether to create admin user
+        :type admin: bool
         :param groups: adds user to groups specified
         :type groups: List[str]
-        :return: OK
-        :rtype: str
+        :return: user object
+        :rtype: Dict
         """
         data = {
+            "username": username,
             "password": pwd,
             "fullname": fullname,
             "description": description,
-            "roles": roles or ["USER"],
+            "admin": admin,
             "groups": groups or [],
         }
-        url = self.base_url + "/{}".format(user_id)
+        url = self.base_url
         response = self.ctx.session.post(url, json=data)
+        response.raise_for_status()
+        return response.json()
+
+    def update_user(
+        self,
+        user_id,
+        fullname="",
+        description="",
+        groups=None,
+        admin=None,
+        password_dict=None,
+    ):
+        """
+        Updates user.
+
+        :param user_id: user uuid4
+        :type user_id: str
+        :param fullname: full name
+        :type fullname: str
+        :param description: description
+        :type description: str
+        :param admin: whether to create admin user
+        :type admin: bool
+        :param groups: adds user to groups specified
+        :type groups: List[str]
+        :param password_dict: dict containing old and new passwords
+        :type password_dict: Dict[str:str]
+        :return: user object
+        :rtype: Dict
+        """
+        data = {}
+        if fullname:
+            data["fullname"] = fullname
+        if description:
+            data["description"] = description
+        if admin is not None:
+            data["admin"] = admin
+        if groups is not None:
+            data["groups"] = groups
+        if password_dict is not None:
+            data["password"] = password_dict
+
+        url = self.base_url + "/{}".format(user_id)
+        response = self.ctx.session.patch(url, json=data)
         response.raise_for_status()
         return response.json()
 
@@ -137,7 +146,7 @@ class UserManagement(object):
         """
         Get the groups the user is member of.
 
-        :param user_id: username
+        :param user_id: user uuid4
         :type user_id: str
         """
         url = self.base_url + "/{}/groups".format(user_id)
@@ -145,19 +154,16 @@ class UserManagement(object):
         response.raise_for_status()
         return response.json()
 
-    def update_roles(self, user_id, roles=None):
+    def user_id(self, username):
         """
-        Updates user roles
+        Get unique user uuid4.
 
-        :param user_id:
-        :type user_id: str
-        :param roles:
-        :type roles: List[str]
-        :return: Success
+        :param username: user name
+        :type username: str
+        :return: user unique identifier
         :rtype: str
         """
-        data = roles or []
-        url = self.base_url + "/{}/roles".format(user_id)
-        response = self.ctx.session.put(url, json=data)
+        url = self.base_url + "/{}/id".format(username)
+        response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()

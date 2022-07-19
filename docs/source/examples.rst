@@ -117,7 +117,7 @@ and is interactive::
 
     LAB_USERNAME = 'cisco'
     LAB_PASSWORD = 'cisco'
-    VIRL_CONTROLLER = 'virl2-controller'
+    VIRL_CONTROLLER = 'cml2-controller'
     VIRL_USERNAME = input('username: ')
     VIRL_PASSWORD = getpass.getpass('password: ')
 
@@ -180,15 +180,19 @@ and retrieve licensing status using the the VIRL2 client library::
     import json
     from virl2_client import ClientLibrary
 
-    VIRL_CONTROLLER = "virl2-controller"
+    VIRL_CONTROLLER = "cml2-controller"
     VIRL_USERNAME = input("username: ")
     VIRL_PASSWORD = getpass.getpass("password: ")
-    SL_TOKEN = input("Smart License token: ")
+    SL_TOKEN = input("smart license token: ")
+    PRODUCT_CONFIG = input("product configuration: ")
 
     client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
 
     # Get the licensing handle from the client as a property
     licensing = client.licensing
+
+    # Set the product configuration
+    licensing.set_product_license(PRODUCT_CONFIG)
 
     # Setup default license transport (i.e., directly connected to the external
     # Smart License server)
@@ -221,7 +225,6 @@ The output for this would look something like the following::
 
 
     {
-      "udi": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
       "registration": {
         "status": "COMPLETED",
         "expires": "2021-06-10 20:17:39",
@@ -257,15 +260,6 @@ The output for this would look something like the following::
         },
         "expires": "2020-10-23 16:39:07"
       },
-      "reservation_mode": false,
-      "transport": {
-        "ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService",
-        "proxy": {
-          "server": null,
-          "port": null
-        },
-        "default_ssms": "https://tools.cisco.com/its/service/oddce/services/DDCEService"
-      },
       "features": [
         {
           "name": "CML - Enterprise License",
@@ -282,6 +276,23 @@ The output for this would look something like the following::
           "version": "1.0"
         }
       ]
+      "reservation_mode": false,
+      "transport": {
+        "ssms": "https://smartreceiver.cisco.com/licservice/license",
+        "proxy": {
+          "server": null,
+          "port": null
+        },
+        "default_ssms": "https://smartreceiver.cisco.com/licservice/license"
+      },
+      "udi": {
+        "hostname": "cml2-controller",
+        "product_uuid": "00000000-0000-4000-a000-000000000000"
+      },
+      "product_license": {
+        "active": "CML_Personal",
+        "is_enterprise": False
+      }
     }
 
     [
@@ -328,7 +339,7 @@ should be removed::
 
     from virl2_client import ClientLibrary
 
-    VIRL_CONTROLLER = "virl2-controller"
+    VIRL_CONTROLLER = "cml2-controller"
     VIRL_USERNAME = input("username: ")
     VIRL_PASSWORD = getpass.getpass("password: ")
     LAB_NAME = input("enter lab name: ")
@@ -368,7 +379,7 @@ should be removed::
     print()
     lnum = 0
     while lnum < 1 or lnum > i:
-        lnum = input("Enter link number to condition (1-{}): ".format(i))
+        lnum = input("enter link number to condition (1-{}): ".format(i))
         try:
             lnum = int(lnum)
         except ValueError:

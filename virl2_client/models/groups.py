@@ -18,12 +18,6 @@
 # limitations under the License.
 #
 
-import logging
-
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 
 class GroupManagement:
     def __init__(self, context):

@@ -26,7 +26,7 @@ class TextFsmNotInstalled(Exception):
     pass
 
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class TextFsmTemplateHelper:
@@ -77,7 +77,7 @@ def parse_with_textfsm_template(template, cli_result):
     try:
         import textfsm
     except ImportError:
-        logger.warning("TextFSM not installed")
+        _LOGGER.warning("TextFSM not installed")
         raise TextFsmNotInstalled
 
     string_fh = io.StringIO(template)

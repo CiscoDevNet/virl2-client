@@ -21,7 +21,7 @@
 import logging
 from functools import total_ordering
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 @total_ordering
@@ -156,7 +156,7 @@ class Interface:
         return {iface.node for iface in self.peer_interfaces()}
 
     def remove_on_server(self):
-        logger.info("Removing interface %s", self)
+        _LOGGER.info("Removing interface %s", self)
 
         url = self._base_url
         response = self.node.session.delete(url)

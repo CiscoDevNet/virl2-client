@@ -45,7 +45,7 @@ from .models import (
     GroupManagement,
 )
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
 
 
@@ -274,7 +274,7 @@ class ClientLibrary:
         self.session.verify = ssl_verify
 
         if ssl_verify is False:
-            logger.warning("SSL Verification disabled")
+            _LOGGER.warning("SSL Verification disabled")
             urllib3.disable_warnings()
 
         # checks version from system_info against self.VERSION
@@ -312,7 +312,7 @@ class ClientLibrary:
             if raise_for_auth_failure:
                 raise
             else:
-                logger.warning(exc)
+                _LOGGER.warning(exc)
                 return
 
     def __repr__(self):
@@ -354,7 +354,7 @@ class ClientLibrary:
         if value is None:
             value = os.environ.get(key)
             if value:
-                logger.info("Using value %s from environment", key)
+                _LOGGER.info("Using value %s from environment", key)
             else:
                 value = default
         return value
@@ -426,7 +426,7 @@ class ClientLibrary:
 
         # are we running against a test version?
         if controller_version == "testing":
-            logger.warning("testing version detected!")
+            _LOGGER.warning("testing version detected!")
             return
 
         controller_version = Version(controller_version)
@@ -446,7 +446,7 @@ class ClientLibrary:
         if self.VERSION.minor_differs(controller_version) and self.VERSION.minor_lt(
             controller_version
         ):
-            logger.warning(
+            _LOGGER.warning(
                 "Please ensure the client version is compatible with the controller"
                 " version. Client %s, controller %s.",
                 self.VERSION,

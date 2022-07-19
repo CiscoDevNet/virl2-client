@@ -18,12 +18,9 @@
 # limitations under the License.
 #
 
-import logging
 import os
 import time
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
-
-logger = logging.getLogger(__name__)
 
 
 class NodeImageDefinitions:

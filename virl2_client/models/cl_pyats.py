@@ -19,9 +19,6 @@
 #
 
 import io
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class PyatsNotInstalled(Exception):

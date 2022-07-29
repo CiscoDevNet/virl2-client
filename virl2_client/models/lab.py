@@ -34,7 +34,7 @@ from ..exceptions import (
 )
 from .cl_pyats import ClPyats
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class Lab:
@@ -542,7 +542,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("%s node removed from lab %s", node.id, self._lab_id)
+        _LOGGER.debug("%s node removed from lab %s", node.id, self._lab_id)
 
     def remove_nodes(self, wait=None):
         """
@@ -558,7 +558,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("all nodes removed from lab %s", self._lab_id)
+        _LOGGER.debug("all nodes removed from lab %s", self._lab_id)
 
     def remove_link(self, link, wait=None):
         """
@@ -580,7 +580,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("link %s removed from lab %s", link.id, self._lab_id)
+        _LOGGER.debug("link %s removed from lab %s", link.id, self._lab_id)
 
     def remove_interface(self, iface, wait=None):
         """
@@ -609,7 +609,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("interface %s removed from lab %s", iface.id, self._lab_id)
+        _LOGGER.debug("interface %s removed from lab %s", iface.id, self._lab_id)
 
     def create_link(self, i1, i2, wait=None):
         """
@@ -825,15 +825,15 @@ class Lab:
             self.wait_max_iterations if max_iterations is None else max_iterations
         )
         wait_time = self.wait_time if wait_time is None else wait_time
-        logger.info("Waiting for lab %s to converge", self._lab_id)
+        _LOGGER.info("Waiting for lab %s to converge", self._lab_id)
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Lab %s has booted", self._lab_id)
+                _LOGGER.info("Lab %s has booted", self._lab_id)
                 return
 
             if index % 10 == 0:
-                logging.info(
+                _LOGGER.info(
                     "Lab has not converged, attempt %s/%s, waiting...",
                     index,
                     max_iter,
@@ -844,7 +844,7 @@ class Lab:
             self.id,
             max_iter,
         )
-        logger.error(msg)
+        _LOGGER.error(msg)
         # after maximum retries are exceeded and lab has not converged
         # error must be raised - it makes no sense to just log info
         # and let client fail with something else if wait is explicitly
@@ -871,7 +871,7 @@ class Lab:
         response.raise_for_status()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("started lab: %s", self._lab_id)
+        _LOGGER.debug("started lab: %s", self._lab_id)
 
     def state(self):
         """
@@ -883,18 +883,16 @@ class Lab:
         url = self.lab_base_url + "/state"
         response = self.session.get(url)
         response.raise_for_status()
-        logger.debug("lab state: %s -> %s", self._lab_id, response.text)
+        _LOGGER.debug("lab state: %s -> %s", self._lab_id, response.text)
         return response.json()
 
     def is_active(self):
         """
         Returns whether the lab is started.
 
-        Deprecated since 2.4 (will be removed in 2.5)
         :returns: Whether the lab is started
         :rtype: bool
         """
-        logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
         return self.state() == "STARTED"
 
     def details(self):
@@ -907,7 +905,7 @@ class Lab:
         url = self.lab_base_url
         response = self.session.get(url)
         response.raise_for_status()
-        logger.debug("lab state: %s -> %s", self._lab_id, response.text)
+        _LOGGER.debug("lab state: %s -> %s", self._lab_id, response.text)
         return response.json()
 
     def stop(self, wait=None):
@@ -923,7 +921,7 @@ class Lab:
         response.raise_for_status()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("stopped lab: %s", self._lab_id)
+        _LOGGER.debug("stopped lab: %s", self._lab_id)
 
     def wipe(self, wait=None):
         """
@@ -938,7 +936,7 @@ class Lab:
         response.raise_for_status()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        logger.debug("wiped lab: %s", self._lab_id)
+        _LOGGER.debug("wiped lab: %s", self._lab_id)
 
     def remove(self):
         """
@@ -954,7 +952,7 @@ class Lab:
         url = self.lab_base_url
         response = self.session.delete(url)
         response.raise_for_status()
-        logger.debug("removed lab: %s", response.text)
+        _LOGGER.debug("removed lab: %s", response.text)
 
     def sync_events(self):
         # TODO: return a boolean if events have changed since last run
@@ -1063,7 +1061,7 @@ class Lab:
         """
         lab_dict = topology.get("lab")
         if lab_dict is None:
-            logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            _LOGGER.warning("Deprecated since 2.4 (will be removed in 2.5)")
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
@@ -1150,17 +1148,17 @@ class Lab:
 
         for link_id in removed_links:
             link = self._links[link_id]
-            logger.warning("Removed link %s", link)
+            _LOGGER.warning("Removed link %s", link)
             del self._links[link_id]
 
         for interface_id in removed_interfaces:
             interface = self._interfaces[interface_id]
-            logger.warning("Removed interface %s", interface)
+            _LOGGER.warning("Removed interface %s", interface)
             del self._interfaces[interface_id]
 
         for node_id in removed_nodes:
             node = self._nodes[node_id]
-            logger.warning("Removed node %s", node)
+            _LOGGER.warning("Removed node %s", node)
             del self._nodes[node_id]
 
         # new elements
@@ -1172,7 +1170,7 @@ class Lab:
             node_id = node["id"]
             if node_id in new_nodes:
                 node = self._import_node(node_id, node)
-                logger.info("Added node %s", node)
+                _LOGGER.info("Added node %s", node)
 
             if "interfaces" in topology:
                 # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
@@ -1182,7 +1180,7 @@ class Lab:
                 interface_id = interface["id"]
                 if interface_id in new_interfaces:
                     interface = self._import_interface(interface_id, node_id, interface)
-                    logger.info("Added interface %s", interface)
+                    _LOGGER.info("Added interface %s", interface)
 
         if "interfaces" in topology:
             # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
@@ -1197,7 +1195,7 @@ class Lab:
             iface_a_id = link_data["interface_a"]
             iface_b_id = link_data["interface_b"]
             link = self._import_link(link_id, iface_b_id, iface_a_id)
-            logger.info("Added link %s", link)
+            _LOGGER.info("Added link %s", link)
 
         # kept elements
         kept_nodes = update_node_keys.intersection(existing_node_keys)

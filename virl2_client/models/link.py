@@ -22,7 +22,7 @@ import logging
 import time
 from functools import total_ordering
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 @total_ordering
@@ -141,13 +141,13 @@ class Link:
         return self.lab_base_url + "/links/{}".format(self.id)
 
     def remove_on_server(self):
-        logger.info("Removing link %s", self)
+        _LOGGER.info("Removing link %s", self)
         url = self.base_url
         response = self.session.delete(url)
         response.raise_for_status()
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
-        logger.info("Waiting for link %s to converge", self.id)
+        _LOGGER.info("Waiting for link %s to converge", self.id)
         max_iter = (
             self.lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -155,11 +155,11 @@ class Link:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Link %s has converged", self.id)
+                _LOGGER.info("Link %s has converged", self.id)
                 return
 
             if index % 10 == 0:
-                logging.info(
+                _LOGGER.info(
                     "Link has not converged, attempt %s/%s, waiting...",
                     index,
                     max_iter,
@@ -170,7 +170,7 @@ class Link:
             self.id,
             max_iter,
         )
-        logger.error(msg)
+        _LOGGER.error(msg)
         # after maximum retries are exceeded and link has not converged
         # error must be raised - it makes no sense to just log info
         # and let client fail with something else if wait is explicitly
@@ -294,7 +294,7 @@ class Link:
                 name,
                 ", ".join(list(options.keys())),
             )
-            logger.error(msg)
+            _LOGGER.error(msg)
             raise ValueError(msg)
 
         latency, bandwidth, loss = options[name]

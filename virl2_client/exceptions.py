@@ -18,6 +18,7 @@
 # limitations under the License.
 #
 
+
 class VirlException(Exception):
     pass
 

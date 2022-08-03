@@ -21,6 +21,7 @@
 import json
 import logging
 import time
+import warnings
 from typing import Dict
 
 from .node import Node
@@ -974,7 +975,12 @@ class Lab:
         # sync to get the updated configs
         self.sync_topology_if_outdated()
 
-    def sync(self, topology_only=True, with_node_configurations=False):
+    def sync(
+        self,
+        topology_only=True,
+        with_node_configurations=None,
+        exclude_configurations=False,
+    ):
         """
         Synchronize current lab applying the changes that
         were done in UI or in another ClientLibrary session::
@@ -983,11 +989,22 @@ class Lab:
 
         :param topology_only: do not sync statistics and IP addresses
         :type topology_only: bool
-        :param with_node_configurations: also sync the configuration
-            of the nodes itself
+        :param with_node_configurations: DEPRECATED, does the opposite of
+            what is expected: disables syncing node configuration when True
         :type with_node_configurations: bool
+        :param exclude_configurations: disable syncing node configuration
+        :type exclude_configurations: bool
         """
-        self._sync_topology(not with_node_configurations)
+
+        if with_node_configurations is not None:
+            warnings.warn(
+                "with_node_configurations is deprecated, as it does the opposite "
+                "of what is expected. Use exclude_configurations instead.",
+                DeprecationWarning,
+            )
+            exclude_configurations = with_node_configurations
+
+        self._sync_topology(exclude_configurations)
 
         if not topology_only:
             self.sync_statistics()

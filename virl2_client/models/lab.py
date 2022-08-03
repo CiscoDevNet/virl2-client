@@ -719,6 +719,13 @@ class Lab:
             self._interfaces[iface_id].type = iface_type
         return self._interfaces[iface_id]
 
+    @staticmethod
+    def _get_element_from_data(data: dict, element: str) -> int:
+        try:
+            return int(data[element])
+        except (TypeError, KeyError):
+            return 0
+
     def sync_statistics(self):
         """Retrieve the simulation statistic data from the back end server."""
         url = self.lab_base_url + "/simulation_stats"
@@ -730,14 +737,8 @@ class Lab:
         for node_id, node_data in node_statistics.items():
             # TODO: standardise so if shutdown, then these are set to 0 on
             # server side
-            try:
-                disk_read = int(node_data["block0_rd_bytes"])
-            except (TypeError, KeyError):
-                disk_read = 0
-            try:
-                disk_write = int(node_data["block0_wr_bytes"])
-            except (TypeError, KeyError):
-                disk_write = 0
+            disk_read = self._get_element_from_data(node_data, "block0_rd_bytes")
+            disk_write = self._get_element_from_data(node_data, "block0_wr_bytes")
 
             self._nodes[node_id].statistics = {
                 "cpu_usage": float(node_data.get("cpu_usage", 0)),
@@ -748,23 +749,10 @@ class Lab:
         for link_id, link_data in link_statistics.items():
             # TODO: standardise so if shutdown, then these are set to 0 on
             # server side
-            try:
-                readbytes = int(link_data["readbytes"])
-            except (TypeError, KeyError):
-                readbytes = 0
-            try:
-                readpackets = int(link_data["readpackets"])
-            except (TypeError, KeyError):
-                readpackets = 0
-
-            try:
-                writebytes = int(link_data["writebytes"])
-            except (TypeError, KeyError):
-                writebytes = 0
-            try:
-                writepackets = int(link_data["writepackets"])
-            except (TypeError, KeyError):
-                writepackets = 0
+            readbytes = self._get_element_from_data(link_data, "readbytes")
+            readpackets = self._get_element_from_data(link_data, "readpackets")
+            writebytes = self._get_element_from_data(link_data, "writebytes")
+            writepackets = self._get_element_from_data(link_data, "writepackets")
 
             link = self._links[link_id]
             link.statistics = {
@@ -1038,38 +1026,9 @@ class Lab:
     def import_lab(self, topology):
         self._import_lab(topology)
 
-        for node in topology["nodes"]:
-            node_id = node["id"]
-            if node_id in self._nodes:
-                raise ElementAlreadyExists("Node already exists")
-            self._import_node(node_id, node)
-
-            if "interfaces" not in node:
-                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
-                continue
-
-            for iface in node["interfaces"]:
-                iface_id = iface["id"]
-                if iface_id in self._interfaces:
-                    raise ElementAlreadyExists("Interface already exists")
-                self._import_interface(iface_id, node_id, iface)
-
-        if "interfaces" in topology:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
-            for iface in topology["interfaces"]:
-                iface_id = iface["id"]
-                node_id = iface["node"]
-                if iface_id in self._interfaces:
-                    raise ElementAlreadyExists("Interface already exists")
-                self._import_interface(iface_id, node_id, iface)
-
-        for link in topology["links"]:
-            link_id = link["id"]
-            if link_id in self._links:
-                raise ElementAlreadyExists("Link already exists")
-            iface_a_id = link["interface_a"]
-            iface_b_id = link["interface_b"]
-            self._import_link(link_id, iface_b_id, iface_a_id)
+        self._handle_import_nodes(topology)
+        self._handle_import_interfaces(topology)
+        self._handle_import_links(topology)
 
     def _import_lab(self, topology):
         """
@@ -1089,6 +1048,42 @@ class Lab:
             self._description = lab_dict["description"]
             self._notes = lab_dict["notes"]
             self._owner = lab_dict.get("owner", self.username)
+
+    def _handle_import_nodes(self, topology):
+        for node in topology["nodes"]:
+            node_id = node["id"]
+            if node_id in self._nodes:
+                raise ElementAlreadyExists("Node already exists")
+            self._import_node(node_id, node)
+
+            if "interfaces" not in node:
+                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+                continue
+
+            for iface in node["interfaces"]:
+                iface_id = iface["id"]
+                if iface_id in self._interfaces:
+                    raise ElementAlreadyExists("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
+
+    def _handle_import_interfaces(self, topology):
+        if "interfaces" in topology:
+            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            for iface in topology["interfaces"]:
+                iface_id = iface["id"]
+                node_id = iface["node"]
+                if iface_id in self._interfaces:
+                    raise ElementAlreadyExists("Interface already exists")
+                self._import_interface(iface_id, node_id, iface)
+
+    def _handle_import_links(self, topology):
+        for link in topology["links"]:
+            link_id = link["id"]
+            if link_id in self._links:
+                raise ElementAlreadyExists("Link already exists")
+            iface_a_id = link["interface_a"]
+            iface_b_id = link["interface_b"]
+            self._import_link(link_id, iface_b_id, iface_a_id)
 
     def _import_link(self, link_id, iface_b_id, iface_a_id):
         iface_a = self._interfaces[iface_a_id]
@@ -1163,6 +1158,23 @@ class Lab:
         removed_links = existing_link_keys - update_link_keys
         removed_interfaces = existing_interface_keys - update_interface_keys
 
+        self._remove_elements(removed_nodes, removed_links, removed_interfaces)
+
+        # new elements
+        new_nodes = update_node_keys - existing_node_keys
+        new_links = update_link_keys - existing_link_keys
+        new_interfaces = update_interface_keys - existing_interface_keys
+
+        self._add_elements(topology, new_nodes, new_links, new_interfaces)
+
+        # kept elements
+        kept_nodes = update_node_keys.intersection(existing_node_keys)
+        # kept_links = update_link_keys.intersection(existing_link_keys)
+        # kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
+
+        self._update_elements(topology, kept_nodes, exclude_configurations)
+
+    def _remove_elements(self, removed_nodes, removed_links, removed_interfaces):
         for link_id in removed_links:
             link = self._links[link_id]
             _LOGGER.warning("Removed link %s", link)
@@ -1178,11 +1190,7 @@ class Lab:
             _LOGGER.warning("Removed node %s", node)
             del self._nodes[node_id]
 
-        # new elements
-        new_nodes = update_node_keys - existing_node_keys
-        new_links = update_link_keys - existing_link_keys
-        new_interfaces = update_interface_keys - existing_interface_keys
-
+    def _add_elements(self, topology, new_nodes, new_links, new_interfaces):
         for node in topology["nodes"]:
             node_id = node["id"]
             if node_id in new_nodes:
@@ -1214,11 +1222,7 @@ class Lab:
             link = self._import_link(link_id, iface_b_id, iface_a_id)
             _LOGGER.info("Added link %s", link)
 
-        # kept elements
-        kept_nodes = update_node_keys.intersection(existing_node_keys)
-        # kept_links = update_link_keys.intersection(existing_link_keys)
-        # kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
-
+    def _update_elements(self, topology, kept_nodes, exclude_configurations):
         for node_id in kept_nodes:
             node = self._find_node_in_topology(node_id, topology)
             lab_node = self._nodes[node_id]

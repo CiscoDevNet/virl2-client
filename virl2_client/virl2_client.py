@@ -216,33 +216,7 @@ class ClientLibrary:
             message = "no URL provided"
             raise InitializationError(message)
 
-        # prepare the URL
-        try:
-            url_parts = urlsplit(url, "https")
-        except ValueError:
-            message = "invalid URL / hostname"
-            raise InitializationError(message)
-
-        # https://docs.python.org/3/library/urllib.parse.html
-        # Following the syntax specifications in RFC 1808, urlparse recognizes
-        # a netloc only if it is properly introduced by ‘//’. Otherwise, the
-        # input is presumed to be a relative URL and thus to start with
-        # a path component.
-        if len(url_parts.netloc) == 0:
-            try:
-                url_parts = urlsplit("//" + url, "https")
-            except ValueError:
-                message = "invalid URL / hostname"
-                raise InitializationError(message)
-
-        if not allow_http and url_parts.scheme == "http":
-            message = "invalid URL scheme (must be https)"
-            raise InitializationError(message)
-        if url_parts.scheme not in ("http", "https"):
-            message = "invalid URL scheme (should be https)"
-            raise InitializationError(message)
-        url = urlunsplit(url_parts)
-        base_url = urljoin(url, "api/v0/")
+        url, base_url = self._prepare_url(url, allow_http)
 
         # check environment for username
         username = self._environ_get(username, "VIRL2_USER")
@@ -328,6 +302,36 @@ class ClientLibrary:
 
     def __str__(self):
         return "{} URL: {}".format(self.__class__.__name__, self._context.base_url)
+
+    def _prepare_url(self, url, allow_http):
+        # prepare the URL
+        try:
+            url_parts = urlsplit(url, "https")
+        except ValueError:
+            message = "invalid URL / hostname"
+            raise InitializationError(message)
+
+        # https://docs.python.org/3/library/urllib.parse.html
+        # Following the syntax specifications in RFC 1808, urlparse recognizes
+        # a netloc only if it is properly introduced by ‘//’. Otherwise, the
+        # input is presumed to be a relative URL and thus to start with
+        # a path component.
+        if len(url_parts.netloc) == 0:
+            try:
+                url_parts = urlsplit("//" + url, "https")
+            except ValueError:
+                message = "invalid URL / hostname"
+                raise InitializationError(message)
+
+        if not allow_http and url_parts.scheme == "http":
+            message = "invalid URL scheme (must be https)"
+            raise InitializationError(message)
+        if url_parts.scheme not in ("http", "https"):
+            message = "invalid URL scheme (should be https)"
+            raise InitializationError(message)
+        url = urlunsplit(url_parts)
+        base_url = urljoin(url, "api/v0/")
+        return url, base_url
 
     def _make_test_auth_call(self):
         """Make a call to confirm auth works by using the "authok" endpoint."""

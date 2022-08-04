@@ -1172,17 +1172,17 @@ class Lab:
     def _remove_elements(self, removed_nodes, removed_links, removed_interfaces):
         for link_id in removed_links:
             link = self._links[link_id]
-            _LOGGER.warning("Removed link %s", link)
+            _LOGGER.info("Removed link %s", link)
             del self._links[link_id]
 
         for interface_id in removed_interfaces:
             interface = self._interfaces[interface_id]
-            _LOGGER.warning("Removed interface %s", interface)
+            _LOGGER.info("Removed interface %s", interface)
             del self._interfaces[interface_id]
 
         for node_id in removed_nodes:
             node = self._nodes[node_id]
-            _LOGGER.warning("Removed node %s", node)
+            _LOGGER.info("Removed node %s", node)
             del self._nodes[node_id]
 
     def _add_elements(self, topology, new_nodes, new_links, new_interfaces):

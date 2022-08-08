@@ -29,7 +29,6 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-import pkg_resources
 import requests
 import urllib3
 
@@ -574,24 +573,33 @@ class ClientLibrary:
             topology, title=title, virl_1x=self.is_virl_1x(topology_path)
         )
 
+    def get_sample_labs(self):
+        """
+        Returns a dictionary with information about all sample labs available on host.
+
+        :returns: A dictionary of sample lab information
+        :rtype: dict
+        """
+        url = urljoin(self._base_url, "sample/labs")
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
     def import_sample_lab(self, title):
         """
         Imports a built-in sample lab.
 
-        :param title: Sample lab name with extension
+        :param title: sample lab name, as returned by get_sample_labs
         :type title: str
-        :returns: A Lab instance
+        :returns: a Lab instance
         :rtype: models.Lab
         """
-        topology_file_path = Path("import_export") / "SampleData" / title
-        topology = pkg_resources.resource_string(
-            "simple_common", topology_file_path.as_posix()
-        )
-        return self.import_lab(
-            topology=topology.decode(),
-            title=title,
-            virl_1x=self.is_virl_1x(topology_file_path),
-        )
+
+        url = urljoin(self._base_url, "sample/labs/" + title)
+        response = self.session.put(url)
+        response.raise_for_status()
+        lab_id = response.json()
+        return self.join_existing_lab(lab_id)
 
     def all_labs(self, show_all=False):
         """

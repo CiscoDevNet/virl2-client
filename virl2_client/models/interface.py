@@ -19,6 +19,7 @@
 #
 
 import logging
+import warnings
 from functools import total_ordering
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,8 +84,14 @@ class Interface:
         return hash(self.id)
 
     @property
-    def is_physical(self):
+    def physical(self):
+        """Whether the interface is physical."""
         return self.type == "physical"
+
+    @property
+    def connected(self):
+        """Whether the interface is connected to a link."""
+        return self.link is not None
 
     @property
     def lab_base_url(self):
@@ -94,17 +101,33 @@ class Interface:
     def _base_url(self):
         return self.lab_base_url + "/interfaces/{}".format(self.id)
 
-    def links(self):
+    @property
+    def link(self):
+        """Is link if connected, otherwise None."""
         self.node.lab.sync_topology_if_outdated()
-        return [lnk for lnk in self.node.lab.links() if self in lnk.interfaces]
+        for link in self.node.lab.links():
+            if self in link.interfaces:
+                return link
+
+    @property
+    def is_physical(self):
+        warnings.warn("Deprecated, use .physical instead.", DeprecationWarning)
+        return self.physical
+
+    def links(self):
+        warnings.warn("Deprecated, use .link instead.", DeprecationWarning)
+        link = self.link
+        if link is None:
+            return []
+        return [link]
 
     def degree(self):
-        self.node.lab.sync_topology_if_outdated()
-        return len(self.links())
+        warnings.warn("Deprecated, use .connected instead.", DeprecationWarning)
+        return int(self.connected)
 
     def is_connected(self):
-        self.node.lab.sync_topology_if_outdated()
-        return self.degree() > 0
+        warnings.warn("Deprecated, use .connected instead.", DeprecationWarning)
+        return self.connected
 
     @property
     def readbytes(self):
@@ -141,19 +164,30 @@ class Interface:
         self.node.lab.sync_l3_addresses_if_outdated()
         return self.ip_snooped_info["ipv6"]
 
+    @property
+    def peer_interface(self):
+        link = self.link
+        if link is None:
+            return None
+        interfaces = link.interfaces
+        if interfaces[0] is self:
+            return interfaces[1]
+        return interfaces[0]
+
+    @property
+    def peer_node(self):
+        peer_interface = self.peer_interface
+        if peer_interface is None:
+            return None
+        return peer_interface.node
+
     def peer_interfaces(self):
-        self.node.lab.sync_topology_if_outdated()
-        ifaces = set()
-        for link in self.links():
-            if link.interface_a.id == self.id:
-                ifaces.add(link.interface_b)
-            else:
-                ifaces.add(link.interface_a)
-        return ifaces
+        warnings.warn("Deprecated, use .peer_interface instead.", DeprecationWarning)
+        return {self.peer_interface}
 
     def peer_nodes(self):
-        self.node.lab.sync_topology_if_outdated()
-        return {iface.node for iface in self.peer_interfaces()}
+        warnings.warn("Deprecated, use .peer_node instead.", DeprecationWarning)
+        return {self.peer_node}
 
     def remove_on_server(self):
         _LOGGER.info("Removing interface %s", self)

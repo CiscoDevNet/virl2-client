@@ -20,8 +20,8 @@
 
 import json
 import logging
-import time
 import warnings
+import time
 from typing import Dict
 
 from .node import Node
@@ -986,8 +986,8 @@ class Lab:
 
         if with_node_configurations is not None:
             warnings.warn(
-                "with_node_configurations is deprecated, as it does the opposite "
-                "of what is expected. Use exclude_configurations instead.",
+                'The argument "with_node_configurations" is deprecated, as it does '
+                "the opposite of what is expected. Use exclude_configurations instead.",
                 DeprecationWarning,
             )
             exclude_configurations = with_node_configurations
@@ -1031,18 +1031,18 @@ class Lab:
         self._handle_import_links(topology)
 
     def _import_lab(self, topology):
-        """
-        Replaces lab properties. Will raise KeyError if not all
-        properties are in topology.
-        """
+        """Replaces lab properties. Will raise KeyError if any property is missing."""
         lab_dict = topology.get("lab")
         if lab_dict is None:
-            _LOGGER.warning("Deprecated since 2.4 (will be removed in 2.5)")
+            warnings.warn(
+                "Labs created in older CML releases (schema version 0.0.5 or lower) "
+                "are deprecated.  Use labs with schema version 0.1.0 instead.",
+                DeprecationWarning,
+            )
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
-            self._owner = topology["lab_owner"]
-            # topology.get("lab_owner", self.username)
+            self._owner = topology.get("lab_owner", self.username)
         else:
             self._title = lab_dict["title"]
             self._description = lab_dict["description"]
@@ -1057,7 +1057,6 @@ class Lab:
             self._import_node(node_id, node)
 
             if "interfaces" not in node:
-                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
                 continue
 
             for iface in node["interfaces"]:
@@ -1068,7 +1067,6 @@ class Lab:
 
     def _handle_import_interfaces(self, topology):
         if "interfaces" in topology:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             for iface in topology["interfaces"]:
                 iface_id = iface["id"]
                 node_id = iface["node"]
@@ -1092,7 +1090,6 @@ class Lab:
 
     def _import_interface(self, iface_id, node_id, iface_data):
         if "data" in iface_data:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             iface_data = iface_data["data"]
         label = iface_data["label"]
         slot = iface_data.get("slot")
@@ -1102,7 +1099,6 @@ class Lab:
 
     def _import_node(self, node_id, node_data):
         if "data" in node_data:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             node_data = node_data["data"]
         label = node_data["label"]
         x = node_data["x"]
@@ -1144,7 +1140,6 @@ class Lab:
         update_node_keys = set(node["id"] for node in topology["nodes"])
         update_link_keys = set(links["id"] for links in topology["links"])
         if "interfaces" in topology:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             update_interface_keys = set(iface["id"] for iface in topology["interfaces"])
         else:
             update_interface_keys = set(
@@ -1198,7 +1193,6 @@ class Lab:
                 _LOGGER.info("Added node %s", node)
 
             if "interfaces" in topology:
-                # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
                 continue
 
             for interface in node["interfaces"]:
@@ -1208,7 +1202,6 @@ class Lab:
                     _LOGGER.info("Added interface %s", interface)
 
         if "interfaces" in topology:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             for iface in topology["interfaces"]:
                 iface_id = iface["id"]
                 if iface_id in new_interfaces:

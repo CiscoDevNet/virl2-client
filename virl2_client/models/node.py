@@ -510,7 +510,6 @@ class Node:
 
     def update(self, node_data, exclude_configurations):
         if "data" in node_data:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             node_data = node_data["data"]
         self._label = node_data["label"]
         self._x = node_data["x"]

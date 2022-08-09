@@ -57,20 +57,20 @@ def test_topology_creation_and_removal():
     assert sorted(node_b.links()) == [lnk1, lnk2]
     assert node_c.links() == [lnk2]
 
-    assert i1.degree() == 1
-    assert i2.degree() == 1
-    assert i3.degree() == 1
-    assert i4.degree() == 1
+    assert i1.connected is True
+    assert i2.connected is True
+    assert i3.connected is True
+    assert i4.connected is True
 
-    assert i1.peer_interfaces() == {i2}
-    assert i2.peer_interfaces() == {i1}
-    assert i3.peer_interfaces() == {i4}
-    assert i4.peer_interfaces() == {i3}
+    assert i1.peer_interface is i2
+    assert i2.peer_interface is i1
+    assert i3.peer_interface is i4
+    assert i4.peer_interface is i3
 
-    assert i1.peer_nodes() == {node_b}
-    assert i2.peer_nodes() == {node_a}
-    assert i3.peer_nodes() == {node_c}
-    assert i4.peer_nodes() == {node_b}
+    assert i1.peer_node is node_b
+    assert i2.peer_node is node_a
+    assert i3.peer_node is node_c
+    assert i4.peer_node is node_b
 
     assert lnk1.nodes == (node_a, node_b)
     assert lnk1.interfaces == (i1, i2)

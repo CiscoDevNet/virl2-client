@@ -521,9 +521,9 @@ class Lab:
         """
         node.remove_on_server()
         for iface in node.interfaces():
-            for lnk in iface.links():
+            if iface.link is not None:
                 try:
-                    del self._links[lnk.id]
+                    del self._links[iface.link.id]
                 except KeyError:
                     # element may already have been deleted on server,
                     # and removed locally due to auto-sync
@@ -594,9 +594,9 @@ class Lab:
         :type wait: bool
         """
         iface.remove_on_server()
-        for lnk in iface.links():
+        if iface.link is not None:
             try:
-                del self._links[lnk.id]
+                del self._links[iface.link.id]
             except KeyError:
                 # element may already have been deleted on server, and removed
                 # locally due to auto-sync

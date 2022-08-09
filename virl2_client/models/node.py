@@ -21,13 +21,10 @@
 import logging
 import time
 from functools import total_ordering
-from itertools import chain
 
 from ..exceptions import InterfaceNotFound
 
 _LOGGER = logging.getLogger(__name__)
-
-flatten = chain.from_iterable
 
 
 @total_ordering
@@ -148,7 +145,7 @@ class Node:
 
     def physical_interfaces(self):
         self.lab.sync_topology_if_outdated()
-        return [iface for iface in self.interfaces() if iface.is_physical]
+        return [iface for iface in self.interfaces() if iface.physical]
 
     def create_interface(self, slot=None, wait=False):
         """
@@ -176,22 +173,28 @@ class Node:
         :rtype: models.Interface
         """
         for iface in self.interfaces():
-            if not iface.is_connected() and iface.is_physical:
+            if not iface.connected and iface.physical:
                 return iface
         return None
 
     def peer_interfaces(self):
-        self.lab.sync_topology_if_outdated()
-        peer_ifaces = (iface.peer_interfaces() for iface in self.interfaces())
-        return list(set(flatten(peer_ifaces)))
+        peer_ifaces = {
+            iface.peer_interface for iface in self.interfaces() if iface is not None
+        }
+        return list(peer_ifaces)
 
     def peer_nodes(self):
-        self.lab.sync_topology_if_outdated()
-        return list(set(iface.node for iface in self.peer_interfaces()))
+        return list({iface.node for iface in self.peer_interfaces()})
 
     def links(self):
+        """
+        :returns: list of links
+        :rtype: list[models.Link]
+        """
         self.lab.sync_topology_if_outdated()
-        return list(set(flatten(iface.links() for iface in self.interfaces())))
+        return list(
+            {iface.link for iface in self.interfaces() if iface.link is not None}
+        )
 
     def degree(self):
         self.lab.sync_topology_if_outdated()

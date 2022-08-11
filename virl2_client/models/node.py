@@ -191,9 +191,8 @@ class Node:
         :returns: list of links
         :rtype: list[models.Link]
         """
-        self.lab.sync_topology_if_outdated()
         return list(
-            {iface.link for iface in self.interfaces() if iface.link is not None}
+            {link for iface in self.interfaces() if (link := iface.link) is not None}
         )
 
     def degree(self):
@@ -352,6 +351,34 @@ class Node:
             if iface.slot == slot:
                 return iface
         raise InterfaceNotFound("{}:{}".format(slot, self))
+
+    def get_links_to(self, other_node):
+        """
+        Returns all links between this node and another.
+
+        :param other_node: the other node
+        :type other_node: models.Node
+        :returns: a list of links
+        :rtype: list[models.Link]
+        """
+        links = []
+        for link in self.links():
+            if other_node in link.nodes:
+                links.append(link)
+        return links
+
+    def get_link_to(self, other_node):
+        """
+        Returns one link between this node and another.
+
+        :param other_node: the other node
+        :type other_node: models.Node
+        :returns: a link
+        :rtype: models.Link
+        """
+        for link in self.links():
+            if other_node in link.nodes:
+                return link
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
         _LOGGER.info("Waiting for node %s to converge", self.id)

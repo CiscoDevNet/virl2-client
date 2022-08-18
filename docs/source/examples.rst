@@ -65,7 +65,7 @@ Stopping all the labs
 
 This snippet loops over all labs and stops them::
 
-    for lab in client_library.all_labs():
+    for lab in client.all_labs():
         lab.stop()
 
 Getting all lab names
@@ -73,7 +73,7 @@ Getting all lab names
 
 Get a list of all the lab names the user owns::
 
-    all_labs_names = [lab.name for lab in client_library.all_labs()]
+    all_labs_names = [lab.title for lab in client.all_labs()]
 
 Stopping all labs of a User
 ---------------------------
@@ -81,12 +81,12 @@ Stopping all labs of a User
 The following code loops over all labs the user owns, stops the lab,
 wipes the lab and then removes the lab from the controller::
 
-    lab_list = client_library.get_lab_list()
+    lab_list = client.get_lab_list()
     for lab_id in lab_list:
-        lab = client_library.join_existing_lab(lab_id)
+        lab = client.join_existing_lab(lab_id)
         lab.stop()
         lab.wipe()
-        client_library.remove_lab(lab_id)
+        client.remove_lab(lab_id)
 
 
 Uploading an image disk file
@@ -128,7 +128,7 @@ and is interactive::
 
     # this assumes that there's exactly one lab with this title
     our_lab = client.find_labs_by_title('my_lab')[0]
-    xr_node = our_lab.get_node_by_label('pe2')
+    iosv_node = our_lab.get_node_by_label('iosv-0')
 
     # open the Netmiko connection via the terminal server
     # (SSH to the controller connects to the terminal server)
@@ -141,7 +141,7 @@ and is interactive::
     c.write_channel('\r')
 
     # open the connection to the console
-    c.write_channel(f'open /{our_lab.id}/{xr_node.id}/0\r')
+    c.write_channel(f'open /{our_lab.title}/{iosv_node.label}/0\r')
 
     # router login
     # this makes an assumption that it's required to login
@@ -149,8 +149,8 @@ and is interactive::
     c.write_channel(LAB_USERNAME + '\r')
     c.write_channel(LAB_PASSWORD + '\r')
 
-    # switch to Cisco XR mode
-    netmiko.redispatch(c, device_type='cisco_xr')
+    # switch to Cisco IOS mode
+    netmiko.redispatch(c, device_type='cisco_ios')
     c.find_prompt()
 
     # get the list of interfaces
@@ -158,15 +158,19 @@ and is interactive::
     print(result)
 
     # create the keys
+    c.write_channel('enable\r')
+    c.write_channel('configure terminal\r')
     result = c.send_command('crypto key generate rsa',
-                            expect_string='How many bits in the modul us \[2048\]\: ')
+                            expect_string='How many bits in the modulus \[512\]\: ')
     print(result)
 
     # send the key length
     c.write_channel('2048\n')
 
     # retrieve the result
-    result = c.send_command('show crypto key mypubkey rsa')
+    c.write_channel('exit\r')
+    c.write_channel('disable\r')
+    result = c.send_command_timing('show crypto key mypubkey rsa', last_read=2.0)
     print(result)
 
 
@@ -379,7 +383,7 @@ should be removed::
     print()
     lnum = 0
     while lnum < 1 or lnum > i:
-        lnum = input("enter link number to condition (1-{}): ".format(i))
+        lnum = input("enter link number to condition (1-{}): ".format(i-1))
         try:
             lnum = int(lnum)
         except ValueError:

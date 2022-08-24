@@ -394,19 +394,20 @@ class Lab:
         except KeyError:
             raise LinkNotFound(link_id)
 
-    def get_link_by_nodes(self, node1, node2):
+    @staticmethod
+    def get_link_by_nodes(node1, node2):
         """
         DEPRECATED
 
-        Returns ONE of the links identified by two node IDs, NOT NODE OBJECTS.
+        Returns ONE of the links identified by two node objects.
 
-        Deprecated. Get Node objects using `Lab.get_node_by_id` and use
-        `Node.get_link_to` to get one link or `Node.get_links_to` to get all links.
+        Deprecated. Use `Node.get_link_to` to get one link
+        or `Node.get_links_to` to get all links.
 
-        :param node1: ID of the first node
-        :type node1: str
-        :param node2: ID of the second node
-        :type node2: str
+        :param node1: the first node
+        :type node1: models.Node
+        :param node2: the second node
+        :type node2: models.Node
         :returns: A list of Links
         :rtype: list[models.Link]
         :raises LinkNotFound: If no such link exists
@@ -415,25 +416,23 @@ class Lab:
             "Deprecated, use Node.get_link_to or Node.get_links_to instead.",
             DeprecationWarning,
         )
-        node_a = self.get_node_by_id(node1)
-        node_b = self.get_node_by_id(node2)
-        if links := node_a.get_links_to(node_b) == []:
+        if links := node1.get_links_to(node2) == []:
             raise LinkNotFound()
         return links
 
-    def get_link_by_interfaces(self, iface1, iface2):
+    @staticmethod
+    def get_link_by_interfaces(iface1, iface2):
         """
         DEPRECATED
 
-        Returns the link identified by two interface IDs, NOT INTERFACE OBJECTS.
+        Returns the link identified by two interface objects.
 
-        Deprecated. Get Interface objects using `Lab.get_interface_by_id` and use
-        `Interface.get_link_to` to get link.
+        Deprecated. Use `Interface.get_link_to` to get link.
 
-        :param iface1: ID of the first interface
-        :type iface1: str
-        :param iface2: ID of the second interface
-        :type iface2: str
+        :param iface1: the first interface
+        :type iface1: models.Interface
+        :param iface2: the second interface
+        :type iface2: models.Interface
         :returns: A Link object
         :rtype: models.Link
         :raises LinkNotFound: If no such link exists
@@ -441,10 +440,8 @@ class Lab:
         warnings.warn(
             "Deprecated, use Interface.get_link_to instead.", DeprecationWarning
         )
-        interface_a = self.get_interface_by_id(iface1)
-        interface_b = self.get_interface_by_id(iface2)
-        link = interface_a.link
-        if interface_b in link.interfaces:
+        link = iface1.link
+        if iface2 in link.interfaces:
             return link
         raise LinkNotFound()
 

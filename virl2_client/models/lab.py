@@ -408,17 +408,17 @@ class Lab:
         :type node1: models.Node
         :param node2: the second node
         :type node2: models.Node
-        :returns: A list of Links
-        :rtype: list[models.Link]
+        :returns: one of links between the nodes
+        :rtype: models.Link
         :raises LinkNotFound: If no such link exists
         """
         warnings.warn(
             "Deprecated, use Node.get_link_to or Node.get_links_to instead.",
             DeprecationWarning,
         )
-        if links := node1.get_links_to(node2) == []:
-            raise LinkNotFound()
-        return links
+        if not (links := node1.get_links_to(node2)):
+            raise LinkNotFound
+        return links[0]
 
     @staticmethod
     def get_link_by_interfaces(iface1, iface2):
@@ -433,7 +433,7 @@ class Lab:
         :type iface1: models.Interface
         :param iface2: the second interface
         :type iface2: models.Interface
-        :returns: A Link object
+        :returns: the link between the interfaces
         :rtype: models.Link
         :raises LinkNotFound: If no such link exists
         """
@@ -443,7 +443,7 @@ class Lab:
         link = iface1.link
         if iface2 in link.interfaces:
             return link
-        raise LinkNotFound()
+        raise LinkNotFound
 
     def find_nodes_by_tag(self, tag):
         """

@@ -96,6 +96,7 @@ class Node:
         self._data_volume = data_volume
         self._boot_disk_size = boot_disk_size
         self._tags = tags
+        self._compute_id = None
 
         self.statistics = {"cpu_usage": 0, "disk_read": 0, "disk_write": 0}
 
@@ -309,6 +310,11 @@ class Node:
         self._set_node_property("node_definition", value)
         self._image_definition = value
 
+    @property
+    def compute_id(self):
+        self.lab.sync_topology_if_outdated()
+        return self._compute_id
+
     def _set_node_property(self, key, val):
         _LOGGER.info("Setting node property %s %s: %s", self, key, val)
         node_url = "{}".format(self._base_url)
@@ -520,6 +526,7 @@ class Node:
         self._data_volume = node_data["data_volume"]
         self._boot_disk_size = node_data["boot_disk_size"]
         self._tags = node_data["tags"]
+        self._compute_id = node_data.get("compute_id")
         if not exclude_configurations:
             self._config = node_data.get("configuration")
 

@@ -1092,33 +1092,17 @@ class Lab:
         if "data" in node_data:
             # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             node_data = node_data["data"]
-        label = node_data["label"]
-        x = node_data["x"]
-        y = node_data["y"]
-        node_definition = node_data["node_definition"]
-        image_definition = node_data.get("image_definition", None)
-        ram = node_data["ram"]
-        cpus = node_data["cpus"]
-        cpu_limit = node_data.get("cpu_limit", 100)
-        data_volume = node_data["data_volume"]
-        boot_disk_size = node_data["boot_disk_size"]
-        tags = node_data["tags"]
-        config = node_data.get("configuration", "")
-        return self.add_node_local(
+        node = self.add_node_local(
             node_id,
-            label,
-            node_definition,
-            image_definition,
-            config,
-            x,
-            y,
-            ram,
-            cpus,
-            cpu_limit,
-            data_volume,
-            boot_disk_size,
-            tags,
+            node_data["label"],
+            node_data["node_definition"],
+            node_data.get("image_definition", None),
+            node_data.get("configuration", ""),
+            node_data["x"],
+            node_data["y"],
         )
+        node.update(node_data, "configuration" not in node_data)
+        return node
 
     def update_lab(self, topology, exclude_configurations):
         self._import_lab(topology)

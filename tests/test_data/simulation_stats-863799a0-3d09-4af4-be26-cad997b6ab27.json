@@ -1,0 +1,115 @@
+{
+  "links": {
+    "e7869898-9a4a-40af-813b-f4fbe10f6546": {
+      "readbytes": 45142004,
+      "readpackets": 443346,
+      "writebytes": 0,
+      "writepackets": 0,
+      "drops": 0
+    },
+    "01fff06c-62de-4421-b335-499316576075": {
+      "readbytes": 0,
+      "readpackets": 0,
+      "writebytes": 209428658,
+      "writepackets": 3064111,
+      "drops": 0
+    },
+    "793acf56-3c20-43bb-a295-e1372491c722": {
+      "readbytes": 0,
+      "readpackets": 0,
+      "writebytes": 209424350,
+      "writepackets": 3064099,
+      "drops": 0
+    },
+    "02ab4e89-051c-4af3-98b1-e26f708b54ea": {
+      "readbytes": 45145043,
+      "readpackets": 443350,
+      "writebytes": 0,
+      "writepackets": 0,
+      "drops": 0
+    },
+    "bbfac097-5b23-461b-9f7d-77c7738b8e72": {
+      "readbytes": 10236702,
+      "readpackets": 31273,
+      "writebytes": 65351085,
+      "writepackets": 1000905,
+      "drops": 0
+    },
+    "ffdc378e-3f24-425f-8435-9cfa30b5ccd5": {
+      "readbytes": 0,
+      "readpackets": 0,
+      "writebytes": 0,
+      "writepackets": 0,
+      "drops": 0
+    },
+    "ce004107-dcc6-484e-8afc-4df7d6c28651": {
+      "readbytes": 96002774,
+      "readpackets": 281129,
+      "writebytes": 0,
+      "writepackets": 0,
+      "drops": 0
+    }
+  },
+  "nodes": {
+    "6d583887-a109-4df2-b7fe-45c27379a49d": {
+      "cpu_usage": 1.64,
+      "block0_wr_bytes": 1617408,
+      "block0_rd_bytes": 306721280,
+      "times": {
+        "QUEUED": 25,
+        "STARTED": 1966177,
+        "BOOTED": 1966003
+      }
+    },
+    "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0": {
+      "cpu_usage": 2.71,
+      "block0_wr_bytes": 1185280,
+      "block0_rd_bytes": 491976192,
+      "times": {
+        "QUEUED": 52,
+        "STARTED": 1966150,
+        "BOOTED": 1965857
+      }
+    },
+    "9c840733-ac3f-4195-8839-b2c0379bc719": {
+      "cpu_usage": 0.15,
+      "block0_wr_bytes": 42074950144,
+      "block0_rd_bytes": 317299712,
+      "times": {
+        "QUEUED": 39,
+        "STARTED": 1966164,
+        "BOOTED": 1965991
+      }
+    },
+    "e79a0eb7-5c10-4538-8776-b832df78ba8b": {
+      "cpu_usage": 100.04,
+      "block0_wr_bytes": 178096128,
+      "block0_rd_bytes": 781876736,
+      "times": {
+        "QUEUED": 22,
+        "STARTED": 1966181,
+        "BOOTED": 1966031
+      }
+    },
+    "90e9329f-7d20-4eb2-b396-06d0aa497ce9": {
+      "cpu_usage": 100.18,
+      "block0_wr_bytes": 178636800,
+      "block0_rd_bytes": 812588544,
+      "times": {
+        "QUEUED": 49,
+        "STARTED": 1966154,
+        "BOOTED": 1966002
+      }
+    },
+    "f4220194-d8b4-42ed-9967-226e1ed92ca0": {
+      "cpu_usage": 2.02,
+      "block0_wr_bytes": 275878912,
+      "block0_rd_bytes": 46081024,
+      "times": {
+        "QUEUED": 35,
+        "STARTED": 1966167,
+        "BOOTED": 1966145
+      }
+    }
+  }
+}

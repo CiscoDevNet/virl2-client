@@ -83,7 +83,7 @@ def test_import_lab_from_path_virl_title(
     Lab.sync = Mock()
     new_title = "new_title"
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True) as sync_mock:
+    with patch.object(Lab, "sync", autospec=True):
         lab = cl.import_lab_from_path(
             path=(tmp_path / "topology.virl").as_posix(), title=new_title
         )
@@ -91,7 +91,7 @@ def test_import_lab_from_path_virl_title(
     assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
 
     cl.session.post.assert_called_once_with(
-        f"https://0.0.0.0/fake_url/api/v0/import/virl-1x?title={new_title}",
+        "https://0.0.0.0/fake_url/api/v0/import/virl-1x?title=" + new_title,
         data="<?xml version='1.0' encoding='UTF-8'?>",
     )
 
@@ -701,24 +701,24 @@ def test_import_lab_offline(
 
 
 def test_convergence_parametrization(client_library_server_current, mocked_session):
-    MAX_ITER = 2
-    WAIT_TIME = 1
+    max_iter = 2
+    max_time = 1
     cl = ClientLibrary(
         url="https://0.0.0.0/fake_url/",
         username="test",
         password="pa$$",
-        convergence_wait_max_iter=MAX_ITER,
-        convergence_wait_time=WAIT_TIME,
+        convergence_wait_max_iter=max_iter,
+        convergence_wait_time=max_time,
     )
     # check that passing of value from client to lab is working
     lab = cl.create_lab()
-    assert lab.wait_max_iterations == MAX_ITER
-    assert lab.wait_time == WAIT_TIME
+    assert lab.wait_max_iterations == max_iter
+    assert lab.wait_time == max_time
     with patch.object(Lab, "has_converged", return_value=False):
         with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged()
         assert (
-            "has not converged, maximum tries %s exceeded" % MAX_ITER
+            "has not converged, maximum tries %s exceeded" % max_iter
         ) in err.value.args[0]
 
         # try to override values on function

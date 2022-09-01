@@ -1,0 +1,54 @@
+{
+  "links": {
+    "6b92a334-4838-4f1c-b3f3-45c4baf00268": {
+      "readbytes": 19141,
+      "readpackets": 213,
+      "writebytes": 56261605,
+      "writepackets": 809613,
+      "drops": 0
+    },
+    "8f8980be-a12c-4d42-a319-08169a0cbef7": {
+      "readbytes": 12348085,
+      "readpackets": 121260,
+      "writebytes": 0,
+      "writepackets": 0,
+      "drops": 0
+    },
+    "4c029bda-8f54-42d5-908e-1638b736f957": {
+      "readbytes": 12651784,
+      "readpackets": 121852,
+      "writebytes": 12648331,
+      "writepackets": 121828,
+      "drops": 0
+    },
+    "74df9890-4df6-4e61-8aa7-9459d6381a85": {
+      "readbytes": 27189087,
+      "readpackets": 339406,
+      "writebytes": 75103635,
+      "writepackets": 1091449,
+      "drops": 0
+    },
+    "4244119a-d0d0-486a-aec7-48b587e0b7dd": {
+      "readbytes": 7187841,
+      "readpackets": 63761,
+      "writebytes": 26257806,
+      "writepackets": 76901,
+      "drops": 0
+    },
+    "fbfb78fa-d62d-448f-a5e9-1dacaa1504ad": {
+      "readbytes": 25981658,
+      "readpackets": 320370,
+      "writebytes": 76296651,
+      "writepackets": 1110403,
+      "drops": 0
+    },
+    "0321b86a-50e6-4c6a-8151-60acfdd07775": {
+      "readbytes": 12348758,
+      "readpackets": 121273,
+      "writebytes": 0,
+      "writepackets": 0,
+      "drops": 0
+    }
+  },
+  "nodes": {}
+}

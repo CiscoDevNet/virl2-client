@@ -469,6 +469,9 @@ class Lab:
         for key in ("image_definition", "configuration"):
             if key not in kwargs:
                 kwargs[key] = None
+
+        if "compute_id" in kwargs:
+            kwargs.pop("compute_id")
         node = self.add_node_local(node_id, **kwargs)
         return node
 
@@ -488,6 +491,7 @@ class Lab:
         boot_disk_size: Optional[int] = None,
         hide_links: bool = False,
         tags: Optional[list] = None,
+        compute_id: Optional[str] = None,
     ) -> Node:
         """Helper function to add a node to the client library."""
         if tags is None:
@@ -511,6 +515,8 @@ class Lab:
             hide_links,
             tags,
         )
+        if compute_id is not None:
+            node._compute_id = compute_id
         self._nodes[node.id] = node
         return node
 
@@ -1050,12 +1056,13 @@ class Lab:
             node_id = node["id"]
             if node_id in self._nodes:
                 raise ElementAlreadyExists("Node already exists")
+            interfaces = node.pop("interfaces", [])
             self._import_node(node_id, node)
 
-            if "interfaces" not in node:
+            if not interfaces:
                 continue
 
-            for iface in node["interfaces"]:
+            for iface in interfaces:
                 iface_id = iface["id"]
                 if iface_id in self._interfaces:
                     raise ElementAlreadyExists("Interface already exists")
@@ -1105,33 +1112,12 @@ class Lab:
     def _import_node(self, node_id: str, node_data: dict) -> Node:
         if "data" in node_data:
             node_data = node_data["data"]
-        label = node_data["label"]
-        x = node_data["x"]
-        y = node_data["y"]
-        node_definition = node_data["node_definition"]
-        image_definition = node_data.get("image_definition", None)
-        ram = node_data["ram"]
-        cpus = node_data["cpus"]
-        cpu_limit = node_data["cpu_limit"]
-        data_volume = node_data["data_volume"]
-        boot_disk_size = node_data["boot_disk_size"]
-        tags = node_data["tags"]
-        config = node_data.get("configuration", "")
-        return self.add_node_local(
-            node_id,
-            label,
-            node_definition,
-            image_definition,
-            config,
-            x,
-            y,
-            ram,
-            cpus,
-            cpu_limit,
-            data_volume,
-            boot_disk_size,
-            tags,
-        )
+        node_data.pop("id")
+        node_data.pop("state", None)
+        for key in ("image_definition", "configuration"):
+            if key not in node_data:
+                node_data[key] = None
+        return self.add_node_local(node_id, **node_data)
 
     def update_lab(self, topology: dict, exclude_configurations: bool) -> None:
         self._import_lab(topology)
@@ -1204,14 +1190,15 @@ class Lab:
     ) -> None:
         for node in topology["nodes"]:
             node_id = node["id"]
+            interfaces = node.pop("interfaces", [])
             if node_id in new_nodes:
                 node = self._import_node(node_id, node)
                 _LOGGER.info("Added node %s", node)
 
-            if "interfaces" in topology:
+            if not interfaces:
                 continue
 
-            for interface in node["interfaces"]:
+            for interface in interfaces:
                 interface_id = interface["id"]
                 if interface_id in new_interfaces:
                     interface = self._import_interface(interface_id, node_id, interface)

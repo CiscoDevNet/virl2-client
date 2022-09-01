@@ -25,20 +25,22 @@ import requests
 
 from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
-from virl2_client.virl2_client import Context
+from virl2_client.virl2_client import ClientLibrary, Context
+
+FAKE_HOST = "https://0.0.0.0"
 
 
 def test_topology_creation_and_removal():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0)
     node_a = lab.add_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
     node_b = lab.add_node_local("1", "node B", "nd", "im", "cfg", 1, 1)
     node_c = lab.add_node_local("2", "node C", "nd", "im", "cfg", 2, 2)
-    i1 = lab.create_interface_local("0", "iface A", node_a, "slot A")
-    i2 = lab.create_interface_local("1", "iface B1", node_b, "slot B1")
-    i3 = lab.create_interface_local("2", "iface B2", node_b, "slot B2")
-    i4 = lab.create_interface_local("3", "iface C", node_c, "slot C")
+    i1 = lab.create_interface_local("0", "iface A", node_a, 0)
+    i2 = lab.create_interface_local("1", "iface B1", node_b, 1)
+    i3 = lab.create_interface_local("2", "iface B2", node_b, 2)
+    i4 = lab.create_interface_local("3", "iface C", node_c, 3)
 
     lnk1 = lab.create_link_local(i1, i2, "0")
     lnk2 = lab.create_link_local(i3, i4, "1")
@@ -99,7 +101,7 @@ def test_topology_creation_and_removal():
 def test_need_to_wait1():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=True)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=True)
     assert lab.need_to_wait(None) is True
     assert lab.need_to_wait(False) is False
     assert lab.need_to_wait(True) is True
@@ -108,7 +110,7 @@ def test_need_to_wait1():
 def test_need_to_wait2():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=False)
     assert lab.need_to_wait(None) is False
     assert lab.need_to_wait(False) is False
     assert lab.need_to_wait(True) is True
@@ -117,20 +119,22 @@ def test_need_to_wait2():
 def test_str_and_repr():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=False)
     assert str(lab) == "Lab: laboratory"
-    assert repr(lab).startswith("Lab('laboratory', 1, Context(")
+    assert repr(lab).startswith("Lab('laboratory', '1', Context(")
 
 
 def test_create_node():
     context = Context("http://dontcare", requests_session=MagicMock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=False)
     node = lab.create_node("testnode", "server")
     assert node.node_definition == "server"
     assert node.label == "testnode"
+    assert node.compute_id is None  # None until we start the node.
 
 
+# If this ``requests_mock`` fixture is confusing, see https://requests-mock.readthedocs.io/en/latest/pytest.html.
 def test_create_link(requests_mock):
     requests_mock.post("mock://labs/1/nodes", json={"id": "n0"})
     requests_mock.post(
@@ -141,7 +145,7 @@ def test_create_link(requests_mock):
     context = Context("mock://", requests_session=session)
     # requests_mock.post("http://dontcare", )
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=False)
     node1 = lab.create_node("testnode", "server")
     node1_i1 = node1.create_interface()
     assert isinstance(node1_i1, Interface)
@@ -165,14 +169,14 @@ def test_sync_stats(requests_mock):
     session = requests.Session()
     context = Context("mock://", requests_session=session)
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=False)
     lab.sync_statistics()
 
 
 def test_tags():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0)
     node_a = lab.add_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
     node_b = lab.add_node_local("1", "node B", "nd", "im", "cfg", 0, 0)
     node_c = lab.add_node_local("2", "node C", "nd", "im", "cfg", 0, 0)
@@ -202,7 +206,7 @@ def test_find_by_label():
 
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0)
 
     lab.add_node_local("n0", "server-a", "nd", "im", "cfg", 0, 0)
     lab.add_node_local("n1", "server-b", "nd", "im", "cfg", 0, 0)
@@ -221,18 +225,18 @@ def test_find_by_label():
 def test_next_free_interface():
     context = Context("http://dontcare", requests_session=Mock())
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0)
     node_a = lab.add_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
     node_b = lab.add_node_local("1", "node B", "nd", "im", "cfg", 1, 1)
 
     nf = node_a.next_available_interface()
     assert nf is None
 
-    i1 = lab.create_interface_local("0", "iface 0", node_a, "slot 0")
+    i1 = lab.create_interface_local("0", "iface 0", node_a, 0)
     nf = node_a.next_available_interface()
     assert i1 == nf
 
-    i2 = lab.create_interface_local("4", "iface 4", node_b, "slot 4")
+    i2 = lab.create_interface_local("4", "iface 4", node_b, 1)
     lab.create_link_local(i1, i2, "0")
 
     nf = node_a.next_available_interface()
@@ -249,7 +253,7 @@ def test_connect_two_nodes(requests_mock):
     context = Context("mock://", requests_session=session)
     # requests_mock.post("http://dontcare", )
     username = password = "test"
-    lab = Lab("laboratory", 1, context, username, password, auto_sync=0, wait=False)
+    lab = Lab("laboratory", "1", context, username, password, auto_sync=0, wait=False)
     node1 = lab.create_node("testnode", "server")
     node2 = lab.create_node("testnode", "server")
     link = lab.connect_two_nodes(node1, node2)
@@ -263,3 +267,23 @@ def test_connect_two_nodes(requests_mock):
         "writepackets": 0,
     }
     assert link.id == "l0"
+
+
+def test_join_existing_lab(change_test_dir, requests_mock_with_labs):
+    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
+    lab = client.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
+    assert lab.title == "IOSv Feature Tests"
+    assert lab.statistics == {"nodes": 7, "links": 8, "interfaces": 24}
+
+
+def test_all_labs(
+    client_library_server_current, change_test_dir, requests_mock_with_labs
+):
+    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
+    all_labs = client.all_labs()
+    assert len(all_labs) == 4
+    iosv_labs = client.find_labs_by_title("IOSv Feature Tests")
+    assert len(iosv_labs) == 1
+    lab: Lab = iosv_labs[0]
+    node = lab.get_node_by_label("csr1000v-0")
+    assert node.compute_id == "99c887f5-052e-4864-a583-49fa7c4b68a9"

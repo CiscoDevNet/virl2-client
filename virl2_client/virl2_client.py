@@ -241,7 +241,7 @@ class ClientLibrary:
         if ssl_verify is True:
             ssl_verify_parsed = self._environ_get("CA_BUNDLE", default=True)
         else:
-            ssl_verify_parsed = False
+            ssl_verify_parsed = ssl_verify
         self.session.verify = ssl_verify_parsed
 
         if ssl_verify_parsed is False:

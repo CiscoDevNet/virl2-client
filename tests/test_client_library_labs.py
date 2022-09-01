@@ -18,7 +18,6 @@
 # limitations under the License.
 #
 
-from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -270,14 +269,16 @@ def test_connect_two_nodes(requests_mock):
     assert link.id == "l0"
 
 
-def test_join_existing_lab(requests_mock_with_labs):
+def test_join_existing_lab(change_test_dir, requests_mock_with_labs):
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     lab = client.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
     assert lab.title == "IOSv Feature Tests"
     assert lab.statistics == {"nodes": 7, "links": 8, "interfaces": 24}
 
 
-def test_all_labs(client_library_server_current, requests_mock_with_labs):
+def test_all_labs(
+    client_library_server_current, change_test_dir, requests_mock_with_labs
+):
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     all_labs = client.all_labs()
     assert len(all_labs) == 4

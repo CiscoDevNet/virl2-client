@@ -18,66 +18,67 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
+from typing import Optional
+
 
 class GroupManagement:
-    def __init__(self, context):
+    def __init__(self, context) -> None:
         self.ctx = context
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self.ctx.base_url + "groups"
 
-    def groups(self):
+    def groups(self) -> list:
         """
         Get the list of available groups.
 
         :return: list of group objects
-        :rtype: list
         """
         response = self.ctx.session.get(self.base_url)
         response.raise_for_status()
         return response.json()
 
-    def get_group(self, group_id):
+    def get_group(self, group_id: str) -> dict:
         """
         Gets info for the specified group.
 
         :param group_id: group uuid4
-        :type group_id: str
         :return: group object
-        :rtype: dict
         """
         url = self.base_url + "/{}".format(group_id)
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def delete_group(self, group_id):
+    def delete_group(self, group_id: str) -> None:
         """
         Deletes a group.
 
         :param group_id: group uuid4
-        :type group_id: str
         :return: None
         """
         url = self.base_url + "/{}".format(group_id)
         response = self.ctx.session.delete(url)
         response.raise_for_status()
 
-    def create_group(self, name, description="", members=None, labs=None):
+    def create_group(
+        self,
+        name: str,
+        description: str = "",
+        members: Optional[list[str]] = None,
+        labs: Optional[list[dict[str, str]]] = None,
+    ) -> dict:
         """
         Creates a group.
 
         :param name: group name
-        :type name: str
         :param description: group description
-        :type description: str
         :param members: group members
-        :type members: List[str]
         :param labs: group labs
-        :type labs: List[Dict[str, str]]
         :return: created group object
-        :rtype: dict
         """
         data = {
             "name": name,
@@ -90,25 +91,24 @@ class GroupManagement:
         return response.json()
 
     def update_group(
-        self, group_id, name=None, description=None, members=None, labs=None
-    ):
+        self,
+        group_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        members: Optional[list[str]] = None,
+        labs: Optional[list[dict[str, str]]] = None,
+    ) -> dict:
         """
         Updates a group.
 
         :param group_id: group uuid4
-        :type group_id: str
         :param name: new group name
-        :type name: str
         :param description: group description
-        :type description: str
         :param members: group members
-        :type members: List[str]
         :param labs: group labs
-        :type labs: List[Dict[str, str]]
         :return: updated group object
-        :rtype: dict
         """
-        data = {}
+        data: dict[str, str| list] = {}
         if name is not None:
             data["name"] = name
         if description is not None:
@@ -122,42 +122,36 @@ class GroupManagement:
         response.raise_for_status()
         return response.json()
 
-    def group_members(self, group_id):
+    def group_members(self, group_id: str) -> list[str]:
         """
         Gets group members.
 
         :param group_id: group uuid4
-        :type group_id: str
         :return: list of users associated with this group
-        :rtype: List[str]
         """
         url = self.base_url + "/{}/members".format(group_id)
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def group_labs(self, group_id):
+    def group_labs(self, group_id: str) -> list[str]:
         """
         Get the list of labs that are associated with this group.
 
         :param group_id: group uuid4
-        :type group_id: str
         :return: list of labs associated with this group
-        :rtype: List[str]
         """
         url = self.base_url + "/{}/labs".format(group_id)
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def group_id(self, group_name):
+    def group_id(self, group_name: str) -> str:
         """
         Get unique user uuid4.
 
         :param group_name: group name
-        :type group_name: str
         :return: group unique identifier
-        :rtype: str
         """
         url = self.base_url + "/{}/id".format(group_name)
         response = self.ctx.session.get(url)

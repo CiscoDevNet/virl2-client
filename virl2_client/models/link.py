@@ -18,35 +18,42 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import logging
 import time
 from functools import total_ordering
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .lab import Lab
+    from .interface import Interface
+    from .node import Node
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @total_ordering
 class Link:
-    def __init__(self, lab, lid, iface_a, iface_b):
+    def __init__(
+        self, lab: Lab, lid: str, iface_a: Interface, iface_b: Interface
+    ) -> None:
         """
         A VIRL2 network link between two nodes, connecting
         to two interfaces on these nodes.
 
         :param lab: the lab object
-        :type lab: models.Lab
         :param lid: the link ID
-        :type lid: str
         :param iface_a: the first interface of the link
-        :type iface_a: models.Interface
         :param iface_b: the second interface of the link
-        :type iface_b: models.Interface
         """
         self.id = lid
         self.interface_a = iface_a
         self.interface_b = iface_b
         self.lab = lab
         self.session = lab.session
-        self._state = None
+        self._state: Optional[str] = None
         self.statistics = {
             "readbytes": 0,
             "readpackets": 0,
@@ -55,27 +62,27 @@ class Link:
         }
 
     @property
-    def state(self):
+    def state(self) -> Optional[str]:
         self.lab.sync_states_if_outdated()
         return self._state
 
     @property
-    def readbytes(self):
+    def readbytes(self) -> int:
         self.lab.sync_statistics_if_outdated()
         return self.statistics["readbytes"]
 
     @property
-    def readpackets(self):
+    def readpackets(self) -> int:
         self.lab.sync_statistics_if_outdated()
         return self.statistics["readpackets"]
 
     @property
-    def writebytes(self):
+    def writebytes(self) -> int:
         self.lab.sync_statistics_if_outdated()
         return self.statistics["writebytes"]
 
     @property
-    def writepackets(self):
+    def writepackets(self) -> int:
         self.lab.sync_statistics_if_outdated()
         return self.statistics["writepackets"]
 
@@ -105,27 +112,27 @@ class Link:
         return hash(self.id)
 
     @property
-    def node_a(self):
+    def node_a(self) -> Node:
         self.lab.sync_topology_if_outdated()
         return self.interface_a.node
 
     @property
-    def node_b(self):
+    def node_b(self) -> Node:
         self.lab.sync_topology_if_outdated()
         return self.interface_b.node
 
     @property
-    def nodes(self):
+    def nodes(self) -> tuple[Node, Node]:
         """Return nodes this link connects."""
         self.lab.sync_topology_if_outdated()
         return self.node_a, self.node_b
 
     @property
-    def interfaces(self):
+    def interfaces(self) -> tuple[Interface, Interface]:
         self.lab.sync_topology_if_outdated()
         return self.interface_a, self.interface_b
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str]:
         return {
             "id": self.id,
             "interface_a": self.interface_a.id,
@@ -133,20 +140,22 @@ class Link:
         }
 
     @property
-    def lab_base_url(self):
+    def lab_base_url(self) -> str:
         return self.lab.lab_base_url
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self.lab_base_url + "/links/{}".format(self.id)
 
-    def remove_on_server(self):
+    def remove_on_server(self) -> None:
         _LOGGER.info("Removing link %s", self)
         url = self.base_url
         response = self.session.delete(url)
         response.raise_for_status()
 
-    def wait_until_converged(self, max_iterations=None, wait_time=None):
+    def wait_until_converged(
+        self, max_iterations: Optional[int] = None, wait_time: Optional[int] = None
+    ) -> None:
         _LOGGER.info("Waiting for link %s to converge", self.id)
         max_iter = (
             self.lab.wait_max_iterations if max_iterations is None else max_iterations
@@ -177,28 +186,30 @@ class Link:
         # specified
         raise RuntimeError(msg)
 
-    def has_converged(self):
+    def has_converged(self) -> bool:
         url = self.base_url + "/check_if_converged"
         response = self.session.get(url)
         response.raise_for_status()
         converged = response.json()
         return converged
 
-    def start(self, wait=None):
+    def start(self, wait: Optional[bool] = None) -> None:
         url = self.base_url + "/state/start"
         response = self.session.put(url)
         response.raise_for_status()
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
-    def stop(self, wait=None):
+    def stop(self, wait: Optional[bool] = None) -> None:
         url = self.base_url + "/state/stop"
         response = self.session.put(url)
         response.raise_for_status()
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
-    def set_condition(self, bandwidth, latency, jitter, loss):
+    def set_condition(
+        self, bandwidth: int, latency: int, jitter: int, loss: float
+    ) -> None:
         """
         Applies conditioning to this link.
 
@@ -221,13 +232,12 @@ class Link:
         response = self.session.patch(url, json=data)
         response.raise_for_status()
 
-    def get_condition(self):
+    def get_condition(self) -> Optional[dict]:
         """
         Retrieves the current condition on this link.
         If there is no link condition specified, None is returned.
 
         :return: the applied link condition
-        :rtype: Optional[dict]
         """
         url = self.base_url + "/condition"
         response = self.session.get(url)
@@ -241,7 +251,7 @@ class Link:
         result = {k: v for (k, v) in condition.items() if k in keys}
         return result
 
-    def remove_condition(self):
+    def remove_condition(self) -> None:
         """
         Removes link conditioning.
         If there's no condition applied then this is a no-op for the controller.
@@ -250,7 +260,7 @@ class Link:
         response = self.session.delete(url)
         response.raise_for_status()
 
-    def set_condition_by_name(self, name):
+    def set_condition_by_name(self, name: str) -> None:
         """
         A convenience function to provide
         some commonly used link condition settings for various link types.
@@ -273,7 +283,6 @@ class Link:
         ========= ============ =========  ========
 
         :param name: the predefined condition name as outlined in the table above
-        :type name: str
         :raises ValueError: if the given name isn't known
         """
         options = {

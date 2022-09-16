@@ -18,72 +18,72 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from .authentication import Context
+
 
 class UserManagement:
-    def __init__(self, context):
+    def __init__(self, context: Context) -> None:
         self.ctx = context
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self.ctx.base_url + "users"
 
-    def users(self):
+    def users(self) -> list:
         """
         Get the list of available users.
 
         :return: list of user objects
-        :rtype:  list
         """
         response = self.ctx.session.get(self.base_url)
         response.raise_for_status()
         return response.json()
 
-    def get_user(self, user_id):
+    def get_user(self, user_id: str) -> dict:
         """
         Gets user info.
 
         :param user_id: user uuid4
-        :type user_id: str
         :return: user object
-        :rtype: dict
         """
         url = self.base_url + "/{}".format(user_id)
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def delete_user(self, user_id):
+    def delete_user(self, user_id: str) -> None:
         """
         Deletes user.
 
         :param user_id: user uuid4
-        :type user_id: str
-        :return: None
         """
         url = self.base_url + "/{}".format(user_id)
         response = self.ctx.session.delete(url)
         response.raise_for_status()
 
     def create_user(
-        self, username, pwd, fullname="", description="", admin=False, groups=None
-    ):
+        self,
+        username: str,
+        pwd: str,
+        fullname: str = "",
+        description: str = "",
+        admin: bool = False,
+        groups: list[str] = None,
+    ) -> dict:
         """
         Creates user.
 
         :param username: username
-        :type username: str
         :param pwd: desired password
-        :type pwd: str
         :param fullname: full name
-        :type fullname: str
         :param description: description
-        :type description: str
         :param admin: whether to create admin user
-        :type admin: bool
         :param groups: adds user to groups specified
-        :type groups: List[str]
         :return: user object
-        :rtype: Dict
         """
         data = {
             "username": username,
@@ -100,32 +100,25 @@ class UserManagement:
 
     def update_user(
         self,
-        user_id,
-        fullname="",
-        description="",
-        groups=None,
-        admin=None,
-        password_dict=None,
-    ):
+        user_id: str,
+        fullname: str = "",
+        description: str = "",
+        groups: list[str] = None,
+        admin: Optional[bool] = None,
+        password_dict: dict[str, str] = None,
+    ) -> dict:
         """
         Updates user.
 
         :param user_id: user uuid4
-        :type user_id: str
         :param fullname: full name
-        :type fullname: str
         :param description: description
-        :type description: str
         :param admin: whether to create admin user
-        :type admin: bool
         :param groups: adds user to groups specified
-        :type groups: List[str]
         :param password_dict: dict containing old and new passwords
-        :type password_dict: Dict[str:str]
         :return: user object
-        :rtype: Dict
         """
-        data = {}
+        data: dict[str, Any] = {}
         if fullname:
             data["fullname"] = fullname
         if description:
@@ -142,26 +135,23 @@ class UserManagement:
         response.raise_for_status()
         return response.json()
 
-    def user_groups(self, user_id):
+    def user_groups(self, user_id: str) -> list[str]:
         """
         Get the groups the user is member of.
 
         :param user_id: user uuid4
-        :type user_id: str
         """
         url = self.base_url + "/{}/groups".format(user_id)
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def user_id(self, username):
+    def user_id(self, username: str) -> str:
         """
         Get unique user uuid4.
 
         :param username: user name
-        :type username: str
         :return: user unique identifier
-        :rtype: str
         """
         url = self.base_url + "/{}/id".format(username)
         response = self.ctx.session.get(url)

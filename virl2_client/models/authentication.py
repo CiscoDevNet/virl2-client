@@ -18,11 +18,17 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import logging
 from urllib.parse import urljoin, urlparse
+from typing import TYPE_CHECKING, Optional
 
 import requests
 import requests.auth
+
+if TYPE_CHECKING:
+    from ..virl2_client import ClientLibrary
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,20 +36,22 @@ _LOGGER = logging.getLogger(__name__)
 class TokenAuth(requests.auth.AuthBase):
     """
     Inspired by:
-    http://requests.readthedocs.io/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
+    https://requests.readthedocs.io/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
     """
 
-    def __init__(self, client_library):
+    def __init__(self, client_library: ClientLibrary) -> None:
         self.client_library = client_library
-        self.token = None
+        self.token: Optional[str] = None
 
-    def __call__(self, request):
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         token = self.authenticate()
         request.headers["Authorization"] = "Bearer {}".format(token)
         request.register_hook("response", self.handle_401_unauthorized)
         return request
 
-    def handle_401_unauthorized(self, resp, **kwargs):  # pylint: disable=W0613
+    def handle_401_unauthorized(
+        self, resp: requests.Response, **kwargs  # pylint: disable=W0613
+    ) -> requests.Response:
         # ensure that we print the result from the API if something goes wrong.
         # As almost every library call uses "raise_for_status()"
         if resp.status_code != 401:
@@ -59,11 +67,13 @@ class TokenAuth(requests.auth.AuthBase):
         request = resp.request.copy()
         request.headers["Authorization"] = "Bearer {}".format(token)
         request.deregister_hook("response", self.handle_401_unauthorized)
-        new_resp = resp.connection.send(request)
+        # the Response class had no 'connection' attribute, but one is added regardless
+        # by HTTPAdapter, so all we can do is shut up type checkers
+        new_resp: requests.Response = resp.connection.send(request)  # type: ignore
         new_resp.history.append(resp)
         return new_resp
 
-    def authenticate(self):
+    def authenticate(self) -> str:
         if self.token is not None:
             return self.token
         url = urljoin(
@@ -78,12 +88,14 @@ class TokenAuth(requests.auth.AuthBase):
             "username": self.client_library.username,
             "password": self.client_library.password,
         }
-        response = self.client_library.session.post(url, json=data, auth=False)
+        response = self.client_library.session.post(url, json=data, auth=False) # type: ignore
+        # typeshed stubs say 'auth' shouldn't be a boolean, but the only
+        # sanctioned alternative (None) does not work, while the False does.
         response.raise_for_status()
         self.token = response.json()
         return self.token
 
-    def logout(self, clear_all_sessions=False):
+    def logout(self, clear_all_sessions=False) -> bool:
         url = urljoin(self.client_library._base_url, "logout")
         if clear_all_sessions:
             url = url + "?clear_all_sessions=true"
@@ -93,7 +105,9 @@ class TokenAuth(requests.auth.AuthBase):
 
 
 class Context:
-    def __init__(self, base_url, requests_session=None):
+    def __init__(
+        self, base_url: str, requests_session: requests.Session = None
+    ) -> None:
         self._base_url = base_url
         if requests_session is None:
             self._requests_session = requests.Session()
@@ -108,9 +122,9 @@ class Context:
         )
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self._base_url
 
     @property
-    def session(self):
+    def session(self) -> requests.Session:
         return self._requests_session

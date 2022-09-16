@@ -18,9 +18,14 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import time
 import logging
+from typing import TYPE_CHECKING, Any, Optional
 
+if TYPE_CHECKING:
+    from .authentication import Context
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,14 +38,14 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, context):
+    def __init__(self, context: Context) -> None:
         self.ctx = context
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self.ctx.base_url + "licensing"
 
-    def status(self):
+    def status(self) -> dict[str, Any]:
         """
         Get current licensing configuration and status.
         """
@@ -48,7 +53,7 @@ class Licensing:
         response.raise_for_status()
         return response.json()
 
-    def tech_support(self):
+    def tech_support(self) -> str:
         """
         Get current licensing tech support.
         """
@@ -57,7 +62,7 @@ class Licensing:
         response.raise_for_status()
         return response.text
 
-    def renew_authorization(self):
+    def renew_authorization(self) -> bool:
         """
         Renew licensing authorization with the backend.
         """
@@ -67,7 +72,9 @@ class Licensing:
         _LOGGER.info("The agent has scheduled an authorization renewal.")
         return response.status_code == 204
 
-    def set_transport(self, ssms, proxy_server=None, proxy_port=None):
+    def set_transport(
+        self, ssms: str, proxy_server: Optional[str] = None, proxy_port: Optional[int] = None
+    ) -> bool:
         """
         Setup licensing transport configuration.
         """
@@ -78,7 +85,7 @@ class Licensing:
         _LOGGER.info("The transport configuration has been accepted. Config: %s.", data)
         return response.status_code == 204
 
-    def set_default_transport(self):
+    def set_default_transport(self) -> bool:
         """
         Setup licensing transport configuration to default values.
         """
@@ -89,7 +96,7 @@ class Licensing:
             proxy_port=DEFAULT_PROXY_PORT,
         )
 
-    def set_product_license(self, product_license):
+    def set_product_license(self, product_license: str) -> bool:
         """
         Setup a product license.
         """
@@ -99,7 +106,7 @@ class Licensing:
         _LOGGER.info("Product license was accepted by the agent.")
         return response.status_code == 204
 
-    def get_certificate(self):
+    def get_certificate(self) -> Optional[str]:
         """
         Get the currently installed licensing public certificate.
         """
@@ -109,8 +116,9 @@ class Licensing:
         if response:
             _LOGGER.info("Certificate received.")
             return response.json()
+        return None
 
-    def install_certificate(self, cert):
+    def install_certificate(self, cert: str) -> bool:
         """
         Setup a licensing public certificate for internal deployment
         of an unregistered product instance.
@@ -121,7 +129,7 @@ class Licensing:
         _LOGGER.info("Certificate was accepted by the agent.")
         return response.status_code == 204
 
-    def remove_certificate(self):
+    def remove_certificate(self) -> bool:
         """
         Clear any licensing public certificate for internal deployment
         of an unregistered product instance.
@@ -132,7 +140,7 @@ class Licensing:
         _LOGGER.info("Certificate was removed.")
         return response.status_code == 204
 
-    def register(self, token, reregister=False):
+    def register(self, token: str, reregister=False) -> bool:
         """
         Setup licensing registration.
         """
@@ -144,7 +152,7 @@ class Licensing:
         _LOGGER.info("Registration request was accepted by the agent.")
         return response.status_code == 204
 
-    def register_renew(self):
+    def register_renew(self) -> bool:
         """
         Request a renewal of licensing registration against current SSMS.
         """
@@ -154,7 +162,7 @@ class Licensing:
         _LOGGER.info("The renewal request was accepted by the agent.")
         return response.status_code == 204
 
-    def register_wait(self, token, reregister=False):
+    def register_wait(self, token: str, reregister=False) -> bool:
         """
         Setup licensing registrations and wait for registration status
         to be COMPLETED and authorization status to be IN_COMPLIANCE.
@@ -164,7 +172,7 @@ class Licensing:
         self.wait_for_status("authorization", "IN_COMPLIANCE")
         return res
 
-    def deregister(self):
+    def deregister(self) -> int:
         """
         Request deregistration from the current SSMS.
         """
@@ -185,7 +193,7 @@ class Licensing:
             )
         return response.status_code
 
-    def features(self):
+    def features(self) -> list[dict[str, str | int]]:
         """
         Get current licensing features.
         """
@@ -194,7 +202,7 @@ class Licensing:
         response.raise_for_status()
         return response.json()
 
-    def update_features(self, features):
+    def update_features(self, features: dict[str, int] | list[dict[str, int]]) -> None:
         """
         Update licensing feature's explicit count in reservation mode.
         """
@@ -202,7 +210,7 @@ class Licensing:
         response = self.ctx.session.patch(url, json=features)
         response.raise_for_status()
 
-    def reservation_mode(self, data):
+    def reservation_mode(self, data: bool) -> None:
         """
         Enable or disable reservation mode in unregistered agent.
         """
@@ -212,29 +220,29 @@ class Licensing:
         msg = "enabled" if data else "disabled"
         _LOGGER.info("The reservation mode has been %s.", msg)
 
-    def enable_reservation_mode(self):
+    def enable_reservation_mode(self) -> None:
         """
         Enable reservation mode in unregistered agent.
         """
         return self.reservation_mode(data=True)
 
-    def disable_reservation_mode(self):
+    def disable_reservation_mode(self) -> None:
         """
         Disable reservation mode in unregistered agent.
         """
         return self.reservation_mode(data=False)
 
-    def request_reservation(self):
+    def request_reservation(self) -> str:
         """
         Initiate reservation by generating request code and message to the user.
         """
         url = self.base_url + "/reservation/request"
         response = self.ctx.session.post(url)
         response.raise_for_status()
-        _LOGGER.info("The reservation request code received.")
+        _LOGGER.info("Reservation request code received.")
         return response.json()
 
-    def complete_reservation(self, authorization_code):
+    def complete_reservation(self, authorization_code: str) -> str:
         """
         Complete reservation by installing authorization code from SSMS.
         """
@@ -245,7 +253,7 @@ class Licensing:
         _LOGGER.info("The confirmation code of completed reservation received.")
         return response.json()
 
-    def cancel_reservation(self):
+    def cancel_reservation(self) -> bool:
         """
         Cancel reservation request without completing it.
         """
@@ -255,7 +263,7 @@ class Licensing:
         _LOGGER.info("The reservation request has been cancelled.")
         return response.status_code == 204
 
-    def release_reservation(self):
+    def release_reservation(self) -> str:
         """
         Return a completed reservation.
         """
@@ -266,7 +274,7 @@ class Licensing:
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
-    def discard_reservation(self, data):
+    def discard_reservation(self, data: str) -> str:
         """
         Discard a reservation authorization code for an already cancelled
         reservation request.
@@ -280,7 +288,7 @@ class Licensing:
         )
         return response.json()
 
-    def get_reservation_confirmation_code(self):
+    def get_reservation_confirmation_code(self) -> str:
         """
         Get the confirmation code.
         """
@@ -290,7 +298,7 @@ class Licensing:
         _LOGGER.info("The confirmation code of the completed reservation received.")
         return response.json()
 
-    def delete_reservation_confirmation_code(self):
+    def delete_reservation_confirmation_code(self) -> bool:
         """
         Remove the confirmation code.
         """
@@ -300,7 +308,7 @@ class Licensing:
         _LOGGER.info("The confirmation code has been removed.")
         return response.status_code == 204
 
-    def get_reservation_return_code(self):
+    def get_reservation_return_code(self) -> str:
         """
         Get the return code.
         """
@@ -310,7 +318,7 @@ class Licensing:
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
-    def delete_reservation_return_code(self):
+    def delete_reservation_return_code(self) -> bool:
         """
         Remove the return code.
         """
@@ -320,14 +328,12 @@ class Licensing:
         _LOGGER.info("The return code has been removed.")
         return response.status_code == 204
 
-    def wait_for_status(self, what, *target_status):
+    def wait_for_status(self, what: str, *target_status: str) -> None:
         """
         Repeatedly check licensing registration or authorization status,
         until status matches one of the expected statuses or timeout is reached.
         :param what: "registration", "authorization" or other status in licensing API.
         :param target_status: One or more expected statuses.
-        :type what: str
-        :type target_status: str
         :raises RuntimeError: When timeout is reached.
         """
         count = 0

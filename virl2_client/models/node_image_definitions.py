@@ -18,13 +18,19 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import os
 import time
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from requests import Session
 
 
 class NodeImageDefinitions:
-    def __init__(self, context):
+    def __init__(self, context) -> None:
         """
         VIRL2 Definition classes to specify a node VM and associated disk images.
 
@@ -34,50 +40,46 @@ class NodeImageDefinitions:
         self._context = context
 
     @property
-    def session(self):
+    def session(self) -> Session:
         """
         Returns the used Requests session object.
 
         :returns: The Requests session object
-        :rtype: Requests.Session
         """
         return self._context.session
 
     @property
-    def _base_url(self):
+    def _base_url(self) -> str:
         """
         Returns the base URL to access the controller.
 
         :returns: The base URL
-        :rtype: str
         """
         return self._context.base_url
 
-    def node_definitions(self):
+    def node_definitions(self) -> list[dict]:
         """
         Returns all node definitions.
 
         :return: list of node definitions
-        :rtype: List[Dict]
         """
         url = self._base_url + "node_definitions/"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def image_definitions(self):
+    def image_definitions(self) -> list[dict]:
         """
         Returns all image definitions.
 
         :return: list of image definitions
-        :rtype: List[Dict]
         """
         url = self._base_url + "image_definitions/"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def image_definitions_for_node_definition(self, definition_id):
+    def image_definitions_for_node_definition(self, definition_id: str) -> list[dict]:
         """
         Returns all image definitions for a given node definition
 
@@ -86,9 +88,7 @@ class NodeImageDefinitions:
             client_library.definitions.image_definitions_for_node_definition("iosv")
 
         :param definition_id: node definition id
-        :type definition_id: str
         :returns: list of image definition objects
-        :rtype: List[Dict]
         """
         url = (
             self._base_url + "node_definitions/" + definition_id + "/image_definitions"
@@ -97,16 +97,14 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def upload_node_definition(self, body, json=False):
+    def upload_node_definition(self, body, json: bool = False) -> str:
         """
         Upload new node definition.
 
         :param body: node definition (yaml or json)
         :type: str or dict
         :param json: whether we are sending json data
-        :type json: bool
         :return: "Success"
-        :rtype: str
         """
         url = self._base_url + "node_definitions/"
         if json:
@@ -117,16 +115,14 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def upload_image_definition(self, body, json=False):
+    def upload_image_definition(self, body, json: bool = False) -> str:
         """
         Upload new image definition.
 
         :param body: image definition (yaml or json)
         :type: str or dict
         :param json: whether we are sending json data
-        :type json: bool
         :return: "Success"
-        :rtype: str
         """
         url = self._base_url + "image_definitions/"
         if json:
@@ -137,7 +133,7 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def download_node_definition(self, definition_id):
+    def download_node_definition(self, definition_id: str) -> str:
         """
         Returns the node definition for a given definition ID
 
@@ -146,25 +142,21 @@ class NodeImageDefinitions:
             client_library.definitions.download_node_definition("iosv")
 
         :param definition_id: the node definition ID
-        :type definition_id: str
         :returns: the node definition as YAML
-        :rtype: str
         """
         url = self._base_url + "node_definitions/" + definition_id
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def download_image_definition(self, definition_id):
+    def download_image_definition(self, definition_id: str) -> str:
         """
         Example::
 
             client_library.definitions.download_image_definition("iosv-158-3")
 
         :param definition_id: the image definition ID
-        :type definition_id: str
         :returns: the image definition as YAML
-        :rtype: str
         """
 
         url = self._base_url + "image_definitions/" + definition_id
@@ -172,16 +164,14 @@ class NodeImageDefinitions:
         response.raise_for_status()
         return response.json()
 
-    def upload_image_file(self, filename, rename=None, chunk_size_mb=10):
+    def upload_image_file(
+        self, filename: str, rename: Optional[str] = None, chunk_size_mb: int = 10
+    ) -> None:
         """
-
         :param filename: the path of the image to upload
-        :type filename: str
         :param rename:  Optional filename to rename to
-        :type rename: str
         :param chunk_size_mb: Optional size of upload chunk (mb)
             (deprecated since 2.2.0)
-        :type chunk_size_mb: int
         """
         url = self._base_url + "images/upload"
         if rename:
@@ -194,23 +184,27 @@ class NodeImageDefinitions:
         mpe = MultipartEncoder(fields={"field0": (name, open(filename, "rb"))})
         monitor = MultipartEncoderMonitor(mpe, progress_callback)
 
-        response = self.session.post(url, data=monitor, headers=headers)
+        response = self.session.post(url, data=monitor, headers=headers)  # type: ignore
+        # type is ignored because a duck-compatible extension is used
         response.raise_for_status()
         print("Upload completed")
 
-    def download_image_file_list(self):
+    def download_image_file_list(self) -> list[str]:
         url = self._base_url + "list_image_definition_drop_folder/"
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def remove_dropfolder_image(self, filename):
+    def remove_dropfolder_image(self, filename: str) -> str:
+        """
+        :returns: "Success"
+        """
         url = self._base_url + "images/manage/{}".format(filename)
         response = self.session.delete(url)
         response.raise_for_status()
         return response.json()
 
-    def remove_node_definition(self, definition_id):
+    def remove_node_definition(self, definition_id: str) -> None:
         """
         Removes the node definition with the given ID.
 
@@ -219,16 +213,13 @@ class NodeImageDefinitions:
             client_library.definitions.remove_node_definition("iosv-custom")
 
         :param definition_id: the definition ID to delete
-        :type definition_id: str
-        :returns: "Success"
-        :rtype: str
         """
 
         url = self._base_url + "node_definitions/" + definition_id
         response = self.session.delete(url)
         response.raise_for_status()
 
-    def remove_image_definition(self, definition_id):
+    def remove_image_definition(self, definition_id: str) -> None:
         """
         Removes the image definition with the given ID.
 
@@ -237,9 +228,6 @@ class NodeImageDefinitions:
             client_library.definitions.remove_image_definition("iosv-158-3-custom")
 
         :param definition_id: the image definition ID to remove
-        :type definition_id: str
-        :returns: "Success"
-        :rtype: str
         """
 
         url = self._base_url + "image_definitions/" + definition_id
@@ -247,7 +235,7 @@ class NodeImageDefinitions:
         response.raise_for_status()
 
 
-def progress_callback(monitor):
+def progress_callback(monitor: MultipartEncoderMonitor) -> None:
     if not hasattr(monitor, "start_time"):
         monitor.start_time = time.time()
     if not hasattr(monitor, "last_bytes"):
@@ -258,8 +246,8 @@ def progress_callback(monitor):
         monitor.last_bytes = monitor.bytes_read
 
 
-def print_progress_bar(cur, total, start_time, length=50):
-    percent = ("{0:.1f}").format(100 * (cur / float(total)))
+def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> None:
+    percent = "{0:.1f}".format(100 * (cur / float(total)))
     filled_len = int(round(length * cur / float(total)))
     bar = "#" * filled_len + "-" * (length - filled_len)
     raw_elapsed = time.time() - start_time

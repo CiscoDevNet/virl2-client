@@ -18,33 +18,38 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .authentication import Context
+
 
 class SystemManagement:
-    def __init__(self, context):
+    def __init__(self, context: Context) -> None:
         self.ctx = context
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self.ctx.base_url
 
-    def get_web_session_timeout(self):
+    def get_web_session_timeout(self) -> int:
         """
         Get the web session timeout in seconds.
 
         :return: web session timeout
-        :rtype:  int
         """
         url = self.base_url + "/web_session_timeout"
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def set_web_session_timeout(self, timeout):
+    def set_web_session_timeout(self, timeout: int) -> str:
         """
         Set the web session timeout in seconds.
 
         :return: 'OK'
-        :rtype: str
         """
 
         url = self.ctx.base_url + "/web_session_timeout/{}".format(timeout)
@@ -52,30 +57,28 @@ class SystemManagement:
         response.raise_for_status()
         return response.json()
 
-    def get_mac_address_block(self):
+    def get_mac_address_block(self) -> int:
         """
         Get mac address block.
 
         :return: mac address block
-        :rtype:  int
         """
         url = self.base_url + "/mac_address_block"
         response = self.ctx.session.get(url)
         response.raise_for_status()
         return response.json()
 
-    def _set_mac_address_block(self, block):
+    def _set_mac_address_block(self, block: int) -> str:
         url = self.ctx.base_url + "/mac_address_block/{}".format(block)
         response = self.ctx.session.patch(url)
         response.raise_for_status()
         return response.json()
 
-    def set_mac_address_block(self, block):
+    def set_mac_address_block(self, block: int) -> str:
         """
         Set mac address block.
 
         :return: 'OK'
-        :rtype: str
         """
         if block < 0 or block > 7:
             raise ValueError("MAC address block has to be in range 0-7.")

@@ -37,7 +37,12 @@ _LOGGER = logging.getLogger(__name__)
 @total_ordering
 class Link:
     def __init__(
-        self, lab: Lab, lid: str, iface_a: Interface, iface_b: Interface
+        self,
+        lab: Lab,
+        lid: str,
+        iface_a: Interface,
+        iface_b: Interface,
+        label: Optional[str] = None,
     ) -> None:
         """
         A VIRL2 network link between two nodes, connecting
@@ -47,10 +52,12 @@ class Link:
         :param lid: the link ID
         :param iface_a: the first interface of the link
         :param iface_b: the second interface of the link
+        :param label: the link label
         """
         self.id = lid
         self.interface_a = iface_a
         self.interface_b = iface_b
+        self._label = label
         self.lab = lab
         self.session = lab.session
         self._state: Optional[str] = None
@@ -90,12 +97,13 @@ class Link:
         return "Link: {}".format(self.id)
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r})".format(
+        return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             str(self.lab),
             self.id,
             self.interface_a,
             self.interface_b,
+            self.label,
         )
 
     def __eq__(self, other: object):
@@ -131,6 +139,11 @@ class Link:
     def interfaces(self) -> tuple[Interface, Interface]:
         self.lab.sync_topology_if_outdated()
         return self.interface_a, self.interface_b
+
+    @property
+    def label(self) -> Optional[str]:
+        self.lab.sync_topology_if_outdated()
+        return self._label
 
     def as_dict(self) -> dict[str, str]:
         return {

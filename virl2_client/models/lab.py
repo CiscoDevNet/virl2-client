@@ -631,11 +631,12 @@ class Lab:
         response = self.session.post(url, json=data)
         result = response.json()
         link_id = result["id"]
+        label = result.get("label")
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
 
-        link = self.create_link_local(i1, i2, link_id)
+        link = self.create_link_local(i1, i2, link_id, label)
         return link
 
     def connect_two_nodes(self, node1: Node, node2: Node) -> Link:
@@ -650,9 +651,11 @@ class Lab:
         iface2 = node2.next_available_interface() or node2.create_interface()
         return self.create_link(iface1, iface2)
 
-    def create_link_local(self, i1: Interface, i2: Interface, link_id: str) -> Link:
+    def create_link_local(
+        self, i1: Interface, i2: Interface, link_id: str, label: Optional[str] = None
+    ) -> Link:
         """Helper function to create a link in the client library."""
-        link = Link(self, link_id, i1, i2)
+        link = Link(self, link_id, i1, i2, label)
         self._links[link_id] = link
         return link
 
@@ -1075,12 +1078,19 @@ class Lab:
                 raise ElementAlreadyExists("Link already exists")
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
-            self._import_link(link_id, iface_b_id, iface_a_id)
+            label = link.get("label")
+            self._import_link(link_id, iface_b_id, iface_a_id, label)
 
-    def _import_link(self, link_id: str, iface_b_id: str, iface_a_id: str) -> Link:
+    def _import_link(
+        self,
+        link_id: str,
+        iface_b_id: str,
+        iface_a_id: str,
+        label: Optional[str] = None,
+    ) -> Link:
         iface_a = self._interfaces[iface_a_id]
         iface_b = self._interfaces[iface_b_id]
-        return self.create_link_local(iface_a, iface_b, link_id)
+        return self.create_link_local(iface_a, iface_b, link_id, label)
 
     def _import_interface(
         self, iface_id: str, node_id: str, iface_data: dict
@@ -1219,7 +1229,8 @@ class Lab:
             link_data = self._find_link_in_topology(link_id, topology)
             iface_a_id = link_data["interface_a"]
             iface_b_id = link_data["interface_b"]
-            link = self._import_link(link_id, iface_b_id, iface_a_id)
+            label = link_data.get("label")
+            link = self._import_link(link_id, iface_b_id, iface_a_id, label)
             _LOGGER.info("Added link %s", link)
 
     def _update_elements(

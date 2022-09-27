@@ -458,21 +458,18 @@ class Lab:
         result: dict[str, str] = response.json()
         response.raise_for_status()
         node_id: str = result["id"]
-        config = ""
 
         # if add node to an empty lab, then consider it "initialized" for sync purposes
         if not self._initialized:
             self._initialized = True
 
-        # fetch default image def
-        image_definition = None
-
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
 
-        node = self.add_node_local(
-            node_id, label, node_definition, image_definition, config, x, y
-        )
+        for key in ("image_definition", "configuration"):
+            if key not in kwargs:
+                kwargs[key] = None
+        node = self.add_node_local(node_id, **kwargs)
         return node
 
     def add_node_local(
@@ -481,14 +478,15 @@ class Lab:
         label: str,
         node_definition: str,
         image_definition: Optional[str],
-        config: str,
+        configuration: Optional[str],
         x: int,
         y: int,
-        ram: int = 0,
-        cpus: int = 0,
-        cpu_limit: int = 100,
-        data_volume: int = 0,
-        boot_disk_size: int = 0,
+        ram: Optional[int] = None,
+        cpus: Optional[int] = None,
+        cpu_limit: Optional[int] = None,
+        data_volume: Optional[int] = None,
+        boot_disk_size: Optional[int] = None,
+        hide_links: bool = False,
         tags: Optional[list] = None,
     ) -> Node:
         """Helper function to add a node to the client library."""
@@ -502,7 +500,7 @@ class Lab:
             label,
             node_definition,
             image_definition,
-            config,
+            configuration,
             x,
             y,
             ram,
@@ -510,6 +508,7 @@ class Lab:
             cpu_limit,
             data_volume,
             boot_disk_size,
+            hide_links,
             tags,
         )
         self._nodes[node.id] = node
@@ -1103,7 +1102,7 @@ class Lab:
         image_definition = node_data.get("image_definition", None)
         ram = node_data["ram"]
         cpus = node_data["cpus"]
-        cpu_limit = node_data.get("cpu_limit", 100)
+        cpu_limit = node_data["cpu_limit"]
         data_volume = node_data["data_volume"]
         boot_disk_size = node_data["boot_disk_size"]
         tags = node_data["tags"]

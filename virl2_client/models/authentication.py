@@ -88,7 +88,9 @@ class TokenAuth(requests.auth.AuthBase):
             "username": self.client_library.username,
             "password": self.client_library.password,
         }
-        response = self.client_library.session.post(url, json=data, auth=False) # type: ignore
+        response = self.client_library.session.post(
+            url, json=data, auth=False
+        )  # type: ignore
         # typeshed stubs say 'auth' shouldn't be a boolean, but the only
         # sanctioned alternative (None) does not work, while the False does.
         response.raise_for_status()

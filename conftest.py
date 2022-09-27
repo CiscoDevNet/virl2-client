@@ -26,7 +26,9 @@ from typing import Iterator
 import pytest
 
 
-def pytest_addoption(parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager) -> None:
+def pytest_addoption(
+    parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager
+) -> None:
     # Only add these options if the test is run inside the root virl2 repository
     # itself and not from outside
     root_dir = parser.extra_info.get("rootdir", "")

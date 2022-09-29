@@ -96,6 +96,7 @@ class Node:
         self._boot_disk_size = boot_disk_size
         self._hide_links = hide_links
         self._tags = tags
+        self._compute_id = None
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -343,6 +344,11 @@ class Node:
     #     self.lab.sync_topology_if_outdated()
     #     self._set_node_property("node_definition", value)
     #     self._image_definition = None
+
+    @property
+    def compute_id(self):
+        self.lab.sync_topology_if_outdated()
+        return self._compute_id
 
     @property
     def lab_base_url(self) -> str:

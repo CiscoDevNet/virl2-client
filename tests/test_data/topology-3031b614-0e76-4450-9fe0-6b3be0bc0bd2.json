@@ -1,0 +1,618 @@
+{
+  "lab": {
+    "description": "Lab for testing Viptela images.",
+    "notes": "",
+    "owner": "640a1c81-f1e7-4159-8fa2-ad35d9a68586",
+    "title": "cml-viptela-images-testing",
+    "version": "0.1.0"
+  },
+  "links": [
+    {
+      "id": "e16aaa90-b966-41a6-bc23-197590293b5b",
+      "interface_a": "9be9eb3f-c6eb-4106-9948-8328368241f2",
+      "interface_b": "62e25ca9-fab1-4ce8-bc68-0b97df65b6d3",
+      "label": "internet-GigabitEthernet1<->internet-mgmt-port",
+      "node_a": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+      "node_b": "926f0f14-d1df-4320-8b32-5549e4465e4c"
+    },
+    {
+      "id": "cfae0bcb-4548-43f9-9a16-37009e869072",
+      "interface_a": "302e5e8f-94c9-4a4f-b873-bb1ad6d4d04f",
+      "interface_b": "37df3621-c790-4771-9b2d-b504e0c85aaa",
+      "label": "site2-vedge1-ge0/0<->internet-GigabitEthernet4",
+      "node_a": "99e83795-51d8-418a-97b8-a68f1c471598",
+      "node_b": "302b1db3-5e14-45e4-9769-4094d912a6a2"
+    },
+    {
+      "id": "51f73528-bf37-49c8-a8e8-1ebec9a35fac",
+      "interface_a": "9c6fd8d7-e89d-4f23-80ee-947567f75470",
+      "interface_b": "46151d0e-5943-4f0b-8317-eba4730aad13",
+      "label": "site1-vedge1-ge0/0<->internet-GigabitEthernet3",
+      "node_a": "3ea48ff8-ca14-498f-92ff-7c848923c1cc",
+      "node_b": "302b1db3-5e14-45e4-9769-4094d912a6a2"
+    },
+    {
+      "id": "05c218f7-6e86-4e2d-9250-ad7d76d88c9f",
+      "interface_a": "e961040f-f403-4af6-a15a-19c8c5ff082d",
+      "interface_b": "5f252735-9118-4f6b-b379-86c3de1b4611",
+      "label": "site3-vedge1-ge0/0<->internet-GigabitEthernet5",
+      "node_a": "1028ee8e-36ed-405e-b8b7-d3ecd5b96c69",
+      "node_b": "302b1db3-5e14-45e4-9769-4094d912a6a2"
+    },
+    {
+      "id": "b71fdcf0-6100-443e-9891-5343c7b03a27",
+      "interface_a": "9b7e51ae-bf14-44ce-91a9-3d95c8b0f939",
+      "interface_b": "899787a1-70a3-4e90-a36e-0e0df82e2721",
+      "label": "site1-host1-eth0<->site1-vedge1-ge0/1",
+      "node_a": "c513c0e9-3ea2-4541-a7af-7020fb847b52",
+      "node_b": "3ea48ff8-ca14-498f-92ff-7c848923c1cc"
+    },
+    {
+      "id": "c8b07ed2-84ce-4655-9ac8-fa4806c3956b",
+      "interface_a": "88dc9a84-d7d6-4635-b336-ea659608c34c",
+      "interface_b": "1c5437cf-c692-4fd3-a434-98ac92d3b6fa",
+      "label": "site2-host1-eth0<->site2-vedge1-ge0/1",
+      "node_a": "0bd147bb-bfaf-4698-b8a2-978e975f7290",
+      "node_b": "99e83795-51d8-418a-97b8-a68f1c471598"
+    },
+    {
+      "id": "a0c48e21-3ae1-48f2-80a8-4d947b996a92",
+      "interface_a": "570bdabe-c99e-4423-b94a-95420727f652",
+      "interface_b": "49d9ed96-309f-4d38-b131-634edfe8d5b8",
+      "label": "site3-host1-eth0<->site3-vedge1-ge0/1",
+      "node_a": "f2ee4b01-13e0-4fc8-af86-f65ae1bef9e7",
+      "node_b": "1028ee8e-36ed-405e-b8b7-d3ecd5b96c69"
+    },
+    {
+      "id": "a1094d59-9c4d-4a42-a6b5-99f0cbc23068",
+      "interface_a": "cd12202f-2fca-4363-8ae5-539751094324",
+      "interface_b": "9f784ee7-5468-4ccb-bb3e-5b31357b0417",
+      "label": "internet-GigabitEthernet2<->hq-rtr1-GigabitEthernet2",
+      "node_a": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+      "node_b": "dd48e270-c192-4cad-990e-83e3c0fe11d2"
+    },
+    {
+      "id": "72e8f1ee-2799-4cdd-b78e-02051edf2a3b",
+      "interface_a": "94d2865b-66f7-4ecd-b786-897f571e7f57",
+      "interface_b": "41a63781-7b47-4670-9e51-c940d64f04d2",
+      "label": "hq-rtr1-GigabitEthernet3<->hq-dmz-lan-port0",
+      "node_a": "dd48e270-c192-4cad-990e-83e3c0fe11d2",
+      "node_b": "c499b260-1679-4d61-b807-e5db80ffd9d0"
+    },
+    {
+      "id": "00ab556f-39cc-4834-ae2f-fe2c176a53e0",
+      "interface_a": "30892501-56db-42e3-89b6-98ecf0b7e84c",
+      "interface_b": "c635d9b9-42f7-4c10-85dc-b9a6e477862a",
+      "label": "hq-dmz-lan-port3<->vsmart1-eth1",
+      "node_a": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+      "node_b": "4bfeed2c-a2ca-4b73-a974-974d32de93d8"
+    },
+    {
+      "id": "bf3c7952-d3a8-444e-b748-63a35c0e9a03",
+      "interface_a": "24fd017b-4a37-42a0-adeb-1d67c481254f",
+      "interface_b": "926f250b-6f98-46bd-a467-11e08dcf85f8",
+      "label": "hq-dmz-lan-port2<->vbond1-ge0/0",
+      "node_a": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+      "node_b": "54975a72-47a7-4052-980f-0af2bb8907cc"
+    },
+    {
+      "id": "e24c5f0b-d2ff-4072-8557-44aaf5dd0ce7",
+      "interface_a": "3b35d1cc-863e-4ec7-989e-32ae6a4853d0",
+      "interface_b": "4cc2fb90-b7db-43ca-b528-6229a3864a46",
+      "label": "hq-dmz-lan-port1<->vmanage1-eth1",
+      "node_a": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+      "node_b": "61ef5f7b-b6bb-49f4-bd34-957e090d0556"
+    },
+    {
+      "id": "5eb94dd6-b57e-42c0-9879-000f9ecc8f58",
+      "interface_a": "90c84457-d55e-4387-b660-5a3d1cc0ed85",
+      "interface_b": "b3528aa6-298a-4ef6-b1ba-e79ecaff93ea",
+      "label": "vmanage1-eth0<->OOB-mgmt-lan-GigabitEthernet0/1",
+      "node_a": "61ef5f7b-b6bb-49f4-bd34-957e090d0556",
+      "node_b": "2ceda08f-04dd-4c98-9b88-f074427485ca"
+    },
+    {
+      "id": "ee2d8e09-a3c3-45e6-b796-79b08f7bfdab",
+      "interface_a": "ed0e996e-e1de-41ec-ae8a-f3a87e346dde",
+      "interface_b": "d4bae841-bf5f-438c-bc14-4c6a16aa1136",
+      "label": "OOB-mgmt-lan-GigabitEthernet0/0<->hq-mgmt-br-port",
+      "node_a": "2ceda08f-04dd-4c98-9b88-f074427485ca",
+      "node_b": "f1f67f07-85bd-442b-840d-e5e9f93cd7e4"
+    }
+  ],
+  "nodes": [
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+      "label": "internet",
+      "node_definition": "csr1000v",
+      "ram": 0,
+      "tags": [],
+      "x": -250,
+      "y": 0,
+      "interfaces": [
+        {
+          "id": "2fd2b74e-2290-4088-818e-aafcc176550b",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "9be9eb3f-c6eb-4106-9948-8328368241f2",
+          "label": "GigabitEthernet1",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "cd12202f-2fca-4363-8ae5-539751094324",
+          "label": "GigabitEthernet2",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "46151d0e-5943-4f0b-8317-eba4730aad13",
+          "label": "GigabitEthernet3",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "37df3621-c790-4771-9b2d-b504e0c85aaa",
+          "label": "GigabitEthernet4",
+          "slot": 3,
+          "type": "physical"
+        },
+        {
+          "id": "5f252735-9118-4f6b-b379-86c3de1b4611",
+          "label": "GigabitEthernet5",
+          "slot": 4,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "dd48e270-c192-4cad-990e-83e3c0fe11d2",
+      "label": "hq-rtr1",
+      "node_definition": "csr1000v",
+      "ram": 0,
+      "tags": [],
+      "x": 0,
+      "y": 0,
+      "interfaces": [
+        {
+          "id": "73b89a49-6b8e-4522-b93e-1bea83bb4360",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "bf9543a4-b223-41a8-b3f9-6ed25af346cd",
+          "label": "GigabitEthernet1",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "9f784ee7-5468-4ccb-bb3e-5b31357b0417",
+          "label": "GigabitEthernet2",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "94d2865b-66f7-4ecd-b786-897f571e7f57",
+          "label": "GigabitEthernet3",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "e1a7a800-05ac-4f89-b6bb-143543b19af7",
+          "label": "GigabitEthernet4",
+          "slot": 3,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+      "label": "hq-dmz-lan",
+      "node_definition": "unmanaged_switch",
+      "ram": 0,
+      "tags": [],
+      "x": 250,
+      "y": 0,
+      "interfaces": [
+        {
+          "id": "41a63781-7b47-4670-9e51-c940d64f04d2",
+          "label": "port0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "3b35d1cc-863e-4ec7-989e-32ae6a4853d0",
+          "label": "port1",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "24fd017b-4a37-42a0-adeb-1d67c481254f",
+          "label": "port2",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "30892501-56db-42e3-89b6-98ecf0b7e84c",
+          "label": "port3",
+          "slot": 3,
+          "type": "physical"
+        },
+        {
+          "id": "a311633a-6967-47c5-8d89-028a64b808cd",
+          "label": "port4",
+          "slot": 4,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "f1f67f07-85bd-442b-840d-e5e9f93cd7e4",
+      "label": "hq-mgmt-br",
+      "node_definition": "external_connector",
+      "ram": 0,
+      "tags": [],
+      "x": 350,
+      "y": -300,
+      "interfaces": [
+        {
+          "id": "d4bae841-bf5f-438c-bc14-4c6a16aa1136",
+          "label": "port",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "926f0f14-d1df-4320-8b32-5549e4465e4c",
+      "label": "internet-mgmt",
+      "node_definition": "external_connector",
+      "ram": 0,
+      "tags": [],
+      "x": -250,
+      "y": -150,
+      "interfaces": [
+        {
+          "id": "62e25ca9-fab1-4ce8-bc68-0b97df65b6d3",
+          "label": "port",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "2ceda08f-04dd-4c98-9b88-f074427485ca",
+      "image_definition": "iosvl2-2020",
+      "label": "OOB-mgmt-lan",
+      "node_definition": "iosvl2",
+      "ram": 0,
+      "tags": [],
+      "x": 400,
+      "y": -250,
+      "interfaces": [
+        {
+          "id": "353d6de3-ee2a-4b12-ac24-0ede77b5fe88",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "ed0e996e-e1de-41ec-ae8a-f3a87e346dde",
+          "label": "GigabitEthernet0/0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "b3528aa6-298a-4ef6-b1ba-e79ecaff93ea",
+          "label": "GigabitEthernet0/1",
+          "slot": 1,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "99e83795-51d8-418a-97b8-a68f1c471598",
+      "label": "site2-vedge1",
+      "node_definition": "viptela-edge",
+      "ram": 0,
+      "tags": [],
+      "x": -100,
+      "y": 150,
+      "interfaces": [
+        {
+          "id": "60f55ef9-31c2-4804-a05f-105b27337b81",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "302e5e8f-94c9-4a4f-b873-bb1ad6d4d04f",
+          "label": "ge0/0",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "1c5437cf-c692-4fd3-a434-98ac92d3b6fa",
+          "label": "ge0/1",
+          "slot": 2,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "4bfeed2c-a2ca-4b73-a974-974d32de93d8",
+      "label": "vsmart1",
+      "node_definition": "viptela-smart",
+      "ram": 0,
+      "tags": [],
+      "x": 400,
+      "y": 150,
+      "interfaces": [
+        {
+          "id": "5ea82cd9-809f-46de-85ea-a35d7f55176a",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "c635d9b9-42f7-4c10-85dc-b9a6e477862a",
+          "label": "eth1",
+          "slot": 1,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "54975a72-47a7-4052-980f-0af2bb8907cc",
+      "label": "vbond1",
+      "node_definition": "viptela-bond",
+      "ram": 0,
+      "tags": [],
+      "x": 400,
+      "y": 0,
+      "interfaces": [
+        {
+          "id": "0809f09d-3bc9-46c3-a148-dcc7e77af244",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "926f250b-6f98-46bd-a467-11e08dcf85f8",
+          "label": "ge0/0",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "bdd58b39-dd5e-49df-8818-d4f005742b01",
+          "label": "ge0/1",
+          "slot": 2,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "0bd147bb-bfaf-4698-b8a2-978e975f7290",
+      "label": "site2-host1",
+      "node_definition": "alpine",
+      "ram": 0,
+      "tags": [],
+      "x": -250,
+      "y": 400,
+      "interfaces": [
+        {
+          "id": "88dc9a84-d7d6-4635-b336-ea659608c34c",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "3ea48ff8-ca14-498f-92ff-7c848923c1cc",
+      "label": "site1-vedge1",
+      "node_definition": "viptela-edge",
+      "ram": 0,
+      "tags": [],
+      "x": -500,
+      "y": 200,
+      "interfaces": [
+        {
+          "id": "96f3937c-1b4c-4070-9d9e-6d048254a890",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "9c6fd8d7-e89d-4f23-80ee-947567f75470",
+          "label": "ge0/0",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "899787a1-70a3-4e90-a36e-0e0df82e2721",
+          "label": "ge0/1",
+          "slot": 2,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "c513c0e9-3ea2-4541-a7af-7020fb847b52",
+      "label": "site1-host1",
+      "node_definition": "alpine",
+      "ram": 0,
+      "tags": [],
+      "x": -500,
+      "y": 400,
+      "interfaces": [
+        {
+          "id": "9b7e51ae-bf14-44ce-91a9-3d95c8b0f939",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "61ef5f7b-b6bb-49f4-bd34-957e090d0556",
+      "label": "vmanage1",
+      "node_definition": "viptela-manage",
+      "ram": 0,
+      "tags": [],
+      "x": 400,
+      "y": -100,
+      "interfaces": [
+        {
+          "id": "90c84457-d55e-4387-b660-5a3d1cc0ed85",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "4cc2fb90-b7db-43ca-b528-6229a3864a46",
+          "label": "eth1",
+          "slot": 1,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "1028ee8e-36ed-405e-b8b7-d3ecd5b96c69",
+      "label": "site3-vedge1",
+      "node_definition": "viptela-edge",
+      "ram": 0,
+      "tags": [],
+      "x": -50,
+      "y": 200,
+      "interfaces": [
+        {
+          "id": "50e23465-07f2-451b-a164-a84f1c2ce936",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "e961040f-f403-4af6-a15a-19c8c5ff082d",
+          "label": "ge0/0",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "49d9ed96-309f-4d38-b131-634edfe8d5b8",
+          "label": "ge0/1",
+          "slot": 2,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": null,
+      "cpu_limit": 100,
+      "cpus": 0,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "f2ee4b01-13e0-4fc8-af86-f65ae1bef9e7",
+      "label": "site3-host1",
+      "node_definition": "alpine",
+      "ram": 0,
+      "tags": [],
+      "x": -50,
+      "y": 400,
+      "interfaces": [
+        {
+          "id": "570bdabe-c99e-4423-b94a-95420727f652",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    }
+  ]
+}

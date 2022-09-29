@@ -108,7 +108,7 @@ class GroupManagement:
         :param labs: group labs
         :return: updated group object
         """
-        data: dict[str, str| list] = {}
+        data: dict[str, str | list] = {}
         if name is not None:
             data["name"] = name
         if description is not None:

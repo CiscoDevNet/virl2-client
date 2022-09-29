@@ -230,7 +230,7 @@ class ClientLibrary:
         self._context = Context(base_url)
         """
         Within the Client Library context:
-        `requests.Session()` instance that can be used to send requests 
+        `requests.Session()` instance that can be used to send requests
         to the controller.
         `uuid.uuid4()` instance to uniquely identify this client library session.
         `base_url` stores the base URL.

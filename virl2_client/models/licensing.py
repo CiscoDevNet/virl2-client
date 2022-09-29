@@ -73,7 +73,10 @@ class Licensing:
         return response.status_code == 204
 
     def set_transport(
-        self, ssms: str, proxy_server: Optional[str] = None, proxy_port: Optional[int] = None
+        self,
+        ssms: str,
+        proxy_server: Optional[str] = None,
+        proxy_port: Optional[int] = None,
     ) -> bool:
         """
         Setup licensing transport configuration.

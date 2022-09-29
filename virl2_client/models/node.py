@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from functools import total_ordering
 
 from typing import TYPE_CHECKING, Any, Optional
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+CONFIG_WARNING = 'The property "config" is deprecated in favor of "configuration"'
+
 
 @total_ordering
 class Node:
@@ -45,14 +48,15 @@ class Node:
         label: str,
         node_definition: str,
         image_definition: Optional[str],
-        config: Optional[str],
+        configuration: Optional[str],
         x: int,
         y: int,
-        ram: int,
-        cpus: int,
-        cpu_limit: int,
-        data_volume: int,
-        boot_disk_size: int,
+        ram: Optional[int],
+        cpus: Optional[int],
+        cpu_limit: Optional[int],
+        data_volume: Optional[int],
+        boot_disk_size: Optional[int],
+        hide_links: bool,
         tags: list[str],
     ) -> None:
         """
@@ -64,7 +68,7 @@ class Node:
         :param label: node label
         :param node_definition: The node definition of this node
         :param image_definition: The image definition of this node
-        :param config: The day0 configuration of this node
+        :param configuration: The initial configuration of this node
         :param x: X coordinate on topology canvas
         :param y: Y coordinate on topology canvas
         :param ram: memory of node in MiB (if applicable)
@@ -72,6 +76,7 @@ class Node:
         :param cpu_limit: CPU limit (default at 100%)
         :param data_volume: Size in GiB of 2nd HDD (if > 0)
         :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
+        :param hide_links: Whether node's links should be hidden in UI visualization
         :param tags: List of tags
         """
         self.lab = lab
@@ -84,11 +89,12 @@ class Node:
         self.session = lab.session
         self._image_definition = image_definition
         self._ram = ram
-        self._config = config
+        self._configuration = configuration
         self._cpus = cpus
         self._cpu_limit = cpu_limit
         self._data_volume = data_volume
         self._boot_disk_size = boot_disk_size
+        self._hide_links = hide_links
         self._tags = tags
 
         self.statistics: dict[str, int | float] = {
@@ -97,12 +103,14 @@ class Node:
             "disk_write": 0,
         }
 
+        self.statistics = {"cpu_usage": 0, "disk_read": 0, "disk_write": 0}
+
     def __str__(self):
         return "Node: {}".format(self._label)
 
     def __repr__(self):
         return (
-            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
+            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
             "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
                 str(self.lab),
@@ -110,7 +118,7 @@ class Node:
                 self._label,
                 self._node_definition,
                 self._image_definition,
-                self._config,
+                self._configuration,
                 self._x,
                 self._y,
                 self._ram,
@@ -118,6 +126,7 @@ class Node:
                 self._cpu_limit,
                 self._data_volume,
                 self._boot_disk_size,
+                self._hide_links,
                 self._tags,
             )
         )
@@ -152,7 +161,9 @@ class Node:
         self.lab.sync_topology_if_outdated()
         return [iface for iface in self.interfaces() if iface.physical]
 
-    def create_interface(self, slot: Optional[int] = None, wait: bool = False) -> Interface:
+    def create_interface(
+        self, slot: Optional[int] = None, wait: bool = False
+    ) -> Interface:
         """
         Create an interface in the specified slot or, if no slot is given, in the
         next available slot.
@@ -271,6 +282,16 @@ class Node:
         self._data_volume = value
 
     @property
+    def hide_links(self) -> bool:
+        self.lab.sync_topology_if_outdated()
+        return self._hide_links
+
+    @hide_links.setter
+    def hide_links(self, value: bool) -> None:
+        self._set_node_property("hide_links", value)
+        self._hide_links = value
+
+    @property
     def boot_disk_size(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._boot_disk_size
@@ -281,14 +302,24 @@ class Node:
         self._boot_disk_size = value
 
     @property
-    def config(self) -> Optional[str]:
+    def configuration(self) -> Optional[str]:
         # TODO: auto sync if out of date
-        return self._config
+        return self._configuration
+
+    @configuration.setter
+    def configuration(self, value) -> None:
+        self._set_node_property("configuration", value)
+        self._configuration = value
+
+    @property
+    def config(self) -> Optional[str]:
+        warnings.warn(CONFIG_WARNING, DeprecationWarning)
+        return self.configuration
 
     @config.setter
     def config(self, value: str) -> None:
-        self._set_node_property("configuration", value)
-        self._config = value
+        warnings.warn(CONFIG_WARNING, DeprecationWarning)
+        self.configuration = value
 
     @property
     def image_definition(self) -> Optional[str]:
@@ -306,17 +337,12 @@ class Node:
         self.lab.sync_topology_if_outdated()
         return self._node_definition
 
-    @node_definition.setter
-    def node_definition(self, value: str) -> None:
-        self.lab.sync_topology_if_outdated()
-        self._set_node_property("node_definition", value)
-        self._image_definition = value
-
-    def _set_node_property(self, key: str, val: Any) -> None:
-        _LOGGER.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}".format(self._base_url)
-        response = self.session.patch(url=node_url, json={key: val})
-        response.raise_for_status()
+    # Node definition cannot be changed at this time
+    # @node_definition.setter
+    # def node_definition(self, value: str) -> None:
+    #     self.lab.sync_topology_if_outdated()
+    #     self._set_node_property("node_definition", value)
+    #     self._image_definition = None
 
     @property
     def lab_base_url(self) -> str:
@@ -535,22 +561,21 @@ class Node:
                 "ipv6": ipv6,
             }
 
-    def update(self, node_data: dict, exclude_configurations: bool) -> None:
+    def update(
+        self,
+        node_data: dict[str, Any],
+        exclude_configurations: bool,
+        push_to_server: bool = False,
+    ) -> None:
+        if push_to_server:
+            self._set_node_properties(node_data)
         if "data" in node_data:
             node_data = node_data["data"]
-        self._label = node_data["label"]
-        self._x = node_data["x"]
-        self._y = node_data["y"]
-        self._node_definition = node_data["node_definition"]
-        self._image_definition = node_data.get("image_definition", None)
-        self._ram = node_data["ram"]
-        self._cpus = node_data["cpus"]
-        self._cpu_limit = node_data.get("cpu_limit", 100)
-        self._data_volume = node_data["data_volume"]
-        self._boot_disk_size = node_data["boot_disk_size"]
-        self._tags = node_data["tags"]
-        if not exclude_configurations:
-            self._config = node_data.get("configuration")
+
+        for key, value in node_data.items():
+            if key == "configuration" and exclude_configurations:
+                continue
+            setattr(self, f"_{key}", value)
 
     def is_active(self) -> bool:
         active_states = {"STARTED", "QUEUED", "BOOTED"}
@@ -558,3 +583,11 @@ class Node:
 
     def is_booted(self) -> bool:
         return self.state == "BOOTED"
+
+    def _set_node_property(self, key: str, val: Any) -> None:
+        _LOGGER.debug("Setting node property %s %s: %s", self, key, val)
+        self._set_node_properties({key: val})
+
+    def _set_node_properties(self, node_data: dict[str, Any]) -> None:
+        response = self.session.patch(url=self._base_url, json=node_data)
+        response.raise_for_status()

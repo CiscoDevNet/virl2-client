@@ -1112,7 +1112,7 @@ class Lab:
     def _import_node(self, node_id: str, node_data: dict) -> Node:
         if "data" in node_data:
             node_data = node_data["data"]
-        node_data.pop("id")
+        node_data.pop("id", None)
         node_data.pop("state", None)
         for key in ("image_definition", "configuration"):
             if key not in node_data:

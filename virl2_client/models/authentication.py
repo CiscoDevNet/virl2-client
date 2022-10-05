@@ -21,8 +21,8 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import urljoin, urlparse
 from typing import TYPE_CHECKING, Optional
+from urllib.parse import urljoin, urlparse
 
 import requests
 import requests.auth

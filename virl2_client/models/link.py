@@ -23,12 +23,11 @@ from __future__ import annotations
 import logging
 import time
 from functools import total_ordering
-
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .lab import Lab
     from .interface import Interface
+    from .lab import Lab
     from .node import Node
 
 _LOGGER = logging.getLogger(__name__)

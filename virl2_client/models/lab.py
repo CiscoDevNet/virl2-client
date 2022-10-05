@@ -22,25 +22,26 @@ from __future__ import annotations
 
 import json
 import logging
-import warnings
 import time
-from typing import TYPE_CHECKING, Iterable, Any, Optional
+import warnings
+from typing import TYPE_CHECKING, Any, Iterable, Optional
 
-from .node import Node
-from .interface import Interface
-from .link import Link
 from ..exceptions import (
+    ElementAlreadyExists,
+    InterfaceNotFound,
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
-    ElementAlreadyExists,
-    InterfaceNotFound,
 )
 from .cl_pyats import ClPyats
+from .interface import Interface
+from .link import Link
+from .node import Node
 
 if TYPE_CHECKING:
-    from .authentication import Context
     from requests import Session
+
+    from .authentication import Context
 
 
 _LOGGER = logging.getLogger(__name__)

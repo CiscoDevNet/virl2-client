@@ -19,10 +19,11 @@
 #
 
 from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 import requests
 
-from unittest.mock import patch
 from virl2_client.virl2_client import ClientLibrary
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str

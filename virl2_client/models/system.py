@@ -18,14 +18,8 @@
 # limitations under the License.
 #
 
-import logging
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-
-class SystemManagement(object):
+class SystemManagement:
     def __init__(self, context):
         self.ctx = context
 

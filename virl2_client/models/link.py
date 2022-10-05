@@ -22,26 +22,25 @@ import logging
 import time
 from functools import total_ordering
 
-logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 @total_ordering
 class Link:
-    """A VIRL2 network link between two nodes, connecting
-    to two interfaces on these nodes.
-
-    :param lab: the lab object
-    :type lab: modles.Lab
-    :param lid: the lab ID
-    :type lid: str
-    :param iface_a: the first interface of the link
-    :type iface_a: a models.Interface
-    :param iface_b: the second interface of a the link
-    :type iface_b: models.Interface
-    """
-
     def __init__(self, lab, lid, iface_a, iface_b):
-        """Constructor method"""
+        """
+        A VIRL2 network link between two nodes, connecting
+        to two interfaces on these nodes.
+
+        :param lab: the lab object
+        :type lab: models.Lab
+        :param lid: the link ID
+        :type lid: str
+        :param iface_a: the first interface of the link
+        :type iface_a: models.Interface
+        :param iface_b: the second interface of the link
+        :type iface_b: models.Interface
+        """
         self.id = lid
         self.interface_a = iface_a
         self.interface_b = iface_b
@@ -89,7 +88,7 @@ class Link:
             str(self.lab),
             self.id,
             self.interface_a,
-            self.interface_a,
+            self.interface_b,
         )
 
     def __eq__(self, other: object):
@@ -117,7 +116,7 @@ class Link:
 
     @property
     def nodes(self):
-        """Return nodes this link connects"""
+        """Return nodes this link connects."""
         self.lab.sync_topology_if_outdated()
         return self.node_a, self.node_b
 
@@ -142,13 +141,13 @@ class Link:
         return self.lab_base_url + "/links/{}".format(self.id)
 
     def remove_on_server(self):
-        logger.info("Removing link %s", self)
+        _LOGGER.info("Removing link %s", self)
         url = self.base_url
         response = self.session.delete(url)
         response.raise_for_status()
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
-        logger.info("Waiting for link %s to converge", self.id)
+        _LOGGER.info("Waiting for link %s to converge", self.id)
         max_iter = (
             self.lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -156,11 +155,11 @@ class Link:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                logger.info("Link %s has booted", self.id)
+                _LOGGER.info("Link %s has converged", self.id)
                 return
 
             if index % 10 == 0:
-                logging.info(
+                _LOGGER.info(
                     "Link has not converged, attempt %s/%s, waiting...",
                     index,
                     max_iter,
@@ -171,7 +170,7 @@ class Link:
             self.id,
             max_iter,
         )
-        logger.error(msg)
+        _LOGGER.error(msg)
         # after maximum retries are exceeded and link has not converged
         # error must be raised - it makes no sense to just log info
         # and let client fail with something else if wait is explicitly
@@ -200,7 +199,8 @@ class Link:
             self.wait_until_converged()
 
     def set_condition(self, bandwidth, latency, jitter, loss):
-        """set_condition applies conditioning to this link.
+        """
+        Applies conditioning to this link.
 
         :param bandwidth: desired bandwidth, 0-10000000 kbps
         :type bandwidth: int
@@ -222,7 +222,8 @@ class Link:
         response.raise_for_status()
 
     def get_condition(self):
-        """get_condition retrieves the current condition on this link.
+        """
+        Retrieves the current condition on this link.
         If there is no link condition specified, None is returned.
 
         :return: the applied link condition
@@ -241,15 +242,17 @@ class Link:
         return result
 
     def remove_condition(self):
-        """remove_condition removes link conditioning. If
-        there's no condition applied then this is a no-op.
+        """
+        Removes link conditioning.
+        If there's no condition applied then this is a no-op for the controller.
         """
         url = self.base_url + "/condition"
         response = self.session.delete(url)
         response.raise_for_status()
 
     def set_condition_by_name(self, name):
-        """set_condition_by_name is a convenience function to provide
+        """
+        A convenience function to provide
         some commonly used link condition settings for various link types.
 
         Inspired by:  https://github.com/tylertreat/comcast
@@ -287,12 +290,12 @@ class Link:
         }
 
         if name not in options.keys():
-            logger.error(
-                "unknown condition name '%s', known values: '%s'",
+            msg = "unknown condition name '{}', known values: '{}'".format(
                 name,
                 ", ".join(list(options.keys())),
             )
-            raise ValueError
+            _LOGGER.error(msg)
+            raise ValueError(msg)
 
         latency, bandwidth, loss = options[name]
         self.set_condition(bandwidth, latency, 0, loss)

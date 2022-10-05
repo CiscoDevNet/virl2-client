@@ -21,13 +21,10 @@
 import logging
 import time
 from functools import total_ordering
-from itertools import chain
 
 from ..exceptions import InterfaceNotFound
 
 _LOGGER = logging.getLogger(__name__)
-
-flatten = chain.from_iterable
 
 
 @total_ordering
@@ -96,6 +93,7 @@ class Node:
         self._data_volume = data_volume
         self._boot_disk_size = boot_disk_size
         self._tags = tags
+        self._compute_id = None
 
         self.statistics = {"cpu_usage": 0, "disk_read": 0, "disk_write": 0}
 
@@ -148,7 +146,7 @@ class Node:
 
     def physical_interfaces(self):
         self.lab.sync_topology_if_outdated()
-        return [iface for iface in self.interfaces() if iface.is_physical]
+        return [iface for iface in self.interfaces() if iface.physical]
 
     def create_interface(self, slot=None, wait=False):
         """
@@ -176,22 +174,27 @@ class Node:
         :rtype: models.Interface
         """
         for iface in self.interfaces():
-            if not iface.is_connected() and iface.is_physical:
+            if not iface.connected and iface.physical:
                 return iface
         return None
 
     def peer_interfaces(self):
-        self.lab.sync_topology_if_outdated()
-        peer_ifaces = (iface.peer_interfaces() for iface in self.interfaces())
-        return list(set(flatten(peer_ifaces)))
+        peer_ifaces = {
+            iface.peer_interface for iface in self.interfaces() if iface is not None
+        }
+        return list(peer_ifaces)
 
     def peer_nodes(self):
-        self.lab.sync_topology_if_outdated()
-        return list(set(iface.node for iface in self.peer_interfaces()))
+        return list({iface.node for iface in self.peer_interfaces()})
 
     def links(self):
-        self.lab.sync_topology_if_outdated()
-        return list(set(flatten(iface.links() for iface in self.interfaces())))
+        """
+        :returns: list of links
+        :rtype: list[models.Link]
+        """
+        return list(
+            {link for iface in self.interfaces() if (link := iface.link) is not None}
+        )
 
     def degree(self):
         self.lab.sync_topology_if_outdated()
@@ -309,6 +312,11 @@ class Node:
         self._set_node_property("node_definition", value)
         self._image_definition = value
 
+    @property
+    def compute_id(self):
+        self.lab.sync_topology_if_outdated()
+        return self._compute_id
+
     def _set_node_property(self, key, val):
         _LOGGER.info("Setting node property %s %s: %s", self, key, val)
         node_url = "{}".format(self._base_url)
@@ -349,6 +357,34 @@ class Node:
             if iface.slot == slot:
                 return iface
         raise InterfaceNotFound("{}:{}".format(slot, self))
+
+    def get_links_to(self, other_node):
+        """
+        Returns all links between this node and another.
+
+        :param other_node: the other node
+        :type other_node: models.Node
+        :returns: a list of links
+        :rtype: list[models.Link]
+        """
+        links = []
+        for link in self.links():
+            if other_node in link.nodes:
+                links.append(link)
+        return links
+
+    def get_link_to(self, other_node):
+        """
+        Returns one link between this node and another.
+
+        :param other_node: the other node
+        :type other_node: models.Node
+        :returns: a link
+        :rtype: models.Link
+        """
+        for link in self.links():
+            if other_node in link.nodes:
+                return link
 
     def wait_until_converged(self, max_iterations=None, wait_time=None):
         _LOGGER.info("Waiting for node %s to converge", self.id)
@@ -507,7 +543,6 @@ class Node:
 
     def update(self, node_data, exclude_configurations):
         if "data" in node_data:
-            # logger.warning("Deprecated since 2.4 (will be removed in 2.5)")
             node_data = node_data["data"]
         self._label = node_data["label"]
         self._x = node_data["x"]
@@ -520,6 +555,7 @@ class Node:
         self._data_volume = node_data["data_volume"]
         self._boot_disk_size = node_data["boot_disk_size"]
         self._tags = node_data["tags"]
+        self._compute_id = node_data.get("compute_id")
         if not exclude_configurations:
             self._config = node_data.get("configuration")
 

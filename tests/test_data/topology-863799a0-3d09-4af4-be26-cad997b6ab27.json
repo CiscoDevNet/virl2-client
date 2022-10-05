@@ -1,0 +1,305 @@
+{
+  "lab": {
+    "description": "A sample lab for testing CSR 1000v features",
+    "notes": "# CSR 1000v Feature Testing\n\n## Features\n\n- CDP\n- ping\n- OSPF single-area\n- NAT - static\n- HSRP\n- DHCP\n- Routed subinterface\n- Restconf\n- Netconf\n\n## Test Details\n\nFor more details on test procedure, see the [CSR 1000v](https://developer.cisco.com/docs/modeling-labs/#!csr-1000v) page in the [CML documentation](https://developer.cisco.com/docs/modeling-labs/).",
+    "owner": "640a1c81-f1e7-4159-8fa2-ad35d9a68586",
+    "title": "CSR 1000v Feature Tests",
+    "version": "0.1.0"
+  },
+  "links": [
+    {
+      "id": "e7869898-9a4a-40af-813b-f4fbe10f6546",
+      "interface_a": "fc2796d5-abd5-41e9-abe9-c471c45f3734",
+      "interface_b": "ffb9634f-3889-466c-9d77-cc60c0dfde0f",
+      "label": "iosv-0-GigabitEthernet0/2<->csr1000v-2-GigabitEthernet1",
+      "node_a": "6d583887-a109-4df2-b7fe-45c27379a49d",
+      "node_b": "e79a0eb7-5c10-4538-8776-b832df78ba8b"
+    },
+    {
+      "id": "01fff06c-62de-4421-b335-499316576075",
+      "interface_a": "10dfbc02-838b-4cde-9af3-5dfed2b3e369",
+      "interface_b": "3b5c912c-208e-4a2f-92f1-5f4ae524c49d",
+      "label": "csr1000v-2-GigabitEthernet3<->iosvl2-0-GigabitEthernet0/2",
+      "node_a": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+      "node_b": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0"
+    },
+    {
+      "id": "793acf56-3c20-43bb-a295-e1372491c722",
+      "interface_a": "8f2aab3a-77e2-447f-9b63-31a991cc1b85",
+      "interface_b": "bdac665f-4c26-47dd-8ffb-6ba24553eba7",
+      "label": "csr1000v-0-GigabitEthernet3<->iosvl2-0-GigabitEthernet0/1",
+      "node_a": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+      "node_b": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0"
+    },
+    {
+      "id": "ffdc378e-3f24-425f-8435-9cfa30b5ccd5",
+      "interface_a": "55e76e62-b5af-4875-a028-48a956257e72",
+      "interface_b": "e598f094-2cba-47aa-b704-2d3b1c562323",
+      "label": "csr1000v-2-GigabitEthernet2<->csr1000v-0-GigabitEthernet2",
+      "node_a": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+      "node_b": "90e9329f-7d20-4eb2-b396-06d0aa497ce9"
+    },
+    {
+      "id": "02ab4e89-051c-4af3-98b1-e26f708b54ea",
+      "interface_a": "27975a0f-a63c-46c9-9987-6cfc4cafa2c6",
+      "interface_b": "bd8ba744-c484-42c0-b096-93546787c681",
+      "label": "iosv-0-GigabitEthernet0/1<->csr1000v-0-GigabitEthernet1",
+      "node_a": "6d583887-a109-4df2-b7fe-45c27379a49d",
+      "node_b": "90e9329f-7d20-4eb2-b396-06d0aa497ce9"
+    },
+    {
+      "id": "bbfac097-5b23-461b-9f7d-77c7738b8e72",
+      "interface_a": "52bcdd81-9055-496f-823d-163937e39de2",
+      "interface_b": "e1622f5f-151a-4ee9-b090-7c87c775cae5",
+      "label": "ubuntu-0-ens2<->iosvl2-0-GigabitEthernet0/0",
+      "node_a": "9c840733-ac3f-4195-8839-b2c0379bc719",
+      "node_b": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0"
+    },
+    {
+      "id": "ce004107-dcc6-484e-8afc-4df7d6c28651",
+      "interface_a": "9ca58f2d-c96d-48bb-abde-0eb333d13a96",
+      "interface_b": "35cf19ca-ca56-45a7-8295-efb0416af1ce",
+      "label": "alpine-0-eth0<->csr1000v-0-GigabitEthernet4",
+      "node_a": "f4220194-d8b4-42ed-9967-226e1ed92ca0",
+      "node_b": "90e9329f-7d20-4eb2-b396-06d0aa497ce9"
+    }
+  ],
+  "nodes": [
+    {
+      "boot_disk_size": 0,
+      "compute_id": "4d9f3b26-9bc9-440e-bb6d-ea1d20c513de",
+      "cpu_limit": 100,
+      "cpus": 1,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+      "image_definition": "",
+      "label": "csr1000v-2",
+      "node_definition": "csr1000v",
+      "ram": 3072,
+      "tags": [],
+      "x": -600,
+      "y": -50,
+      "interfaces": [
+        {
+          "id": "438e9533-6390-46b0-9e03-841e57543da7",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "ffb9634f-3889-466c-9d77-cc60c0dfde0f",
+          "label": "GigabitEthernet1",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "55e76e62-b5af-4875-a028-48a956257e72",
+          "label": "GigabitEthernet2",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "10dfbc02-838b-4cde-9af3-5dfed2b3e369",
+          "label": "GigabitEthernet3",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "dcaa0e1c-6245-4320-8b21-32a57af15929",
+          "label": "GigabitEthernet4",
+          "slot": 3,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 16,
+      "compute_id": "e51bc75b-ce49-40d9-845f-7282af60a552",
+      "cpu_limit": 100,
+      "cpus": 1,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "f4220194-d8b4-42ed-9967-226e1ed92ca0",
+      "image_definition": "",
+      "label": "alpine-0",
+      "node_definition": "alpine",
+      "ram": 512,
+      "tags": [],
+      "x": -600,
+      "y": -350,
+      "interfaces": [
+        {
+          "id": "9ca58f2d-c96d-48bb-abde-0eb333d13a96",
+          "label": "eth0",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": "95006138-2ba9-47f0-8296-79b8ae4524c0",
+      "cpu_limit": 100,
+      "cpus": 1,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "6d583887-a109-4df2-b7fe-45c27379a49d",
+      "image_definition": "",
+      "label": "iosv-0",
+      "node_definition": "iosv",
+      "ram": 512,
+      "tags": [],
+      "x": -800,
+      "y": -250,
+      "interfaces": [
+        {
+          "id": "9b571174-a38e-4d30-8aa6-bbd958e00845",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "7bd4984c-29df-4a42-b221-996dfdfc60bd",
+          "label": "GigabitEthernet0/0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "27975a0f-a63c-46c9-9987-6cfc4cafa2c6",
+          "label": "GigabitEthernet0/1",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "fc2796d5-abd5-41e9-abe9-c471c45f3734",
+          "label": "GigabitEthernet0/2",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "12a5df49-ad47-4bba-8969-34d32db7bea3",
+          "label": "GigabitEthernet0/3",
+          "slot": 3,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": "4d9f3b26-9bc9-440e-bb6d-ea1d20c513de",
+      "cpu_limit": 100,
+      "cpus": 1,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+      "image_definition": "",
+      "label": "csr1000v-0",
+      "node_definition": "csr1000v",
+      "ram": 3072,
+      "tags": [],
+      "x": -600,
+      "y": -250,
+      "interfaces": [
+        {
+          "id": "a3f7c4ff-585d-495b-a60a-e66f087e6901",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "bd8ba744-c484-42c0-b096-93546787c681",
+          "label": "GigabitEthernet1",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "e598f094-2cba-47aa-b704-2d3b1c562323",
+          "label": "GigabitEthernet2",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "8f2aab3a-77e2-447f-9b63-31a991cc1b85",
+          "label": "GigabitEthernet3",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "35cf19ca-ca56-45a7-8295-efb0416af1ce",
+          "label": "GigabitEthernet4",
+          "slot": 3,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 0,
+      "compute_id": "95006138-2ba9-47f0-8296-79b8ae4524c0",
+      "cpu_limit": 100,
+      "cpus": 1,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0",
+      "image_definition": "",
+      "label": "iosvl2-0",
+      "node_definition": "iosvl2",
+      "ram": 768,
+      "tags": [],
+      "x": -500,
+      "y": -150,
+      "interfaces": [
+        {
+          "id": "5d984624-a520-4537-ac78-51effc6734be",
+          "label": "Loopback0",
+          "type": "loopback"
+        },
+        {
+          "id": "e1622f5f-151a-4ee9-b090-7c87c775cae5",
+          "label": "GigabitEthernet0/0",
+          "slot": 0,
+          "type": "physical"
+        },
+        {
+          "id": "bdac665f-4c26-47dd-8ffb-6ba24553eba7",
+          "label": "GigabitEthernet0/1",
+          "slot": 1,
+          "type": "physical"
+        },
+        {
+          "id": "3b5c912c-208e-4a2f-92f1-5f4ae524c49d",
+          "label": "GigabitEthernet0/2",
+          "slot": 2,
+          "type": "physical"
+        },
+        {
+          "id": "49542943-033c-4bd4-b36d-6a0a85a091e6",
+          "label": "GigabitEthernet0/3",
+          "slot": 3,
+          "type": "physical"
+        }
+      ]
+    },
+    {
+      "boot_disk_size": 64,
+      "compute_id": "fb362ccf-096e-4d80-a987-4a03a016fe15",
+      "cpu_limit": 100,
+      "cpus": 1,
+      "data_volume": 0,
+      "hide_links": false,
+      "id": "9c840733-ac3f-4195-8839-b2c0379bc719",
+      "image_definition": "",
+      "label": "ubuntu-0",
+      "node_definition": "ubuntu",
+      "ram": 2048,
+      "tags": [],
+      "x": -350,
+      "y": -150,
+      "interfaces": [
+        {
+          "id": "52bcdd81-9055-496f-823d-163937e39de2",
+          "label": "ens2",
+          "slot": 0,
+          "type": "physical"
+        }
+      ]
+    }
+  ]
+}

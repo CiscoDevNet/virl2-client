@@ -29,7 +29,6 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-import pkg_resources
 import requests
 import urllib3
 
@@ -158,7 +157,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.4.0")
+    VERSION = Version("2.4.1")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -216,33 +215,7 @@ class ClientLibrary:
             message = "no URL provided"
             raise InitializationError(message)
 
-        # prepare the URL
-        try:
-            url_parts = urlsplit(url, "https")
-        except ValueError:
-            message = "invalid URL / hostname"
-            raise InitializationError(message)
-
-        # https://docs.python.org/3/library/urllib.parse.html
-        # Following the syntax specifications in RFC 1808, urlparse recognizes
-        # a netloc only if it is properly introduced by ‘//’. Otherwise, the
-        # input is presumed to be a relative URL and thus to start with
-        # a path component.
-        if len(url_parts.netloc) == 0:
-            try:
-                url_parts = urlsplit("//" + url, "https")
-            except ValueError:
-                message = "invalid URL / hostname"
-                raise InitializationError(message)
-
-        if not allow_http and url_parts.scheme == "http":
-            message = "invalid URL scheme (must be https)"
-            raise InitializationError(message)
-        if url_parts.scheme not in ("http", "https"):
-            message = "invalid URL scheme (should be https)"
-            raise InitializationError(message)
-        url = urlunsplit(url_parts)
-        base_url = urljoin(url, "api/v0/")
+        url, base_url = self._prepare_url(url, allow_http)
 
         # check environment for username
         username = self._environ_get(username, "VIRL2_USER")
@@ -328,6 +301,36 @@ class ClientLibrary:
 
     def __str__(self):
         return "{} URL: {}".format(self.__class__.__name__, self._context.base_url)
+
+    def _prepare_url(self, url, allow_http):
+        # prepare the URL
+        try:
+            url_parts = urlsplit(url, "https")
+        except ValueError:
+            message = "invalid URL / hostname"
+            raise InitializationError(message)
+
+        # https://docs.python.org/3/library/urllib.parse.html
+        # Following the syntax specifications in RFC 1808, urlparse recognizes
+        # a netloc only if it is properly introduced by ‘//’. Otherwise, the
+        # input is presumed to be a relative URL and thus to start with
+        # a path component.
+        if len(url_parts.netloc) == 0:
+            try:
+                url_parts = urlsplit("//" + url, "https")
+            except ValueError:
+                message = "invalid URL / hostname"
+                raise InitializationError(message)
+
+        if not allow_http and url_parts.scheme == "http":
+            message = "invalid URL scheme (must be https)"
+            raise InitializationError(message)
+        if url_parts.scheme not in ("http", "https"):
+            message = "invalid URL scheme (should be https)"
+            raise InitializationError(message)
+        url = urlunsplit(url_parts)
+        base_url = urljoin(url, "api/v0/")
+        return url, base_url
 
     def _make_test_auth_call(self):
         """Make a call to confirm auth works by using the "authok" endpoint."""
@@ -570,24 +573,33 @@ class ClientLibrary:
             topology, title=title, virl_1x=self.is_virl_1x(topology_path)
         )
 
+    def get_sample_labs(self):
+        """
+        Returns a dictionary with information about all sample labs available on host.
+
+        :returns: A dictionary of sample lab information
+        :rtype: dict
+        """
+        url = urljoin(self._base_url, "sample/labs")
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
     def import_sample_lab(self, title):
         """
         Imports a built-in sample lab.
 
-        :param title: Sample lab name with extension
+        :param title: sample lab name, as returned by get_sample_labs
         :type title: str
-        :returns: A Lab instance
+        :returns: a Lab instance
         :rtype: models.Lab
         """
-        topology_file_path = Path("import_export") / "SampleData" / title
-        topology = pkg_resources.resource_string(
-            "simple_common", topology_file_path.as_posix()
-        )
-        return self.import_lab(
-            topology=topology.decode(),
-            title=title,
-            virl_1x=self.is_virl_1x(topology_file_path),
-        )
+
+        url = urljoin(self._base_url, "sample/labs/" + title)
+        response = self.session.put(url)
+        response.raise_for_status()
+        lab_id = response.json()
+        return self.join_existing_lab(lab_id)
 
     def all_labs(self, show_all=False):
         """

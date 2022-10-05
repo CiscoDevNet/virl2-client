@@ -25,7 +25,9 @@ import requests
 
 from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
-from virl2_client.virl2_client import Context
+from virl2_client.virl2_client import ClientLibrary, Context
+
+FAKE_HOST = "https://0.0.0.0"
 
 
 def test_topology_creation_and_removal():
@@ -57,20 +59,20 @@ def test_topology_creation_and_removal():
     assert sorted(node_b.links()) == [lnk1, lnk2]
     assert node_c.links() == [lnk2]
 
-    assert i1.degree() == 1
-    assert i2.degree() == 1
-    assert i3.degree() == 1
-    assert i4.degree() == 1
+    assert i1.connected is True
+    assert i2.connected is True
+    assert i3.connected is True
+    assert i4.connected is True
 
-    assert i1.peer_interfaces() == {i2}
-    assert i2.peer_interfaces() == {i1}
-    assert i3.peer_interfaces() == {i4}
-    assert i4.peer_interfaces() == {i3}
+    assert i1.peer_interface is i2
+    assert i2.peer_interface is i1
+    assert i3.peer_interface is i4
+    assert i4.peer_interface is i3
 
-    assert i1.peer_nodes() == {node_b}
-    assert i2.peer_nodes() == {node_a}
-    assert i3.peer_nodes() == {node_c}
-    assert i4.peer_nodes() == {node_b}
+    assert i1.peer_node is node_b
+    assert i2.peer_node is node_a
+    assert i3.peer_node is node_c
+    assert i4.peer_node is node_b
 
     assert lnk1.nodes == (node_a, node_b)
     assert lnk1.interfaces == (i1, i2)
@@ -129,8 +131,10 @@ def test_create_node():
     node = lab.create_node("testnode", "server")
     assert node.node_definition == "server"
     assert node.label == "testnode"
+    assert node.compute_id is None  # None until we start the node.
 
 
+# If this ``requests_mock`` fixture is confusing, see https://requests-mock.readthedocs.io/en/latest/pytest.html.
 def test_create_link(requests_mock):
     requests_mock.post("mock://labs/1/nodes", json={"id": "n0"})
     requests_mock.post(
@@ -263,3 +267,23 @@ def test_connect_two_nodes(requests_mock):
         "writepackets": 0,
     }
     assert link.id == "l0"
+
+
+def test_join_existing_lab(change_test_dir, requests_mock_with_labs):
+    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
+    lab = client.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
+    assert lab.title == "IOSv Feature Tests"
+    assert lab.statistics == {"nodes": 7, "links": 8, "interfaces": 24}
+
+
+def test_all_labs(
+    client_library_server_current, change_test_dir, requests_mock_with_labs
+):
+    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
+    all_labs = client.all_labs()
+    assert len(all_labs) == 4
+    iosv_labs = client.find_labs_by_title("IOSv Feature Tests")
+    assert len(iosv_labs) == 1
+    lab: Lab = iosv_labs[0]
+    node = lab.get_node_by_label("csr1000v-0")
+    assert node.compute_id == "99c887f5-052e-4864-a583-49fa7c4b68a9"

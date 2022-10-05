@@ -1,0 +1,1108 @@
+{
+  "lab_tiles": {
+    "444a78d1-575c-4746-8469-696e580f17b6": {
+      "state": "STOPPED",
+      "created": "2022-06-10T14:23:33+00:00",
+      "modified": "2022-06-10T14:23:33+00:00",
+      "lab_title": "IOSv Feature Tests",
+      "lab_description": "A sample lab for testing IOSv features",
+      "lab_notes": "# IOSv Feature Testing\n\n## Features\n\n- CDP\n- ping\n- OSPF single-area\n- NAT - static\n- HSRP\n- DHCP\n- Routed subinterface\n\n## Test Details\n\nFor more details on test procedure, see the [IOSv](https://developer.cisco.com/docs/modeling-labs/#!iosv) page in the [CML documentation](https://developer.cisco.com/docs/modeling-labs/).",
+      "owner": "640a1c81-f1e7-4159-8fa2-ad35d9a68586",
+      "owner_username": "jdoe",
+      "node_count": 7,
+      "link_count": 8,
+      "id": "444a78d1-575c-4746-8469-696e580f17b6",
+      "groups": [],
+      "topology": {
+        "nodes": [
+          {
+            "id": "99cda47a-ecb2-4d31-86c4-74e7a8201958",
+            "label": "iosv-0",
+            "x": -400,
+            "y": 0,
+            "node_definition": "iosv",
+            "image_definition": "",
+            "state": "STOPPED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
+            "label": "iosvl2-0",
+            "x": -250,
+            "y": 0,
+            "node_definition": "iosvl2",
+            "image_definition": "",
+            "state": "STOPPED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "0f9565f7-4fa3-4312-8dda-1db183a55950",
+            "label": "csr1000v-0",
+            "x": -550,
+            "y": 0,
+            "node_definition": "csr1000v",
+            "image_definition": "",
+            "state": "STOPPED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "56c875d9-4f2a-4688-9fba-660716cff4cb",
+            "label": "iosv-1",
+            "x": -400,
+            "y": 150,
+            "node_definition": "iosv",
+            "image_definition": "",
+            "state": "STOPPED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "aa51eca6-ae81-40fc-a713-e1a168280d21",
+            "label": "alpine-0",
+            "x": -396,
+            "y": -164,
+            "node_definition": "alpine",
+            "image_definition": "",
+            "state": "STOPPED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "e5222bd8-52ff-4e1d-b6c9-89241132fb13",
+            "label": "alpine-1",
+            "x": -100,
+            "y": 0,
+            "node_definition": "alpine",
+            "image_definition": "",
+            "state": "STOPPED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "004c00c9-2606-485c-8ff9-d698e430fa6a",
+            "label": "ext-conn-0",
+            "x": -248,
+            "y": -166,
+            "node_definition": "external_connector",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          }
+        ],
+        "links": [
+          {
+            "id": "8f8980be-a12c-4d42-a319-08169a0cbef7",
+            "node_a": "99cda47a-ecb2-4d31-86c4-74e7a8201958",
+            "node_b": "0f9565f7-4fa3-4312-8dda-1db183a55950",
+            "state": "STOPPED"
+          },
+          {
+            "id": "4c029bda-8f54-42d5-908e-1638b736f957",
+            "node_a": "56c875d9-4f2a-4688-9fba-660716cff4cb",
+            "node_b": "99cda47a-ecb2-4d31-86c4-74e7a8201958",
+            "state": "STOPPED"
+          },
+          {
+            "id": "74df9890-4df6-4e61-8aa7-9459d6381a85",
+            "node_a": "99cda47a-ecb2-4d31-86c4-74e7a8201958",
+            "node_b": "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
+            "state": "STOPPED"
+          },
+          {
+            "id": "fbfb78fa-d62d-448f-a5e9-1dacaa1504ad",
+            "node_a": "56c875d9-4f2a-4688-9fba-660716cff4cb",
+            "node_b": "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
+            "state": "STOPPED"
+          },
+          {
+            "id": "0321b86a-50e6-4c6a-8151-60acfdd07775",
+            "node_a": "56c875d9-4f2a-4688-9fba-660716cff4cb",
+            "node_b": "0f9565f7-4fa3-4312-8dda-1db183a55950",
+            "state": "STOPPED"
+          },
+          {
+            "id": "4244119a-d0d0-486a-aec7-48b587e0b7dd",
+            "node_a": "99cda47a-ecb2-4d31-86c4-74e7a8201958",
+            "node_b": "aa51eca6-ae81-40fc-a713-e1a168280d21",
+            "state": "STOPPED"
+          },
+          {
+            "id": "6b92a334-4838-4f1c-b3f3-45c4baf00268",
+            "node_a": "e5222bd8-52ff-4e1d-b6c9-89241132fb13",
+            "node_b": "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
+            "state": "STOPPED"
+          },
+          {
+            "id": "d344bab0-c445-49d7-a1ab-a9132a4bcf4d",
+            "node_a": "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
+            "node_b": "004c00c9-2606-485c-8ff9-d698e430fa6a",
+            "state": "DEFINED_ON_CORE"
+          }
+        ]
+      }
+    },
+    "df76a038-076f-4744-85c0-b2e1daf1bc06": {
+      "state": "DEFINED_ON_CORE",
+      "created": "2022-06-30T03:46:10+00:00",
+      "modified": "2022-06-30T03:48:06+00:00",
+      "lab_title": "DevNet Sandbox SD-WAN",
+      "lab_description": "",
+      "lab_notes": "",
+      "owner": "640a1c81-f1e7-4159-8fa2-ad35d9a68586",
+      "owner_username": "jdoe",
+      "node_count": 19,
+      "link_count": 32,
+      "id": "df76a038-076f-4744-85c0-b2e1daf1bc06",
+      "groups": [],
+      "topology": {
+        "nodes": [
+          {
+            "id": "5132cd86-c1bd-4989-a218-f1b420f0340c",
+            "label": "internet",
+            "x": 257,
+            "y": 339,
+            "node_definition": "csr1000v",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "929917c0-ce1a-4c08-a8b9-d260192918f1",
+            "label": "host1",
+            "x": 141,
+            "y": 570,
+            "node_definition": "ubuntu",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "ddff687e-fe77-44f7-93ec-11a2493931a3",
+            "label": "host2",
+            "x": 337,
+            "y": 564,
+            "node_definition": "ubuntu",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "db15e434-e9be-4c42-b998-1b08548daa5b",
+            "label": "vbond1",
+            "x": 190,
+            "y": 50,
+            "node_definition": "viptela-bond",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "9ea578b6-1f9d-47dd-8db8-5d13118cda7d",
+            "label": "vmanage1",
+            "x": 250,
+            "y": 0,
+            "node_definition": "viptela-manage",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "a651ed0b-fbe5-47ad-8c77-47f66764c6eb",
+            "label": "vsmart1",
+            "x": 327,
+            "y": 50,
+            "node_definition": "viptela-smart",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "4fd590a3-a359-41ec-91a5-ac2711138b7c",
+            "label": "vedge-hq",
+            "x": 148,
+            "y": 133,
+            "node_definition": "viptela-edge",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "073f07e9-fbde-4e0a-9f6a-ad39ac5e78b0",
+            "label": "vedge1",
+            "x": 143,
+            "y": 461,
+            "node_definition": "viptela-edge",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "b26badb4-0c3a-4069-aeba-7a9c5e56f300",
+            "label": "vedge2",
+            "x": 337,
+            "y": 458,
+            "node_definition": "viptela-edge",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "1fe9ee6d-9a6b-439d-be64-6a5722ddfd34",
+            "label": "DMZ",
+            "x": 260,
+            "y": 132,
+            "node_definition": "unmanaged_switch",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "3d92ed02-98e0-41d8-ab9c-63dfbd063a48",
+            "label": "hq",
+            "x": 258,
+            "y": 249,
+            "node_definition": "csr1000v",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "3d3af2eb-9535-4dd4-9adc-cc7d0ae38245",
+            "label": "core",
+            "x": 150,
+            "y": 250,
+            "node_definition": "csr1000v",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "1dda713d-b300-4e6e-90e4-abc41d532e87",
+            "label": "hqdc",
+            "x": 50,
+            "y": 250,
+            "node_definition": "unmanaged_switch",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "6098d180-e37f-4277-a0f8-65fab6d99546",
+            "label": "server1",
+            "x": 50,
+            "y": 131,
+            "node_definition": "ubuntu",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "3d5ccdd5-0837-4f16-bfc4-9ffd13806ac8",
+            "label": "sp1",
+            "x": 552,
+            "y": 340,
+            "node_definition": "csr1000v",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "e4b81866-1132-43b0-bfe0-b2a3f85c16ad",
+            "label": "service1",
+            "x": 805,
+            "y": 338,
+            "node_definition": "ubuntu",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "dc7c06c1-1c91-4b43-b467-64bc11f83223",
+            "label": "spdc",
+            "x": 665,
+            "y": 339,
+            "node_definition": "unmanaged_switch",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "label": "sandbox-backend",
+            "x": 800,
+            "y": 200,
+            "node_definition": "unmanaged_switch",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "a8e87a75-d502-4b34-bd53-7a707ffa2452",
+            "label": "bridge-to-sandbox",
+            "x": 800,
+            "y": 50,
+            "node_definition": "external_connector",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          }
+        ],
+        "links": [
+          {
+            "id": "a14cda09-f07c-4f45-9339-56429b4101ed",
+            "node_a": "3d92ed02-98e0-41d8-ab9c-63dfbd063a48",
+            "node_b": "5132cd86-c1bd-4989-a218-f1b420f0340c",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "15b9c0d0-529f-4e5c-b936-419d635ef33e",
+            "node_a": "3d92ed02-98e0-41d8-ab9c-63dfbd063a48",
+            "node_b": "1fe9ee6d-9a6b-439d-be64-6a5722ddfd34",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "550e598d-ac81-46f6-82eb-70845cddb6c4",
+            "node_a": "3d92ed02-98e0-41d8-ab9c-63dfbd063a48",
+            "node_b": "3d3af2eb-9535-4dd4-9adc-cc7d0ae38245",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "eccb95d0-4805-4cbb-869d-c6f0cc3585e4",
+            "node_a": "1dda713d-b300-4e6e-90e4-abc41d532e87",
+            "node_b": "3d3af2eb-9535-4dd4-9adc-cc7d0ae38245",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "baa26cf8-6605-40cd-8cf1-26fe1dddcc4b",
+            "node_a": "6098d180-e37f-4277-a0f8-65fab6d99546",
+            "node_b": "1dda713d-b300-4e6e-90e4-abc41d532e87",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "c19c11c1-6b73-4bb6-99aa-7b528d2ea542",
+            "node_a": "5132cd86-c1bd-4989-a218-f1b420f0340c",
+            "node_b": "3d5ccdd5-0837-4f16-bfc4-9ffd13806ac8",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "e0ffe483-3643-4e45-bdd2-636693c50d10",
+            "node_a": "3d5ccdd5-0837-4f16-bfc4-9ffd13806ac8",
+            "node_b": "dc7c06c1-1c91-4b43-b467-64bc11f83223",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "9dde85ed-2652-4aba-a993-7dce622e6f6b",
+            "node_a": "a651ed0b-fbe5-47ad-8c77-47f66764c6eb",
+            "node_b": "1fe9ee6d-9a6b-439d-be64-6a5722ddfd34",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "5ac4717e-6c90-4d5d-a7f2-400df0cc4a10",
+            "node_a": "9ea578b6-1f9d-47dd-8db8-5d13118cda7d",
+            "node_b": "1fe9ee6d-9a6b-439d-be64-6a5722ddfd34",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "81c82498-19d0-4f9d-adb2-a9e60804f126",
+            "node_a": "db15e434-e9be-4c42-b998-1b08548daa5b",
+            "node_b": "1fe9ee6d-9a6b-439d-be64-6a5722ddfd34",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "40b3e18b-2aa8-4df1-8da0-8ab812959201",
+            "node_a": "4fd590a3-a359-41ec-91a5-ac2711138b7c",
+            "node_b": "1fe9ee6d-9a6b-439d-be64-6a5722ddfd34",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "2cde1162-3ad7-4e18-b11d-0d59e86bff25",
+            "node_a": "3d3af2eb-9535-4dd4-9adc-cc7d0ae38245",
+            "node_b": "4fd590a3-a359-41ec-91a5-ac2711138b7c",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "eece855f-ef7c-416f-b663-55853fb3ecde",
+            "node_a": "dc7c06c1-1c91-4b43-b467-64bc11f83223",
+            "node_b": "e4b81866-1132-43b0-bfe0-b2a3f85c16ad",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "57fd4851-ea86-4184-9f89-8673cf9a3a11",
+            "node_a": "5132cd86-c1bd-4989-a218-f1b420f0340c",
+            "node_b": "073f07e9-fbde-4e0a-9f6a-ad39ac5e78b0",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "b98f9abd-b103-463a-8b59-af7593b4c552",
+            "node_a": "073f07e9-fbde-4e0a-9f6a-ad39ac5e78b0",
+            "node_b": "929917c0-ce1a-4c08-a8b9-d260192918f1",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "aadc84d2-8391-432e-a8c8-bdec73620c3b",
+            "node_a": "5132cd86-c1bd-4989-a218-f1b420f0340c",
+            "node_b": "b26badb4-0c3a-4069-aeba-7a9c5e56f300",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "9015e932-11da-49eb-8cad-0199b1ec8705",
+            "node_a": "b26badb4-0c3a-4069-aeba-7a9c5e56f300",
+            "node_b": "ddff687e-fe77-44f7-93ec-11a2493931a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "e82ae6d2-2931-4dda-b33d-6172a4fa3e98",
+            "node_a": "a8e87a75-d502-4b34-bd53-7a707ffa2452",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "3fb2273c-825c-482e-90a7-66f838e8989f",
+            "node_a": "db15e434-e9be-4c42-b998-1b08548daa5b",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "688fe683-6bd5-421a-879c-1dc0f960160e",
+            "node_a": "9ea578b6-1f9d-47dd-8db8-5d13118cda7d",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "cc9e0ca0-129d-4c40-86b5-22d8748a2bae",
+            "node_a": "a651ed0b-fbe5-47ad-8c77-47f66764c6eb",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "ae178622-d545-4a09-9010-e0bcf5feff45",
+            "node_a": "6098d180-e37f-4277-a0f8-65fab6d99546",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "517f6c20-1b79-49ca-aed3-a800c856a937",
+            "node_a": "4fd590a3-a359-41ec-91a5-ac2711138b7c",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "2b1c93fc-1062-4c5a-8e44-55d6d9f177d0",
+            "node_a": "3d3af2eb-9535-4dd4-9adc-cc7d0ae38245",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "5e1e0747-3dc1-4c3a-b76c-33be9539c0c7",
+            "node_a": "3d92ed02-98e0-41d8-ab9c-63dfbd063a48",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "8d55a4c5-0e55-4392-b7e1-ae4201d93797",
+            "node_a": "5132cd86-c1bd-4989-a218-f1b420f0340c",
+            "node_b": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "1d5e0635-e938-4b86-aade-bcee9ca73775",
+            "node_a": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "node_b": "3d5ccdd5-0837-4f16-bfc4-9ffd13806ac8",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "54c3d1de-7d59-47e4-9c1b-3be6ad8b7f5f",
+            "node_a": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "node_b": "e4b81866-1132-43b0-bfe0-b2a3f85c16ad",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "b037c4b5-32d8-4fd6-9cd7-b822bd7bfe15",
+            "node_a": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "node_b": "073f07e9-fbde-4e0a-9f6a-ad39ac5e78b0",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "b44393b8-a725-4717-a473-5a0ec52e0eca",
+            "node_a": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "node_b": "929917c0-ce1a-4c08-a8b9-d260192918f1",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "eb6e7349-10e0-4694-952e-369f6648c659",
+            "node_a": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "node_b": "b26badb4-0c3a-4069-aeba-7a9c5e56f300",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "9c864f7d-5881-462b-8d0c-1280f08ccda2",
+            "node_a": "c78b15e4-ed33-4c90-88ff-241e014193a3",
+            "node_b": "ddff687e-fe77-44f7-93ec-11a2493931a3",
+            "state": "DEFINED_ON_CORE"
+          }
+        ]
+      }
+    },
+    "3031b614-0e76-4450-9fe0-6b3be0bc0bd2": {
+      "state": "DEFINED_ON_CORE",
+      "created": "2022-06-30T17:46:46+00:00",
+      "modified": "2022-06-30T17:46:46+00:00",
+      "lab_title": "cml-viptela-images-testing",
+      "lab_description": "Lab for testing Viptela images.",
+      "lab_notes": "",
+      "owner": "640a1c81-f1e7-4159-8fa2-ad35d9a68586",
+      "owner_username": "jdoe",
+      "node_count": 15,
+      "link_count": 14,
+      "id": "3031b614-0e76-4450-9fe0-6b3be0bc0bd2",
+      "groups": [],
+      "topology": {
+        "nodes": [
+          {
+            "id": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+            "label": "internet",
+            "x": -250,
+            "y": 0,
+            "node_definition": "csr1000v",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "dd48e270-c192-4cad-990e-83e3c0fe11d2",
+            "label": "hq-rtr1",
+            "x": 0,
+            "y": 0,
+            "node_definition": "csr1000v",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+            "label": "hq-dmz-lan",
+            "x": 250,
+            "y": 0,
+            "node_definition": "unmanaged_switch",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "f1f67f07-85bd-442b-840d-e5e9f93cd7e4",
+            "label": "hq-mgmt-br",
+            "x": 350,
+            "y": -300,
+            "node_definition": "external_connector",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "926f0f14-d1df-4320-8b32-5549e4465e4c",
+            "label": "internet-mgmt",
+            "x": -250,
+            "y": -150,
+            "node_definition": "external_connector",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "2ceda08f-04dd-4c98-9b88-f074427485ca",
+            "label": "OOB-mgmt-lan",
+            "x": 400,
+            "y": -250,
+            "node_definition": "iosvl2",
+            "image_definition": "iosvl2-2020",
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "99e83795-51d8-418a-97b8-a68f1c471598",
+            "label": "site2-vedge1",
+            "x": -100,
+            "y": 150,
+            "node_definition": "viptela-edge",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "4bfeed2c-a2ca-4b73-a974-974d32de93d8",
+            "label": "vsmart1",
+            "x": 400,
+            "y": 150,
+            "node_definition": "viptela-smart",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "54975a72-47a7-4052-980f-0af2bb8907cc",
+            "label": "vbond1",
+            "x": 400,
+            "y": 0,
+            "node_definition": "viptela-bond",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "0bd147bb-bfaf-4698-b8a2-978e975f7290",
+            "label": "site2-host1",
+            "x": -250,
+            "y": 400,
+            "node_definition": "alpine",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "3ea48ff8-ca14-498f-92ff-7c848923c1cc",
+            "label": "site1-vedge1",
+            "x": -500,
+            "y": 200,
+            "node_definition": "viptela-edge",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "c513c0e9-3ea2-4541-a7af-7020fb847b52",
+            "label": "site1-host1",
+            "x": -500,
+            "y": 400,
+            "node_definition": "alpine",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "61ef5f7b-b6bb-49f4-bd34-957e090d0556",
+            "label": "vmanage1",
+            "x": 400,
+            "y": -100,
+            "node_definition": "viptela-manage",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "1028ee8e-36ed-405e-b8b7-d3ecd5b96c69",
+            "label": "site3-vedge1",
+            "x": -50,
+            "y": 200,
+            "node_definition": "viptela-edge",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "f2ee4b01-13e0-4fc8-af86-f65ae1bef9e7",
+            "label": "site3-host1",
+            "x": -50,
+            "y": 400,
+            "node_definition": "alpine",
+            "image_definition": null,
+            "state": "DEFINED_ON_CORE",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          }
+        ],
+        "links": [
+          {
+            "id": "e16aaa90-b966-41a6-bc23-197590293b5b",
+            "node_a": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+            "node_b": "926f0f14-d1df-4320-8b32-5549e4465e4c",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "cfae0bcb-4548-43f9-9a16-37009e869072",
+            "node_a": "99e83795-51d8-418a-97b8-a68f1c471598",
+            "node_b": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "51f73528-bf37-49c8-a8e8-1ebec9a35fac",
+            "node_a": "3ea48ff8-ca14-498f-92ff-7c848923c1cc",
+            "node_b": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "05c218f7-6e86-4e2d-9250-ad7d76d88c9f",
+            "node_a": "1028ee8e-36ed-405e-b8b7-d3ecd5b96c69",
+            "node_b": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "b71fdcf0-6100-443e-9891-5343c7b03a27",
+            "node_a": "c513c0e9-3ea2-4541-a7af-7020fb847b52",
+            "node_b": "3ea48ff8-ca14-498f-92ff-7c848923c1cc",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "c8b07ed2-84ce-4655-9ac8-fa4806c3956b",
+            "node_a": "0bd147bb-bfaf-4698-b8a2-978e975f7290",
+            "node_b": "99e83795-51d8-418a-97b8-a68f1c471598",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "a0c48e21-3ae1-48f2-80a8-4d947b996a92",
+            "node_a": "f2ee4b01-13e0-4fc8-af86-f65ae1bef9e7",
+            "node_b": "1028ee8e-36ed-405e-b8b7-d3ecd5b96c69",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "a1094d59-9c4d-4a42-a6b5-99f0cbc23068",
+            "node_a": "302b1db3-5e14-45e4-9769-4094d912a6a2",
+            "node_b": "dd48e270-c192-4cad-990e-83e3c0fe11d2",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "72e8f1ee-2799-4cdd-b78e-02051edf2a3b",
+            "node_a": "dd48e270-c192-4cad-990e-83e3c0fe11d2",
+            "node_b": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "00ab556f-39cc-4834-ae2f-fe2c176a53e0",
+            "node_a": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+            "node_b": "4bfeed2c-a2ca-4b73-a974-974d32de93d8",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "bf3c7952-d3a8-444e-b748-63a35c0e9a03",
+            "node_a": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+            "node_b": "54975a72-47a7-4052-980f-0af2bb8907cc",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "e24c5f0b-d2ff-4072-8557-44aaf5dd0ce7",
+            "node_a": "c499b260-1679-4d61-b807-e5db80ffd9d0",
+            "node_b": "61ef5f7b-b6bb-49f4-bd34-957e090d0556",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "5eb94dd6-b57e-42c0-9879-000f9ecc8f58",
+            "node_a": "61ef5f7b-b6bb-49f4-bd34-957e090d0556",
+            "node_b": "2ceda08f-04dd-4c98-9b88-f074427485ca",
+            "state": "DEFINED_ON_CORE"
+          },
+          {
+            "id": "ee2d8e09-a3c3-45e6-b796-79b08f7bfdab",
+            "node_a": "2ceda08f-04dd-4c98-9b88-f074427485ca",
+            "node_b": "f1f67f07-85bd-442b-840d-e5e9f93cd7e4",
+            "state": "DEFINED_ON_CORE"
+          }
+        ]
+      }
+    },
+    "863799a0-3d09-4af4-be26-cad997b6ab27": {
+      "state": "STARTED",
+      "created": "2022-08-05T04:55:23+00:00",
+      "modified": "2022-08-05T04:55:23+00:00",
+      "lab_title": "CSR 1000v Feature Tests",
+      "lab_description": "A sample lab for testing CSR 1000v features",
+      "lab_notes": "# CSR 1000v Feature Testing\n\n## Features\n\n- CDP\n- ping\n- OSPF single-area\n- NAT - static\n- HSRP\n- DHCP\n- Routed subinterface\n- Restconf\n- Netconf\n\n## Test Details\n\nFor more details on test procedure, see the [CSR 1000v](https://developer.cisco.com/docs/modeling-labs/#!csr-1000v) page in the [CML documentation](https://developer.cisco.com/docs/modeling-labs/).",
+      "owner": "640a1c81-f1e7-4159-8fa2-ad35d9a68586",
+      "owner_username": "jdoe",
+      "node_count": 6,
+      "link_count": 7,
+      "id": "863799a0-3d09-4af4-be26-cad997b6ab27",
+      "groups": [],
+      "topology": {
+        "nodes": [
+          {
+            "id": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+            "label": "csr1000v-2",
+            "x": -600,
+            "y": -50,
+            "node_definition": "csr1000v",
+            "image_definition": "",
+            "state": "BOOTED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "f4220194-d8b4-42ed-9967-226e1ed92ca0",
+            "label": "alpine-0",
+            "x": -600,
+            "y": -350,
+            "node_definition": "alpine",
+            "image_definition": "",
+            "state": "BOOTED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "6d583887-a109-4df2-b7fe-45c27379a49d",
+            "label": "iosv-0",
+            "x": -800,
+            "y": -250,
+            "node_definition": "iosv",
+            "image_definition": "",
+            "state": "BOOTED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+            "label": "csr1000v-0",
+            "x": -600,
+            "y": -250,
+            "node_definition": "csr1000v",
+            "image_definition": "",
+            "state": "BOOTED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0",
+            "label": "iosvl2-0",
+            "x": -500,
+            "y": -150,
+            "node_definition": "iosvl2",
+            "image_definition": "",
+            "state": "BOOTED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          },
+          {
+            "id": "9c840733-ac3f-4195-8839-b2c0379bc719",
+            "label": "ubuntu-0",
+            "x": -350,
+            "y": -150,
+            "node_definition": "ubuntu",
+            "image_definition": "",
+            "state": "BOOTED",
+            "cpus": null,
+            "cpu_limit": null,
+            "ram": null,
+            "data_volume": null,
+            "boot_disk_size": null
+          }
+        ],
+        "links": [
+          {
+            "id": "e7869898-9a4a-40af-813b-f4fbe10f6546",
+            "node_a": "6d583887-a109-4df2-b7fe-45c27379a49d",
+            "node_b": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+            "state": "STARTED"
+          },
+          {
+            "id": "01fff06c-62de-4421-b335-499316576075",
+            "node_a": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+            "node_b": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0",
+            "state": "STARTED"
+          },
+          {
+            "id": "793acf56-3c20-43bb-a295-e1372491c722",
+            "node_a": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+            "node_b": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0",
+            "state": "STARTED"
+          },
+          {
+            "id": "ffdc378e-3f24-425f-8435-9cfa30b5ccd5",
+            "node_a": "e79a0eb7-5c10-4538-8776-b832df78ba8b",
+            "node_b": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+            "state": "STARTED"
+          },
+          {
+            "id": "02ab4e89-051c-4af3-98b1-e26f708b54ea",
+            "node_a": "6d583887-a109-4df2-b7fe-45c27379a49d",
+            "node_b": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+            "state": "STARTED"
+          },
+          {
+            "id": "bbfac097-5b23-461b-9f7d-77c7738b8e72",
+            "node_a": "9c840733-ac3f-4195-8839-b2c0379bc719",
+            "node_b": "d9a0bb6a-dbdf-45e5-9222-18dc5fb4adf0",
+            "state": "STARTED"
+          },
+          {
+            "id": "ce004107-dcc6-484e-8afc-4df7d6c28651",
+            "node_a": "f4220194-d8b4-42ed-9967-226e1ed92ca0",
+            "node_b": "90e9329f-7d20-4eb2-b396-06d0aa497ce9",
+            "state": "STARTED"
+          }
+        ]
+      }
+    }
+  }
+}

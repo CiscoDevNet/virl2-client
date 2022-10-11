@@ -23,12 +23,11 @@ from __future__ import annotations
 import logging
 import warnings
 from functools import total_ordering
-
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .node import Node
     from .link import Link
+    from .node import Node
 
 _LOGGER = logging.getLogger(__name__)
 

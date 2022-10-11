@@ -28,23 +28,22 @@ import time
 import urllib
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, NamedTuple, Optional
 from urllib.parse import urljoin, urlsplit, urlunsplit
-
-from typing import NamedTuple, Optional, Any
 
 import requests
 import urllib3
 
-from .exceptions import LabNotFound, InitializationError
+from .exceptions import InitializationError, LabNotFound
 from .models import (
     Context,
-    Lab,
-    NodeImageDefinitions,
-    TokenAuth,
-    Licensing,
-    UserManagement,
-    SystemManagement,
     GroupManagement,
+    Lab,
+    Licensing,
+    NodeImageDefinitions,
+    SystemManagement,
+    TokenAuth,
+    UserManagement,
 )
 
 _LOGGER = logging.getLogger(__name__)

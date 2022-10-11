@@ -19,8 +19,8 @@
 #
 
 from .exceptions import InterfaceNotFound, LabNotFound, LinkNotFound, NodeNotFound
-from .virl2_client import ClientConfig, ClientLibrary, InitializationError
 from .models.authentication import Context
+from .virl2_client import ClientConfig, ClientLibrary, InitializationError
 
 __all__ = [
     "InterfaceNotFound",

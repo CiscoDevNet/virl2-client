@@ -22,7 +22,6 @@ import json
 import logging
 import os
 import sys
-
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlsplit
@@ -35,8 +34,8 @@ from virl2_client.models import Lab
 from virl2_client.virl2_client import (
     ClientConfig,
     ClientLibrary,
-    Version,
     InitializationError,
+    Version,
 )
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str

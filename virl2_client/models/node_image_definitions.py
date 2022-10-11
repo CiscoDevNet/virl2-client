@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import os
 import time
-from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from typing import TYPE_CHECKING, Optional
+
+from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
 if TYPE_CHECKING:
     from requests import Session

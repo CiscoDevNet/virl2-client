@@ -22,16 +22,16 @@ labs, nodes, interfaces and links. It also contains classes for
 node and image definition and helper classes for automation
 and authentication."""
 
-from .interface import Interface
 from .authentication import Context, TokenAuth
+from .groups import GroupManagement
+from .interface import Interface
 from .lab import Lab
 from .licensing import Licensing
 from .link import Link
 from .node import Node
 from .node_image_definitions import NodeImageDefinitions
-from .users import UserManagement
-from .groups import GroupManagement
 from .system import SystemManagement
+from .users import UserManagement
 
 __all__ = (
     "Interface",

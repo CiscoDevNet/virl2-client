@@ -24,14 +24,13 @@ import logging
 import time
 import warnings
 from functools import total_ordering
-
 from typing import TYPE_CHECKING, Any, Optional
 
 from ..exceptions import InterfaceNotFound
 
 if TYPE_CHECKING:
-    from .lab import Lab
     from .interface import Interface
+    from .lab import Lab
     from .link import Link
 
 _LOGGER = logging.getLogger(__name__)

@@ -21,6 +21,7 @@
 
 import getpass
 import json
+
 from virl2_client import ClientLibrary
 
 VIRL_CONTROLLER = "virl2-controller"

@@ -53,3 +53,7 @@ class LabNotFound(ElementNotFound):
 
 class DesynchronizedError(VirlException):
     pass
+
+
+class InvalidImageFile(VirlException):
+    pass

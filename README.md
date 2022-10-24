@@ -55,7 +55,7 @@ be downloaded to the local filesystem and then directly installed via
 The bundled version is available on the index site of the docs when viewed
 directly on the CML 2 controller.
 
-Ensure to replace use the correct file name, replacing the wildcard with the
+Ensure to replace and/or use the correct file name, replacing the wildcard with the
 proper version/build information. For example
 
     pip3 install virl2_client-2.0.0b10-py3-none-any.whl

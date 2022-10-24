@@ -20,14 +20,22 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import pathlib
 import time
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
+from virl2_client.exceptions import InvalidImageFile
+
 if TYPE_CHECKING:
     from requests import Session
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class NodeImageDefinitions:
@@ -166,7 +174,10 @@ class NodeImageDefinitions:
         return response.json()
 
     def upload_image_file(
-        self, filename: str, rename: Optional[str] = None, chunk_size_mb: int = 10
+        self,
+        filename: str,
+        rename: Optional[str] = None,
+        chunk_size_mb: Optional[int] = None,
     ) -> None:
         """
         :param filename: the path of the image to upload
@@ -174,12 +185,39 @@ class NodeImageDefinitions:
         :param chunk_size_mb: Optional size of upload chunk (mb)
             (deprecated since 2.2.0)
         """
+        if chunk_size_mb is not None:
+            warnings.warn(
+                'The argument "chunk_size_mb" is deprecated as it never worked',
+                DeprecationWarning,
+            )
+
+        extension_list = [".qcow", ".qcow2"]
         url = self._base_url + "images/upload"
-        if rename:
-            name = rename
-        else:
-            _, name = os.path.split(filename)
-        print("Uploading %s" % name)
+
+        path = pathlib.Path(filename)
+        extension = "".join(path.suffixes)
+        last_ext = path.suffix
+        name = rename or path.stem
+
+        if extension == "" or name == "":
+            message = (
+                f"Name specified ({name}) is in wrong format "
+                f"(correct: filename.({'|'.join(extension_list)}) )."
+            )
+            raise InvalidImageFile(message)
+
+        if extension not in extension_list and last_ext not in extension_list:
+            message = (
+                f"Extension in {name} not supported. "
+                f"(supported extensions are {', '.join(extension_list)})."
+            )
+            raise InvalidImageFile(message)
+
+        if not os.path.exists(filename):
+            message = f"File with specified name ({filename}) does not exist."
+            raise FileNotFoundError(message)
+
+        print(f"Uploading {name}")
         headers = {"X-Original-File-Name": name}
 
         mpe = MultipartEncoder(fields={"field0": (name, open(filename, "rb"))})

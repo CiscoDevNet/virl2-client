@@ -34,6 +34,18 @@ class SystemManagement:
     def base_url(self) -> str:
         return self.ctx.base_url
 
+    def get_external_connectors(self) -> list[dict[str, str]]:
+        """
+        Get the list of external connectors present on the controller
+
+        Device names are used as External Connector nodes' configuration.
+        Returns a list of objects with the device name and label.
+        """
+        url = self.base_url + "/system/external_connectors"
+        response = self.ctx.session.get(url)
+        response.raise_for_status()
+        return response.json()
+
     def get_web_session_timeout(self) -> int:
         """
         Get the web session timeout in seconds.

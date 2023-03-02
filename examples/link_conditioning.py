@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -23,7 +23,7 @@
 import getpass
 import re
 
-from requests.exceptions import HTTPError
+from httpx import HTTPStatusError
 
 from virl2_client import ClientLibrary
 
@@ -100,6 +100,6 @@ else:
         loss = float(cond_list[3])  # Loss is a float
         link.set_condition(bw, latency, jitter, loss)
         print("Link conditioning set.")
-    except HTTPError as exc:
+    except HTTPStatusError as exc:
         print("ERROR: Failed to set link conditioning: {}", format(exc))
         exit(1)

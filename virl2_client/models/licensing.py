@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -18,9 +18,14 @@
 # limitations under the License.
 #
 
-import time
-import logging
+from __future__ import annotations
 
+import logging
+import time
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    import httpx
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,52 +38,51 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, context):
-        self.ctx = context
+    def __init__(self, session: httpx.Client) -> None:
+        self._session = session
 
     @property
-    def base_url(self):
-        return self.ctx.base_url + "licensing"
+    def base_url(self) -> str:
+        return "licensing"
 
-    def status(self):
+    def status(self) -> dict[str, Any]:
         """
         Get current licensing configuration and status.
         """
-        response = self.ctx.session.get(self.base_url)
-        response.raise_for_status()
-        return response.json()
+        return self._session.get(self.base_url).json()
 
-    def tech_support(self):
+    def tech_support(self) -> str:
         """
         Get current licensing tech support.
         """
         url = self.base_url + "/tech_support"
-        response = self.ctx.session.get(url)
-        response.raise_for_status()
-        return response.text
+        return self._session.get(url).text
 
-    def renew_authorization(self):
+    def renew_authorization(self) -> bool:
         """
         Renew licensing authorization with the backend.
         """
         url = self.base_url + "/authorization/renew"
-        response = self.ctx.session.put(url)
-        response.raise_for_status()
+        response = self._session.put(url)
         _LOGGER.info("The agent has scheduled an authorization renewal.")
         return response.status_code == 204
 
-    def set_transport(self, ssms, proxy_server=None, proxy_port=None):
+    def set_transport(
+        self,
+        ssms: str,
+        proxy_server: Optional[str] = None,
+        proxy_port: Optional[int] = None,
+    ) -> bool:
         """
         Setup licensing transport configuration.
         """
         url = self.base_url + "/transport"
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
-        response = self.ctx.session.put(url, json=data)
-        response.raise_for_status()
+        response = self._session.put(url, json=data)
         _LOGGER.info("The transport configuration has been accepted. Config: %s.", data)
         return response.status_code == 204
 
-    def set_default_transport(self):
+    def set_default_transport(self) -> bool:
         """
         Setup licensing transport configuration to default values.
         """
@@ -89,72 +93,67 @@ class Licensing:
             proxy_port=DEFAULT_PROXY_PORT,
         )
 
-    def set_product_license(self, product_license):
+    def set_product_license(self, product_license: str) -> bool:
         """
         Setup a product license.
         """
         url = self.base_url + "/product_license"
-        response = self.ctx.session.put(url, json=product_license)
-        response.raise_for_status()
+        response = self._session.put(url, json=product_license)
         _LOGGER.info("Product license was accepted by the agent.")
         return response.status_code == 204
 
-    def get_certificate(self):
+    def get_certificate(self) -> Optional[str]:
         """
         Get the currently installed licensing public certificate.
         """
         url = self.base_url + "/certificate"
-        response = self.ctx.session.get(url)
-        response.raise_for_status()
-        if response:
+        response = self._session.get(url)
+        if response.is_success:
             _LOGGER.info("Certificate received.")
             return response.json()
+        return None
 
-    def install_certificate(self, cert):
+    def install_certificate(self, cert: str) -> bool:
         """
-        Setup a licensing public certificate for internal deployment
+        Set up a licensing public certificate for internal deployment
         of an unregistered product instance.
         """
         url = self.base_url + "/certificate"
-        response = self.ctx.session.post(url, data=cert)
-        response.raise_for_status()
+        response = self._session.post(url, content=cert)
         _LOGGER.info("Certificate was accepted by the agent.")
         return response.status_code == 204
 
-    def remove_certificate(self):
+    def remove_certificate(self) -> bool:
         """
         Clear any licensing public certificate for internal deployment
         of an unregistered product instance.
         """
         url = self.base_url + "/certificate"
-        response = self.ctx.session.delete(url)
-        response.raise_for_status()
+        response = self._session.delete(url)
         _LOGGER.info("Certificate was removed.")
         return response.status_code == 204
 
-    def register(self, token, reregister=False):
+    def register(self, token: str, reregister=False) -> bool:
         """
         Setup licensing registration.
         """
         url = self.base_url + "/registration"
-        response = self.ctx.session.post(
+        response = self._session.post(
             url, json={"token": token, "reregister": reregister}
         )
-        response.raise_for_status()
         _LOGGER.info("Registration request was accepted by the agent.")
         return response.status_code == 204
 
-    def register_renew(self):
+    def register_renew(self) -> bool:
         """
         Request a renewal of licensing registration against current SSMS.
         """
         url = self.base_url + "/registration/renew"
-        response = self.ctx.session.put(url)
-        response.raise_for_status()
+        response = self._session.put(url)
         _LOGGER.info("The renewal request was accepted by the agent.")
         return response.status_code == 204
 
-    def register_wait(self, token, reregister=False):
+    def register_wait(self, token: str, reregister=False) -> bool:
         """
         Setup licensing registrations and wait for registration status
         to be COMPLETED and authorization status to be IN_COMPLIANCE.
@@ -164,13 +163,12 @@ class Licensing:
         self.wait_for_status("authorization", "IN_COMPLIANCE")
         return res
 
-    def deregister(self):
+    def deregister(self) -> int:
         """
         Request deregistration from the current SSMS.
         """
         url = self.base_url + "/deregistration"
-        response = self.ctx.session.delete(url)
-        response.raise_for_status()
+        response = self._session.delete(url)
         if response.status_code == 202:
             _LOGGER.warning(
                 "Deregistration has been completed on the Product Instance but was "
@@ -185,153 +183,138 @@ class Licensing:
             )
         return response.status_code
 
-    def features(self):
+    def features(self) -> list[dict[str, str | int]]:
         """
         Get current licensing features.
         """
         url = self.base_url + "/features"
-        response = self.ctx.session.get(url)
-        response.raise_for_status()
-        return response.json()
+        return self._session.get(url).json()
 
-    def update_features(self, features):
+    def update_features(self, features: dict[str, int] | list[dict[str, int]]) -> None:
         """
         Update licensing feature's explicit count in reservation mode.
         """
         url = self.base_url + "/features"
-        response = self.ctx.session.patch(url, json=features)
-        response.raise_for_status()
+        self._session.patch(url, json=features)
 
-    def reservation_mode(self, data):
+    def reservation_mode(self, data: bool) -> None:
         """
         Enable or disable reservation mode in unregistered agent.
         """
         url = self.base_url + "/reservation/mode"
-        response = self.ctx.session.put(url, json=data)
-        response.raise_for_status()
+        self._session.put(url, json=data)
         msg = "enabled" if data else "disabled"
         _LOGGER.info("The reservation mode has been %s.", msg)
 
-    def enable_reservation_mode(self):
+    def enable_reservation_mode(self) -> None:
         """
         Enable reservation mode in unregistered agent.
         """
         return self.reservation_mode(data=True)
 
-    def disable_reservation_mode(self):
+    def disable_reservation_mode(self) -> None:
         """
         Disable reservation mode in unregistered agent.
         """
         return self.reservation_mode(data=False)
 
-    def request_reservation(self):
+    def request_reservation(self) -> str:
         """
         Initiate reservation by generating request code and message to the user.
         """
         url = self.base_url + "/reservation/request"
-        response = self.ctx.session.post(url)
-        response.raise_for_status()
-        _LOGGER.info("The reservation request code received.")
+        response = self._session.post(url)
+        _LOGGER.info("Reservation request code received.")
         return response.json()
 
-    def complete_reservation(self, authorization_code):
+    def complete_reservation(self, authorization_code: str) -> str:
         """
         Complete reservation by installing authorization code from SSMS.
         """
         # TODO
         url = self.base_url + "/reservation/complete"
-        response = self.ctx.session.post(url, json=authorization_code)
-        response.raise_for_status()
+        response = self._session.post(url, json=authorization_code)
         _LOGGER.info("The confirmation code of completed reservation received.")
         return response.json()
 
-    def cancel_reservation(self):
+    def cancel_reservation(self) -> bool:
         """
         Cancel reservation request without completing it.
         """
         url = self.base_url + "/reservation/cancel"
-        response = self.ctx.session.delete(url)
-        response.raise_for_status()
+        response = self._session.delete(url)
         _LOGGER.info("The reservation request has been cancelled.")
         return response.status_code == 204
 
-    def release_reservation(self):
+    def release_reservation(self) -> str:
         """
         Return a completed reservation.
         """
         # TODO
         url = self.base_url + "/reservation/release"
-        response = self.ctx.session.delete(url)
-        response.raise_for_status()
+        response = self._session.delete(url)
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
-    def discard_reservation(self, data):
+    def discard_reservation(self, data: str) -> str:
         """
         Discard a reservation authorization code for an already cancelled
         reservation request.
         """
         # TODO
         url = self.base_url + "/reservation/discard"
-        response = self.ctx.session.post(url, json=data)
-        response.raise_for_status()
+        response = self._session.post(url, json=data)
         _LOGGER.info(
             "The discard code for an already cancelled reservation request received."
         )
         return response.json()
 
-    def get_reservation_confirmation_code(self):
+    def get_reservation_confirmation_code(self) -> str:
         """
         Get the confirmation code.
         """
         url = self.base_url + "/reservation/confirmation_code"
-        response = self.ctx.session.get(url)
-        response.raise_for_status()
+        response = self._session.get(url)
         _LOGGER.info("The confirmation code of the completed reservation received.")
         return response.json()
 
-    def delete_reservation_confirmation_code(self):
+    def delete_reservation_confirmation_code(self) -> bool:
         """
         Remove the confirmation code.
         """
         url = self.base_url + "/reservation/confirmation_code"
-        response = self.ctx.session.delete(url)
-        response.raise_for_status()
+        response = self._session.delete(url)
         _LOGGER.info("The confirmation code has been removed.")
         return response.status_code == 204
 
-    def get_reservation_return_code(self):
+    def get_reservation_return_code(self) -> str:
         """
         Get the return code.
         """
         url = self.base_url + "/reservation/return_code"
-        response = self.ctx.session.get(url)
-        response.raise_for_status()
+        response = self._session.get(url)
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
-    def delete_reservation_return_code(self):
+    def delete_reservation_return_code(self) -> bool:
         """
         Remove the return code.
         """
         url = self.base_url + "/reservation/return_code"
-        response = self.ctx.session.delete(url)
-        response.raise_for_status()
+        response = self._session.delete(url)
         _LOGGER.info("The return code has been removed.")
         return response.status_code == 204
 
-    def wait_for_status(self, what, *target_status):
+    def wait_for_status(self, what: str, *target_status: str) -> None:
         """
         Repeatedly check licensing registration or authorization status,
         until status matches one of the expected statuses or timeout is reached.
         :param what: "registration", "authorization" or other status in licensing API.
         :param target_status: One or more expected statuses.
-        :type what: str
-        :type target_status: str
         :raises RuntimeError: When timeout is reached.
         """
         count = 0
-        status = self.status()[what]["status"]
+        status = self.status().get(what, {}).get("status")
         while status not in target_status:
             time.sleep(self.wait_interval)
             if count > self.max_wait:

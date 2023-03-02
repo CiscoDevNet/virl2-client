@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -18,64 +18,69 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import logging
 import time
+import warnings
 from functools import total_ordering
+from typing import TYPE_CHECKING, Any, Optional
 
 from ..exceptions import InterfaceNotFound
 
+if TYPE_CHECKING:
+    import httpx
+
+    from .interface import Interface
+    from .lab import Lab
+    from .link import Link
+
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_WARNING = 'The property "config" is deprecated in favor of "configuration"'
 
 
 @total_ordering
 class Node:
     def __init__(
         self,
-        lab,
-        nid,
-        label,
-        node_definition,
-        image_definition,
-        config,
-        x,
-        y,
-        ram,
-        cpus,
-        cpu_limit,
-        data_volume,
-        boot_disk_size,
-        tags,
-    ):
+        lab: Lab,
+        nid: str,
+        label: str,
+        node_definition: str,
+        image_definition: Optional[str],
+        configuration: Optional[str],
+        x: int,
+        y: int,
+        ram: Optional[int],
+        cpus: Optional[int],
+        cpu_limit: Optional[int],
+        data_volume: Optional[int],
+        boot_disk_size: Optional[int],
+        hide_links: bool,
+        tags: list[str],
+        resource_pool: Optional[str],
+    ) -> None:
         """
-        A VIRL2 Node object. Typically a virtual machine representing a router,
+        A VIRL2 Node object. Typically, a virtual machine representing a router,
         switch or server.
 
-        :param lab: the Lab this nodes belongs to
-        :type lab: models.Lab
+        :param lab: the Lab this node belongs to
         :param nid: the Node ID
-        :type nid: str
+        :param label: node label
         :param node_definition: The node definition of this node
-        :type node_definition: str
         :param image_definition: The image definition of this node
-        :type image_definition: str
-        :param config: The day0 configuration of this node
-        :type config: str
+        :param configuration: The initial configuration of this node
         :param x: X coordinate on topology canvas
-        :type x: int
         :param y: Y coordinate on topology canvas
-        :type y: int
         :param ram: memory of node in MiB (if applicable)
-        :type ram: int
         :param cpus: Amount of CPUs in this node (if applicable)
-        :type cpus: int
         :param cpu_limit: CPU limit (default at 100%)
-        :type cpu_limit: int
         :param data_volume: Size in GiB of 2nd HDD (if > 0)
-        :type data_volume: int
         :param boot_disk_size: Size in GiB of boot disk (will expand to this size)
-        :type boot_disk_size: int
+        :param hide_links: Whether node's links should be hidden in UI visualization
         :param tags: List of tags
-        :type tags: List[str, str]
+        :param resource_pool: A resource pool ID if the node is in a resource pool
         """
         self.lab = lab
         self.id = nid
@@ -83,31 +88,32 @@ class Node:
         self._node_definition = node_definition
         self._x = x
         self._y = y
-        self._state = None
-        self.session = lab.session
+        self._state: Optional[str] = None
+        self._session: httpx.Client = lab.session
         self._image_definition = image_definition
         self._ram = ram
-        self._config = config
+        self._configuration = configuration
         self._cpus = cpus
         self._cpu_limit = cpu_limit
         self._data_volume = data_volume
         self._boot_disk_size = boot_disk_size
+        self._hide_links = hide_links
         self._tags = tags
-        self._compute_id = None
+        self._compute_id: Optional[str] = None
+        self._resource_pool = resource_pool
 
-        self.statistics = {"cpu_usage": 0, "disk_read": 0, "disk_write": 0}
-
-    @property
-    def state(self):
-        self.lab.sync_states_if_outdated()
-        return self._state
+        self.statistics: dict[str, int | float] = {
+            "cpu_usage": 0,
+            "disk_read": 0,
+            "disk_write": 0,
+        }
 
     def __str__(self):
         return "Node: {}".format(self._label)
 
     def __repr__(self):
         return (
-            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
+            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
             "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
                 str(self.lab),
@@ -115,7 +121,7 @@ class Node:
                 self._label,
                 self._node_definition,
                 self._image_definition,
-                self._config,
+                self._configuration,
                 self._x,
                 self._y,
                 self._ram,
@@ -123,6 +129,7 @@ class Node:
                 self._cpu_limit,
                 self._data_volume,
                 self._boot_disk_size,
+                self._hide_links,
                 self._tags,
             )
         )
@@ -140,29 +147,41 @@ class Node:
     def __hash__(self):
         return hash(self.id)
 
-    def interfaces(self):
+    @property
+    def state(self) -> Optional[str]:
+        self.lab.sync_states_if_outdated()
+        if self._state is None:
+            url = self._base_url + "/state"
+            self._state = self._session.get(url).json()["state"]
+        return self._state
+
+    @state.setter
+    def state(self, value: Optional[str]) -> None:
+        self._state = value
+
+    def interfaces(self) -> list[Interface]:
         self.lab.sync_topology_if_outdated()
         return [iface for iface in self.lab.interfaces() if iface.node is self]
 
-    def physical_interfaces(self):
+    def physical_interfaces(self) -> list[Interface]:
         self.lab.sync_topology_if_outdated()
         return [iface for iface in self.interfaces() if iface.physical]
 
-    def create_interface(self, slot=None, wait=False):
+    def create_interface(
+        self, slot: Optional[int] = None, wait: bool = False
+    ) -> Interface:
         """
         Create an interface in the specified slot or, if no slot is given, in the
         next available slot.
 
         :param slot: (optional)
-        :type slot: int
         :param wait: Wait for the creation
-        :type wait: bool
         :returns: The newly created interface
         :rtype: models.Interface
         """
         return self.lab.create_interface(self, slot, wait=wait)
 
-    def next_available_interface(self):
+    def next_available_interface(self) -> Optional[Interface]:
         """
         Returns the next available physical interface on this node.
 
@@ -178,194 +197,203 @@ class Node:
                 return iface
         return None
 
-    def peer_interfaces(self):
-        peer_ifaces = {
-            iface.peer_interface for iface in self.interfaces() if iface is not None
-        }
-        return list(peer_ifaces)
+    def peer_interfaces(self) -> list[Interface]:
+        peer_ifaces = []
+        for iface in self.interfaces():
+            peer_iface = iface.peer_interface
+            if peer_iface is not None and peer_iface not in peer_ifaces:
+                peer_ifaces.append(peer_iface)
+        return peer_ifaces
 
-    def peer_nodes(self):
+    def peer_nodes(self) -> list[Node]:
         return list({iface.node for iface in self.peer_interfaces()})
 
-    def links(self):
-        """
-        :returns: list of links
-        :rtype: list[models.Link]
-        """
+    def links(self) -> list[Link]:
         return list(
             {link for iface in self.interfaces() if (link := iface.link) is not None}
         )
 
-    def degree(self):
+    def degree(self) -> int:
         self.lab.sync_topology_if_outdated()
         return len(self.links())
 
     @property
-    def label(self):
+    def label(self) -> str:
         self.lab.sync_topology_if_outdated()
         return self._label
 
     @label.setter
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._set_node_property("label", value)
         self._label = value
 
     @property
-    def x(self):
+    def x(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._x
 
     @x.setter
-    def x(self, value):
+    def x(self, value: int) -> None:
         self._set_node_property("x", value)
         self._x = value
 
     @property
-    def y(self):
+    def y(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._y
 
     @y.setter
-    def y(self, value):
+    def y(self, value: int) -> None:
         self._set_node_property("y", value)
         self._y = value
 
     @property
-    def ram(self):
+    def ram(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._ram
 
     @ram.setter
-    def ram(self, value):
+    def ram(self, value: int) -> None:
         self._set_node_property("ram", value)
         self._ram = value
 
     @property
-    def cpus(self):
+    def cpus(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._cpus
 
     @cpus.setter
-    def cpus(self, value):
+    def cpus(self, value: int) -> None:
         self._set_node_property("cpus", value)
         self._cpus = value
 
     @property
-    def cpu_limit(self):
+    def cpu_limit(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._cpu_limit
 
     @cpu_limit.setter
-    def cpu_limit(self, value):
+    def cpu_limit(self, value: int) -> None:
         self._set_node_property("cpu_limit", value)
         self._cpu_limit = value
 
     @property
-    def data_volume(self):
+    def data_volume(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._data_volume
 
     @data_volume.setter
-    def data_volume(self, value):
+    def data_volume(self, value: int) -> None:
         self._set_node_property("data_volume", value)
         self._data_volume = value
 
     @property
-    def boot_disk_size(self):
+    def hide_links(self) -> bool:
+        self.lab.sync_topology_if_outdated()
+        return self._hide_links
+
+    @hide_links.setter
+    def hide_links(self, value: bool) -> None:
+        self._set_node_property("hide_links", value)
+        self._hide_links = value
+
+    @property
+    def boot_disk_size(self) -> int:
         self.lab.sync_topology_if_outdated()
         return self._boot_disk_size
 
     @boot_disk_size.setter
-    def boot_disk_size(self, value):
+    def boot_disk_size(self, value: int) -> None:
         self._set_node_property("boot_disk_size", value)
         self._boot_disk_size = value
 
     @property
-    def config(self):
+    def configuration(self) -> Optional[str]:
         # TODO: auto sync if out of date
-        return self._config
+        return self._configuration
 
-    @config.setter
-    def config(self, value):
+    @configuration.setter
+    def configuration(self, value) -> None:
         self._set_node_property("configuration", value)
-        self._config = value
+        self._configuration = value
 
     @property
-    def image_definition(self):
+    def config(self) -> Optional[str]:
+        warnings.warn(CONFIG_WARNING, DeprecationWarning)
+        return self.configuration
+
+    @config.setter
+    def config(self, value: str) -> None:
+        warnings.warn(CONFIG_WARNING, DeprecationWarning)
+        self.configuration = value
+
+    @property
+    def image_definition(self) -> Optional[str]:
         self.lab.sync_topology_if_outdated()
         return self._image_definition
 
     @image_definition.setter
-    def image_definition(self, value):
+    def image_definition(self, value: str) -> None:
         self.lab.sync_topology_if_outdated()
         self._set_node_property("image_definition", value)
         self._image_definition = value
 
     @property
-    def node_definition(self):
+    def node_definition(self) -> str:
         self.lab.sync_topology_if_outdated()
         return self._node_definition
 
-    @node_definition.setter
-    def node_definition(self, value):
-        self.lab.sync_topology_if_outdated()
-        self._set_node_property("node_definition", value)
-        self._image_definition = value
-
     @property
     def compute_id(self):
-        self.lab.sync_topology_if_outdated()
+        self.lab.sync_operational_if_outdated()
         return self._compute_id
 
-    def _set_node_property(self, key, val):
-        _LOGGER.info("Setting node property %s %s: %s", self, key, val)
-        node_url = "{}".format(self._base_url)
-        response = self.session.patch(url=node_url, json={key: val})
-        response.raise_for_status()
+    @property
+    def resource_pool(self) -> str:
+        self.lab.sync_operational_if_outdated()
+        return self._resource_pool
 
     @property
-    def lab_base_url(self):
+    def lab_base_url(self) -> str:
         return self.lab.lab_base_url
 
     @property
-    def _base_url(self):
+    def _base_url(self) -> str:
         return self.lab_base_url + "/nodes/{}".format(self.id)
 
     @property
-    def cpu_usage(self):
+    def cpu_usage(self) -> int | float:
         self.lab.sync_statistics_if_outdated()
         return min(self.statistics["cpu_usage"], 100)
 
     @property
-    def disk_read(self):
+    def disk_read(self) -> int:
         self.lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_read"] / 1048576)
 
     @property
-    def disk_write(self):
+    def disk_write(self) -> int:
         self.lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
 
-    def get_interface_by_label(self, label):
+    def get_interface_by_label(self, label: str) -> Interface:
         for iface in self.interfaces():
             if iface.label == label:
                 return iface
         raise InterfaceNotFound("{}:{}".format(label, self))
 
-    def get_interface_by_slot(self, slot):
+    def get_interface_by_slot(self, slot: int) -> Interface:
         for iface in self.interfaces():
             if iface.slot == slot:
                 return iface
         raise InterfaceNotFound("{}:{}".format(slot, self))
 
-    def get_links_to(self, other_node):
+    def get_links_to(self, other_node: Node) -> list[Link]:
         """
         Returns all links between this node and another.
 
         :param other_node: the other node
-        :type other_node: models.Node
         :returns: a list of links
-        :rtype: list[models.Link]
         """
         links = []
         for link in self.links():
@@ -373,20 +401,21 @@ class Node:
                 links.append(link)
         return links
 
-    def get_link_to(self, other_node):
+    def get_link_to(self, other_node: Node) -> Optional[Link]:
         """
         Returns one link between this node and another.
 
         :param other_node: the other node
-        :type other_node: models.Node
-        :returns: a link
-        :rtype: models.Link
+        :returns: a link, if one exists
         """
         for link in self.links():
             if other_node in link.nodes:
                 return link
+        return None
 
-    def wait_until_converged(self, max_iterations=None, wait_time=None):
+    def wait_until_converged(
+        self, max_iterations: Optional[int] = None, wait_time: Optional[int] = None
+    ) -> None:
         _LOGGER.info("Waiting for node %s to converge", self.id)
         max_iter = (
             self.lab.wait_max_iterations if max_iterations is None else max_iterations
@@ -417,103 +446,85 @@ class Node:
         # specified
         raise RuntimeError(msg)
 
-    def has_converged(self):
+    def has_converged(self) -> bool:
         url = self._base_url + "/check_if_converged"
-        response = self.session.get(url)
-        response.raise_for_status()
-        converged = response.json()
-        return converged
+        return self._session.get(url).json()
 
-    def start(self, wait=False):
+    def start(self, wait=False) -> None:
         url = self._base_url + "/state/start"
-        response = self.session.put(url)
-        response.raise_for_status()
+        self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
-    def stop(self, wait=False):
+    def stop(self, wait=False) -> None:
         url = self._base_url + "/state/stop"
-        response = self.session.put(url)
-        response.raise_for_status()
+        self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
-    def wipe(self, wait=False):
+    def wipe(self, wait=False) -> None:
         url = self._base_url + "/wipe_disks"
-        response = self.session.put(url)
-        response.raise_for_status()
+        self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
-    def extract_configuration(self):
+    def extract_configuration(self) -> None:
         url = self._base_url + "/extract_configuration"
-        response = self.session.put(url)
-        response.raise_for_status()
+        self._session.put(url)
 
-    def console_logs(self, console_id, lines=None):
+    def console_logs(self, console_id: int, lines: Optional[int] = None) -> dict:
         query = "?lines=%d" % lines if lines else ""
         url = self._base_url + "/consoles/%d/log%s" % (console_id, query)
-        response = self.session.get(url)
-        response.raise_for_status()
-        return response.json()
+        return self._session.get(url).json()
 
-    def console_key(self):
+    def console_key(self) -> str:
         url = self._base_url + "/keys/console"
-        response = self.session.get(url)
-        response.raise_for_status()
-        return response.json()
+        return self._session.get(url).json()
 
-    def vnc_key(self):
+    def vnc_key(self) -> str:
         url = self._base_url + "/keys/vnc"
-        response = self.session.get(url)
-        response.raise_for_status()
-        return response.json()
+        return self._session.get(url).json()
 
-    def remove_on_server(self):
+    def remove_on_server(self) -> None:
         _LOGGER.info("Removing node %s", self)
         url = self._base_url
-        response = self.session.delete(url)
-        response.raise_for_status()
+        self._session.delete(url)
 
-    def tags(self):
+    def tags(self) -> list[str]:
         """Returns the tags set on this node"""
         self.lab.sync_topology_if_outdated()
         return self._tags
 
-    def add_tag(self, tag):
+    def add_tag(self, tag: str) -> None:
         current = self.tags()
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
 
-    def remove_tag(self, tag):
+    def remove_tag(self, tag: str) -> None:
         current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
 
-    def run_pyats_command(self, command):
+    def run_pyats_command(self, command: str) -> str:
         """Run a pyATS command in exec mode.
 
         :param command: the command (like "show version")
-        :type command: str
         :returns: the output from the device
-        :rtype: str
         """
         label = self.label
         return self.lab.pyats.run_command(label, command)
 
-    def run_pyats_config_command(self, command):
+    def run_pyats_config_command(self, command: str) -> str:
         """Run a pyATS command in config mode.
 
         :param command: the command (like "interface gi0")
-        :type command: str
         :returns: the output from the device
-        :rtype: str
         """
         label = self.label
         return self.lab.pyats.run_config_command(label, command)
 
-    def sync_layer3_addresses(self):
+    def sync_layer3_addresses(self) -> None:
         """Acquire all L3 addresses from the controller. For this
         to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
@@ -521,17 +532,27 @@ class Node:
         # TODO: can optimise the sync of l3 to only be for the node
         # rather than whole lab
         url = self._base_url + "/layer3_addresses"
-        response = self.session.get(url)
-        response.raise_for_status()
-        result = response.json()
+        result = self._session.get(url).json()
         interfaces = result.get("interfaces", {})
         self.map_l3_addresses_to_interfaces(interfaces)
 
-    def map_l3_addresses_to_interfaces(self, mapping):
+    def sync_operational(self, response: dict[str, Any] = None):
+        if response is None:
+            url = self._base_url + "?operational=true"
+            response = self._session.get(url).json()
+        operational = response.get("operational", {})
+        self._compute_id = operational.get("compute_id")
+        self._resource_pool = operational.get("resource_pool")
+
+    def map_l3_addresses_to_interfaces(
+        self, mapping: dict[str, dict[str, str]]
+    ) -> None:
         for mac_address, entry in mapping.items():
+            label = entry.get("label")
+            if not label:
+                continue
             ipv4 = entry.get("ip4")
             ipv6 = entry.get("ip6")
-            label = entry.get("label")
             iface = self.get_interface_by_label(label)
             if not iface:
                 continue
@@ -541,27 +562,35 @@ class Node:
                 "ipv6": ipv6,
             }
 
-    def update(self, node_data, exclude_configurations):
+    def update(
+        self,
+        node_data: dict[str, Any],
+        exclude_configurations: bool,
+        push_to_server: bool = False,
+    ) -> None:
+        if push_to_server:
+            self._set_node_properties(node_data)
         if "data" in node_data:
             node_data = node_data["data"]
-        self._label = node_data["label"]
-        self._x = node_data["x"]
-        self._y = node_data["y"]
-        self._node_definition = node_data["node_definition"]
-        self._image_definition = node_data.get("image_definition", None)
-        self._ram = node_data["ram"]
-        self._cpus = node_data["cpus"]
-        self._cpu_limit = node_data.get("cpu_limit", 100)
-        self._data_volume = node_data["data_volume"]
-        self._boot_disk_size = node_data["boot_disk_size"]
-        self._tags = node_data["tags"]
-        self._compute_id = node_data.get("compute_id")
-        if not exclude_configurations:
-            self._config = node_data.get("configuration")
 
-    def is_active(self):
+        for key, value in node_data.items():
+            if key == "configuration" and exclude_configurations:
+                continue
+            if key == "operational":
+                self.sync_operational(node_data)
+                continue
+            setattr(self, f"_{key}", value)
+
+    def is_active(self) -> bool:
         active_states = {"STARTED", "QUEUED", "BOOTED"}
         return self.state in active_states
 
-    def is_booted(self):
+    def is_booted(self) -> bool:
         return self.state == "BOOTED"
+
+    def _set_node_property(self, key: str, val: Any) -> None:
+        _LOGGER.debug("Setting node property %s %s: %s", self, key, val)
+        self._set_node_properties({key: val})
+
+    def _set_node_properties(self, node_data: dict[str, Any]) -> None:
+        self._session.patch(url=self._base_url, json=node_data)

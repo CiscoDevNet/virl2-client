@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,6 +21,7 @@
 
 import getpass
 import json
+
 from virl2_client import ClientLibrary
 
 VIRL_CONTROLLER = "virl2-controller"

@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -19,10 +19,11 @@
 #
 
 from pathlib import Path
-import pytest
-import requests
-
 from unittest.mock import patch
+
+import httpx
+import pytest
+
 from virl2_client.virl2_client import ClientLibrary
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
@@ -64,22 +65,19 @@ def client_library_server_2_19_0():
 
 @pytest.fixture
 def mocked_session():
-    with patch.object(requests, "Session", autospec=True) as session:
+    with patch.object(httpx, "Client", autospec=True) as session:
         yield session
 
 
-def resp_body_from_file(req, context):
+def resp_body_from_file(request: httpx.Request) -> httpx.Response:
     """
     A callback that returns the contents of a file based on the request.
 
-    :param req: The title to search for
-    :type req: An HTTP request (or proxy) object
-    :param context: unused but required context parameter
-    :type context: An HTTP response object
-    :returns: A string, the contents of a file that corresponds to a response body for the request.
-    :rtype: string
+    :param request: The request that contains the title to search for
+    :returns: A Response that has `content` set to the contents of a file
+        that corresponds to a response body for the request.
     """
-    endpoint_parts = req.path.split("/")[3:]
+    endpoint_parts = request.url.path.split("/")[3:]
     filename = "not initialized"
     if len(endpoint_parts) == 1:
         filename = endpoint_parts[0] + ".json"
@@ -87,22 +85,41 @@ def resp_body_from_file(req, context):
         lab_id = endpoint_parts[1]
         filename = "_".join(endpoint_parts[2:]) + "-" + lab_id + ".json"
     file_path = Path("test_data", filename)
-    return file_path.read_text()
+    return httpx.Response(200, text=file_path.read_text())
 
 
 @pytest.fixture
-def requests_mock_with_labs(requests_mock):
+def respx_mock_with_labs(respx_mock):
     """
-    A test fixture that provides basic lab data with requests-mock so that unit tests can
+    A test fixture that provides basic lab data with respx_mock so that unit tests can
     call ``client.all_labs`` or ``client.join_existing_lab``.  The sample data includes
     some runtime data, like node states and simulation_statistics.
     """
-    requests_mock.get(
-        FAKE_HOST_API + "system_information",
+    respx_mock.get(FAKE_HOST_API + "system_information").respond(
         json={"version": CURRENT_VERSION, "ready": True},
     )
-    requests_mock.post(FAKE_HOST_API + "authenticate", json="BOGUS_TOKEN")
-    requests_mock.get(FAKE_HOST_API + "authok", text=None)
+    respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
+    respx_mock.get(FAKE_HOST_API + "authok")
+    respx_mock.get(
+        FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/resource_pools"
+    ).respond(json=[])
+    respx_mock.get(FAKE_HOST_API + "resource_pools?data=true").respond(json=[])
+    nodes = [
+        "99cda47a-ecb2-4d31-86c4-74e7a8201958",
+        "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
+        "0f9565f7-4fa3-4312-8dda-1db183a55950",
+        "56c875d9-4f2a-4688-9fba-660716cff4cb",
+        "aa51eca6-ae81-40fc-a713-e1a168280d21",
+        "e5222bd8-52ff-4e1d-b6c9-89241132fb13",
+        "004c00c9-2606-485c-8ff9-d698e430fa6a",
+    ]
+    for node in nodes:
+        respx_mock.get(
+            FAKE_HOST_API
+            + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}?operational=true"
+        ).respond(
+            json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
+        )
     resp_from_files = (
         "labs",
         "populate_lab_tiles",
@@ -120,4 +137,4 @@ def requests_mock_with_labs(requests_mock):
         "labs/863799a0-3d09-4af4-be26-cad997b6ab27/layer3_addresses",
     )
     for api in resp_from_files:
-        requests_mock.get(FAKE_HOST_API + api, text=resp_body_from_file)
+        respx_mock.get(FAKE_HOST_API + api).mock(side_effect=resp_body_from_file)

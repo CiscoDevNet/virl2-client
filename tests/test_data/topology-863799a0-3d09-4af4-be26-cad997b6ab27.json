@@ -67,7 +67,6 @@
   "nodes": [
     {
       "boot_disk_size": 0,
-      "compute_id": "4d9f3b26-9bc9-440e-bb6d-ea1d20c513de",
       "cpu_limit": 100,
       "cpus": 1,
       "data_volume": 0,
@@ -114,7 +113,6 @@
     },
     {
       "boot_disk_size": 16,
-      "compute_id": "e51bc75b-ce49-40d9-845f-7282af60a552",
       "cpu_limit": 100,
       "cpus": 1,
       "data_volume": 0,
@@ -138,7 +136,6 @@
     },
     {
       "boot_disk_size": 0,
-      "compute_id": "95006138-2ba9-47f0-8296-79b8ae4524c0",
       "cpu_limit": 100,
       "cpus": 1,
       "data_volume": 0,
@@ -185,7 +182,6 @@
     },
     {
       "boot_disk_size": 0,
-      "compute_id": "4d9f3b26-9bc9-440e-bb6d-ea1d20c513de",
       "cpu_limit": 100,
       "cpus": 1,
       "data_volume": 0,
@@ -232,7 +228,6 @@
     },
     {
       "boot_disk_size": 0,
-      "compute_id": "95006138-2ba9-47f0-8296-79b8ae4524c0",
       "cpu_limit": 100,
       "cpus": 1,
       "data_volume": 0,
@@ -279,7 +274,6 @@
     },
     {
       "boot_disk_size": 64,
-      "compute_id": "fb362ccf-096e-4d80-a987-4a03a016fe15",
       "cpu_limit": 100,
       "cpus": 1,
       "data_volume": 0,

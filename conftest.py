@@ -1,9 +1,10 @@
 #
-# Python bindings for the Cisco VIRL 2 Network Simulation Platform
-#
 # This file is part of VIRL 2
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# All rights reserved.
 #
-# Copyright 2020-2022 Cisco Systems Inc.
+#
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +19,17 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import os
+from typing import Iterator
+
 import pytest
 
 
-def pytest_addoption(parser, pluginmanager):
+def pytest_addoption(
+    parser: pytest.Parser, pluginmanager: pytest.PytestPluginManager
+) -> None:
     # Only add these options if the test is run inside the root virl2 repository
     # itself and not from outside
     root_dir = parser.extra_info.get("rootdir", "")
@@ -41,7 +48,10 @@ def pytest_addoption(parser, pluginmanager):
 
 
 @pytest.fixture(scope="function")
-def change_test_dir(request):
+def change_test_dir(request: pytest.FixtureRequest) -> Iterator[None]:
+    # TODO: check if these are correct; it seems request.fspath was deprecated
+    #  in favor of request.path and request.config.invocation_dir was deprecated
+    #  in favor of request.config.invocation_params.dir if I understand correctly
     os.chdir(request.fspath.dirname)
     yield
     os.chdir(request.config.invocation_dir)

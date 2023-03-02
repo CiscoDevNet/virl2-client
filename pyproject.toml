@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "virl2_client"
-version = "2.5.0"
+version = "2.5.0-dev0"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"
@@ -23,6 +23,9 @@ classifiers = [
 python = "^3.8.0"
 httpx = "^0.23.0"
 
+# optional package for events
+aiohttp = {version = "*", optional = true}
+
 # optional pyATS package
 # (this pulls in a lot more dependencies)
 # it does not pull in genie, need to specify extras=["full"] for pyATS.
@@ -43,6 +46,7 @@ pytest = "*"
 respx = "^0.20.0"
 
 [tool.poetry.extras]
+events = ["aiohttp"]
 pyats = ["pyats"]
 docs = ["sphinx", "sphinx_rtd_theme"]
 

@@ -22,8 +22,12 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from functools import total_ordering
 from typing import TYPE_CHECKING, Optional
+
+from ..utils import check_stale, locked
+from ..utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx
@@ -55,13 +59,14 @@ class Link:
         :param iface_b: the second interface of the link
         :param label: the link label
         """
-        self.id = lid
-        self.interface_a = iface_a
-        self.interface_b = iface_b
+        self._id = lid
+        self._interface_a = iface_a
+        self._interface_b = iface_b
         self._label = label
         self.lab = lab
         self._session: httpx.Client = lab.session
         self._state: Optional[str] = None
+        self._stale = False
         self.statistics = {
             "readbytes": 0,
             "readpackets": 0,
@@ -69,9 +74,51 @@ class Link:
             "writepackets": 0,
         }
 
+    def __str__(self):
+        return f"Link: {self._label}{' (STALE)' if self._stale else ''}"
+
+    def __repr__(self):
+        return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
+            self.__class__.__name__,
+            str(self.lab),
+            self._id,
+            self._interface_a,
+            self._interface_b,
+            self._label,
+        )
+
+    def __eq__(self, other: object):
+        if not isinstance(other, Link):
+            return False
+        return self._id == other._id
+
+    def __lt__(self, other: object):
+        if not isinstance(other, Link):
+            return False
+        return self._id < other._id
+
+    def __hash__(self):
+        return hash(self._id)
+
     @property
+    def id(self):
+        return self._id
+
+    @property
+    def interface_a(self):
+        return self._interface_a
+
+    @property
+    def interface_b(self):
+        return self._interface_b
+
+    @property
+    @locked
     def state(self) -> Optional[str]:
         self.lab.sync_states_if_outdated()
+        if self._state is None:
+            url = self.base_url
+            self._state = self._session.get(url).json()["state"]
         return self._state
 
     @property
@@ -94,32 +141,6 @@ class Link:
         self.lab.sync_statistics_if_outdated()
         return self.statistics["writepackets"]
 
-    def __str__(self):
-        return "Link: {}".format(self.id)
-
-    def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self.lab),
-            self.id,
-            self.interface_a,
-            self.interface_b,
-            self.label,
-        )
-
-    def __eq__(self, other: object):
-        if not isinstance(other, Link):
-            return False
-        return self.id == other.id
-
-    def __lt__(self, other: object):
-        if not isinstance(other, Link):
-            return False
-        return int(self.id) < int(other.id)
-
-    def __hash__(self):
-        return hash(self.id)
-
     @property
     def node_a(self) -> Node:
         self.lab.sync_topology_if_outdated()
@@ -131,12 +152,14 @@ class Link:
         return self.interface_b.node
 
     @property
+    @locked
     def nodes(self) -> tuple[Node, Node]:
         """Return nodes this link connects."""
         self.lab.sync_topology_if_outdated()
         return self.node_a, self.node_b
 
     @property
+    @locked
     def interfaces(self) -> tuple[Interface, Interface]:
         self.lab.sync_topology_if_outdated()
         return self.interface_a, self.interface_b
@@ -146,6 +169,7 @@ class Link:
         self.lab.sync_topology_if_outdated()
         return self._label
 
+    @locked
     def as_dict(self) -> dict[str, str]:
         return {
             "id": self.id,
@@ -161,10 +185,21 @@ class Link:
     def base_url(self) -> str:
         return self.lab_base_url + "/links/{}".format(self.id)
 
-    def remove_on_server(self) -> None:
+    def remove(self):
+        self.lab.remove_link(self)
+
+    @check_stale
+    def _remove_on_server(self) -> None:
         _LOGGER.info("Removing link %s", self)
         url = self.base_url
         self._session.delete(url)
+
+    def remove_on_server(self) -> None:
+        warnings.warn(
+            "'Link.remove_on_server()' is deprecated, use 'Link.remove()' instead.",
+            DeprecationWarning,
+        )
+        self._remove_on_server()
 
     def wait_until_converged(
         self, max_iterations: Optional[int] = None, wait_time: Optional[int] = None
@@ -199,23 +234,27 @@ class Link:
         # specified
         raise RuntimeError(msg)
 
+    @check_stale
     def has_converged(self) -> bool:
         url = self.base_url + "/check_if_converged"
         converged = self._session.get(url).json()
         return converged
 
+    @check_stale
     def start(self, wait: Optional[bool] = None) -> None:
         url = self.base_url + "/state/start"
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
+    @check_stale
     def stop(self, wait: Optional[bool] = None) -> None:
         url = self.base_url + "/state/stop"
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
+    @check_stale
     def set_condition(
         self, bandwidth: int, latency: int, jitter: int, loss: float
     ) -> None:
@@ -223,13 +262,9 @@ class Link:
         Applies conditioning to this link.
 
         :param bandwidth: desired bandwidth, 0-10000000 kbps
-        :type bandwidth: int
         :param latency: desired latency, 0-10000 ms
-        :type latency: int
         :param jitter: desired jitter, 0-10000 ms
-        :type jitter: int
         :param loss: desired loss, 0-100%
-        :type loss: float
         """
         url = self.base_url + "/condition"
         data = {
@@ -240,6 +275,7 @@ class Link:
         }
         self._session.patch(url, json=data)
 
+    @check_stale
     def get_condition(self) -> Optional[dict]:
         """
         Retrieves the current condition on this link.
@@ -256,6 +292,7 @@ class Link:
         result = {k: v for (k, v) in condition.items() if k in keys}
         return result
 
+    @check_stale
     def remove_condition(self) -> None:
         """
         Removes link conditioning.

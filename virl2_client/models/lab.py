@@ -36,6 +36,8 @@ from ..exceptions import (
     NodeNotFound,
     VirlException,
 )
+from ..utils import check_stale, locked
+from ..utils import property_s as property
 from .cl_pyats import ClPyats
 from .interface import Interface
 from .link import Link
@@ -90,9 +92,10 @@ class Lab:
         self._title = title
         self._description = ""
         self._notes = ""
-        self._lab_id = lab_id
+        self._id = lab_id
         self._session = session
         self._owner = username
+        self._state = None
         self._nodes: dict[str, Node] = {}
         """
         Dictionary containing all nodes in the lab.
@@ -132,18 +135,19 @@ class Lab:
             )
         self._resource_pool_manager = resource_pool_manager
         self._resource_pools = []
+        self._stale = False
 
     def __len__(self):
         return len(self._nodes)
 
     def __str__(self):
-        return "Lab: {}".format(self._title)
+        return f"Lab: {self._title}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             self._title,
-            self._lab_id,
+            self._id,
             self._session.base_url.path,
             self.auto_sync,
             self.auto_sync_interval,
@@ -157,6 +161,8 @@ class Lab:
             raise ValueError
         return local_wait
 
+    @check_stale
+    @locked
     def sync_statistics_if_outdated(self) -> None:
         timestamp = time.time()
         if (
@@ -165,6 +171,8 @@ class Lab:
         ):
             self.sync_statistics()
 
+    @check_stale
+    @locked
     def sync_states_if_outdated(self) -> None:
         timestamp = time.time()
         if (
@@ -173,6 +181,8 @@ class Lab:
         ):
             self.sync_states()
 
+    @check_stale
+    @locked
     def sync_l3_addresses_if_outdated(self) -> None:
         timestamp = time.time()
         if (
@@ -181,6 +191,8 @@ class Lab:
         ):
             self.sync_layer3_addresses()
 
+    @check_stale
+    @locked
     def sync_topology_if_outdated(self) -> None:
         timestamp = time.time()
         if (
@@ -189,6 +201,8 @@ class Lab:
         ):
             self._sync_topology(exclude_configurations=True)
 
+    @check_stale
+    @locked
     def sync_operational_if_outdated(self) -> None:
         timestamp = time.time()
         if (
@@ -205,7 +219,7 @@ class Lab:
         :returns: The Lab ID
         """
 
-        return self._lab_id
+        return self._id
 
     @property
     def title(self) -> Optional[str]:
@@ -224,9 +238,7 @@ class Lab:
 
         :param value: The new lab title
         """
-        url = self.lab_base_url
-        self._session.patch(url, json={"title": value})
-        self._title = value
+        self._set_property("title", value)
 
     @property
     def notes(self) -> str:
@@ -245,9 +257,7 @@ class Lab:
 
         :param value: The new lab notes
         """
-        url = self.lab_base_url
-        self._session.patch(url, json={"notes": value})
-        self._notes = value
+        self._set_property("notes", value)
 
     @property
     def description(self) -> str:
@@ -266,9 +276,14 @@ class Lab:
 
         :param value: The new lab description
         """
+        self._set_property("description", value)
+
+    @check_stale
+    @locked
+    def _set_property(self, prop: str, value: Any):
         url = self.lab_base_url
-        self._session.patch(url, json={"description": value})
-        self._description = value
+        self._session.patch(url, json={prop: value})
+        setattr(self, f"_{prop}", value)
 
     @property
     def session(self) -> httpx.Client:
@@ -323,9 +338,10 @@ class Lab:
 
     @property
     def lab_base_url(self) -> str:
-        return "labs/{}".format(self._lab_id)
+        return "labs/{}".format(self._id)
 
     @property
+    @locked
     def statistics(self) -> dict:
         """
         Returns some statistics about the lab.
@@ -448,6 +464,8 @@ class Lab:
         self.sync_topology_if_outdated()
         return [node for node in self.nodes() if tag in node.tags()]
 
+    @check_stale
+    @locked
     def create_node(
         self,
         label: str,
@@ -496,10 +514,20 @@ class Lab:
         if "compute_id" in kwargs:
             kwargs.pop("compute_id")
         kwargs["resource_pool"] = None
-        node = self.add_node_local(node_id, **kwargs)
+        node = self._create_node_local(node_id, **kwargs)
         return node
 
-    def add_node_local(
+    def add_node_local(self, *args, **kwargs):
+        warnings.warn(
+            "Deprecated. You probably want .create_node instead; "
+            "if you really want to create a node locally only, "
+            "use ._create_node_local.",
+            DeprecationWarning,
+        )
+        return self._create_node_local(*args, **kwargs)
+
+    @locked
+    def _create_node_local(
         self,
         node_id: str,
         label: str,
@@ -547,40 +575,45 @@ class Lab:
         self._nodes[node.id] = node
         return node
 
-    def remove_node(self, node: Node, wait: Optional[bool] = None) -> None:
+    @check_stale
+    @locked
+    def remove_node(self, node: Node | str, wait: Optional[bool] = None) -> None:
         """
         Removes a node from the lab.
 
-        :param node: the node
+        If you have a node object, you can also simply do::
+
+            node.remove()
+
+
+        :param node: the node object or ID
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
         """
-        node.remove_on_server()
-        for iface in node.interfaces():
-            if iface.link is not None:
-                try:
-                    del self._links[iface.link.id]
-                except KeyError:
-                    # element may already have been deleted on server,
-                    # and removed locally due to auto-sync
-                    pass
-            try:
-                del self._interfaces[iface.id]
-            except KeyError:
-                # element may already have been deleted on server,
-                # and removed locally due to auto-sync
-                pass
+        if isinstance(node, str):
+            node = self.get_node_by_id(node)
+        node._remove_on_server()
+        self._remove_node_local(node)
+
+        if self.need_to_wait(wait):
+            self.wait_until_lab_converged()
+        _LOGGER.debug("%s node removed from lab %s", node._id, self._id)
+
+    @locked
+    def _remove_node_local(self, node: Node) -> None:
+        """Helper function to remove a node from the client library."""
+        for iface in tuple(self._interfaces.values()):
+            if iface._node is node:
+                self._remove_interface_local(iface)
         try:
-            del self._nodes[node.id]
+            del self._nodes[node._id]
+            node._stale = True
         except KeyError:
             # element may already have been deleted on server,
             # and removed locally due to auto-sync
             pass
 
-        if self.need_to_wait(wait):
-            self.wait_until_lab_converged()
-        _LOGGER.debug("%s node removed from lab %s", node.id, self._lab_id)
-
+    @locked
     def remove_nodes(self, wait: Optional[bool] = None) -> None:
         """
         Remove all nodes from the lab.
@@ -594,67 +627,101 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug("all nodes removed from lab %s", self._lab_id)
+        _LOGGER.debug("all nodes removed from lab %s", self._id)
 
-    def remove_link(self, link: Link, wait: Optional[bool] = None) -> None:
+    @check_stale
+    @locked
+    def remove_link(self, link: Link | str, wait: Optional[bool] = None) -> None:
         """
         Removes a link from the lab.
 
-        :param link: the link
+        If you have a link object, you can also simply do::
+
+            link.remove()
+
+        :param link: the link object or ID
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
         """
-        link.remove_on_server()
+        if isinstance(link, str):
+            link = self.get_link_by_id(link)
+        link._remove_on_server()
+        self._remove_link_local(link)
+
+        if self.need_to_wait(wait):
+            self.wait_until_lab_converged()
+        _LOGGER.debug("link %s removed from lab %s", link._id, self._id)
+
+    @locked
+    def _remove_link_local(self, link: Link) -> None:
+        """Helper function to remove a link from the client library."""
         try:
-            del self._links[link.id]
+            del self._links[link._id]
+            link._stale = True
         except KeyError:
             # element may already have been deleted on server,
             # and removed locally due to auto-sync
             pass
 
-        if self.need_to_wait(wait):
-            self.wait_until_lab_converged()
-        _LOGGER.debug("link %s removed from lab %s", link.id, self._lab_id)
-
-    def remove_interface(self, iface: Interface, wait: Optional[bool] = None) -> None:
+    @check_stale
+    @locked
+    def remove_interface(
+        self, iface: Interface | str, wait: Optional[bool] = None
+    ) -> None:
         """
         Removes an interface from the lab.
 
-        :param iface: the interface
+        If you have an interface object, you can also simply do::
+
+            interface.remove()
+
+        :param iface: the interface object or ID
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
         """
-        iface.remove_on_server()
-        if iface.link is not None:
-            try:
-                del self._links[iface.link.id]
-            except KeyError:
-                # element may already have been deleted on server, and removed
-                # locally due to auto-sync
-                pass
+        if isinstance(iface, str):
+            iface = self.get_interface_by_id(iface)
+        iface._remove_on_server()
+
+        self._remove_interface_local(iface)
+
+        if self.need_to_wait(wait):
+            self.wait_until_lab_converged()
+        _LOGGER.debug("interface %s removed from lab %s", iface._id, self._id)
+
+    @locked
+    def _remove_interface_local(self, iface: Interface) -> None:
+        """Helper function to remove an interface from the client library."""
+        for link in tuple(self._links.values()):
+            if iface in link.interfaces:
+                self._remove_link_local(link)
+                break
         try:
-            del self._interfaces[iface.id]
+            del self._interfaces[iface._id]
+            iface._stale = True
         except KeyError:
             # element may already have been deleted on server, and removed
             # locally due to auto-sync
             pass
 
-        if self.need_to_wait(wait):
-            self.wait_until_lab_converged()
-        _LOGGER.debug("interface %s removed from lab %s", iface.id, self._lab_id)
-
+    @check_stale
+    @locked
     def create_link(
-        self, i1: Interface, i2: Interface, wait: Optional[bool] = None
+        self, i1: Interface | str, i2: Interface | str, wait: Optional[bool] = None
     ) -> Link:
         """
         Creates a link between two interfaces
 
-        :param i1: the first interface object
-        :param i2: the second interface object
+        :param i1: the first interface object or ID
+        :param i2: the second interface object or ID
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
         :returns: the created link
         """
+        if isinstance(i1, str):
+            i1 = self.get_interface_by_id(i1)
+        if isinstance(i2, str):
+            i2 = self.get_interface_by_id(i2)
         url = self.lab_base_url + "/links"
         data = {
             "src_int": i1.id,
@@ -668,9 +735,21 @@ class Lab:
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
 
-        link = self.create_link_local(i1, i2, link_id, label)
+        link = self._create_link_local(i1, i2, link_id, label)
         return link
 
+    @check_stale
+    @locked
+    def _create_link_local(
+        self, i1: Interface, i2: Interface, link_id: str, label: Optional[str] = None
+    ) -> Link:
+        """Helper function to create a link in the client library."""
+        link = Link(self, link_id, i1, i2, label)
+        self._links[link_id] = link
+        return link
+
+    @check_stale
+    @locked
     def connect_two_nodes(self, node1: Node, node2: Node) -> Link:
         """
         Convenience method to connect two nodes within a lab.
@@ -683,16 +762,10 @@ class Lab:
         iface2 = node2.next_available_interface() or node2.create_interface()
         return self.create_link(iface1, iface2)
 
-    def create_link_local(
-        self, i1: Interface, i2: Interface, link_id: str, label: Optional[str] = None
-    ) -> Link:
-        """Helper function to create a link in the client library."""
-        link = Link(self, link_id, i1, i2, label)
-        self._links[link_id] = link
-        return link
-
+    @check_stale
+    @locked
     def create_interface(
-        self, node: Node, slot: Optional[int] = None, wait: Optional[bool] = None
+        self, node: Node | str, slot: Optional[int] = None, wait: Optional[bool] = None
     ) -> Interface:
         """
         Create an interface in the next available slot, or, if a slot is specified,
@@ -704,6 +777,8 @@ class Lab:
             the lab wait property takes precedence)
         :returns: The newly created interface
         """
+        if isinstance(node, str):
+            node = self.get_node_by_id(node)
         url = self.lab_base_url + "/interfaces"
         payload: dict[str, str | int] = {"node": node.id}
         if slot is not None:
@@ -719,7 +794,7 @@ class Lab:
         # TODO: need to import the topology then
         desired_interface: Optional[Interface] = None
         for iface in result:
-            lab_interface = self.create_interface_local(
+            lab_interface = self._create_interface_local(
                 iface_id=iface["id"],
                 label=iface["label"],
                 node=node,
@@ -735,7 +810,9 @@ class Lab:
 
         return desired_interface
 
-    def create_interface_local(
+    @check_stale
+    @locked
+    def _create_interface_local(
         self,
         iface_id: str,
         label: str,
@@ -748,11 +825,12 @@ class Lab:
             iface = Interface(iface_id, node, label, slot, iface_type)
             self._interfaces[iface_id] = iface
         else:  # update the interface if it already exists:
-            self._interfaces[iface_id].node = node
-            self._interfaces[iface_id].label = label
-            self._interfaces[iface_id].slot = slot
-            self._interfaces[iface_id].type = iface_type
-        return self._interfaces[iface_id]
+            iface = self._interfaces[iface_id]
+            iface._node = node
+            iface._label = label
+            iface._slot = slot
+            iface._type = iface_type
+        return iface
 
     @staticmethod
     def _get_element_from_data(data: dict, element: str) -> int:
@@ -761,6 +839,8 @@ class Lab:
         except (TypeError, KeyError):
             return 0
 
+    @check_stale
+    @locked
     def sync_statistics(self) -> None:
         """Retrieve the simulation statistic data from the back end server."""
         url = self.lab_base_url + "/simulation_stats"
@@ -795,16 +875,10 @@ class Lab:
                 "writepackets": writepackets,
             }
 
-            iface_a = link.interface_a
-            iface_a.statistics = {
-                "readbytes": readbytes,
-                "readpackets": readpackets,
-                "writebytes": writebytes,
-                "writepackets": writepackets,
-            }
+            link.interface_a.statistics = link.statistics
+
             # reverse for other interface
-            iface_b = link.interface_b
-            iface_b.statistics = {
+            link.interface_b.statistics = {
                 "readbytes": writebytes,
                 "readpackets": writepackets,
                 "writebytes": readbytes,
@@ -813,6 +887,8 @@ class Lab:
 
         self._last_sync_statistics_time = time.time()
 
+    @check_stale
+    @locked
     def sync_states(self) -> None:
         """
         Sync all the states of the various elements with the back end server.
@@ -820,11 +896,11 @@ class Lab:
         url = self.lab_base_url + "/lab_element_state"
         states: dict[str, dict[str, str]] = self._session.get(url).json()
         for node_id, node_state in states["nodes"].items():
-            self._nodes[node_id].state = node_state
-
+            self._nodes[node_id]._state = node_state
+        ifaces = self._interfaces.copy()
         for interface_id, interface_state in states["interfaces"].items():
             try:
-                iface = self._interfaces[interface_id]
+                iface = ifaces.pop(interface_id)
             except KeyError:
                 # TODO: handle loopbacks created server-side
                 # check how the UI handles these created today
@@ -832,12 +908,14 @@ class Lab:
                 pass
             else:
                 iface._state = interface_state
-
+        for stale_iface in ifaces:
+            ifaces[stale_iface]._stale = True
         for link_id, link_state in states["links"].items():
             self._links[link_id]._state = link_state
 
         self._last_sync_state_time = time.time()
 
+    @check_stale
     def wait_until_lab_converged(
         self, max_iterations: Optional[int] = None, wait_time: Optional[int] = None
     ) -> None:
@@ -846,11 +924,11 @@ class Lab:
             self.wait_max_iterations if max_iterations is None else max_iterations
         )
         wait_time = self.wait_time if wait_time is None else wait_time
-        _LOGGER.info("Waiting for lab %s to converge", self._lab_id)
+        _LOGGER.info("Waiting for lab %s to converge", self._id)
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info("Lab %s has booted", self._lab_id)
+                _LOGGER.info("Lab %s has booted", self._id)
                 return
 
             if index % 10 == 0:
@@ -872,35 +950,41 @@ class Lab:
         # specified
         raise RuntimeError(msg)
 
+    @check_stale
     def has_converged(self) -> bool:
         url = self.lab_base_url + "/check_if_converged"
         converged = self._session.get(url).json()
         return converged
 
+    @check_stale
     def start(self, wait: Optional[bool] = None) -> None:
         """
         Start all the nodes and links in the lab.
 
         :param wait: Wait for convergence (if left at default,
             the lab wait property takes precedence)
-        :type wait: bool
         """
         url = self.lab_base_url + "/start"
         self._session.put(url)
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug("started lab: %s", self._lab_id)
+        _LOGGER.debug("started lab: %s", self._id)
 
+    @check_stale
     def state(self) -> str:
         """
         Returns the state of the lab.
 
         :returns: The state as text
         """
-        url = self.lab_base_url + "/state"
-        response = self._session.get(url)
-        _LOGGER.debug("lab state: %s -> %s", self._lab_id, response.text)
-        return response.json()
+        if self._state is None or getattr(self._session, "lock", None) is None:
+            # no lock == event listening not enabled
+            url = self.lab_base_url + "/state"
+            response = self._session.get(url)
+            self._state = response.json()
+
+        _LOGGER.debug("lab state: %s -> %s", self._id, self._state)
+        return self._state
 
     def is_active(self) -> bool:
         """
@@ -910,6 +994,7 @@ class Lab:
         """
         return self.state() == "STARTED"
 
+    @check_stale
     def details(self) -> dict[str, str | list | int]:
         """
         Returns the lab details (including state) of the lab.
@@ -918,9 +1003,10 @@ class Lab:
         """
         url = self.lab_base_url
         response = self._session.get(url)
-        _LOGGER.debug("lab state: %s -> %s", self._lab_id, response.text)
+        _LOGGER.debug("lab state: %s -> %s", self._id, response.text)
         return response.json()
 
+    @check_stale
     def stop(self, wait: Optional[bool] = None) -> None:
         """
         Stops all the nodes and links in the lab.
@@ -932,8 +1018,9 @@ class Lab:
         self._session.put(url)
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug("stopped lab: %s", self._lab_id)
+        _LOGGER.debug("stopped lab: %s", self._id)
 
+    @check_stale
     def wipe(self, wait: Optional[bool] = None) -> None:
         """
         Wipe all the nodes and links in the lab.
@@ -945,7 +1032,7 @@ class Lab:
         self._session.put(url)
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug("wiped lab: %s", self._lab_id)
+        _LOGGER.debug("wiped lab: %s", self._id)
 
     def remove(self) -> None:
         """
@@ -957,28 +1044,38 @@ class Lab:
             lab.remove()
 
         """
-        # TODO: mark as disconnected
+        self._remove_on_server()
+        self._stale = True
+
+    @check_stale
+    def _remove_on_server(self):
         url = self.lab_base_url
         response = self._session.delete(url)
         _LOGGER.debug("removed lab: %s", response.text)
 
-    def sync_events(self) -> None:
-        # TODO: return a boolean if events have changed since last run
+    @check_stale
+    @locked
+    def sync_events(self) -> bool:
         url = self.lab_base_url + "/events"
         result = self._session.get(url).json()
+        changed = self.events != result
         self.events = result
+        return changed
 
+    @check_stale
     def build_configurations(self) -> None:
         """
         Build basic configurations for all nodes in the lab which
         do not already have a configuration and also do support
         configuration building.
         """
-        url = "build_configurations?lab_id=" + self._lab_id
+        url = "build_configurations?lab_id=" + self._id
         self._session.get(url)
         # sync to get the updated configs
         self.sync_topology_if_outdated()
 
+    @check_stale
+    @locked
     def sync(
         self,
         topology_only=True,
@@ -1012,6 +1109,7 @@ class Lab:
             self.sync_layer3_addresses()
             self.sync_operational()
 
+    @locked
     def _sync_topology(self, exclude_configurations=False) -> None:
         """Helper function to sync topologies from the backend server."""
         # TODO: check what happens if call twice
@@ -1028,6 +1126,11 @@ class Lab:
                 # response.text was empty, not a JSON object, or not the expected
                 # JSON schema. Use the raw result text.
                 pass
+            if (
+                exc.response.status_code == 404
+                and f"Lab not found: {self._id}" in exc.response.text
+            ):
+                self._stale = True
             raise LabNotFound("Error syncing lab: {}".format(error_msg))
             # TODO: get the error message from response/headers also?
         topology = result.json()
@@ -1038,6 +1141,7 @@ class Lab:
             self._initialized = True
         self._last_sync_topology_time = time.time()
 
+    @locked
     def import_lab(self, topology: dict) -> None:
         self._import_lab(topology)
 
@@ -1045,6 +1149,7 @@ class Lab:
         self._handle_import_interfaces(topology)
         self._handle_import_links(topology)
 
+    @locked
     def _import_lab(self, topology: dict[str, Any]) -> None:
         """Replaces lab properties. Will raise KeyError if any property is missing."""
         lab_dict = topology.get("lab")
@@ -1064,6 +1169,7 @@ class Lab:
             self._notes = lab_dict["notes"]
             self._owner = lab_dict.get("owner", self.username)
 
+    @locked
     def _handle_import_nodes(self, topology: dict) -> None:
         for node in topology["nodes"]:
             node_id = node["id"]
@@ -1081,6 +1187,7 @@ class Lab:
                     raise ElementAlreadyExists("Interface already exists")
                 self._import_interface(iface_id, node_id, iface)
 
+    @locked
     def _handle_import_interfaces(self, topology: dict) -> None:
         if "interfaces" in topology:
             for iface in topology["interfaces"]:
@@ -1090,6 +1197,7 @@ class Lab:
                     raise ElementAlreadyExists("Interface already exists")
                 self._import_interface(iface_id, node_id, iface)
 
+    @locked
     def _handle_import_links(self, topology: dict) -> None:
         for link in topology["links"]:
             link_id = link["id"]
@@ -1100,6 +1208,7 @@ class Lab:
             label = link.get("label")
             self._import_link(link_id, iface_b_id, iface_a_id, label)
 
+    @locked
     def _import_link(
         self,
         link_id: str,
@@ -1109,8 +1218,9 @@ class Lab:
     ) -> Link:
         iface_a = self._interfaces[iface_a_id]
         iface_b = self._interfaces[iface_b_id]
-        return self.create_link_local(iface_a, iface_b, link_id, label)
+        return self._create_link_local(iface_a, iface_b, link_id, label)
 
+    @locked
     def _import_interface(
         self, iface_id: str, node_id: str, iface_data: dict
     ) -> Interface:
@@ -1120,18 +1230,25 @@ class Lab:
         slot = iface_data.get("slot")
         iface_type = iface_data["type"]
         node = self._nodes[node_id]
-        return self.create_interface_local(iface_id, label, node, slot, iface_type)
+        return self._create_interface_local(iface_id, label, node, slot, iface_type)
 
+    @locked
     def _import_node(self, node_id: str, node_data: dict) -> Node:
         if "data" in node_data:
             node_data = node_data["data"]
         node_data.pop("id", None)
-        node_data.pop("state", None)
+        state = node_data.pop("state", None)
+        node_data.pop("lab_id", None)
+        node_data.pop("boot_progress", None)
+
         for key in ("image_definition", "configuration"):
             if key not in node_data:
                 node_data[key] = None
-        return self.add_node_local(node_id, **node_data)
+        node = self._create_node_local(node_id, **node_data)
+        node._state = state
+        return node
 
+    @locked
     def update_lab(self, topology: dict, exclude_configurations: bool) -> None:
         self._import_lab(topology)
 
@@ -1173,6 +1290,7 @@ class Lab:
 
         self._update_elements(topology, kept_nodes, exclude_configurations)
 
+    @locked
     def _remove_elements(
         self,
         removed_nodes: Iterable[str],
@@ -1180,20 +1298,21 @@ class Lab:
         removed_interfaces: Iterable[str],
     ) -> None:
         for link_id in removed_links:
-            link = self._links[link_id]
+            link = self._links.pop(link_id)
             _LOGGER.info("Removed link %s", link)
-            del self._links[link_id]
+            link._stale = True
 
         for interface_id in removed_interfaces:
-            interface = self._interfaces[interface_id]
+            interface = self._interfaces.pop(interface_id)
             _LOGGER.info("Removed interface %s", interface)
-            del self._interfaces[interface_id]
+            interface._stale = True
 
         for node_id in removed_nodes:
-            node = self._nodes[node_id]
+            node = self._nodes.pop(node_id)
             _LOGGER.info("Removed node %s", node)
-            del self._nodes[node_id]
+            node._stale = True
 
+    @locked
     def _add_elements(
         self,
         topology: dict,
@@ -1232,6 +1351,7 @@ class Lab:
             link = self._import_link(link_id, iface_b_id, iface_a_id, label)
             _LOGGER.info("Added link %s", link)
 
+    @locked
     def _update_elements(
         self, topology: dict, kept_nodes: Iterable[str], exclude_configurations: bool
     ) -> None:
@@ -1247,6 +1367,16 @@ class Lab:
         # For now, can't update link data server-side, this will change with tags
         # for link_id in kept_links:
         #     link_data = self._find_link_in_topology(link_id, topology)
+
+    @locked
+    def update_lab_properties(self, properties: dict[str, Any]):
+        """Updates lab properties. Will not modify unspecified properties.
+        Is not compatible with schema version 0.0.5."""
+        # TODO: Should it be?
+        self._title = properties.get("title", self._title)
+        self._description = properties.get("description", self._description)
+        self._notes = properties.get("notes", self._notes)
+        self._owner = properties.get("owner", self._owner)
 
     @staticmethod
     def _find_link_in_topology(link_id: str, topology: dict) -> dict:
@@ -1273,6 +1403,7 @@ class Lab:
         # if it cannot be found, it is an internal structure error
         raise NodeNotFound
 
+    @check_stale
     def get_pyats_testbed(self, hostname: Optional[str] = None) -> str:
         """
         Return lab's pyATS YAML testbed. Example usage::
@@ -1299,9 +1430,12 @@ class Lab:
         result = self._session.get(url, params=params)
         return result.text
 
+    @check_stale
     def sync_pyats(self) -> None:
         self.pyats.sync_testbed(self.username, self.password)
 
+    @check_stale
+    @locked
     def sync_layer3_addresses(self) -> None:
         """Syncs all layer 3 IP addresses from the backend server."""
         url = self.lab_base_url + "/layer3_addresses"
@@ -1316,6 +1450,7 @@ class Lab:
         """Closes and cleans up connection that pyATS might still hold."""
         self.pyats.cleanup()
 
+    @check_stale
     def download(self) -> str:
         """
         Download the lab from the server in YAML format.
@@ -1335,6 +1470,7 @@ class Lab:
         url = self.lab_base_url + "/groups"
         return self._session.get(url).json()
 
+    @check_stale
     def update_lab_groups(
         self, group_list: list[dict[str, str]]
     ) -> list[dict[str, str]]:
@@ -1347,6 +1483,8 @@ class Lab:
         url = self.lab_base_url + "/groups"
         return self._session.put(url, json=group_list).json()
 
+    @check_stale
+    @locked
     def sync_operational(self) -> None:
         url = self.lab_base_url + "/resource_pools"
         response = self._session.get(url).json()

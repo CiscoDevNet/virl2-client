@@ -86,7 +86,7 @@ lab.remove_node(s2)
 lab.sync_states()
 for node in lab.nodes():
     print(node, node.state)
-    for iface in node.interfaces:
+    for iface in node.interfaces():
         print(iface, iface.state)
 
 assert [link for link in lab.links() if link.state is not None] == []

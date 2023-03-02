@@ -433,7 +433,7 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "multidict"
-version = "6.0.2"
+version = "6.0.3"
 description = "multidict implementation"
 category = "main"
 optional = true
@@ -1219,12 +1219,13 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "flake8 (<5)", "pytest-co
 
 [extras]
 docs = ["sphinx", "sphinx_rtd_theme"]
+events = ["aiohttp"]
 pyats = ["pyats"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.0"
-content-hash = "c393587596d34fd5c9a0eb671e344a2ebc11f3ec8cf6491dc0718850403d9f70"
+content-hash = "0200c95cd84eba17110379e58511a6dcee2d2a6e6e4431c82ae9212619ceb419"
 
 [metadata.files]
 aiofiles = []

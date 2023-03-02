@@ -86,12 +86,11 @@ class NodeImageDefinitions:
         url = "node_definitions/" + definition_id + "/image_definitions"
         return self._session.get(url).json()
 
-    def upload_node_definition(self, body, json: bool = False) -> str:
+    def upload_node_definition(self, body: str | dict, json: bool = False) -> str:
         """
         Upload new node definition.
 
         :param body: node definition (yaml or json)
-        :type: str or dict
         :param json: whether we are sending json data
         :return: "Success"
         """
@@ -102,12 +101,11 @@ class NodeImageDefinitions:
             # YAML
             return self._session.post(url, content=body).json()
 
-    def upload_image_definition(self, body, json: bool = False) -> str:
+    def upload_image_definition(self, body: str | dict, json: bool = False) -> str:
         """
         Upload new image definition.
 
         :param body: image definition (yaml or json)
-        :type: str or dict
         :param json: whether we are sending json data
         :return: "Success"
         """

@@ -59,6 +59,15 @@ class ClPyats:
         self._testbed: Any = None
         self._connections: list[Any] = []
 
+    @property
+    def hostname(self) -> Optional[str]:
+        """Return forced hostname/ip and port terminal server setting"""
+        return self._hostname
+
+    @hostname.setter
+    def hostname(self, hostname: Optional[str] = None) -> None:
+        self._hostname = hostname
+
     def _check_pyats_installed(self) -> None:
         if not self._pyats_installed:
             raise PyatsNotInstalled

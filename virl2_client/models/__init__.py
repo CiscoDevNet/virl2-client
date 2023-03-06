@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -22,27 +22,28 @@ labs, nodes, interfaces and links. It also contains classes for
 node and image definition and helper classes for automation
 and authentication."""
 
+from .authentication import TokenAuth
+from .groups import GroupManagement
 from .interface import Interface
-from .authentication import Context, TokenAuth
 from .lab import Lab
 from .licensing import Licensing
 from .link import Link
 from .node import Node
 from .node_image_definitions import NodeImageDefinitions
-from .users import UserManagement
-from .groups import GroupManagement
+from .resource_pools import ResourcePoolManagement
 from .system import SystemManagement
+from .users import UserManagement
 
 __all__ = (
     "Interface",
     "Lab",
     "Link",
     "Node",
-    "Context",
     "NodeImageDefinitions",
     "Licensing",
     "SystemManagement",
     "UserManagement",
     "GroupManagement",
     "TokenAuth",
+    "ResourcePoolManagement",
 )

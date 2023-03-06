@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -22,21 +22,19 @@ import json
 import logging
 import os
 import sys
-
 from pathlib import Path
 from unittest.mock import Mock, call, patch
-from urllib.parse import urlsplit
 
+import httpx
 import pytest
-import requests
-import responses
+import respx
 
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
     ClientConfig,
     ClientLibrary,
-    Version,
     InitializationError,
+    Version,
 )
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
@@ -62,14 +60,13 @@ def test_import_lab_from_path_virl(
         lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
-    assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
+    assert lab.lab_base_url.startswith("labs/")
 
     cl.session.post.assert_called_once_with(
-        "https://0.0.0.0/fake_url/api/v0/import/virl-1x",
-        data="<?xml version='1.0' encoding='UTF-8'?>",
+        "import/virl-1x",
+        content="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl.session.post.assert_called_once()
-    cl.session.post.return_value.raise_for_status.assert_called_once()
     sync_mock.assert_called_once_with()
 
 
@@ -88,11 +85,11 @@ def test_import_lab_from_path_virl_title(
             path=(tmp_path / "topology.virl").as_posix(), title=new_title
         )
     assert lab.title is not None
-    assert lab.lab_base_url.startswith("https://0.0.0.0/fake_url/api/v0/labs/")
+    assert lab.lab_base_url.startswith("labs/")
 
     cl.session.post.assert_called_once_with(
-        "https://0.0.0.0/fake_url/api/v0/import/virl-1x?title=" + new_title,
-        data="<?xml version='1.0' encoding='UTF-8'?>",
+        f"import/virl-1x?title={new_title}",
+        content="<?xml version='1.0' encoding='UTF-8'?>",
     )
 
 
@@ -105,10 +102,9 @@ def test_ssl_certificate(client_library_server_current, mocked_session):
     )
     cl.is_system_ready(wait=True)
 
-    assert cl.session.verify == "/home/user/cert.pem"
+    assert cl._ssl_verify == "/home/user/cert.pem"
     assert cl.session.mock_calls[:4] == [
-        call.get("https://0.0.0.0/fake_url/api/v0/authok"),
-        call.get().raise_for_status(),
+        call.get("authok"),
     ]
 
 
@@ -121,32 +117,32 @@ def test_ssl_certificate_from_env_variable(
     )
 
     assert cl.is_system_ready()
-    assert cl.session.verify == "/home/user/cert.pem"
+    assert cl._ssl_verify == "/home/user/cert.pem"
     assert cl.session.mock_calls[:4] == [
-        call.get("https://0.0.0.0/fake_url/api/v0/authok"),
-        call.get().raise_for_status(),
+        call.get("authok"),
     ]
 
 
 @python37_or_newer
-@responses.activate
+@respx.mock
 def test_auth_and_reauth_token(client_library_server_current):
-    # mock failed authentication:
-    responses.add(
-        responses.POST, "https://0.0.0.0/fake_url/api/v0/authenticate", status=403
-    )
-    responses.add(responses.GET, "https://0.0.0.0/fake_url/api/v0/authok", status=401)
+    def initial_different_response(initial, subsequent=httpx.Response(200)):
+        yield initial
+        while True:
+            yield subsequent
 
-    # mock successful authentication:
-    responses.add(
-        responses.POST,
-        "https://0.0.0.0/fake_url/api/v0/authenticate",
-        json="7bbcan78a98bch7nh3cm7hao3nc7",
+    # mock failed and successful authentication:
+    respx.post(
+        "https://0.0.0.0/fake_url/api/v0/authenticate"
+    ).side_effect = initial_different_response(
+        httpx.Response(403), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
     )
-    responses.add(responses.GET, "https://0.0.0.0/fake_url/api/v0/authok")
+    respx.get(
+        "https://0.0.0.0/fake_url/api/v0/authok"
+    ).side_effect = initial_different_response(httpx.Response(401))
 
     # mock get labs
-    responses.add(responses.GET, "https://0.0.0.0/fake_url/api/v0/labs", json=[])
+    respx.get("https://0.0.0.0/fake_url/api/v0/labs").respond(json=[])
 
     with pytest.raises(InitializationError):
         # Test returns custom exception when instructed to raise on failure
@@ -163,7 +159,7 @@ def test_auth_and_reauth_token(client_library_server_current):
 
     cl.all_labs()
 
-    # for idx, item in enumerate(responses.calls):
+    # for idx, item in enumerate(respx.calls):
     #     print(idx, item.request.url)
     #
     # this is what we expect:
@@ -174,32 +170,25 @@ def test_auth_and_reauth_token(client_library_server_current):
     # 4 https://0.0.0.0/fake_url/api/v0/authok
     # 5 https://0.0.0.0/fake_url/api/v0/labs
 
-    assert (
-        responses.calls[0].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
-    )
-    assert json.loads(responses.calls[0].request.body) == {
+    assert respx.calls[0].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
+    assert json.loads(respx.calls[0].request.content) == {
         "username": "test",
         "password": "pa$$",
     }
-    assert (
-        responses.calls[1].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
-    )
-    assert responses.calls[2].request.url == "https://0.0.0.0/fake_url/api/v0/authok"
-    assert (
-        responses.calls[3].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
-    )
-    assert responses.calls[4].request.url == "https://0.0.0.0/fake_url/api/v0/authok"
-    assert responses.calls[5].request.url == "https://0.0.0.0/fake_url/api/v0/labs"
-    assert len(responses.calls) == 6
+    assert respx.calls[1].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
+    assert respx.calls[2].request.url == "https://0.0.0.0/fake_url/api/v0/authok"
+    assert respx.calls[3].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
+    assert respx.calls[4].request.url == "https://0.0.0.0/fake_url/api/v0/authok"
+    assert respx.calls[5].request.url == "https://0.0.0.0/fake_url/api/v0/labs"
+    assert respx.calls.call_count == 6
 
 
 def test_client_library_init_allow_http(client_library_server_current):
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
-    url_parts = urlsplit(cl._context.base_url)
-    assert url_parts.scheme == "http"
-    assert url_parts.hostname == "somehost"
-    assert url_parts.port is None
-    assert cl._context.base_url.endswith("/api/v0/")
+    assert cl.session.base_url.scheme == "http"
+    assert cl.session.base_url.host == "somehost"
+    assert cl.session.base_url.port is None
+    assert cl.session.base_url.path.endswith("/api/v0/")
     assert cl.username == "virl2"
     assert cl.password == "virl2"
 
@@ -228,7 +217,7 @@ def test_client_library_init_url(
     client_library_server_current, monkeypatch, via, params
 ):
     (fail, url) = params
-    expected_parts = None if fail else urlsplit(url)
+    expected_parts = None if fail else httpx.URL(url)
     if via == "environment":
         env = url
         url = None
@@ -239,16 +228,22 @@ def test_client_library_init_url(
     else:
         monkeypatch.setenv("VIRL2_URL", env)
     if fail:
-        with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
-            ClientLibrary(url=url, username="virl2", password="virl2", allow_http=True)
+        with pytest.raises(InitializationError):
+            ClientLibrary(
+                url=url,
+                username="virl2",
+                password="virl2",
+                allow_http=True,
+                raise_for_auth_failure=True,
+            )
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
-        url_parts = urlsplit(cl._context.base_url)
+        url_parts = cl.session.base_url
         assert url_parts.scheme == (expected_parts.scheme or "https")
-        assert url_parts.hostname == (expected_parts.hostname or expected_parts.path)
+        assert url_parts.host == (expected_parts.host or expected_parts.path)
         assert url_parts.port == expected_parts.port
         assert url_parts.path == "/api/v0/"
-        assert cl._context.base_url.endswith("/api/v0/")
+        assert cl.session.base_url.path.endswith("/api/v0/")
         assert cl.username == "virl2"
         assert cl.password == "virl2"
 
@@ -271,13 +266,13 @@ def test_client_library_init_user(
     else:
         monkeypatch.setenv("VIRL2_USER", env)
     if fail:
-        with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
+        with pytest.raises(InitializationError):
             ClientLibrary(url=url, username=user, password="virl2")
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
         assert cl.username == params[1]
         assert cl.password == "virl2"
-        assert cl._context.base_url == "https://validhostname/api/v0/"
+        assert cl.session.base_url == "https://validhostname/api/v0/"
 
 
 @pytest.mark.parametrize("via", ["environment", "parameter"])
@@ -298,13 +293,13 @@ def test_client_library_init_password(
     else:
         monkeypatch.setenv("VIRL2_PASS", env)
     if fail:
-        with pytest.raises((InitializationError, requests.exceptions.InvalidURL)):
+        with pytest.raises(InitializationError):
             ClientLibrary(url=url, username="virl2", password=password)
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"
         assert cl.password == params[1]
-        assert cl._context.base_url == "https://validhostname/api/v0/"
+        assert cl.session.base_url == "https://validhostname/api/v0/"
 
 
 @pytest.mark.parametrize(
@@ -320,16 +315,17 @@ def test_client_library_init_password(
 )
 def test_client_library_config(client_library_server_current, mocked_session, config):
     client_library = config.make_client()
-    assert client_library._base_url.startswith(config.url)
+    assert client_library.session.base_url.path.startswith(config.url)
     assert client_library.username == config.username
     assert client_library.password == config.password
     assert client_library.allow_http == config.allow_http
-    assert client_library.session.verify == config.ssl_verify
+    assert client_library._ssl_verify == config.ssl_verify
     assert client_library.auto_sync == (config.auto_sync >= 0.0)
     assert client_library.auto_sync_interval == config.auto_sync
-    assert client_library.session.mock_calls[:4] == [
-        call.get(client_library._base_url + "authok"),
-        call.get().raise_for_status(),
+    assert client_library.session.mock_calls == [
+        call.get("authok"),
+        call.base_url.path.startswith(config.url),
+        call.base_url.path.startswith().__bool__(),
     ]
 
 

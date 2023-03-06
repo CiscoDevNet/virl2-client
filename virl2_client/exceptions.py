@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -52,4 +52,12 @@ class LabNotFound(ElementNotFound):
 
 
 class DesynchronizedError(VirlException):
+    pass
+
+
+class InvalidImageFile(VirlException):
+    pass
+
+
+class InvalidProperty(VirlException):
     pass

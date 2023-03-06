@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "virl2_client"
-version = "2.4.1"
+version = "2.5.0"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"
@@ -15,15 +15,13 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.8",
     "Topic :: System :: Networking",
 ]
 
 [tool.poetry.dependencies]
 python = "^3.8.0"
-requests = "^2"
-requests-toolbelt = "^0.9.1"
-urllib3 = "^1.26.9"
+httpx = "^0.23.0"
 
 # optional pyATS package
 # (this pulls in a lot more dependencies)
@@ -36,12 +34,13 @@ pyats = {version = "^22.4", optional = true}
 sphinx_rtd_theme = {version="^1", optional = true}
 sphinx =  {version="^5", optional = true}
 
+
 [tool.poetry.dev-dependencies]
-flake8 = "^4.0.1"
+# flake8 version 6 is available but requires python>=3.8.1
+flake8 = "^5"
 pre-commit = "^2.17.0"
 pytest = "*"
-requests-mock = "^1.9.2"
-responses = "^0.20.0"
+respx = "^0.20.0"
 
 [tool.poetry.extras]
 pyats = ["pyats"]

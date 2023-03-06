@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -18,44 +18,59 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import logging
 import warnings
 from functools import total_ordering
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    import httpx
+
+    from .link import Link
+    from .node import Node
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @total_ordering
 class Interface:
-    def __init__(self, iid, node, label, slot, iface_type="physical"):
+    def __init__(
+        self,
+        iid: str,
+        node: Node,
+        label: str,
+        slot: Optional[int],
+        iface_type: str = "physical",
+    ) -> None:
         """
         A VIRL2 network interface, part of a node.
 
         :param iid: interface ID
-        :type iid: str
         :param node: node object
-        :type node: models.Node
         :param label: the label of the interface
-        :type label: str
         :param slot: the slot of the interface
-        :type slot: int
         :param iface_type: the type of the interface, defaults to "physical"
-        :type iface_type: str
         """
         self.id = iid
         self.node = node
         self.type = iface_type
         self.label = label
         self.slot = slot
-        self._state = None
-        self.session = node.session
+        self._state: Optional[str] = None
+        self._session: httpx.Client = node.lab.session
         self.statistics = {
             "readbytes": 0,
             "readpackets": 0,
             "writebytes": 0,
             "writepackets": 0,
         }
-        self.ip_snooped_info = {"mac_address": None, "ipv4": None, "ipv6": None}
+        self.ip_snooped_info: dict[str, Optional[str]] = {
+            "mac_address": None,
+            "ipv4": None,
+            "ipv6": None,
+        }
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -84,39 +99,40 @@ class Interface:
         return hash(self.id)
 
     @property
-    def lab_base_url(self):
+    def lab_base_url(self) -> str:
         return self.node.lab_base_url
 
     @property
-    def _base_url(self):
+    def _base_url(self) -> str:
         return self.lab_base_url + "/interfaces/{}".format(self.id)
 
     @property
-    def physical(self):
+    def physical(self) -> bool:
         """Whether the interface is physical."""
         self.node.lab.sync_topology_if_outdated()
         return self.type == "physical"
 
     @property
-    def connected(self):
+    def connected(self) -> bool:
         """Whether the interface is connected to a link."""
         return self.link is not None
 
     @property
-    def state(self):
+    def state(self) -> Optional[str]:
         self.node.lab.sync_states_if_outdated()
         return self._state
 
     @property
-    def link(self):
+    def link(self) -> Optional[Link]:
         """Is link if connected, otherwise None."""
         self.node.lab.sync_topology_if_outdated()
         for link in self.node.lab.links():
             if self in link.interfaces:
                 return link
+        return None
 
     @property
-    def peer_interface(self):
+    def peer_interface(self) -> Optional[Interface]:
         link = self.link
         if link is None:
             return None
@@ -126,44 +142,42 @@ class Interface:
         return interfaces[0]
 
     @property
-    def peer_node(self):
+    def peer_node(self) -> Optional[Node]:
         peer_interface = self.peer_interface
-        if peer_interface is None:
-            return None
-        return peer_interface.node
+        return peer_interface.node if peer_interface is not None else None
 
     @property
-    def readbytes(self):
+    def readbytes(self) -> int:
         self.node.lab.sync_statistics_if_outdated()
         return int(self.statistics["readbytes"])
 
     @property
-    def readpackets(self):
+    def readpackets(self) -> int:
         self.node.lab.sync_statistics_if_outdated()
         return int(self.statistics["readpackets"])
 
     @property
-    def writebytes(self):
+    def writebytes(self) -> int:
         self.node.lab.sync_statistics_if_outdated()
         return int(self.statistics["writebytes"])
 
     @property
-    def writepackets(self):
+    def writepackets(self) -> int:
         self.node.lab.sync_statistics_if_outdated()
         return int(self.statistics["writepackets"])
 
     @property
-    def discovered_mac_address(self):
+    def discovered_mac_address(self) -> Optional[str]:
         self.node.lab.sync_l3_addresses_if_outdated()
         return self.ip_snooped_info["mac_address"]
 
     @property
-    def discovered_ipv4(self):
+    def discovered_ipv4(self) -> Optional[str]:
         self.node.lab.sync_l3_addresses_if_outdated()
         return self.ip_snooped_info["ipv4"]
 
     @property
-    def discovered_ipv6(self):
+    def discovered_ipv6(self) -> Optional[str]:
         self.node.lab.sync_l3_addresses_if_outdated()
         return self.ip_snooped_info["ipv6"]
 
@@ -172,38 +186,35 @@ class Interface:
         warnings.warn("Deprecated, use .physical instead.", DeprecationWarning)
         return self.physical
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str]:
         # TODO what should be here in 'data' key?
         return {"id": self.id, "node": self.node.id, "data": self.id}
 
-    def get_link_to(self, other_interface):
+    def get_link_to(self, other_interface: Interface) -> Optional[Link]:
         """
         Returns the link between this interface and another.
 
         :param other_interface: the other interface
-        :type other_interface: models.Interface
         :returns: A Link
-        :rtype: models.Link
         """
         link = self.link
-        return link if other_interface in link.interfaces else None
+        if link is not None and other_interface in link.interfaces:
+            return link
+        return None
 
-    def remove_on_server(self):
+    def remove_on_server(self) -> None:
         _LOGGER.info("Removing interface %s", self)
 
         url = self._base_url
-        response = self.node.session.delete(url)
-        response.raise_for_status()
+        self._session.delete(url)
 
-    def bring_up(self):
+    def bring_up(self) -> None:
         url = self._base_url + "/state/start"
-        response = self.session.put(url)
-        response.raise_for_status()
+        self._session.put(url)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         url = self._base_url + "/state/stop"
-        response = self.session.put(url)
-        response.raise_for_status()
+        self._session.put(url)
 
     def peer_interfaces(self):
         warnings.warn("Deprecated, use .peer_interface instead.", DeprecationWarning)

@@ -5,6 +5,7 @@
 .vscode
 dist/
 */__pycache__
+.pytest_cache
 docs/build/*
 *.pyc
 *.egg-info

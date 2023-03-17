@@ -276,18 +276,18 @@ class Link:
         self._session.patch(url, json=data)
 
     @check_stale
-    def get_condition(self) -> Optional[dict]:
+    def get_condition(self) -> dict:
         """
         Retrieves the current condition on this link.
-        If there is no link condition specified, None is returned.
+        If there is no link condition applied, an empty dictionary is returned.
+
+        (Note: this used to (erroneously) say None would be returned
+        when no condition is applied, but that was never the case.)
 
         :return: the applied link condition
         """
         url = self.base_url + "/condition"
         condition = self._session.get(url).json()
-        if condition is None:
-            return None
-
         keys = ["bandwidth", "latency", "jitter", "loss"]
         result = {k: v for (k, v) in condition.items() if k in keys}
         return result

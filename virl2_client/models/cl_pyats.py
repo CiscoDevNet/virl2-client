@@ -91,16 +91,8 @@ class ClPyats:
         data.devices.terminal_server.credentials.default.password = password
         self._testbed = data
 
-    def run_command(self, node_label: str, command: str) -> str:
-        """
-        Run a command on the device in `exec` mode.
-
-        :param node_label: the label / title of the device
-        :param command: the command to be run in exec mode
-        :returns: The output from the device
-        """
+    def _prepare_device(self, node_label: str):
         self._check_pyats_installed()
-
         try:
             pyats_device = self._testbed.devices[node_label]
         except KeyError:
@@ -110,6 +102,18 @@ class ClPyats:
         # TODO: later look at pooling connections
         pyats_device.connect(log_stdout=False, learn_hostname=True)
         self._connections.append(pyats_device)
+        return pyats_device
+
+    def run_command(self, node_label: str, command: str) -> str:
+        """
+        Run a command on the device in `exec` mode.
+
+        :param node_label: the label / title of the device
+        :param command: the command to be run in exec mode
+        :returns: The output from the device
+
+        """
+        pyats_device = self._prepare_device(node_label)
         return pyats_device.execute(command, log_stdout=False)
 
     def run_config_command(self, node_label: str, command: str) -> str:
@@ -121,17 +125,7 @@ class ClPyats:
         :param command: the command to be run in exec mode
         :returns: The output from the device
         """
-        self._check_pyats_installed()
-
-        try:
-            pyats_device = self._testbed.devices[node_label]
-        except KeyError:
-            raise PyatsDeviceNotFound(node_label)
-
-        # TODO: later check if connected
-        # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False, learn_hostname=True)
-        self._connections.append(pyats_device)
+        pyats_device = self._prepare_device(node_label)
         return pyats_device.configure(command, log_stdout=False)
 
     def cleanup(self) -> None:

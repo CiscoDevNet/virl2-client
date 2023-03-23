@@ -106,7 +106,11 @@ class ClPyats:
         self._connections.append(pyats_device)
         return pyats_device
 
-    def _prepare_params(self, init_exec_commands: Optional[list] = None, init_config_commands: Optional[list] = None) -> dict:
+    def _prepare_params(
+        self,
+        init_exec_commands: Optional[list] = None,
+        init_config_commands: Optional[list] = None,
+    ) -> dict:
         """
         Prepare a dictionary of optional parameters to be executed before a command.
         None means that default commands will be executed.  If you want no commands
@@ -123,7 +127,13 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
-    def run_command(self, node_label: str, command: str, init_exec_commands: Optional[list] = None, init_config_commands: Optional[list] = None) -> str:
+    def run_command(
+        self,
+        node_label: str,
+        command: str,
+        init_exec_commands: Optional[list] = None,
+        init_config_commands: Optional[list] = None,
+    ) -> str:
         """
         Run a command on the device in `exec` mode.
 
@@ -137,7 +147,13 @@ class ClPyats:
         params = self._prepare_params(init_exec_commands, init_config_commands)
         return pyats_device.execute(command, log_stdout=False, **params)
 
-    def run_config_command(self, node_label: str, command: str, init_exec_commands: Optional[list] = None, init_config_commands: Optional[list] = None) -> str:
+    def run_config_command(
+        self,
+        node_label: str,
+        command: str,
+        init_exec_commands: Optional[list] = None,
+        init_config_commands: Optional[list] = None,
+    ) -> str:
         """
         Run a command on the device in `configure` mode. pyATS
         handles the change into `configure` mode automatically.

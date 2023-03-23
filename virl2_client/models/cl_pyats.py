@@ -24,6 +24,8 @@ import io
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from pyats.topology import Device
+
     from .lab import Lab
 
 
@@ -91,7 +93,7 @@ class ClPyats:
         data.devices.terminal_server.credentials.default.password = password
         self._testbed = data
 
-    def _prepare_device(self, node_label: str):
+    def _prepare_device(self, node_label: str) -> Device:
         self._check_pyats_installed()
         try:
             pyats_device = self._testbed.devices[node_label]

@@ -49,9 +49,6 @@ def pytest_addoption(
 
 @pytest.fixture(scope="function")
 def change_test_dir(request: pytest.FixtureRequest) -> Iterator[None]:
-    # TODO: check if these are correct; it seems request.fspath was deprecated
-    #  in favor of request.path and request.config.invocation_dir was deprecated
-    #  in favor of request.config.invocation_params.dir if I understand correctly
-    os.chdir(request.fspath.dirname)
+    os.chdir(request.path.parent)
     yield
-    os.chdir(request.config.invocation_dir)
+    os.chdir(request.config.invocation_params.dir)

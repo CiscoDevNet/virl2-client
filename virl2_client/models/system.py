@@ -68,18 +68,22 @@ class SystemManagement:
         self._maintenance_mode = value
 
     @property
-    def maintenance_notice(self) -> dict:
+    def maintenance_notice(self) -> Optional[SystemNotice]:
         self.sync_system_notices_if_outdated()
-        notice = None
-        if self._maintenance_notice and self._maintenance_notice.enabled:
-            notice = self._maintenance_notice
-        return notice
+        return self._maintenance_notice
 
     @maintenance_notice.setter
-    def maintenance_notice(self, notice: SystemNotice) -> None:
+    def maintenance_notice(self, notice: Optional[SystemNotice]) -> None:
         url = "system/maintenance_mode"
-        notice_id = notice.id if notice else None
-        self._session.patch(url, json={"notice": notice_id})
+        notice_id = None if notice is None else notice.id
+        result = self._session.patch(url, json={"notice": notice_id})
+        resolved = result["resolved_notice"]
+        if resolved is None:
+            notice = None
+        else:
+            notice = self._system_notices.get(resolved["id"])
+        if notice is not None and resolved is not None:
+            notice.update(resolved)
         self._maintenance_notice = notice
 
     def sync_compute_hosts_if_outdated(self) -> None:
@@ -137,11 +141,11 @@ class SystemManagement:
         url = "system/maintenance_mode"
         maintenance = self.session.get(url).json()
         self._maintenance_mode = maintenance["maintenance_mode"]
-        notice_id = None
-        if maintenance["notice"]:
-            notice_id = maintenance["notice"]["id"]
-        if notice_id in self._system_notices:
-            self._maintenance_notice = self._system_notices[notice_id]
+        notice_id = maintenance["notice"]
+        if notice_id is None:
+            self._maintenance_notice = None
+        else:
+            self._maintenance_notice = self._system_notices.get(notice_id)
         self._last_sync_system_notice_time = time.time()
 
     def get_external_connectors(self) -> list[dict[str, str]]:

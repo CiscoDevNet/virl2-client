@@ -34,7 +34,6 @@ class LDAPManagement:
         self.auto_sync_interval = auto_sync_interval
         self._last_sync_time = 0.0
         self._ldap_settings = {}
-        self.sync()
 
     def sync_if_outdated(self) -> None:
         timestamp = time.time()

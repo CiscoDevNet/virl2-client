@@ -36,9 +36,9 @@ from httpx import HTTPStatusError
 
 from .exceptions import InitializationError, LabNotFound
 from .models import (
+    AuthManagement,
     GroupManagement,
     Lab,
-    LDAPManagement,
     Licensing,
     NodeImageDefinitions,
     ResourcePoolManagement,
@@ -279,7 +279,11 @@ class ClientLibrary:
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
         )
-        self.ldap_management = LDAPManagement(self._session)
+        self.auth_management = AuthManagement(
+            self._session,
+            auto_sync=self.auto_sync,
+            auto_sync_interval=self.auto_sync_interval,
+        )
 
         try:
             self._make_test_auth_call()

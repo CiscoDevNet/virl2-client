@@ -181,14 +181,8 @@ class AuthMethodManager:
             )
         settings["method"] = self._METHOD
         self._session.put(self._CONFIG_URL, json=settings)
-        self._auth_management._method = AuthMethod(settings["method"])
-        # If we didn't get the setting from the API when syncing, it is write-only,
-        # so we don't want to store it; we only update existing keys
-        storable_settings = {
-            shared_key: settings[shared_key]
-            for shared_key in settings.keys() & self._settings.keys()
-        }
-        self._settings.update(storable_settings)
+        self._auth_management._method = AuthMethod(self._METHOD)
+        self.sync()
 
     def test_auth(self, config: dict, username: str, password: str) -> dict:
         """

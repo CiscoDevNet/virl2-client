@@ -137,7 +137,7 @@ class AuthMethodManager:
         self.sync_if_outdated()
         return self._settings.copy()
 
-    def update_setting(self, setting: str, value) -> None:
+    def _update_setting(self, setting: str, value) -> None:
         """
         Update a setting for this auth method.
 
@@ -169,18 +169,17 @@ class AuthMethodManager:
         """
         Update multiple auth settings at once.
         More efficient in batches than setting manager properties.
-        Unlike when a manager's update_settings is used, 'method' can also be set here.
         If passed a dictionary, reads the dictionary for settings.
         If passed multiple keyword arguments, each is taken as a setting.
         Can mix and match; keywords take precedence.
 
 
         Examples::
-
-            client.auth_management.update_settings({"method": "ldap", "verify_tls": False})
-            client.auth_management.update_settings(method="ldap", verify_tls=False)
+            am = client.auth_management
+            am.update_settings({"method": "ldap", "verify_tls": False})
+            am.update_settings(method="ldap", verify_tls=False)
             # "verify_tls" key in dictionary overridden by keyword argument into False
-            client.auth_management.update_settings({"method": "ldap", "verify_tls": True}, verify_tls=False)
+            am.update_settings({"method": "ldap", "verify_tls": True}, verify_tls=False)
 
         :param settings_dict: a dictionary of settings
         :param kwargs: keywords of settings
@@ -253,7 +252,7 @@ class LDAPManager(AuthMethodManager):
 
     @server_urls.setter
     def server_urls(self, value: str) -> None:
-        self.update_setting("server_urls", value)
+        self._update_setting("server_urls", value)
 
     @property
     def verify_tls(self) -> bool:
@@ -261,7 +260,7 @@ class LDAPManager(AuthMethodManager):
 
     @verify_tls.setter
     def verify_tls(self, value: bool) -> None:
-        self.update_setting("verify_tls", value)
+        self._update_setting("verify_tls", value)
 
     @property
     def cert_data_pem(self) -> str:
@@ -269,7 +268,7 @@ class LDAPManager(AuthMethodManager):
 
     @cert_data_pem.setter
     def cert_data_pem(self, value: str) -> None:
-        self.update_setting("cert_data_pem", value)
+        self._update_setting("cert_data_pem", value)
 
     @property
     def use_ntlm(self) -> bool:
@@ -277,7 +276,7 @@ class LDAPManager(AuthMethodManager):
 
     @use_ntlm.setter
     def use_ntlm(self, value: bool) -> None:
-        self.update_setting("use_ntlm", value)
+        self._update_setting("use_ntlm", value)
 
     @property
     def root_dn(self) -> str:
@@ -285,7 +284,7 @@ class LDAPManager(AuthMethodManager):
 
     @root_dn.setter
     def root_dn(self, value: str) -> None:
-        self.update_setting("root_dn", value)
+        self._update_setting("root_dn", value)
 
     @property
     def user_search_base(self) -> str:
@@ -293,7 +292,7 @@ class LDAPManager(AuthMethodManager):
 
     @user_search_base.setter
     def user_search_base(self, value: str) -> None:
-        self.update_setting("user_search_base", value)
+        self._update_setting("user_search_base", value)
 
     @property
     def user_search_filter(self) -> str:
@@ -301,7 +300,7 @@ class LDAPManager(AuthMethodManager):
 
     @user_search_filter.setter
     def user_search_filter(self, value: str) -> None:
-        self.update_setting("user_search_filter", value)
+        self._update_setting("user_search_filter", value)
 
     @property
     def admin_search_filter(self) -> str:
@@ -309,7 +308,7 @@ class LDAPManager(AuthMethodManager):
 
     @admin_search_filter.setter
     def admin_search_filter(self, value: str) -> None:
-        self.update_setting("admin_search_filter", value)
+        self._update_setting("admin_search_filter", value)
 
     @property
     def group_search_base(self) -> str:
@@ -317,7 +316,7 @@ class LDAPManager(AuthMethodManager):
 
     @group_search_base.setter
     def group_search_base(self, value: str) -> None:
-        self.update_setting("group_search_base", value)
+        self._update_setting("group_search_base", value)
 
     @property
     def group_search_filter(self) -> str:
@@ -325,7 +324,7 @@ class LDAPManager(AuthMethodManager):
 
     @group_search_filter.setter
     def group_search_filter(self, value: str) -> None:
-        self.update_setting("group_search_filter", value)
+        self._update_setting("group_search_filter", value)
 
     @property
     def group_via_user(self) -> bool:
@@ -333,7 +332,7 @@ class LDAPManager(AuthMethodManager):
 
     @group_via_user.setter
     def group_via_user(self, value: bool) -> None:
-        self.update_setting("group_via_user", value)
+        self._update_setting("group_via_user", value)
 
     @property
     def group_user_attribute(self) -> str:
@@ -341,7 +340,7 @@ class LDAPManager(AuthMethodManager):
 
     @group_user_attribute.setter
     def group_user_attribute(self, value: str) -> None:
-        self.update_setting("group_user_attribute", value)
+        self._update_setting("group_user_attribute", value)
 
     @property
     def group_membership_filter(self) -> str:
@@ -349,7 +348,7 @@ class LDAPManager(AuthMethodManager):
 
     @group_membership_filter.setter
     def group_membership_filter(self, value: str) -> None:
-        self.update_setting("group_membership_filter", value)
+        self._update_setting("group_membership_filter", value)
 
     @property
     def manager_dn(self) -> str:
@@ -357,10 +356,10 @@ class LDAPManager(AuthMethodManager):
 
     @manager_dn.setter
     def manager_dn(self, value: str) -> None:
-        self.update_setting("manager_dn", value)
+        self._update_setting("manager_dn", value)
 
     def manager_password(self, value: str) -> None:
-        self.update_setting("display_attribute", value)
+        self._update_setting("display_attribute", value)
 
     # manager password can't be retrieved, only set, so we only provide a setter
     manager_password = property(fset=manager_password)
@@ -371,7 +370,7 @@ class LDAPManager(AuthMethodManager):
 
     @display_attribute.setter
     def display_attribute(self, value: str) -> None:
-        self.update_setting("display_attribute", value)
+        self._update_setting("display_attribute", value)
 
     @property
     def email_address_attribute(self) -> str:
@@ -379,7 +378,7 @@ class LDAPManager(AuthMethodManager):
 
     @email_address_attribute.setter
     def email_address_attribute(self, value: str) -> None:
-        self.update_setting("email_address_attribute", value)
+        self._update_setting("email_address_attribute", value)
 
     @property
     def resource_pool(self) -> str:
@@ -389,4 +388,4 @@ class LDAPManager(AuthMethodManager):
     def resource_pool(self, value: str | ResourcePool) -> None:
         if isinstance(value, ResourcePool):
             value = value.id
-        self.update_setting("resource_pool", value)
+        self._update_setting("resource_pool", value)

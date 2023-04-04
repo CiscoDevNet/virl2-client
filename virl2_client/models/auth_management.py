@@ -85,17 +85,14 @@ class AuthManagement:
         """
         The manager for the current auth method.
         """
-        # TODO: should we allow users to also configure currently inactive auth methods?
-        #  not sure how useful that might or might not be, but if they can then that
-        #  changes the answer to the question in AuthMethodManager.update_setting
         self.sync_if_outdated()
         return self._managers[self._method]
 
 
 class AuthMethodManager:
     _METHOD = ""
-    _CONFIG_URL = _BASE_URL + "/config"
-    _TEST_URL = _BASE_URL + "/test"
+    _CONFIG_URL = ""
+    _TEST_URL = ""
 
     def __init__(self, auth_management: AuthManagement):
         self._auth_management = auth_management
@@ -124,7 +121,7 @@ class AuthMethodManager:
         del settings["method"]
         return settings
 
-    def get_setting(self, setting: str) -> Any:
+    def _get_setting(self, setting: str) -> Any:
         """
         Returns the value of a specific setting of this authentication method.
         Note: consider using parameters instead.
@@ -137,31 +134,19 @@ class AuthMethodManager:
         self.sync_if_outdated()
         return self._settings.copy()
 
-    def _update_setting(self, setting: str, value) -> None:
+    def _update_setting(self, setting: str, value: Any) -> None:
         """
         Update a setting for this auth method.
 
         :param setting: the setting to update
         :param value: the value to set the setting to
         """
-        if setting == "method":
-            raise ValueError(
-                f"To set method, use 'AuthManagement.method = {value}' instead."
-            )
-        # TODO: currently, method is required, so we have to provide it;
-        #  do we provide this one or the one that is currently active?
-        #  in other words, if method=local and you change an LDAP setting, do we
-        #  switch to LDAP or keep local?
-        #  we can also provide an argument, so the user can choose, but what would
-        #  the default be?
-        # also note this should generally not happen;
-        # see AuthManagement.method above
-        method = self._METHOD
+
         self._session.put(
             self._CONFIG_URL,
-            json={setting: value, "method": method},
+            json={setting: value, "method": self._METHOD},
         )
-        self._auth_management._method = AuthMethod(method)
+        self._auth_management._method = AuthMethod(self._METHOD)
         if setting in self._settings:
             self._settings[setting] = value
 
@@ -190,9 +175,10 @@ class AuthMethodManager:
         settings.update(kwargs)
         if not settings:
             raise TypeError("No settings to update.")
-        if settings.get("method", None):
-            # TODO: see update_setting above
-            raise ValueError("Settings include method.")
+        if settings.get("method"):
+            raise ValueError(
+                "Settings include method. Use client.auth_management.method instead."
+            )
         settings["method"] = self._METHOD
         self._session.put(self._CONFIG_URL, json=settings)
         self._auth_management._method = AuthMethod(settings["method"])
@@ -245,10 +231,11 @@ class AuthMethodManager:
 
 class LDAPManager(AuthMethodManager):
     _METHOD = "ldap"
-
+    _CONFIG_URL = _BASE_URL + "/config"
+    _TEST_URL = _BASE_URL + "/test"
     @property
     def server_urls(self) -> str:
-        return self.get_setting("server_urls")
+        return self._get_setting("server_urls")
 
     @server_urls.setter
     def server_urls(self, value: str) -> None:
@@ -256,7 +243,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def verify_tls(self) -> bool:
-        return self.get_setting("verify_tls")
+        return self._get_setting("verify_tls")
 
     @verify_tls.setter
     def verify_tls(self, value: bool) -> None:
@@ -264,7 +251,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def cert_data_pem(self) -> str:
-        return self.get_setting("cert_data_pem")
+        return self._get_setting("cert_data_pem")
 
     @cert_data_pem.setter
     def cert_data_pem(self, value: str) -> None:
@@ -272,7 +259,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def use_ntlm(self) -> bool:
-        return self.get_setting("use_ntlm")
+        return self._get_setting("use_ntlm")
 
     @use_ntlm.setter
     def use_ntlm(self, value: bool) -> None:
@@ -280,7 +267,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def root_dn(self) -> str:
-        return self.get_setting("root_dn")
+        return self._get_setting("root_dn")
 
     @root_dn.setter
     def root_dn(self, value: str) -> None:
@@ -288,7 +275,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def user_search_base(self) -> str:
-        return self.get_setting("user_search_base")
+        return self._get_setting("user_search_base")
 
     @user_search_base.setter
     def user_search_base(self, value: str) -> None:
@@ -296,7 +283,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def user_search_filter(self) -> str:
-        return self.get_setting("user_search_filter")
+        return self._get_setting("user_search_filter")
 
     @user_search_filter.setter
     def user_search_filter(self, value: str) -> None:
@@ -304,7 +291,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def admin_search_filter(self) -> str:
-        return self.get_setting("admin_search_filter")
+        return self._get_setting("admin_search_filter")
 
     @admin_search_filter.setter
     def admin_search_filter(self, value: str) -> None:
@@ -312,7 +299,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def group_search_base(self) -> str:
-        return self.get_setting("group_search_base")
+        return self._get_setting("group_search_base")
 
     @group_search_base.setter
     def group_search_base(self, value: str) -> None:
@@ -320,7 +307,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def group_search_filter(self) -> str:
-        return self.get_setting("group_search_filter")
+        return self._get_setting("group_search_filter")
 
     @group_search_filter.setter
     def group_search_filter(self, value: str) -> None:
@@ -328,7 +315,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def group_via_user(self) -> bool:
-        return self.get_setting("group_via_user")
+        return self._get_setting("group_via_user")
 
     @group_via_user.setter
     def group_via_user(self, value: bool) -> None:
@@ -336,7 +323,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def group_user_attribute(self) -> str:
-        return self.get_setting("group_user_attribute")
+        return self._get_setting("group_user_attribute")
 
     @group_user_attribute.setter
     def group_user_attribute(self, value: str) -> None:
@@ -344,7 +331,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def group_membership_filter(self) -> str:
-        return self.get_setting("group_membership_filter")
+        return self._get_setting("group_membership_filter")
 
     @group_membership_filter.setter
     def group_membership_filter(self, value: str) -> None:
@@ -352,7 +339,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def manager_dn(self) -> str:
-        return self.get_setting("manager_dn")
+        return self._get_setting("manager_dn")
 
     @manager_dn.setter
     def manager_dn(self, value: str) -> None:
@@ -366,7 +353,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def display_attribute(self) -> str:
-        return self.get_setting("display_attribute")
+        return self._get_setting("display_attribute")
 
     @display_attribute.setter
     def display_attribute(self, value: str) -> None:
@@ -374,7 +361,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def email_address_attribute(self) -> str:
-        return self.get_setting("email_address_attribute")
+        return self._get_setting("email_address_attribute")
 
     @email_address_attribute.setter
     def email_address_attribute(self, value: str) -> None:
@@ -382,7 +369,7 @@ class LDAPManager(AuthMethodManager):
 
     @property
     def resource_pool(self) -> str:
-        return self.get_setting("resource_pool")
+        return self._get_setting("resource_pool")
 
     @resource_pool.setter
     def resource_pool(self, value: str | ResourcePool) -> None:

@@ -227,6 +227,7 @@ class LDAPManager(AuthMethodManager):
     _METHOD = "ldap"
     _CONFIG_URL = _BASE_URL + "/config"
     _TEST_URL = _BASE_URL + "/test"
+
     @property
     def server_urls(self) -> str:
         return self._get_setting("server_urls")

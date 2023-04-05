@@ -144,9 +144,8 @@ class AuthMethodManager:
 
         self._session.put(
             self._CONFIG_URL,
-            json={setting: value, "method": self._METHOD},
+            json={setting: value, "method": self._auth_management._method},
         )
-        self._auth_management._method = AuthMethod(self._METHOD)
         if setting in self._settings:
             self._settings[setting] = value
 
@@ -179,9 +178,8 @@ class AuthMethodManager:
             raise ValueError(
                 "Settings include method. Use client.auth_management.method instead."
             )
-        settings["method"] = self._METHOD
+        settings["method"] = self._auth_management._method
         self._session.put(self._CONFIG_URL, json=settings)
-        self._auth_management._method = AuthMethod(self._METHOD)
         self.sync()
 
     def test_auth(self, config: dict, username: str, password: str) -> dict:

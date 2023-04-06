@@ -59,7 +59,7 @@ class AuthManagement:
         if (
             self.auto_sync
             and timestamp - self._last_sync_time > self.auto_sync_interval
-        ) or not self._settings:
+        ):
             self.sync()
 
     def sync(self) -> None:
@@ -86,6 +86,7 @@ class AuthManagement:
     def _get_setting(self, setting: str) -> Any:
         """
         Returns the value of a specific setting of the current authentication method.
+
         Note: consider using parameters instead.
         """
         self.sync_if_outdated()
@@ -190,7 +191,7 @@ class AuthMethodManager:
         if self._auth_management._get_setting("method") != self.METHOD:
             raise MethodNotActive(f"{self.METHOD} is not the currently active method.")
 
-    def _get_setting(self, setting):
+    def _get_setting(self, setting: str) -> Any:
         self._check_method()
         return self._auth_management._get_setting(setting)
 

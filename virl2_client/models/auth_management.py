@@ -59,7 +59,7 @@ class AuthManagement:
         if (
             self.auto_sync
             and timestamp - self._last_sync_time > self.auto_sync_interval
-        ):
+        ) or not self._settings:
             self.sync()
 
     def sync(self) -> None:

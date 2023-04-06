@@ -194,7 +194,7 @@ class AuthMethodManager:
         self._check_method()
         return self._auth_management._get_setting(setting)
 
-    def _update_setting(self, setting, value):
+    def _update_setting(self, setting: str, value: Any) -> None:
         self._check_method()
         self._auth_management._update_setting(setting, value)
 

@@ -61,3 +61,6 @@ class InvalidImageFile(VirlException):
 
 class InvalidProperty(VirlException):
     pass
+
+class MethodNotActive(VirlException):
+    pass

@@ -21,34 +21,37 @@
 from __future__ import annotations
 
 import time
-from enum import Enum
-from typing import Any, Optional
-
-from httpx import Client
+from typing import Any, Optional, TYPE_CHECKING
 
 from .resource_pools import ResourcePool
+from ..exceptions import MethodNotActive
 
-
-class AuthMethod(Enum):
-    LOCAL = "local"
-    LDAP = "ldap"
+if TYPE_CHECKING:
+    from httpx import Client
 
 
 _BASE_URL = "system/auth"
+_CONFIG_URL = _BASE_URL + "/config"
+_TEST_URL = _BASE_URL + "/test"
 
 
 class AuthManagement:
-    _METHOD_URL = _BASE_URL + "/config"
-
     def __init__(self, session: Client, auto_sync=True, auto_sync_interval=1.0):
+        """
+        Sync and modify authentication settings.
+
+        :param session: parent client's httpx.Client object
+        :param auto_sync: whether to automatically synchronize resource pools
+        :param auto_sync_interval: how often to synchronize resource pools in seconds
+        """
         self.auto_sync = auto_sync
         self.auto_sync_interval = auto_sync_interval
         self._last_sync_time = 0.0
         self._session = session
-        self._method = AuthMethod.LOCAL
-        self._managers: dict[AuthMethod, Optional[AuthMethodManager]] = {
-            AuthMethod("local"): None,
-            AuthMethod("ldap"): LDAPManager(self),
+        self._settings = {}
+        self._managers = {
+            "local": None,
+            "ldap": LDAPManager(self),
         }
 
     def sync_if_outdated(self) -> None:
@@ -60,91 +63,51 @@ class AuthManagement:
             self.sync()
 
     def sync(self) -> None:
-        settings: dict = self._session.get(self._METHOD_URL).json()
-        self._method = AuthMethod(settings.pop("method"))
+        self._settings = self._session.get(_CONFIG_URL).json()
         self._last_sync_time = time.time()
-        # Since right now we also get the other settings along with the method, we
-        # might as well save a request and store said settings in the relevant manager
-        if (manager := self._managers[self._method]) is not None:
-            manager._settings = settings
-            manager._last_sync_time = time.time()
 
     @property
-    def method(self) -> AuthMethod:
+    def method(self) -> str:
+        """Current authentication method."""
         self.sync_if_outdated()
-        return self._method
-
-    @method.setter
-    def method(self, value: AuthMethod | str):
-        value = AuthMethod(value)
-        self._session.put(self._METHOD_URL, json={"method": value.value})
-        self._method = value
+        return self._settings["method"]
 
     @property
     def manager(self) -> AuthMethodManager:
         """
-        The manager for the current auth method.
+        The property manager for the current authentication method.
         """
         self.sync_if_outdated()
-        return self._managers[self._method]
-
-
-class AuthMethodManager:
-    _METHOD = ""
-    _CONFIG_URL = ""
-    _TEST_URL = ""
-
-    def __init__(self, auth_management: AuthManagement):
-        self._auth_management = auth_management
-        self._last_sync_time = 0.0
-        self._settings = {}
-
-    def sync_if_outdated(self) -> None:
-        timestamp = time.time()
-        if (
-            self._auth_management.auto_sync
-            and timestamp - self._last_sync_time
-            > self._auth_management.auto_sync_interval
-        ):
-            self.sync()
-
-    def sync(self) -> None:
-        self._settings = self._get_current_settings()
-        self._last_sync_time = time.time()
-
-    @property
-    def _session(self) -> Client:
-        return self._auth_management._session
+        return self._managers[self._settings["method"]]
 
     def _get_current_settings(self) -> dict:
-        settings = self._session.get(self._CONFIG_URL).json()
-        del settings["method"]
-        return settings
+        return self._session.get(_CONFIG_URL).json()
 
     def _get_setting(self, setting: str) -> Any:
         """
-        Returns the value of a specific setting of this authentication method.
+        Returns the value of a specific setting of the current authentication method.
+
         Note: consider using parameters instead.
         """
         self.sync_if_outdated()
         return self._settings[setting]
 
     def get_settings(self) -> dict:
-        """Returns a dictionary of the settings of this authentication method."""
+        """Returns a dictionary of the settings of the current authentication method."""
         self.sync_if_outdated()
         return self._settings.copy()
 
     def _update_setting(self, setting: str, value: Any) -> None:
         """
-        Update a setting for this auth method.
+        Update a setting for the current auth method.
 
         :param setting: the setting to update
         :param value: the value to set the setting to
         """
 
         self._session.put(
-            self._CONFIG_URL,
-            json={setting: value, "method": self._auth_management._method},
+            _CONFIG_URL,
+            json={setting: value, "method": self._settings["method"]},
         )
         if setting in self._settings:
             self._settings[setting] = value
@@ -174,12 +137,7 @@ class AuthMethodManager:
         settings.update(kwargs)
         if not settings:
             raise TypeError("No settings to update.")
-        if settings.get("method"):
-            raise ValueError(
-                "Settings include method. Use client.auth_management.method instead."
-            )
-        settings["method"] = self._auth_management._method
-        self._session.put(self._CONFIG_URL, json=settings)
+        self._session.put(_CONFIG_URL, json=settings)
         self.sync()
 
     def test_auth(self, config: dict, username: str, password: str) -> dict:
@@ -196,7 +154,7 @@ class AuthMethodManager:
             "auth-config": config,
             "auth-data": {"username": username, "password": password},
         }
-        response = self._session.post(self._TEST_URL, json=body)
+        response = self._session.post(_TEST_URL, json=body)
         return response.json()
 
     def test_current_auth(
@@ -217,14 +175,33 @@ class AuthMethodManager:
             "auth-config": current,
             "auth-data": {"username": username, "password": password},
         }
-        response = self._session.post(self._TEST_URL, json=body)
+        response = self._session.post(_TEST_URL, json=body)
         return response.json()
 
 
+class AuthMethodManager:
+    METHOD = ""
+
+    def __init__(self, auth_management: AuthManagement):
+        self._auth_management = auth_management
+
+    def _check_method(self):
+        """This makes sure that storing the manager in a variable won't allow the user
+        to accidentaly set settings of other methods using this."""
+        if self._auth_management._get_setting("method") != self.METHOD:
+            raise MethodNotActive(f"{self.METHOD} is not the currently active method.")
+
+    def _get_setting(self, setting: str) -> Any:
+        self._check_method()
+        return self._auth_management._get_setting(setting)
+
+    def _update_setting(self, setting: str, value: Any) -> None:
+        self._check_method()
+        self._auth_management._update_setting(setting, value)
+
+
 class LDAPManager(AuthMethodManager):
-    _METHOD = "ldap"
-    _CONFIG_URL = _BASE_URL + "/config"
-    _TEST_URL = _BASE_URL + "/test"
+    METHOD = "ldap"
 
     @property
     def server_urls(self) -> str:

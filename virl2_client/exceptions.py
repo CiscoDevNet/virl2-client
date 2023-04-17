@@ -55,6 +55,10 @@ class DesynchronizedError(VirlException):
     pass
 
 
+class InvalidContentType(VirlException):
+    pass
+
+
 class InvalidImageFile(VirlException):
     pass
 

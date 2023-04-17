@@ -32,7 +32,6 @@ from typing import Any, NamedTuple, Optional
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
-from httpx import HTTPStatusError
 
 from .exceptions import InitializationError, LabNotFound
 from .models import (
@@ -241,7 +240,10 @@ class ClientLibrary:
             _LOGGER.warning("SSL Verification disabled")
 
         self._ssl_verify = ssl_verify
-        self._session = make_session(base_url, ssl_verify)
+        try:
+            self._session = make_session(base_url, ssl_verify)
+        except httpx.InvalidURL as exc:
+            raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION
         self.check_controller_version()
 
@@ -735,7 +737,7 @@ class ClientLibrary:
             try:
                 # check if lab exists through REST call
                 topology = self.session.get(f"labs/{lab_id}/topology").json()
-            except HTTPStatusError as e:
+            except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
                     raise LabNotFound("No lab with the given ID exists on the host.")
                 raise

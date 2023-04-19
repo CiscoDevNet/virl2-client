@@ -737,8 +737,8 @@ class ClientLibrary:
             try:
                 # check if lab exists through REST call
                 topology = self.session.get(f"labs/{lab_id}/topology").json()
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 404:
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
                     raise LabNotFound("No lab with the given ID exists on the host.")
                 raise
             title = topology.get("lab", {}).get("title")

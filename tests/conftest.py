@@ -27,8 +27,8 @@ import pytest
 from virl2_client.virl2_client import ClientLibrary
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
-
-FAKE_HOST_API = "https://0.0.0.0/api/v0/"
+FAKE_HOST = "https://0.0.0.0"
+FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 
 
 def client_library_patched_system_info(version):
@@ -138,3 +138,9 @@ def respx_mock_with_labs(respx_mock):
     )
     for api in resp_from_files:
         respx_mock.get(FAKE_HOST_API + api).mock(side_effect=resp_body_from_file)
+
+
+@pytest.fixture
+def client_library(respx_mock_with_labs, change_test_dir):
+    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
+    yield client

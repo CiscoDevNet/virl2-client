@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "virl2_client"
-version = "2.5.0-dev0"
+version = "2.6.0-dev0"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"
@@ -20,8 +20,8 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8.0"
-httpx = "^0.23.0"
+python = "^3.8.1"
+httpx = "^0.24.0"
 
 # optional package for events
 aiohttp = {version = "*", optional = true}
@@ -29,19 +29,17 @@ aiohttp = {version = "*", optional = true}
 # optional pyATS package
 # (this pulls in a lot more dependencies)
 # it does not pull in genie, need to specify extras=["full"] for pyATS.
-# pyats = {extras=["full"], version = "^22.4", optional = true}
-pyats = {version = "^22.4", optional = true}
+# pyats = {extras=["full"], version = "^23", optional = true}
+pyats = {version = "^23", optional = true}
 
 # needed to build documentation, technically, this is a dev-dependency
 # https://github.com/python-poetry/poetry/pull/606 -- no support
 sphinx_rtd_theme = {version="^1", optional = true}
-sphinx =  {version="^5", optional = true}
-
+sphinx =  {version="^6", optional = true}
 
 [tool.poetry.dev-dependencies]
-# flake8 version 6 is available but requires python>=3.8.1
-flake8 = "^5"
-pre-commit = "^2.17.0"
+flake8 = "^6"
+pre-commit = "^3"
 pytest = "*"
 respx = "^0.20.0"
 
@@ -52,4 +50,4 @@ docs = ["sphinx", "sphinx_rtd_theme"]
 
 [build-system]
 requires = ["poetry>=1.1.8"]
-build-backend = "poetry.masonry.api"
+build-backend = "poetry.core.masonry.api"

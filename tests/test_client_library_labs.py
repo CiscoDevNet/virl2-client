@@ -25,9 +25,7 @@ import pytest
 from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
-from virl2_client.virl2_client import ClientLibrary
 
-FAKE_HOST = "https://0.0.0.0"
 RESOURCE_POOL_MANAGER = Mock()
 
 
@@ -305,7 +303,6 @@ def test_find_by_label():
 
     with pytest.raises(NodeNotFound) as exc:
         node = lab.get_node_by_label("does-not-exist")
-        print(exc)
         assert node is None
 
 
@@ -338,18 +335,16 @@ def test_next_free_interface():
     assert nf is None
 
 
-def test_join_existing_lab(change_test_dir, respx_mock_with_labs):
-    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
-    lab = client.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
+def test_join_existing_lab(client_library):
+    lab = client_library.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
     assert lab.title == "IOSv Feature Tests"
     assert lab.statistics == {"nodes": 7, "links": 8, "interfaces": 24}
 
 
-def test_all_labs(client_library_server_current, change_test_dir, respx_mock_with_labs):
-    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
-    all_labs = client.all_labs()
+def test_all_labs(client_library):
+    all_labs = client_library.all_labs()
     assert len(all_labs) == 4
-    iosv_labs = client.find_labs_by_title("IOSv Feature Tests")
+    iosv_labs = client_library.find_labs_by_title("IOSv Feature Tests")
     assert len(iosv_labs) == 1
     lab: Lab = iosv_labs[0]
     node = lab.get_node_by_label("csr1000v-0")

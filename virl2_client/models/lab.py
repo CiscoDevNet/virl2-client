@@ -1434,6 +1434,10 @@ class Lab:
     def sync_pyats(self) -> None:
         self.pyats.sync_testbed(self.username, self.password)
 
+    def cleanup_pyats_connections(self) -> None:
+        """Closes and cleans up connection that pyATS might still hold."""
+        self.pyats.cleanup()
+
     @check_stale
     @locked
     def sync_layer3_addresses(self) -> None:
@@ -1445,10 +1449,6 @@ class Lab:
             mapping = node_data.get("interfaces", {})
             node.map_l3_addresses_to_interfaces(mapping)
         self._last_sync_l3_address_time = time.time()
-
-    def cleanup_pyats_connections(self) -> None:
-        """Closes and cleans up connection that pyATS might still hold."""
-        self.pyats.cleanup()
 
     @check_stale
     def download(self) -> str:
@@ -1482,6 +1482,34 @@ class Lab:
         """
         url = self.lab_base_url + "/groups"
         return self._session.put(url, json=group_list).json()
+
+    @property
+    def connector_mappings(self) -> list[dict[str, Any]]:
+        """Retrieve lab's external connector mappings
+
+        Returns a list of mappings; each mapping has a key, which is used
+        as the configuration of external connector nodes, and a device name,
+        used to uniquely identify the controller host's bridge to use.
+        If unset, the mapping is invalid and nodes using it cannot start.
+        """
+        url = self.lab_base_url + "/connector_mappings"
+        return self._session.get(url).json()
+
+    def update_connector_mappings(
+        self, updates: list[dict[str, str]]
+    ) -> list[dict[str, str]]:
+        """Update lab's external connector mappings
+
+        Accepts a list of mappings, each with a key to add or modify,
+        and the associated device name (bridge) of the controller host.
+        If no running external connector node uses this key, the device_name
+        value may be None to disassociate the bridge from the key; if no node
+        uses this key in its configuration, the mapping entry is removed.
+
+        Returns all connector mappings after updates were applied.
+        """
+        url = self.lab_base_url + "/connector_mappings"
+        return self._session.patch(url, json=updates).json()
 
     @check_stale
     @locked

@@ -42,6 +42,14 @@ if TYPE_CHECKING:
 TCallable = TypeVar("TCallable", bound=Callable)
 
 
+class _Sentinel:
+    def __repr__(self):
+        return "<Unchanged>"
+
+
+_UNCHANGED = _Sentinel()
+
+
 def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
     class_name = owner.__name__

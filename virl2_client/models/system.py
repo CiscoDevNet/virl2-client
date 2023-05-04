@@ -148,19 +148,22 @@ class SystemManagement:
             self._maintenance_notice = self._system_notices.get(notice_id)
         self._last_sync_system_notice_time = time.time()
 
-    def get_external_connectors(self, sync: bool = False) -> list[dict[str, str]]:
+    def get_external_connectors(self, sync: bool | None = None) -> list[dict[str, str]]:
         """
         Get the list of external connectors present on the controller.
         Admin users may enable sync to refresh the cached list from host state.
+        If sync is False, the state is retrieved; if True, configuration is applied
+        back into the controller host.
 
         Device names or tags are used as External Connector nodes' configuration.
         Returns a list of objects with the device name and label.
         """
         url = "/system/external_connectors"
-        method = self._session.get
-        if sync:
-            method = self._session.put
-        return method(url).json()
+        if sync is None:
+            return self._session.get(url).json()
+        else:
+            data = {"push_configured_state": sync}
+            return self._session.put(url, json=data).json()
 
     def update_external_connector(
         self, connector_id: str, data: dict[str, Any]

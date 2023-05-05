@@ -109,11 +109,11 @@ class GroupManagement:
         if name is not None:
             data["name"] = name
         if description is not _UNCHANGED:
-            data["description"] = description or ""
+            data["description"] = description
         if members is not _UNCHANGED:
-            data["members"] = members or []
+            data["members"] = members
         if labs is not _UNCHANGED:
-            data["labs"] = labs or []
+            data["labs"] = labs
         url = self.base_url + "/{}".format(group_id)
         return self._session.patch(url, json=data).json()
 

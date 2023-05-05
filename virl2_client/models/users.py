@@ -98,11 +98,11 @@ class UserManagement:
     def update_user(
         self,
         user_id: str,
-        fullname: str = _UNCHANGED,
-        description: str = _UNCHANGED,
-        groups: list[str] = _UNCHANGED,
+        fullname: Optional[str] = _UNCHANGED,
+        description: Optional[str] = _UNCHANGED,
+        groups: Optional[list[str]] = _UNCHANGED,
         admin: Optional[bool] = None,
-        password_dict: dict[str, str] = None,
+        password_dict: Optional[dict[str, str]] = None,
         resource_pool: Optional[str] = _UNCHANGED,
     ) -> dict:
         """
@@ -119,13 +119,13 @@ class UserManagement:
         """
         data: dict[str, Any] = {}
         if fullname is not _UNCHANGED:
-            data["fullname"] = fullname or ""
+            data["fullname"] = fullname
         if description is not _UNCHANGED:
-            data["description"] = description or ""
+            data["description"] = description
         if admin is not None:
             data["admin"] = admin
         if groups is not _UNCHANGED:
-            data["groups"] = groups or []
+            data["groups"] = groups
         if password_dict is not None:
             data["password"] = password_dict
         if resource_pool is not _UNCHANGED:

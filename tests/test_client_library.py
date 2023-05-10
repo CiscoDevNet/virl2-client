@@ -28,6 +28,7 @@ from unittest.mock import Mock, call, patch
 import httpx
 import pytest
 import respx
+import re
 
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
@@ -216,6 +217,7 @@ def test_client_library_init_disallow_http(client_library_server_current):
 def test_client_library_init_url(
     client_library_server_current, monkeypatch, via, params
 ):
+    monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
     expected_parts = None if fail else httpx.URL(url)
     if via == "environment":
@@ -228,7 +230,7 @@ def test_client_library_init_url(
     else:
         monkeypatch.setenv("VIRL2_URL", env)
     if fail:
-        with pytest.raises(InitializationError):
+        with pytest.raises((InitializationError, OSError)) as e:
             ClientLibrary(
                 url=url,
                 username="virl2",
@@ -236,6 +238,9 @@ def test_client_library_init_url(
                 allow_http=True,
                 raise_for_auth_failure=True,
             )
+            if e == OSError:
+                pattern = "(reading from stdin)"
+                assert re.match(pattern, str(e.value))
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
         url_parts = cl.session.base_url
@@ -253,6 +258,7 @@ def test_client_library_init_url(
 def test_client_library_init_user(
     client_library_server_current, monkeypatch, via, params
 ):
+    monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
     (fail, user) = params
     if via == "environment":
@@ -266,8 +272,11 @@ def test_client_library_init_user(
     else:
         monkeypatch.setenv("VIRL2_USER", env)
     if fail:
-        with pytest.raises(InitializationError):
+        with pytest.raises((OSError, InitializationError)) as e:
             ClientLibrary(url=url, username=user, password="virl2")
+            if e == OSError:
+                pattern = "(reading from stdin)"
+                assert re.match(pattern, str(e.value))
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
         assert cl.username == params[1]
@@ -280,6 +289,7 @@ def test_client_library_init_user(
 def test_client_library_init_password(
     client_library_server_current, monkeypatch, via, params
 ):
+    monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
     (fail, password) = params
     if via == "environment":
@@ -293,8 +303,11 @@ def test_client_library_init_password(
     else:
         monkeypatch.setenv("VIRL2_PASS", env)
     if fail:
-        with pytest.raises(InitializationError):
+        with pytest.raises((OSError, InitializationError)) as e:
             ClientLibrary(url=url, username="virl2", password=password)
+            if e == OSError:
+                pattern = "(reading from stdin)"
+                assert re.match(pattern, str(e.value))
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"

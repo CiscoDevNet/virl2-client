@@ -45,6 +45,7 @@ from .models import (
     TokenAuth,
     UserManagement,
 )
+from .models.configuration import get_configuration
 from .models.authentication import make_session
 from .utils import locked
 
@@ -163,7 +164,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.5.0")
+    VERSION = Version("2.6.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -211,8 +212,12 @@ class ClientLibrary:
         :raises InitializationError: If no URL is provided,
             authentication fails or host can't be reached
         """
+        url, username, password, cert = get_configuration(
+            url, username, password, ssl_verify
+        )
+        if cert is not None:
+            ssl_verify = cert
 
-        url = self._environ_get("VIRL2_URL", url)
         if url is None or len(url) == 0:
             message = "no URL provided"
             raise InitializationError(message)

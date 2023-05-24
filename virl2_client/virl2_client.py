@@ -45,8 +45,8 @@ from .models import (
     TokenAuth,
     UserManagement,
 )
-from .models.configuration import get_configuration
 from .models.authentication import make_session
+from .models.configuration import get_configuration
 from .utils import locked
 
 _LOGGER = logging.getLogger(__name__)
@@ -194,23 +194,26 @@ class ClientLibrary:
         also be a string that points to a cert (see class documentation).
 
         :param url: URL of controller. It's also possible to pass the
-            URL via the ``VIRL2_URL`` environment variable. If no protocol
-            scheme is provided, "https:" is used.
-        :param username: Username of the user to authenticate
-        :param password: Password of the user to authenticate
+            URL via the ``VIRL2_URL`` or ``VIRL_HOST`` environment variable.
+            If no protocol scheme is provided, "https:" is used.
+        :param username: Username of the user to authenticate. It's also possible
+            to pass the username via ``VIRL2_USER`` or ``VIRL_USERNAME`` variable.
+        :param password: Password of the user to authenticate. It's also possible
+            to pass the password via ``VIRL2_PASS`` or ``VIRL_PASSWORD`` variable.
         :param ssl_verify: Path SSL controller certificate, or True to load
-            from ``CA_BUNDLE`` environment variable, or False to disable
+            from ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variable,
+            or False to disable.
         :param raise_for_auth_failure: Raise an exception if unable
-            to connect to controller (use for scripting scenarios)
+            to connect to controller (use for scripting scenarios).
         :param allow_http: If set, a https URL will not be enforced
         :param convergence_wait_max_iter: maximum number of iterations to wait for
-            lab to converge
+            lab to converge.
         :param convergence_wait_time: wait interval in seconds to wait during one
-            iteration during lab convergence wait
+            iteration during lab convergence wait.
         :param events: whether to use events - event listeners for state updates and
-            event handlers for custom handling
+            event handlers for custom handling.
         :raises InitializationError: If no URL is provided,
-            authentication fails or host can't be reached
+            authentication fails or host can't be reached.
         """
         url, username, password, cert = get_configuration(
             url, username, password, ssl_verify
@@ -218,28 +221,9 @@ class ClientLibrary:
         if cert is not None:
             ssl_verify = cert
 
-        if url is None or len(url) == 0:
-            message = "no URL provided"
-            raise InitializationError(message)
-
         url, base_url = prepare_url(url, allow_http)
-
-        # check environment for username
-        username = self._environ_get("VIRL2_USER", username)
-        if username is None or len(username) == 0:
-            message = "no username provided"
-            raise InitializationError(message)
         self.username: str = username
-
-        # check environment for password
-        password = self._environ_get("VIRL2_PASS", password)
-        if password is None or len(password) == 0:
-            message = "no password provided"
-            raise InitializationError(message)
         self.password: str = password
-
-        if ssl_verify is True:
-            ssl_verify = self._environ_get("CA_BUNDLE", default=True)
 
         if ssl_verify is False:
             _LOGGER.warning("SSL Verification disabled")

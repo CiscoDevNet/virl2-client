@@ -10,6 +10,8 @@ import getpass
 import os
 from pathlib import Path
 
+from virl2_client.exceptions import InitializationError
+
 _CONFIG_FILE_NAME = ".virlrc"
 
 
@@ -28,14 +30,13 @@ def _get_from_file(virlrc_parent: Path, prop_name: str) -> str | None:
     return None
 
 
-def get_prop(prop_name: str) -> str:
+def _get_prop(prop_name: str) -> str:
     """
     Gets a variable using the following order:
     * Check for .virlrc in current directory
     * Recurse up directory tree for .virlrc
     * Check environment variables
     * Check ~/.virlrc
-    * Prompt user
 
     """
     # check for .virlrc in current directory
@@ -66,29 +67,36 @@ def get_configuration(
     Used to get login configuration
     The login configuration is taken in the following order:
     * Check for .virlrc in the current directory
+    * Recurse up directory tree for .virlrc
     * Check environment variables
     * Check ~/.virlrc
-    * Prompt user
+    * Prompt user (except cert path)
     """
-    if not host:
-        host = get_prop("VIRL2_URL")
-        if not host:
-            host = input("Please enter the IP / hostname of your virl server: ")
+    if not (
+        host
+        or (host := _get_prop("VIRL2_URL") or _get_prop("VIRL_HOST"))
+        or (host := input("Please enter the IP / hostname of your virl server: "))
+    ):
+        message = "no URL provided"
+        raise InitializationError(message)
 
-    if not username:
-        username = get_prop("VIRL2_USER")
-        if not username:
-            username = input("Please enter your VIRL username: ")
+    if not (
+        username
+        or (username := _get_prop("VIRL2_USER") or _get_prop("VIRL_USERNAME"))
+        or (username := input("Please enter your VIRL username: "))
+    ):
+        message = "no username provided"
+        raise InitializationError(message)
 
-    if not password:
-        password = get_prop("VIRL2_PASS")
-        if not password:
-            password = getpass.getpass("Please enter your password: ")
+    if not (
+        password
+        or (password := _get_prop("VIRL2_PASS") or _get_prop("VIRL_PASSWORD"))
+        or (password := getpass.getpass("Please enter your password: "))
+    ):
+        message = "no password provided"
+        raise InitializationError(message)
 
     if ssl_verify is True:
-        ssl_verify = get_prop("CA_BUNDLE")
+        ssl_verify = _get_prop("CA_BUNDLE") or _get_prop("CML_VERIFY_CERT")
 
-    if all([host, username, password]):
-        return host, username, password, ssl_verify
-    print("Unable to determine CML/VIRL credentials, please see docs")
-    exit(1)
+    return host, username, password, ssl_verify

@@ -47,25 +47,28 @@ def store_original_file(files_to_store):
 
 @pytest.fixture
 def tested_credentials(files_to_store):
-    credentials_dict = {
-        "VIRL2_URL": "https://0.0.0.0/test_fake_url/",
+    configuration = {
+        "VIRL2_URL": "0.0.0.0",
+        "VIRL_HOST": "0.0.0.0",
         "VIRL2_USER": "test_admin",
+        "VIRL_USERNAME": "test_admin",
         "VIRL2_PASS": "test_test123",
+        "VIRL_PASSWORD": "test_test123",
     }
     virlrc_test = Path(".virlrc_test")
     if not virlrc_test.is_file():
-        return credentials_dict
+        return configuration
 
     with virlrc_test.open("r") as f:
         for line in f.readlines():
             try:
                 name, value = line.split("=", 1)
-                if name in credentials_dict:
-                    credentials_dict[name] = value
+                if name in configuration:
+                    configuration[name] = value
             except ValueError:
                 continue
 
-    return credentials_dict
+    return configuration
 
 
 @pytest.fixture(autouse=True)
@@ -93,11 +96,9 @@ def store_original_exports(tested_credentials):
 def test_local_virlrc(
     tested_credentials, client_library_server_current, mocked_session, cwd_virlrc
 ):
-
     # load test data into file
     with cwd_virlrc.open("w") as f:
         for name, value in tested_credentials.items():
-            print(name, value)
             f.write(f"{name}={value}\n")
 
     assert cwd_virlrc.is_file()
@@ -110,7 +111,6 @@ def test_local_virlrc(
 def test_export_credentials(
     tested_credentials, client_library_server_current, mocked_session, cwd_virlrc
 ):
-
     for name, value in tested_credentials.items():
         assert os.environ.get(name, None) is None
         os.environ[name] = value
@@ -152,11 +152,10 @@ def test_read_from_stdin(
     home_virlrc,
     cwd_virlrc,
 ):
-
     assert not home_virlrc.is_file()
     assert not cwd_virlrc.is_file()
     for name in tested_credentials:
         assert name not in os.environ
 
     with pytest.raises(OSError, match="reading from stdin"):
-        cl = ClientLibrary(ssl_verify=False)
+        _ = ClientLibrary(ssl_verify=False)

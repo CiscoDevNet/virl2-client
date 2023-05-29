@@ -21,6 +21,7 @@
 import json
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -200,7 +201,9 @@ def test_client_library_init_disallow_http(client_library_server_current):
         ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
 
 
+# the test fails if you have variables set in .virlci or env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
+@pytest.mark.parametrize("env_var", ["VIRL2_URL", "VIRL_HOST"])
 @pytest.mark.parametrize(
     "params",
     [
@@ -214,8 +217,9 @@ def test_client_library_init_disallow_http(client_library_server_current):
     ],
 )
 def test_client_library_init_url(
-    client_library_server_current, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, env_var, params
 ):
+    monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
     expected_parts = None if fail else httpx.URL(url)
     if via == "environment":
@@ -224,11 +228,11 @@ def test_client_library_init_url(
     else:
         env = "http://badhost" if url else None
     if env is None:
-        monkeypatch.delenv("VIRL2_URL", raising=False)
+        monkeypatch.delenv(env_var, raising=False)
     else:
-        monkeypatch.setenv("VIRL2_URL", env)
+        monkeypatch.setenv(env_var, env)
     if fail:
-        with pytest.raises(InitializationError):
+        with pytest.raises((InitializationError, OSError)) as err:
             ClientLibrary(
                 url=url,
                 username="virl2",
@@ -236,6 +240,9 @@ def test_client_library_init_url(
                 allow_http=True,
                 raise_for_auth_failure=True,
             )
+            if isinstance(err, OSError):
+                pattern = "(reading from stdin)"
+                assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
         url_parts = cl.session.base_url
@@ -248,11 +255,14 @@ def test_client_library_init_url(
         assert cl.password == "virl2"
 
 
+# the test fails if you have variables set in .virlci or env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
+@pytest.mark.parametrize("env_var", ["VIRL2_USER", "VIRL_USERNAME"])
 @pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_server_current, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, env_var, params
 ):
+    monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
     (fail, user) = params
     if via == "environment":
@@ -262,12 +272,15 @@ def test_client_library_init_user(
     else:
         env = "baduser" if user else None
     if env is None:
-        monkeypatch.delenv("VIRL2_USER", raising=False)
+        monkeypatch.delenv(env_var, raising=False)
     else:
-        monkeypatch.setenv("VIRL2_USER", env)
+        monkeypatch.setenv(env_var, env)
     if fail:
-        with pytest.raises(InitializationError):
+        with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username=user, password="virl2")
+            if isinstance(err, OSError):
+                pattern = "(reading from stdin)"
+                assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
         assert cl.username == params[1]
@@ -275,11 +288,14 @@ def test_client_library_init_user(
         assert cl.session.base_url == "https://validhostname/api/v0/"
 
 
+# the test fails if you have variables set in .virlci or env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
+@pytest.mark.parametrize("env_var", ["VIRL2_PASS", "VIRL_PASSWORD"])
 @pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_server_current, monkeypatch, via, params
+    client_library_server_current, monkeypatch, via, env_var, params
 ):
+    monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
     (fail, password) = params
     if via == "environment":
@@ -289,12 +305,15 @@ def test_client_library_init_password(
     else:
         env = "badpass" if password else None
     if env is None:
-        monkeypatch.delenv("VIRL2_PASS", raising=False)
+        monkeypatch.delenv(env_var, raising=False)
     else:
-        monkeypatch.setenv("VIRL2_PASS", env)
+        monkeypatch.setenv(env_var, env)
     if fail:
-        with pytest.raises(InitializationError):
+        with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username="virl2", password=password)
+            if isinstance(err, OSError):
+                pattern = "(reading from stdin)"
+                assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"

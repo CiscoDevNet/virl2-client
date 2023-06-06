@@ -19,8 +19,12 @@
 # limitations under the License.
 #
 
+# This script demonstrates various functionalities of the client library.
+# Each example is accompanied by comments explaining its purpose and usage.
+
 from virl2_client import ClientLibrary
 
+# Licensing setup configuration
 CERT = """-----BEGIN CERTIFICATE-----
 MIIDGzCCAgOgAwIBAgIBATANBgkqhkiG9w0BAQsFADAvMQ4wDAYDVQQKEwVDaXNj
 WhcNMzMwNDI0MjE1NTQzWjAvMQ4wDAYDVQQKEwVDaXNjbzEdMBsGA1UEAxMUTGlj
@@ -45,55 +49,74 @@ TOKEN = (
 )
 
 
-# setup the connection and clean everything
-cl = ClientLibrary("http://localhost:8001", "cml2", "cml2cml2", allow_http=True)
-cl.is_system_ready(wait=True)
+# Set up the CML 2 connection
+server_url = "http://localhost:8001"
+username = "cml2"  # Default username if not changed in CML instance
+password = "cml2cml2"  # Default password if not changed in CML instance
+client_library = ClientLibrary(server_url, username, password, allow_http=True)
 
-# set transport if needed - also proxy can be set if needed
-# cl.licensing.licensing.set_transport(
-#     ssms=ssms, proxy_server="172.16.1.100", proxy_port=8888
-# )
-cl.licensing.set_transport(ssms=SSMS)
-cl.licensing.install_certificate(cert=CERT)
-# 'register_wait' method waits max 45s for registration status to become COMPLETED
-# and another 45s for authorization status to become IN_COMPLIANCE
-cl.licensing.register_wait(token=TOKEN)
+# Check if the CML 2 system is ready
+client_library.is_system_ready(wait=True)
 
+# Set up licensing configuration
+client_library.licensing.set_transport(ssms=SSMS)
+client_library.licensing.install_certificate(cert=CERT)
+client_library.licensing.register_wait(token=TOKEN)
 
-lab_list = cl.get_lab_list()
+# Get a list of existing labs and print their details
+lab_list = client_library.get_lab_list()
 for lab_id in lab_list:
-    lab = cl.join_existing_lab(lab_id)
-    lab.stop()
-    lab.wipe()
-    cl.remove_lab(lab_id)
+    lab = client_library.join_existing_lab(lab_id)
+    print("Lab ID:", lab.id)
+    print("Lab Title:", lab.title)
+    print("Lab Description:", lab.description)
+    print("Lab State:", lab.state)
+    print("----")
 
-lab = cl.create_lab()
-lab = cl.join_existing_lab(lab_id="lab_1")
+# A simpler way to join all labs at once
+labs = client_library.all_labs()
 
-s1 = lab.create_node("s1", "server", 50, 100)
-s2 = lab.create_node("s2", "server", 50, 200)
-print(s1, s2)
+# Create a lab
+lab = client_library.create_lab()
 
-# create a link between s1 and s2, equivalent to
-#   s1_i1 = s1.create_interface()
-#   s2_i1 = s2.create_interface()
-#   lab.create_link(s1_i1, s2_i1)
-lab.connect_two_nodes(s1, s2)
+# Create two server nodes
+server1 = lab.create_node("server1", "server", 50, 100)
+server2 = lab.create_node("server2", "server", 50, 200)
+print("Created nodes:", server1, server2)
 
-# this must remove the link between s1 and s2
-lab.remove_node(s2)
+# Create a link between server1 and server2
+link = lab.connect_two_nodes(server1, server2)
+print("Created link between server1 and server2")
 
+# Remove the link between server1 and server2
+link.remove()
+print("Removed link between server1 and server2")
+
+# Manually synchronize lab states - this happens automatically once per second
+# by default, but we can skip the wait by calling this method
 lab.sync_states()
+
+# Print the state of each node and its interfaces
 for node in lab.nodes():
-    print(node, node.state)
-    for iface in node.interfaces():
-        print(iface, iface.state)
+    print(f"Node: {node.label} | State: {node.state}")
+    for interface in node.interfaces():
+        print(f"    Interface: {interface.label} | State: {interface.state}")
 
-assert [link for link in lab.links() if link.state is not None] == []
+# Export a lab topology to a file
+lab_data = lab.download()
+with open("demo_lab_export.yaml", "w") as file:
+    file.write(lab_data)
+print("Lab exported successfully.")
 
-# in case you's like to deregister after you're done
-status = cl.licensing.deregister()
-cl.licensing.remove_certificate()
-# set licensing back to default transport
-# default ssms is "https://smartreceiver.cisco.com/licservice/license"
-cl.licensing.set_default_transport()
+# Clean up the lab
+lab.stop()
+lab.wipe()
+lab.remove()  # or client_library.remove_lab(lab_id)
+
+# Deregister and remove the certificate (optional)
+client_library.licensing.deregister()
+client_library.licensing.remove_certificate()
+
+# Set licensing back to the default transport (optional)
+# Default SSMS is "https://smartreceiver.cisco.com/licservice/license"
+client_library.licensing.set_default_transport()

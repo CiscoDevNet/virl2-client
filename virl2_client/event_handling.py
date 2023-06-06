@@ -1,10 +1,30 @@
+#
+# This file is part of VIRL 2
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# All rights reserved.
+#
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from __future__ import annotations
 
 import asyncio
 import logging
 from abc import ABC, abstractmethod
 from os import name as os_name
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, TYPE_CHECKING, Union
 
 from .exceptions import ElementNotFound, LabNotFound
 
@@ -22,31 +42,41 @@ if os_name == "nt":
 
 
 class Event:
-    """An event object, stores parsed info about the event it represents."""
-
     def __init__(self, event_dict: dict[str, Any]):
+        """
+        An event object, stores parsed info about the event it represents.
+
+        :param event_dict: A dictionary containing event data.
+        """
         self.type: str = (event_dict.get("event_type") or "").casefold()
-        self.subtype_original: Optional[str] = event_dict.get("event")
+        self.subtype_original: str | None = event_dict.get("event")
         self.subtype: str = (self.subtype_original or "").casefold()
         self.element_type: str = (event_dict.get("element_type") or "").casefold()
         self.lab_id: str = event_dict.get("lab_id", "")
         self.element_id: str = event_dict.get("element_id", "")
-        self.data: Optional[dict] = event_dict.get("data")
-        self.lab: Optional[Lab] = None
+        self.data: dict | None = event_dict.get("data")
+        self.lab: Lab | None = None
         self.element: Union[Node, Interface, Link, None] = None
 
 
 class EventHandlerBase(ABC):
-    """
-    Abstract base class for event handlers. Subclass this if you
-    want to implement the entire event handling mechanism from scratch,
-    otherwise subclass EventHandler instead.
-    """
-
     def __init__(self, client_library: ClientLibrary = None):
+        """
+        Abstract base class for event handlers.
+
+        Subclass this if you want to implement the entire event handling mechanism
+        from scratch, otherwise subclass EventHandler instead.
+
+        :param client_library: The client library which should be modified by events.
+        """
         self.client_library = client_library
 
     def parse_event(self, event: Event) -> None:
+        """
+        Parse and handle the given event.
+
+        :param event: An Event object representing the event to be parsed.
+        """
         if event.type == "lab_event":
             self._parse_lab(event)
         elif event.type == "lab_element_event":
@@ -57,6 +87,11 @@ class EventHandlerBase(ABC):
             self._parse_other(event)
 
     def _parse_lab(self, event: Event) -> None:
+        """
+        Handle lab events.
+
+        :param event: An Event object representing the lab event.
+        """
         if event.subtype == "created":
             self._parse_lab_created(event)
         elif event.subtype == "modified":
@@ -66,25 +101,50 @@ class EventHandlerBase(ABC):
         elif event.subtype == "state":
             self._parse_lab_state(event)
         else:
-            _LOGGER.warning("Received an invalid lab event (%s)", event.subtype)
+            _LOGGER.warning(f"Received an invalid lab event ({event.subtype})")
 
     @abstractmethod
     def _parse_lab_created(self, event: Event) -> None:
+        """
+        Handle lab created events.
+
+        :param event: An Event object representing the lab created event.
+        """
         pass
 
     @abstractmethod
     def _parse_lab_modified(self, event: Event) -> None:
+        """
+        Handle lab modified events.
+
+        :param event: An Event object representing the lab modified event.
+        """
         pass
 
     @abstractmethod
     def _parse_lab_deleted(self, event: Event) -> None:
+        """
+        Handle lab deleted events.
+
+        :param event: An Event object representing the lab deleted event.
+        """
         pass
 
     @abstractmethod
     def _parse_lab_state(self, event: Event) -> None:
-        pass  # TODO: implement lab state sync via events
+        """
+        Handle lab state events.
+
+        :param event: An Event object representing the lab state event.
+        """
+        pass
 
     def _parse_element(self, event: Event) -> None:
+        """
+        Handle lab element events.
+
+        :param event: An Event object representing the lab element event.
+        """
         if event.subtype == "created":
             self._parse_element_created(event)
         elif event.subtype == "modified":
@@ -92,34 +152,61 @@ class EventHandlerBase(ABC):
         elif event.subtype == "deleted":
             self._parse_element_deleted(event)
         else:
-            _LOGGER.warning("Received an invalid element event (%s)", event.subtype)
+            _LOGGER.warning(f"Received an invalid element event ({event.subtype})")
 
     @abstractmethod
     def _parse_element_created(self, event: Event) -> None:
+        """
+        Handle element created events.
+
+        :param event: An Event object representing the element created event.
+        """
         pass
 
     @abstractmethod
     def _parse_element_modified(self, event: Event) -> None:
+        """
+        Handle element modified events.
+
+        :param event: An Event object representing the element modified event.
+        """
         pass
 
     @abstractmethod
     def _parse_element_deleted(self, event: Event) -> None:
+        """
+        Handle element deleted events.
+
+        :param event: An Event object representing the element deleted event.
+        """
         pass
 
     @abstractmethod
     def _parse_state_change(self, event: Event) -> None:
+        """
+        Handle state change events.
+
+        :param event: An Event object representing the state change event.
+        """
         pass
 
     def _parse_other(self, event: Event) -> None:
+        """
+        Handle other events.
+
+        :param event: An Event object representing the other event.
+        """
         # All other events are useless to the client, but in case some handling
         # needs to be done on them, this method can be overridden
         pass
 
 
 class EventHandler(EventHandlerBase):
-    """Handler for JSON events received from controller over websockets.
+    """
+    Handler for JSON events received from controller over websockets.
     Used by EventListener by default, but can be subclassed and methods overridden
-    to change/extend the handling mechanism, then passed to EventListener."""
+    to change/extend the handling mechanism, then passed to EventListener.
+    """
 
     def parse_event(self, event: Event) -> None:
         if event.type in ("lab_stats", "system_stats"):
@@ -141,23 +228,6 @@ class EventHandler(EventHandlerBase):
                     event.element = event.lab.get_link_by_id(event.element_id)
             except ElementNotFound:
                 return
-                # This should really raise the following error, but the order
-                # in which the events arrive is inconsistent, so sometimes
-                # when e.g. a node is deleted, the node deletion event
-                # arrives before the interface deletion events, so the interfaces
-                # no longer exist by the time their deletion events arrive,
-                # which would raise an unwarranted DesynchronizedError
-                # so instead for now, we just ignore those events
-                # TODO: implement serverside echo prevention and consistent message
-                #  order for all events and raise the following error
-                # raise DesynchronizedError(
-                #     "{} {} not found in lab {}, "
-                #     "likely due to desynchronization".format(
-                #         event.element_type,
-                #         event.element_id,
-                #         event.lab_id,
-                #     )
-                # )
 
         super().parse_event(event)
 
@@ -195,13 +265,15 @@ class EventHandler(EventHandlerBase):
                 event.data["interface_b"],
             )
         else:
-            _LOGGER.warning("Received an invalid element type (%s)", event.element_type)
+            _LOGGER.warning(f"Received an invalid element type ({event.element_type})")
             return
         new_element._state = event.data.get("state")
 
     def _parse_element_modified(self, event: Event) -> None:
         if event.element_type == "node":
-            event.element.update(event.data, exclude_configurations=False)
+            event.element.update(
+                event.data, exclude_configurations=False, push_to_server=False
+            )
 
         elif event.element_type == "interface":
             # it seems only port change info arrives here,
@@ -215,9 +287,8 @@ class EventHandler(EventHandlerBase):
 
         else:
             _LOGGER.warning(
-                "Received an invalid lab element event (%s %s)",
-                event.subtype,
-                event.element_type,
+                f"Received an invalid lab element event "
+                f"({event.subtype} {event.element_type})"
             )
 
     def _parse_element_deleted(self, event: Event) -> None:
@@ -232,9 +303,8 @@ class EventHandler(EventHandlerBase):
 
         else:
             _LOGGER.warning(
-                "Received an invalid lab element event (%s %s)",
-                event.subtype,
-                event.element_type,
+                f"Received an invalid lab element event "
+                f"({event.subtype} {event.element_type})"
             )
 
     def _parse_state_change(self, event: Event) -> None:

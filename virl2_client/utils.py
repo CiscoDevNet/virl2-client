@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Optional, Type, TypeVar, Union, cast
+from typing import Callable, cast, Type, TYPE_CHECKING, TypeVar, Union
 
 import httpx
 
@@ -32,6 +32,7 @@ from .exceptions import (
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
+    VirlException,
 )
 
 if TYPE_CHECKING:
@@ -71,12 +72,12 @@ def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
 def _check_and_mark_stale(
     func: Callable,
     instance: Element,
-    owner: Optional[Type[Element]] = None,
+    owner: Type[Element] | None = None,
     *args,
     **kwargs,
 ):
     """
-    Checks staleness before and after calling `func`
+    Check staleness before and after calling `func`
     and updates staleness if a 404 is raised.
 
     :param func: the function to be called if not stale
@@ -112,9 +113,7 @@ def _check_and_mark_stale(
 
 
 def check_stale(func: TCallable) -> TCallable:
-    """
-    A decorator that will make the wrapped function check staleness.
-    """
+    """A decorator that will make the wrapped function check staleness."""
 
     @wraps(func)
     def wrapper_stale(*args, **kwargs):
@@ -148,3 +147,22 @@ def locked(func: TCallable) -> TCallable:
             return func(*args, **kwargs)
 
     return cast(TCallable, wrapper_locked)
+
+
+def _url_from_template(
+    endpoint: str, url_templates: dict[str, str], values: dict | None = None
+):
+    """
+    Generate the URL for a given API endpoint from given templates.
+
+    :param endpoint: The desired endpoint.
+    :param url_templates: The templates to map values to.
+    :param values: Keyword arguments used to format the URL.
+    :returns: The formatted URL.
+    """
+    endpoint_url_template = url_templates.get(endpoint)
+    if endpoint_url_template is None:
+        raise VirlException(f"Invalid endpoint: {endpoint}")
+    if values is None:
+        return endpoint_url_template
+    return endpoint_url_template.format(**values)

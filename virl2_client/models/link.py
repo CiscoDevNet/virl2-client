@@ -24,10 +24,9 @@ import logging
 import time
 import warnings
 from functools import total_ordering
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from ..utils import check_stale, locked
-from ..utils import property_s as property
+from ..utils import _url_from_template, check_stale, locked, property_s as property
 
 if TYPE_CHECKING:
     import httpx
@@ -41,31 +40,42 @@ _LOGGER = logging.getLogger(__name__)
 
 @total_ordering
 class Link:
+    _URL_TEMPLATES = {
+        "link": "{lab}/links/{id}",
+        "check_if_converged": "{lab}/links/{id}/check_if_converged",
+        "state": "{lab}/links/{id}/state",
+        "start": "{lab}/links/{id}/state/start",
+        "stop": "{lab}/links/{id}/state/stop",
+        "condition": "{lab}/links/{id}/condition",
+    }
+
     def __init__(
         self,
         lab: Lab,
         lid: str,
         iface_a: Interface,
         iface_b: Interface,
-        label: Optional[str] = None,
+        label: str | None = None,
     ) -> None:
         """
         A VIRL2 network link between two nodes, connecting
         to two interfaces on these nodes.
 
-        :param lab: the lab object
-        :param lid: the link ID
-        :param iface_a: the first interface of the link
-        :param iface_b: the second interface of the link
-        :param label: the link label
+        :param lab: The lab object to which the link belongs.
+        :param lid: The ID of the link.
+        :param iface_a: The first interface of the link.
+        :param iface_b: The second interface of the link.
+        :param label: The label of the link.
         """
         self._id = lid
         self._interface_a = iface_a
         self._interface_b = iface_b
         self._label = label
         self.lab = lab
-        self._session: httpx.Client = lab.session
-        self._state: Optional[str] = None
+        self._session: httpx.Client = lab._session
+        self._state: str | None = None
+        # When the link is removed on the server, this link object is marked stale
+        # and can no longer be interacted with - the user should discard it
         self._stale = False
         self.statistics = {
             "readbytes": 0,
@@ -100,111 +110,147 @@ class Link:
     def __hash__(self):
         return hash(self._id)
 
+    def _url_for(self, endpoint, **kwargs):
+        """
+        Generate the URL for a given API endpoint.
+
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
+        """
+        kwargs["lab"] = self.lab._url_for("lab")
+        kwargs["id"] = self.id
+        return _url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
     @property
-    def id(self):
+    def id(self) -> str:
+        """Return the ID of the link."""
         return self._id
 
     @property
-    def interface_a(self):
+    def interface_a(self) -> Interface:
+        """Return the first interface of the link."""
         return self._interface_a
 
     @property
-    def interface_b(self):
+    def interface_b(self) -> Interface:
+        """Return the second interface of the link."""
         return self._interface_b
 
     @property
     @locked
-    def state(self) -> Optional[str]:
+    def state(self) -> str | None:
+        """Return the current state of the link."""
         self.lab.sync_states_if_outdated()
         if self._state is None:
-            url = self.base_url
+            url = self._url_for("link")
             self._state = self._session.get(url).json()["state"]
         return self._state
 
     @property
     def readbytes(self) -> int:
+        """Return the number of read bytes on the link."""
         self.lab.sync_statistics_if_outdated()
         return self.statistics["readbytes"]
 
     @property
     def readpackets(self) -> int:
+        """Return the number of read packets on the link."""
         self.lab.sync_statistics_if_outdated()
         return self.statistics["readpackets"]
 
     @property
     def writebytes(self) -> int:
+        """Return the number of written bytes on the link."""
         self.lab.sync_statistics_if_outdated()
         return self.statistics["writebytes"]
 
     @property
     def writepackets(self) -> int:
+        """Return the number of written packets on the link."""
         self.lab.sync_statistics_if_outdated()
         return self.statistics["writepackets"]
 
     @property
     def node_a(self) -> Node:
+        """Return the first node connected to the link."""
         self.lab.sync_topology_if_outdated()
         return self.interface_a.node
 
     @property
     def node_b(self) -> Node:
+        """Return the second node connected to the link."""
         self.lab.sync_topology_if_outdated()
         return self.interface_b.node
 
     @property
     @locked
     def nodes(self) -> tuple[Node, Node]:
-        """Return nodes this link connects."""
+        """Return the nodes connected by the link."""
         self.lab.sync_topology_if_outdated()
         return self.node_a, self.node_b
 
     @property
     @locked
     def interfaces(self) -> tuple[Interface, Interface]:
+        """Return the interfaces connected by the link."""
         self.lab.sync_topology_if_outdated()
         return self.interface_a, self.interface_b
 
     @property
-    def label(self) -> Optional[str]:
+    def label(self) -> str | None:
+        """Return the label of the link."""
         self.lab.sync_topology_if_outdated()
         return self._label
 
     @locked
     def as_dict(self) -> dict[str, str]:
+        """
+        Convert the link object to a dictionary representation.
+
+        :returns: A dictionary representation of the link object.
+        """
         return {
             "id": self.id,
             "interface_a": self.interface_a.id,
             "interface_b": self.interface_b.id,
         }
 
-    @property
-    def lab_base_url(self) -> str:
-        return self.lab.lab_base_url
-
-    @property
-    def base_url(self) -> str:
-        return self.lab_base_url + "/links/{}".format(self.id)
-
     def remove(self):
+        """Remove the link from the lab."""
         self.lab.remove_link(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
-        _LOGGER.info("Removing link %s", self)
-        url = self.base_url
+        _LOGGER.info(f"Removing link {self}")
+        url = self._url_for("link")
         self._session.delete(url)
 
     def remove_on_server(self) -> None:
+        """
+        DEPRECATED: Use `.remove()` instead.
+        (Reason: was never meant to be public, removing only on server is not useful)
+
+        Remove the link on the server.
+        """
         warnings.warn(
-            "'Link.remove_on_server()' is deprecated, use 'Link.remove()' instead.",
+            "'Link.remove_on_server()' is deprecated. Use '.remove()' instead.",
             DeprecationWarning,
         )
         self._remove_on_server()
 
     def wait_until_converged(
-        self, max_iterations: Optional[int] = None, wait_time: Optional[int] = None
+        self, max_iterations: int | None = None, wait_time: int | None = None
     ) -> None:
-        _LOGGER.info("Waiting for link %s to converge", self.id)
+        """
+        Wait until the link has converged.
+
+        :param max_iterations: The maximum number of iterations to wait for convergence.
+        :param wait_time: The time to wait between iterations.
+        :raises RuntimeError: If the link does not converge within the specified number
+            of iterations.
+        """
+        _LOGGER.info(f"Waiting for link {self.id} to converge")
         max_iter = (
             self.lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -212,21 +258,16 @@ class Link:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info("Link %s has converged", self.id)
+                _LOGGER.info(f"Link {self.id} has converged")
                 return
 
             if index % 10 == 0:
                 _LOGGER.info(
-                    "Link has not converged, attempt %s/%s, waiting...",
-                    index,
-                    max_iter,
+                    f"Link has not converged, attempt {index}/{max_iter}, waiting..."
                 )
             time.sleep(wait_time)
 
-        msg = "Link %s has not converged, maximum tries %s exceeded" % (
-            self.id,
-            max_iter,
-        )
+        msg = f"Link {self.id} has not converged, maximum tries {max_iter} exceeded"
         _LOGGER.error(msg)
         # after maximum retries are exceeded and link has not converged
         # error must be raised - it makes no sense to just log info
@@ -236,20 +277,34 @@ class Link:
 
     @check_stale
     def has_converged(self) -> bool:
-        url = self.base_url + "/check_if_converged"
-        converged = self._session.get(url).json()
-        return converged
+        """
+        Check if the link has converged.
+
+        :returns: True if the link has converged, False otherwise.
+        """
+        url = self._url_for("check_if_converged")
+        return self._session.get(url).json()
 
     @check_stale
-    def start(self, wait: Optional[bool] = None) -> None:
-        url = self.base_url + "/state/start"
+    def start(self, wait: bool | None = None) -> None:
+        """
+        Start the link.
+
+        :param wait: Whether to wait for convergence after starting the link.
+        """
+        url = self._url_for("start")
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
     @check_stale
-    def stop(self, wait: Optional[bool] = None) -> None:
-        url = self.base_url + "/state/stop"
+    def stop(self, wait: bool | None = None) -> None:
+        """
+        Stop the link.
+
+        :param wait: Whether to wait for convergence after stopping the link.
+        """
+        url = self._url_for("stop")
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
@@ -259,14 +314,14 @@ class Link:
         self, bandwidth: int, latency: int, jitter: int, loss: float
     ) -> None:
         """
-        Applies conditioning to this link.
+        Set the conditioning parameters for the link.
 
-        :param bandwidth: desired bandwidth, 0-10000000 kbps
-        :param latency: desired latency, 0-10000 ms
-        :param jitter: desired jitter, 0-10000 ms
-        :param loss: desired loss, 0-100%
+        :param bandwidth: The desired bandwidth in kbps (0-10000000).
+        :param latency: The desired latency in ms (0-10000).
+        :param jitter: The desired jitter in ms (0-10000).
+        :param loss: The desired packet loss percentage (0-100).
         """
-        url = self.base_url + "/condition"
+        url = self._url_for("condition")
         data = {
             "bandwidth": bandwidth,
             "latency": latency,
@@ -278,27 +333,19 @@ class Link:
     @check_stale
     def get_condition(self) -> dict:
         """
-        Retrieves the current condition on this link.
-        If there is no link condition applied, an empty dictionary is returned.
+        Get the current conditioning parameters for the link.
 
-        (Note: this used to (erroneously) say None would be returned
-        when no condition is applied, but that was never the case.)
-
-        :return: the applied link condition
+        :returns: A dictionary containing the current conditioning parameters.
         """
-        url = self.base_url + "/condition"
+        url = self._url_for("condition")
         condition = self._session.get(url).json()
         keys = ["bandwidth", "latency", "jitter", "loss"]
-        result = {k: v for (k, v) in condition.items() if k in keys}
-        return result
+        return {k: v for k, v in condition.items() if k in keys}
 
     @check_stale
     def remove_condition(self) -> None:
-        """
-        Removes link conditioning.
-        If there's no condition applied then this is a no-op for the controller.
-        """
-        url = self.base_url + "/condition"
+        """Remove the link conditioning."""
+        url = self._url_for("condition")
         self._session.delete(url)
 
     def set_condition_by_name(self, name: str) -> None:
@@ -323,8 +370,8 @@ class Link:
         satellite         1500    1 mbps       0.2
         ========= ============ =========  ========
 
-        :param name: the predefined condition name as outlined in the table above
-        :raises ValueError: if the given name isn't known
+        :param name: The name of the predefined link condition.
+        :raises ValueError: If the given name is not a known predefined condition.
         """
         options = {
             "gprs": (500, 50, 2.0),
@@ -340,9 +387,9 @@ class Link:
         }
 
         if name not in options:
-            msg = "unknown condition name '{}', known values: '{}'".format(
-                name,
-                ", ".join(sorted(options)),
+            msg = (
+                f"Unknown condition name: '{name}', "
+                f"known values: '{', '.join(sorted(options))}'"
             )
             _LOGGER.error(msg)
             raise ValueError(msg)

@@ -28,7 +28,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -47,7 +47,7 @@ from .models import (
 )
 from .models.authentication import make_session
 from .models.configuration import get_configuration
-from .utils import locked
+from .utils import get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -72,7 +72,7 @@ class Version:
         return res[0]
 
     def __repr__(self):
-        return "{}".format(self.version_str)
+        return self.version_str
 
     def __eq__(self, other):
         return (
@@ -132,9 +132,9 @@ class ClientConfig(NamedTuple):
     """Stores client library configuration, which can be used to create
     any number of identically configured instances of ClientLibrary."""
 
-    url: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
+    url: str | None = None
+    username: str | None = None
+    password: str | None = None
     ssl_verify: bool | str = True
     allow_http: bool = False
     auto_sync: float = 1.0
@@ -176,12 +176,27 @@ class ClientLibrary:
         Version("2.2.2"),
         Version("2.2.3"),
     ]
+    _URL_TEMPLATES = {
+        "auth_test": "authok",
+        "system_info": "system_information",
+        "import": "import",
+        "import_1x": "import/virl-1x",
+        "sample_labs": "sample/labs",
+        "sample_lab": "sample/labs/{lab_title}",
+        "labs": "labs",
+        "lab": "labs/{lab_id}",
+        "lab_topology": "labs/{lab_id}/topology",
+        "diagnostics": "diagnostics",
+        "system_health": "system_health",
+        "system_stats": "system_stats",
+        "populate_lab_tiles": "populate_lab_tiles",
+    }
 
     def __init__(
         self,
-        url: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
         ssl_verify: bool | str = True,
         raise_for_auth_failure: bool = False,
         allow_http: bool = False,
@@ -190,7 +205,7 @@ class ClientLibrary:
         events: bool = False,
     ) -> None:
         """
-        Initializes a ClientLibrary instance. Note that ssl_verify can
+        Initialize a ClientLibrary instance. Note that ssl_verify can
         also be a string that points to a cert (see class documentation).
 
         :param url: URL of controller. It's also possible to pass the
@@ -200,20 +215,21 @@ class ClientLibrary:
             to pass the username via ``VIRL2_USER`` or ``VIRL_USERNAME`` variable.
         :param password: Password of the user to authenticate. It's also possible
             to pass the password via ``VIRL2_PASS`` or ``VIRL_PASSWORD`` variable.
-        :param ssl_verify: Path SSL controller certificate, or True to load
+        :param ssl_verify: Path of the SSL controller certificate, or True to load
             from ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variable,
             or False to disable.
-        :param raise_for_auth_failure: Raise an exception if unable
-            to connect to controller (use for scripting scenarios).
-        :param allow_http: If set, a https URL will not be enforced
-        :param convergence_wait_max_iter: maximum number of iterations to wait for
-            lab to converge.
-        :param convergence_wait_time: wait interval in seconds to wait during one
-            iteration during lab convergence wait.
-        :param events: whether to use events - event listeners for state updates and
-            event handlers for custom handling.
-        :raises InitializationError: If no URL is provided,
-            authentication fails or host can't be reached.
+        :param raise_for_auth_failure: Raise an exception if unable to connect to
+            controller. (Use for scripting scenarios.)
+        :param allow_http: If set, a https URL will not be enforced.
+        :param convergence_wait_max_iter: Maximum number of iterations for convergence.
+        :param convergence_wait_time: Time in seconds to sleep between convergence calls
+            on the backend.
+        :param events: A flag indicating whether to enable event-based data
+            synchronization from the server. When enabled, utilizes a mechanism for
+            receiving real-time updates from the server, instead of periodically
+             requesting the data.
+        :raises InitializationError: If no URL is provided, authentication fails or host
+            can't be reached.
         """
         url, username, password, cert = get_configuration(
             url, username, password, ssl_verify
@@ -221,7 +237,7 @@ class ClientLibrary:
         if cert is not None:
             ssl_verify = cert
 
-        url, base_url = prepare_url(url, allow_http)
+        url, base_url = _prepare_url(url, allow_http)
         self.username: str = username
         self.password: str = password
 
@@ -286,7 +302,7 @@ class ClientLibrary:
                 return
 
         self.event_listener = None
-        self.session.lock = None
+        self._session.lock = None
         if events:
             # http-based auto sync should be off by default when using events
             self.auto_sync = False
@@ -304,11 +320,25 @@ class ClientLibrary:
         )
 
     def __str__(self):
-        return "{} URL: {}".format(self.__class__.__name__, self._session.base_url)
+        return f"{self.__class__.__name__} URL: {self._session.base_url}"
+
+    def _url_for(self, endpoint, **kwargs):
+        """
+        Generate the URL for a given API endpoint.
+
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
+        """
+        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     def _make_test_auth_call(self) -> None:
-        """Make a call to confirm auth works by using the "authok" endpoint."""
-        url = "authok"
+        """
+        Make a call to confirm that authentication works.
+
+        :raises InitializationError: If authentication fails.
+        """
+        url = self._url_for("auth_test")
         try:
             self._session.get(url)
         except httpx.HTTPStatusError as exc:
@@ -320,73 +350,68 @@ class ClientLibrary:
                 raise InitializationError(message)
             raise
         except httpx.HTTPError as exc:
-            # TODO: subclass InitializationError
             raise InitializationError(exc)
 
     @staticmethod
     def _environ_get(
-        key: str, value: Optional[Any] = None, default: Optional[Any] = None
-    ) -> Optional[Any]:
-        """If the value is not set yet, fetch it from environment or return default."""
+        key: str, value: Any | None = None, default: Any | None = None
+    ) -> Any | None:
+        """
+        If the value is not yet set, fetch it from the environment or return the default
+        value.
+
+        :param key: The key to fetch the value for.
+        :param value: The value to use if it is already set.
+        :param default: The default value to use if the key is not set
+            and value is None.
+        :returns: The fetched value or the default value.
+        """
         if value is None:
             value = os.environ.get(key)
             if value:
-                _LOGGER.info("Using value %s from environment", key)
+                _LOGGER.info(f"Using value {key} from environment")
             else:
                 value = default
         return value
 
     @property
-    def session(self) -> httpx.Client:
-        """
-        Returns the used `httpx` client session object.
-
-        :returns: The session object
-        """
-        return self._session
-
-    @property
     def uuid(self) -> str:
-        """
-        Returns the UUID4 that identifies this client to the server.
-
-        :returns: the UUID4 string
-        """
+        """Return the UUID4 that identifies this client to the server."""
         return self._session.headers["X-Client-UUID"]
 
-    def logout(self, clear_all_sessions: bool = False) -> None:
+    def logout(self, clear_all_sessions: bool = False) -> bool:
         """
-        Invalidate current token.
+        Invalidate the current token.
+
+        :param clear_all_sessions: Whether to clear all user sessions as well.
         """
-        return self._session.auth.logout(  # type: ignore
-            clear_all_sessions=clear_all_sessions
-        )
+        return self._session.auth.logout(clear_all_sessions=clear_all_sessions)
 
     def get_host(self) -> str:
         """
-        Returns the hostname of the session to the controller.
+        Return the hostname of the session to the controller.
 
-        :returns: A hostname
+        :returns: The hostname.
         """
-        return self.session.base_url.host
+        return self._session.base_url.host
 
     def system_info(self) -> dict:
         """
         Get information about the system where the application runs.
         Can be called without authentication.
 
-        :returns: system information json
+        :returns: The system information as a JSON object.
         """
-        url = "system_information"
+        url = self._url_for("system_info")
         return self._session.get(url).json()
 
     def check_controller_version(self) -> None:
         """
-        Checks remote controller version against current client version
-        (specified in self.VERSION) and against controller version
-        blacklist (specified in self.INCOMPATIBLE_CONTROLLER_VERSIONS) and
-        raises exception if versions are incompatible or prints warning
-        if client minor version is lower than controller minor version.
+        Check remote controller version against current client version
+        (specified in `self.VERSION`) and against controller version
+        blacklist (specified in `self.INCOMPATIBLE_CONTROLLER_VERSIONS`).
+        Raise exception if versions are incompatible, or print warning
+        if the client minor version is lower than the controller minor version.
         """
         controller_version = self.system_info().get("version", "").split("-")[0]
 
@@ -398,37 +423,33 @@ class ClientLibrary:
         controller_version_obj = Version(controller_version)
         if controller_version_obj in self.INCOMPATIBLE_CONTROLLER_VERSIONS:
             raise InitializationError(
-                "Controller version {} is marked incompatible! "
-                "List of versions marked explicitly as incompatible: {}.".format(
-                    controller_version_obj, self.INCOMPATIBLE_CONTROLLER_VERSIONS
-                )
+                f"Controller version {controller_version_obj} is marked incompatible! "
+                f"List of versions marked explicitly as incompatible: "
+                f"{self.INCOMPATIBLE_CONTROLLER_VERSIONS}."
             )
         if self.VERSION.major_differs(controller_version_obj):
             raise InitializationError(
-                "Major version mismatch. Client {}, controller {}.".format(
-                    self.VERSION, controller_version_obj
-                )
+                f"Major version mismatch. Client {self.VERSION}, "
+                f"controller {controller_version_obj}."
             )
         if self.VERSION.minor_differs(controller_version_obj) and self.VERSION.minor_lt(
             controller_version_obj
         ):
             _LOGGER.warning(
-                "Please ensure the client version is compatible with the controller"
-                " version. Client %s, controller %s.",
-                self.VERSION,
-                controller_version_obj,
+                f"Please ensure the client version is compatible with the controller "
+                f"version. Client {self.VERSION}, controller {controller_version_obj}."
             )
 
     def is_system_ready(
         self, wait: bool = False, max_wait: int = 60, sleep: int = 5
     ) -> bool:
         """
-        Reports whether the system is ready or not.
+        Report whether the system is ready or not.
 
-        :param wait: if this is true, the call will block until it's ready
-        :param max_wait: maximum time to wait, in seconds
-        :param sleep: time to wait between tries, in seconds
-        :returns: ready state
+        :param wait: Whether to block until the system is ready.
+        :param max_wait: The maximum time to wait in seconds.
+        :param sleep: The time to wait between tries in seconds.
+        :returns: The ready state of the system.
         """
         loops = 1
         if wait:
@@ -453,6 +474,12 @@ class ClientLibrary:
 
     @staticmethod
     def is_virl_1x(path: Path) -> bool:
+        """
+        Check if the given file is of VIRL version 1.x.
+
+        :param path: The path to check.
+        :returns: Whether the file is of VIRL version 1.x.
+        """
         if path.suffix == ".virl":
             return True
         return False
@@ -460,13 +487,17 @@ class ClientLibrary:
     @locked
     def start_event_listening(self):
         """
-        Starts listening for and parsing websocket events.
+        Start listening for and parsing websocket events.
 
         To replace the default event handling mechanism,
         subclass `event_handling.EventHandler` (or `EventHandlerBase` if necessary),
-        then do:
-        self.websockets = event_listening.EventListener(self)
-        self.websockets._event_handler = handler
+        then do::
+        from .event_listening import EventListener
+        custom_listener = EventListener()
+        custom_listener._event_handler = CustomHandler(client_library)
+        client_library.event_listener = custom_listener
+
+        :returns:
         """
         from .event_listening import EventListener
 
@@ -478,44 +509,49 @@ class ClientLibrary:
 
     @locked
     def stop_event_listening(self):
+        """Stop listening for and parsing websocket events."""
         if self.event_listener:
-            self.session.lock = None
+            self._session.lock = None
             self.event_listener.stop_listening()
 
     @locked
     def import_lab(
         self,
         topology: str,
-        title: Optional[str] = None,
+        title: str | None = None,
         offline: bool = False,
         virl_1x: bool = False,
     ) -> Lab:
         """
-        Imports an existing topology from a string.
+        Import an existing topology from a string.
 
-        :param topology: Topology representation as a string
-        :param title: Title of the lab (optional)
-        :param offline: whether the ClientLibrary should import the
-            lab locally.  The topology parameter has to be a JSON string
-            in this case.  This can not be XML or YAML representation of
-            the lab.  Compatible JSON from `GET /labs/{lab_id}/topology`.
-        :param virl_1x: Is this old virl-1x topology format (default=False)
-        :returns: A Lab instance
-        :raises ValueError: if there's no lab ID in the API response
-        :raises httpx.HTTPError: if there was a transport error
+        :param topology: The topology representation as a string.
+        :param title: The title of the lab.
+        :param offline: Whether to import the lab locally.
+        :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
+        :returns: The imported Lab instance.
+        :raises ValueError: If no lab ID is returned in the API response.
+        :raises httpx.HTTPError: If there was a transport error.
         """
-        # TODO: refactor to return the local lab, and sync it,
-        #  if already exists in self._labs
+        if title is not None:
+            for lab_id in self._labs:
+                if (lab := self._labs[lab_id]).title == title:
+                    # Lab of this title already exists, sync and return it
+                    lab.sync()
+                    return lab
         if offline:
             lab_id = "offline_lab"
         else:
             if virl_1x:
-                url = "import/virl-1x"
+                url = self._url_for("import_1x")
             else:
-                url = "import"
+                url = self._url_for("import")
             if title is not None:
-                url = "{}?title={}".format(url, title)
-            result = self._session.post(url, content=topology).json()
+                result = self._session.post(
+                    url, params={"title": title}, content=topology
+                ).json()
+            else:
+                result = self._session.post(url, content=topology).json()
             lab_id = result.get("id")
             if lab_id is None:
                 raise ValueError("No lab ID returned!")
@@ -543,17 +579,18 @@ class ClientLibrary:
         return lab
 
     @locked
-    def import_lab_from_path(self, path: str, title: Optional[str] = None) -> Lab:
+    def import_lab_from_path(self, path: str, title: str | None = None) -> Lab:
         """
-        Imports an existing topology from a file / path.
+        Import an existing topology from a file or path.
 
-        :param path: Topology filename / path
-        :param title: Title of the lab
-        :returns: A Lab instance
+        :param path: The topology filename or path.
+        :param title: The title of the lab.
+        :returns: The imported Lab instance.
+        :raises FileNotFoundError: If the specified path does not exist.
         """
         topology_path = Path(path)
         if not topology_path.exists():
-            message = "{} can not be found".format(path)
+            message = f"{path} can not be found"
             raise FileNotFoundError(message)
 
         topology = topology_path.read_text()
@@ -563,38 +600,40 @@ class ClientLibrary:
 
     def get_sample_labs(self) -> dict[str, dict]:
         """
-        Returns a dictionary with information about all sample labs available on host.
+        Return a dictionary with information about all sample labs
+        available on the host.
 
-        :returns: A dictionary of sample lab information, where keys are titles
+        :returns: A dictionary of sample lab information where the keys are the titles.
         """
-        url = "sample/labs"
+        url = self._url_for("sample_labs")
         return self._session.get(url).json()
 
     @locked
     def import_sample_lab(self, title: str) -> Lab:
         """
-        Imports a built-in sample lab.
+        Import a built-in sample lab.
 
-        :param title: sample lab name, as returned by get_sample_labs
-        :returns: a Lab instance
+        :param title: The sample lab name.
+        :returns: The imported Lab instance.
         """
 
-        url = "sample/labs/" + title
+        url = self._url_for("sample_lab", lab_title=title)
         lab_id = self._session.put(url).json()
         return self.join_existing_lab(lab_id)
 
     @locked
     def all_labs(self, show_all: bool = False) -> list[Lab]:
         """
-        Joins all labs owned by this user (or all labs period) and returns their list.
+        Join all labs owned by this user (or all labs) and return their list.
 
-        :param show_all: Whether to get only labs owned by the admin or all user labs
-        :returns: A list of lab objects
+        :param show_all: Whether to get only labs owned by the admin or all user labs.
+        :returns: A list of Lab objects.
         """
-        url = "labs"
+        url = {"url": self._url_for("labs")}
         if show_all:
-            url += "?show_all=true"
-        lab_ids = self._session.get(url).json()
+            url["params"] = {"show_all": True}
+        lab_ids = self._session.get(**url).json()
+
         result = []
         for lab_id in lab_ids:
             lab = self.join_existing_lab(lab_id)
@@ -604,17 +643,30 @@ class ClientLibrary:
 
     @locked
     def _remove_stale_labs(self):
+        """Remove stale labs from the client library."""
         for lab in list(self._labs.values()):
             if lab._stale:
                 self._remove_lab_local(lab)
 
     @locked
     def local_labs(self) -> list[Lab]:
+        """
+        Return a list of local labs.
+
+        :returns: A list of local labs.
+        """
         self._remove_stale_labs()
         return list(self._labs.values())
 
     @locked
     def get_local_lab(self, lab_id: str) -> Lab:
+        """
+        Get a local lab by its ID.
+
+        :param lab_id: The ID of the lab.
+        :returns: The Lab object with the specified ID.
+        :raises LabNotFound: If the lab with the given ID does not exist.
+        """
         self._remove_stale_labs()
         try:
             return self._labs[lab_id]
@@ -622,14 +674,21 @@ class ClientLibrary:
             raise LabNotFound(lab_id)
 
     @locked
-    def create_lab(self, title: Optional[str] = None) -> Lab:
+    def create_lab(
+        self,
+        title: str | None = None,
+        description: str | None = None,
+        notes: str | None = None,
+    ) -> Lab:
         """
-        Creates an empty lab with the given name. If no name is given, then
-        the created lab ID is set as the name.
+        Create a new lab with optional title, description, and notes.
 
-        Note that the lab will be auto-syncing according to the Client Library's
-        auto-sync setting when created. The lab has a property to override this
-        on a per-lab basis.
+        If no title, description, or notes are provided, the server will generate a
+        default title in the format "Lab at Mon 13:30 PM" and leave the description
+        and notes blank.
+
+        The lab will automatically sync based on the Client Library's auto-sync setting
+        when created, but this behavior can be overridden on a per-lab basis.
 
         Example::
 
@@ -637,16 +696,19 @@ class ClientLibrary:
             print(lab.id)
             lab.create_node("r1", "iosv", 50, 100)
 
-        :param title: The Lab name (or title)
-        :returns: A Lab instance
+        :param title: The title of the lab.
+        :param description: The description of the lab.
+        :param notes: The notes of the lab.
+        :returns: A Lab instance representing the created lab.
         """
-        url = "labs"
-        params = {"title": title}
-        result = self._session.post(url, params=params).json()
-        # TODO: server generated title not loaded
+        url = self._url_for("labs")
+        body = {"title": title, "description": description, "notes": notes}
+        # exclude values left at None
+        body = {k: v for k, v in body.items() if v is not None}
+        result = self._session.post(url, json=body).json()
         lab_id = result["id"]
         lab = Lab(
-            title or lab_id,
+            result["lab_title"],
             lab_id,
             self._session,
             self.username,
@@ -657,21 +719,20 @@ class ClientLibrary:
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
+        lab._import_lab(result)
         self._labs[lab_id] = lab
         return lab
 
     @locked
     def remove_lab(self, lab_id: str | Lab) -> None:
         """
-        Use carefully, it removes a given lab::
+        Remove a lab identified by its ID or Lab object.
 
-            client_library.remove_lab("1f6cd7")
+        Use this method with caution as it permanently deletes the specified lab.
 
-        If you have a lab object, you can also simply do:
+        If you have the lab object, you can also do ``lab.remove()``.
 
-            lab.remove()
-
-        :param lab_id: the lab ID or object
+        :param lab_id: The ID or Lab object representing the lab to be removed.
         """
         self._remove_stale_labs()
         if isinstance(lab_id, Lab):
@@ -696,27 +757,26 @@ class ClientLibrary:
             pass
 
     def _remove_unjoined_lab(self, lab_id: str):
-        url = "labs/{}".format(lab_id)
+        """Helper function to remove an unjoined lab from the server."""
+        url = self._url_for("lab", lab_id=lab_id)
         response = self._session.delete(url)
-        _LOGGER.debug("removed lab: %s", response.text)
+        _LOGGER.debug(f"Removed lab: {response.text}")
 
     @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:
         """
-        Creates a new ClientLibrary lab instance that is retrieved
-        from the controller.
+        Join a lab that exists on the server and make it accessible locally.
 
-        If `sync_lab` is set to true, then synchronize current lab
-        by applying the changes that were done in UI or in another
-        ClientLibrary session.
+        If `sync_lab` is set to True, the current lab will be synchronized by applying
+        any changes that were made in the UI or in another ClientLibrary session.
 
-        Join preexisting lab::
-
+        Example::
             lab = client_library.join_existing_lab("2e6a18")
 
-        :param lab_id: The lab ID to be joined.
-        :param sync_lab: Synchronize changes.
-        :returns: A Lab instance
+        :param lab_id: The ID of the lab to be joined.
+        :param sync_lab: Whether to synchronize the lab.
+        :returns: A Lab instance representing the joined lab.
+        :raises LabNotFound: If no lab with the given ID exists on the host.
         """
         self._remove_stale_labs()
         if lab_id in self._labs:
@@ -725,7 +785,8 @@ class ClientLibrary:
         if sync_lab:
             try:
                 # check if lab exists through REST call
-                topology = self.session.get(f"labs/{lab_id}/topology").json()
+                url = self._url_for("lab_topology", lab_id=lab_id)
+                topology = self._session.get(url).json()
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
                     raise LabNotFound("No lab with the given ID exists on the host.")
@@ -753,29 +814,29 @@ class ClientLibrary:
 
     def get_diagnostics(self) -> dict:
         """
-        Returns the controller diagnostic data as JSON
+        Return the controller diagnostic data as a JSON object.
 
-        :returns: diagnostic data
+        :returns: The diagnostic data.
         """
-        url = "diagnostics"
+        url = self._url_for("diagnostics")
         return self._session.get(url).json()
 
     def get_system_health(self) -> dict:
         """
-        Returns the controller system health data as JSON
+        Return the controller system health data as a JSON object.
 
-        :returns: system health data
+        :returns: The system health data.
         """
-        url = "system_health"
+        url = self._url_for("system_health")
         return self._session.get(url).json()
 
     def get_system_stats(self) -> dict:
         """
-        Returns the controller resource statistics as JSON
+        Return the controller resource statistics as a JSON object.
 
-        :returns: system resource statistics
+        :returns: The system resource statistics.
         """
-        url = "system_stats"
+        url = self._url_for("system_stats")
         return self._session.get(url).json()
 
     @locked
@@ -783,10 +844,10 @@ class ClientLibrary:
         """
         Return a list of labs which match the given title.
 
-        :param title: The title to search for
-        :returns: A list of lab objects which match the title specified
+        :param title: The title to search for.
+        :returns: A list of Lab objects matching the specified title.
         """
-        url = "populate_lab_tiles"
+        url = self._url_for("populate_lab_tiles")
         resp = self._session.get(url).json()
 
         # populate_lab_tiles response has been changed in 2.1
@@ -810,18 +871,19 @@ class ClientLibrary:
 
     def get_lab_list(self, show_all: bool = False) -> list[str]:
         """
-        Returns list of all lab IDs.
+        Get the list of all lab IDs.
 
-        :param show_all: Whether to get only labs owned by the admin or all user labs
-        :returns: a list of Lab IDs
+        :param show_all: Whether to include labs owned by all users (True) or only labs
+            owned by the admin (False).
+        :returns: A list of lab IDs.
         """
-        url = "labs"
+        url = {"url": self._url_for("labs")}
         if show_all:
-            url += "?show_all=true"
-        return self._session.get(url).json()
+            url["params"] = {"show_all": True}
+        return self._session.get(**url).json()
 
 
-def prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
+def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
     # prepare the URL
     try:
         url_parts = urlsplit(url, "https")

@@ -1,3 +1,23 @@
+#
+# This file is part of VIRL 2
+# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# All rights reserved.
+#
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from __future__ import annotations
 
 import asyncio
@@ -6,7 +26,7 @@ import logging
 import ssl
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Coroutine, Optional
+from typing import TYPE_CHECKING, Coroutine
 from urllib.parse import urlparse
 
 import aiohttp
@@ -22,25 +42,26 @@ _LOGGER = logging.getLogger(__name__)
 class EventListener:
     def __init__(self, client_library: ClientLibrary):
         """
-        Initializes a EventListener instance.
+        Initialize an EventListener instance.
         EventListener creates and listens to a websocket connection to the server.
-        Events are then sent to the EventHandler instance for handling
+        Events are then sent to the EventHandler instance for handling.
         Use start_listening() to open and stop_listening() to close connection.
 
-        :param client_library: parent ClientLibrary instance which provides connection
+        :param client_library: Parent ClientLibrary instance which provides connection
             info and is modified when synchronizing.
         """
-        self._thread: Optional[threading.Thread] = None
-        self._ws_close: Optional[Coroutine] = None
-        self._ws_close_event: Optional[asyncio.Event] = None
-        self._ws_connected_event: Optional[threading.Event] = None
+        self._thread: threading.Thread | None = None
+        self._ws_close: Coroutine | None = None
+        self._ws_close_event: asyncio.Event | None = None
+        self._ws_connected_event: threading.Event | None = None
         self._synchronizing = False
 
         self._listening = False
         self._connected = False
-        self._queue: Optional[asyncio.Queue] = None
-        self._ws_url: Optional[str] = None
-        self._ssl_context: Optional[ssl.SSLContext] = None
+        self._auth_data = None
+        self._queue: asyncio.Queue | None = None
+        self._ws_url: str | None = None
+        self._ssl_context: ssl.SSLContext | None = None
 
         self._event_handler = EventHandler(client_library)
         self._init_ws_connection_data(client_library)
@@ -49,10 +70,10 @@ class EventListener:
         return self._listening
 
     def _init_ws_connection_data(self, client_library: ClientLibrary) -> None:
-        """Creates an SSL context and Websocket url from client library data.
+        """
+        Create an SSL context and Websocket url from client library data.
 
-        :param client_library: the client library instance
-        :returns: a tuple of url and context
+        :param client_library: The client library instance.
         """
         ssl_verify = client_library._ssl_verify
         # Create an SSL context based on the 'verify' str/bool,
@@ -75,11 +96,12 @@ class EventListener:
         self._ws_url = str(ws_url_pieces.geturl())
 
         self._auth_data = {
-            "token": client_library.session.auth.token,
+            "token": client_library._session.auth.token,
             "client_uuid": client_library.uuid,
         }
 
     def start_listening(self):
+        """Start listening for events."""
         if self._listening:
             return
 
@@ -92,6 +114,7 @@ class EventListener:
         self._thread.start()
 
     def stop_listening(self):
+        """Stop listening for events."""
         if not self._listening:
             return
 
@@ -132,7 +155,7 @@ class EventListener:
                     await self._ws_close
                 return
             event = Event(json.loads(queue_get.result()))
-            self._event_handler.parse_event(event)
+            self._event_handler.handle_event(event)
             self._queue.task_done()
 
     async def _ws_client(self):

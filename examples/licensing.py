@@ -43,7 +43,7 @@ licensing.set_default_transport()
 result = licensing.register_wait(SL_TOKEN)
 if not result:
     result = licensing.get_reservation_return_code()
-    print("ERROR: Failed to register with Smart License server: {}!".format(result))
+    print(f"ERROR: Failed to register with Smart License server: {result}!")
     exit(1)
 
 # Get the current registration status. This returns a JSON blob with license

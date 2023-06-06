@@ -21,7 +21,6 @@
 
 
 import getpass
-import re
 
 from httpx import HTTPStatusError
 
@@ -39,67 +38,61 @@ client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify
 labs = client.find_labs_by_title(LAB_NAME)
 
 if not labs or len(labs) != 1:
-    print("ERROR: Unable to find a unique lab named {}".format(LAB_NAME))
+    print(f"ERROR: Unable to find a unique lab named {LAB_NAME}")
     exit(1)
 
-lobj = client.join_existing_lab(labs[0].id)
+lab = client.join_existing_lab(labs[0].id)
 
-if not lobj:
-    print("ERROR: Failed to join lab {}".format(LAB_NAME))
+if not lab:
+    print(f"ERROR: Failed to join lab {LAB_NAME}")
     exit(1)
 
 # Print all links in the lab and ask which link to condition.
 i = 1
-liobjs = []
-for link in lobj.links():
+links = []
+for link in lab.links():
     print(
-        "{}. {}[{}] <-> {}[{}]".format(
-            i,
-            link.interface_a.node.label,
-            link.interface_a.label,
-            link.interface_b.node.label,
-            link.interface_b.label,
-        )
+        f"{i}. {link.interface_a.node.label}[{link.interface_a.label}] <-> "
+        f"{link.interface_b.node.label}[{link.interface_b.label}]"
     )
-    liobjs.append(lobj.get_link_by_interfaces(link.interface_a, link.interface_b))
+    links.append(link.interface_a.get_link_to(link.interface_b))
     i += 1
 
 print()
-lnum = 0
-while lnum < 1 or lnum > i:
-    lnum = input("Enter link number to condition (1-{}): ".format(i))
+link_number = 0
+while link_number < 1 or link_number > i:
     try:
-        lnum = int(lnum)
+        link_number = int(input(f"Enter link number to condition (1-{i}): "))
     except ValueError:
-        lnum = 0
+        link_number = 0
 
 # Print the selected link's current conditioning (if any).
-link = liobjs[lnum - 1]
-print("Current condition is {}".format(link.get_condition()))
+link = links[link_number - 1]
+print(f"Current condition is {link.get_condition()}")
 # Request the new conditoning for bandwidth, latency, jitter, and loss.
 # Bandwidth is an integer between 0-10000000 kbps
 # Bandwidth of 0 is "no bandwidth restriction"
 # Latency is an integer between 0-10000 ms
 # Jitter is an integer between 0-10000 ms
 # Loss is a float between 0-100%
-new_cond = input(
+new_condition = input(
     "enter new condition in format 'BANDWIDTH, "
     "LATENCY, JITTER, LOSS' or 'None' to disable: "
 )
 # If "None" is provided disable any conditioning on the link.
-if new_cond.lower() == "none":
+if new_condition.lower() == "none":
     link.remove_condition()
     print("Link conditioning has been disabled.")
 else:
     try:
         # Set the current conditioning based on the provided values.
-        cond_list = re.split(r"\s*,\s*", new_cond)
-        bw = int(cond_list[0])  # Bandwidth is an int
+        cond_list = new_condition.split(",")
+        bandwidth = int(cond_list[0])  # Bandwidth is an int
         latency = int(cond_list[1])  # Latency is an int
         jitter = int(cond_list[2])  # Jitter is an int
         loss = float(cond_list[3])  # Loss is a float
-        link.set_condition(bw, latency, jitter, loss)
+        link.set_condition(bandwidth, latency, jitter, loss)
         print("Link conditioning set.")
     except HTTPStatusError as exc:
-        print("ERROR: Failed to set link conditioning: {}", format(exc))
+        print(f"ERROR: Failed to set link conditioning: {exc}")
         exit(1)

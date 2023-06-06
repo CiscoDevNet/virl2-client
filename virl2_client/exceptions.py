@@ -69,3 +69,15 @@ class InvalidProperty(VirlException):
 
 class MethodNotActive(VirlException):
     pass
+
+
+class PyatsException(Exception):
+    pass
+
+
+class PyatsNotInstalled(PyatsException):
+    pass
+
+
+class PyatsDeviceNotFound(PyatsException):
+    pass

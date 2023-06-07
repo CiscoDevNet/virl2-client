@@ -545,8 +545,12 @@ class ClientLibrary:
                 url = self._url_for("import_1x")
             else:
                 url = self._url_for("import")
-            params = {"title": title} if title is not None else {}
-            result = self._session.post(url, params=params, content=topology).json()
+            if title is not None:
+                result = self._session.post(
+                    url, params={"title": title}, content=topology
+                ).json()
+            else:
+                result = self._session.post(url, content=topology).json()
             lab_id = result.get("id")
             if lab_id is None:
                 raise ValueError("No lab ID returned!")
@@ -625,8 +629,10 @@ class ClientLibrary:
         :returns: A list of Lab objects.
         """
         url = self._url_for("labs")
-        params = {"show_all": show_all}
-        lab_ids = self._session.get(url, params=params).json()
+        if show_all:
+            lab_ids = self._session.get(url, params={"show_all": True}).json()
+        else:
+            lab_ids = self._session.get(url).json()
         result = []
         for lab_id in lab_ids:
             lab = self.join_existing_lab(lab_id)
@@ -696,6 +702,7 @@ class ClientLibrary:
         """
         url = self._url_for("labs")
         body = {"title": title, "description": description, "notes": notes}
+        # exclude values left at None
         body = {k: v for k, v in body.items() if v is not None}
         result = self._session.post(url, json=body).json()
         lab_id = result["id"]
@@ -869,9 +876,8 @@ class ClientLibrary:
             owned by the admin (False).
         :returns: A list of lab IDs.
         """
-        url = self._url_for("labs")
-        params = {"show_all": show_all}
-        return self._session.get(url, params=params).json()
+        url = self._url_for("labs_all") if show_all else self._url_for("labs")
+        return self._session.get(url).json()
 
 
 def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:

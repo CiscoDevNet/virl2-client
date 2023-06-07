@@ -718,7 +718,7 @@ class ClientLibrary:
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
-        lab._import_lab({"lab": result})
+        lab._import_lab(result)
         self._labs[lab_id] = lab
         return lab
 

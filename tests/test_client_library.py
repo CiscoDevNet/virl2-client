@@ -90,7 +90,8 @@ def test_import_lab_from_path_virl_title(
     assert lab._url_for("lab").startswith("labs/")
 
     cl._session.post.assert_called_once_with(
-        f"import/virl-1x?title={new_title}",
+        "import/virl-1x",
+        params={"title": new_title},
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
 

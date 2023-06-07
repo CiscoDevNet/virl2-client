@@ -82,6 +82,30 @@ class NodeImageDefinitions:
         url = "node_definitions/" + definition_id + "/image_definitions"
         return self._session.get(url).json()
 
+    def set_image_definition_read_only(
+        self, definition_id: str, read_only: bool
+    ) -> None:
+        """
+        Set the read-only attribute of the image definition with the given ID.
+
+        :param definition_id: The ID of the image definition.
+        :param read_only: The new value of the read-only attribute.
+        """
+        url = f"image_definitions/{definition_id}/read_only"
+        self._session.put(url, json=read_only)
+
+    def set_node_definition_read_only(
+        self, definition_id: str, read_only: bool
+    ) -> None:
+        """
+        Set the read-only attribute of the node definition with the given ID.
+
+        :param definition_id: The ID of the node definition.
+        :param read_only: The new value of the read-only attribute.
+        """
+        url = f"node_definitions/{definition_id}/read_only"
+        self._session.put(url, json=read_only)
+
     def upload_node_definition(self, body: str | dict, json: bool | None = None) -> str:
         """
         Uploads a new node definition.

@@ -11,13 +11,13 @@ A custom SSL certificate bundle can be passed in `ssl_verify`::
 
     client = ClientLibrary("https://192.168.1.1", "username", "password", ssl_verify="./cert.pem")
 
-You can pass a certificate using the ``CA_BUNDLE`` environment variable as well.
+You can pass a certificate using the ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variables as well.
 
 If no username or password are given then the environment will be checked,
-looking for ``VIRL2_USER`` and ``VIRL2_PASS``, respectively. Environment
-variables take precedence over those provided in arguments.
+looking for ``VIRL2_USER`` or ``VIRL_USERNAME`` and ``VIRL2_PASS`` or ``VIRL_PASSWORD``, respectively.
+Environment variables take precedence over those provided in arguments.
 
-It's also possible to pass the URL as an environment variable ``VIRL2_URL``.
+It's also possible to pass the URL as an environment variable ``VIRL2_URL`` or ``VIRL_HOST``.
 
 Disabling SSL certificate verification (not recommended)::
 

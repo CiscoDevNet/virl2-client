@@ -26,6 +26,7 @@ from .authentication import TokenAuth
 from .groups import GroupManagement
 from .interface import Interface
 from .lab import Lab
+from .auth_management import AuthManagement
 from .licensing import Licensing
 from .link import Link
 from .node import Node
@@ -46,4 +47,5 @@ __all__ = (
     "GroupManagement",
     "TokenAuth",
     "ResourcePoolManagement",
+    "AuthManagement",
 )

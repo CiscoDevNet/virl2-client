@@ -25,6 +25,9 @@ import warnings
 from functools import total_ordering
 from typing import TYPE_CHECKING, Optional
 
+from ..utils import check_stale
+from ..utils import property_s as property
+
 if TYPE_CHECKING:
     import httpx
 
@@ -53,13 +56,14 @@ class Interface:
         :param slot: the slot of the interface
         :param iface_type: the type of the interface, defaults to "physical"
         """
-        self.id = iid
-        self.node = node
-        self.type = iface_type
-        self.label = label
-        self.slot = slot
+        self._id = iid
+        self._node = node
+        self._type = iface_type
+        self._label = label
+        self._slot = slot
         self._state: Optional[str] = None
         self._session: httpx.Client = node.lab.session
+        self._stale = False
         self.statistics = {
             "readbytes": 0,
             "readpackets": 0,
@@ -75,28 +79,28 @@ class Interface:
     def __eq__(self, other):
         if not isinstance(other, Interface):
             return False
-        return self.id == other.id
+        return self._id == other._id
 
     def __lt__(self, other):
         if not isinstance(other, Interface):
             return False
-        return int(self.id) < int(other.id)
+        return self._id < other._id
 
     def __str__(self):
-        return "Interface: {}".format(self.label)
+        return f"Interface: {self._label}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
-            self.id,
-            self.node,
-            self.label,
-            self.slot,
-            self.type,
+            self._id,
+            self._node,
+            self._label,
+            self._slot,
+            self._type,
         )
 
     def __hash__(self):
-        return hash(self.id)
+        return hash(self._id)
 
     @property
     def lab_base_url(self) -> str:
@@ -105,6 +109,26 @@ class Interface:
     @property
     def _base_url(self) -> str:
         return self.lab_base_url + "/interfaces/{}".format(self.id)
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def node(self) -> Node:
+        return self._node
+
+    @property
+    def type(self) -> str:
+        return self._type
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def slot(self) -> Optional[int]:
+        return self._slot
 
     @property
     def physical(self) -> bool:
@@ -120,6 +144,9 @@ class Interface:
     @property
     def state(self) -> Optional[str]:
         self.node.lab.sync_states_if_outdated()
+        if self._state is None:
+            url = self._base_url + "/state"
+            self._state = self._session.get(url).json()["state"]
         return self._state
 
     @property
@@ -202,16 +229,29 @@ class Interface:
             return link
         return None
 
-    def remove_on_server(self) -> None:
-        _LOGGER.info("Removing interface %s", self)
+    def remove(self) -> None:
+        self.node.lab.remove_interface(self)
 
+    @check_stale
+    def _remove_on_server(self) -> None:
+        _LOGGER.info("Removing interface %s", self)
         url = self._base_url
         self._session.delete(url)
 
+    def remove_on_server(self) -> None:
+        warnings.warn(
+            "'Interface.remove_on_server()' is deprecated, "
+            "use 'Interface.remove()' instead.",
+            DeprecationWarning,
+        )
+        self._remove_on_server()
+
+    @check_stale
     def bring_up(self) -> None:
         url = self._base_url + "/state/start"
         self._session.put(url)
 
+    @check_stale
     def shutdown(self) -> None:
         url = self._base_url + "/state/stop"
         self._session.put(url)

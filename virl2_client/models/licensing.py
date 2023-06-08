@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..utils import _url_from_template
 
@@ -36,7 +36,6 @@ DEFAULT_PROXY_PORT = None
 
 
 class Licensing:
-
     _URL_TEMPLATES = {
         "licensing": "licensing",
         "tech_support": "licensing/tech_support",

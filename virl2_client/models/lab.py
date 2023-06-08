@@ -24,14 +24,10 @@ import json
 import logging
 import time
 import warnings
-from typing import Any, Iterable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterable
 
 from httpx import HTTPStatusError
 
-from .cl_pyats import ClPyats
-from .interface import Interface
-from .link import Link
-from .node import Node
 from ..exceptions import (
     ElementAlreadyExists,
     InterfaceNotFound,
@@ -40,7 +36,12 @@ from ..exceptions import (
     NodeNotFound,
     VirlException,
 )
-from ..utils import _url_from_template, check_stale, locked, property_s as property
+from ..utils import _url_from_template, check_stale, locked
+from ..utils import property_s as property
+from .cl_pyats import ClPyats
+from .interface import Interface
+from .link import Link
+from .node import Node
 
 if TYPE_CHECKING:
     import httpx

@@ -25,7 +25,8 @@ import warnings
 from functools import total_ordering
 from typing import TYPE_CHECKING
 
-from ..utils import _url_from_template, check_stale, property_s as property
+from ..utils import _url_from_template, check_stale
+from ..utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx

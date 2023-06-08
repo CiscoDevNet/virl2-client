@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Iterable
 
 from ..exceptions import InvalidProperty
 from ..utils import _url_from_template

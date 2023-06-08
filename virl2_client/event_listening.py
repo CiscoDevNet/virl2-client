@@ -26,7 +26,7 @@ import logging
 import ssl
 import threading
 from pathlib import Path
-from typing import Coroutine, TYPE_CHECKING
+from typing import TYPE_CHECKING, Coroutine
 from urllib.parse import urlparse
 
 import aiohttp

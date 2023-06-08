@@ -26,9 +26,10 @@ from typing import TYPE_CHECKING
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
-    from .lab import Lab
-    from genie.libs.conf.testbed import Testbed
     from genie.libs.conf.device import Device
+    from genie.libs.conf.testbed import Testbed
+
+    from .lab import Lab
 
 
 class ClPyats:

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from functools import wraps
-from typing import Callable, cast, Type, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, Type, TypeVar, Union, cast
 
 import httpx
 

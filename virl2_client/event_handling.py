@@ -24,7 +24,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from os import name as os_name
-from typing import Any, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from .exceptions import ElementNotFound, LabNotFound
 

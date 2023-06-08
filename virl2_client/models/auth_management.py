@@ -21,11 +21,11 @@
 from __future__ import annotations
 
 import time
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .resource_pools import ResourcePool
 from ..exceptions import MethodNotActive
 from ..utils import _url_from_template
+from .resource_pools import ResourcePool
 
 if TYPE_CHECKING:
     from httpx import Client

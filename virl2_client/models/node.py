@@ -25,10 +25,11 @@ import logging
 import time
 import warnings
 from functools import total_ordering
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import InterfaceNotFound
-from ..utils import _url_from_template, check_stale, locked, property_s as property
+from ..utils import _url_from_template, check_stale, locked
+from ..utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx

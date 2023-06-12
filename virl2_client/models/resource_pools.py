@@ -211,7 +211,7 @@ class ResourcePoolManagement:
 class ResourcePool:
     _URL_TEMPLATES = {
         "resource_pool": "resource_pools/{pool_id}",
-        "resource_pool_usage": "resource_pools_usage/{pool_id}",
+        "resource_pool_usage": "resource_pool_usage/{pool_id}",
     }
 
     def __init__(
@@ -373,7 +373,11 @@ class ResourcePool:
     def external_connectors(self) -> list[str] | None:
         """Return a list of external connectors in the resource pool."""
         self._resource_pools.sync_resource_pools_if_outdated()
-        return self._external_connectors.copy()
+        return (
+            self._external_connectors.copy()
+            if self._external_connectors is not None
+            else None
+        )
 
     @external_connectors.setter
     def external_connectors(self, value: list[str] | None):

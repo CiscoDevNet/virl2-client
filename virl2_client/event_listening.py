@@ -155,7 +155,7 @@ class EventListener:
                     await self._ws_close
                 return
             event = Event(json.loads(queue_get.result()))
-            self._event_handler.parse_event(event)
+            self._event_handler.handle_event(event)
             self._queue.task_done()
 
     async def _ws_client(self):

@@ -21,7 +21,7 @@
 
 # This script demonstrates various functionalities of the client library.
 # Each example is accompanied by comments explaining its purpose and usage.
-
+import pathlib
 from virl2_client import ClientLibrary
 
 # Licensing setup configuration
@@ -52,7 +52,9 @@ TOKEN = (
 # Set up the CML 2 connection
 server_url = "http://localhost:8001"
 username = "cml2"  # Default username if not changed in CML instance
-password = "cml2cml2"  # Default password if not changed in CML instance
+password = pathlib.Path("/etc/machine-id").read_text().strip()
+# Default password is equal to the contents of the CML instances /etc/machine-id file
+# If you are running this script remotely, replace the password above
 client_library = ClientLibrary(server_url, username, password, allow_http=True)
 
 # Check if the CML 2 system is ready

@@ -379,12 +379,15 @@ class ClientLibrary:
         """Return the UUID4 that identifies this client to the server."""
         return self._session.headers["X-Client-UUID"]
 
-    def logout(self, clear_all_sessions: bool = False) -> None:
+    def logout(self, clear_all_sessions: bool = False) -> bool:
         """
         Invalidate the current token.
 
         :param clear_all_sessions: Whether to clear all user sessions as well.
         """
+        return self._session.auth.logout(  # type: ignore
+            clear_all_sessions=clear_all_sessions
+        )
 
     def get_host(self) -> str:
         """
@@ -628,11 +631,11 @@ class ClientLibrary:
         :param show_all: Whether to get only labs owned by the admin or all user labs.
         :returns: A list of Lab objects.
         """
-        url = self._url_for("labs")
+        url = {"url": self._url_for("labs")}
         if show_all:
-            lab_ids = self._session.get(url, params={"show_all": True}).json()
-        else:
-            lab_ids = self._session.get(url).json()
+            url["params"] = {"show_all": True}
+        lab_ids = self._session.get(**url).json()
+
         result = []
         for lab_id in lab_ids:
             lab = self.join_existing_lab(lab_id)
@@ -876,8 +879,10 @@ class ClientLibrary:
             owned by the admin (False).
         :returns: A list of lab IDs.
         """
-        url = self._url_for("labs_all") if show_all else self._url_for("labs")
-        return self._session.get(url).json()
+        url = {"url": self._url_for("labs")}
+        if show_all:
+            url["params"] = {"show_all": True}
+        return self._session.get(**url).json()
 
 
 def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:

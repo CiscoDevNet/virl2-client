@@ -324,7 +324,7 @@ class Lab:
 
     @property
     def resource_pools(self) -> list[ResourcePool]:
-        """Return the list of resource pools this node belongs to."""
+        """Return the list of resource pools this lab's nodes belong to."""
         self.sync_operational_if_outdated()
         return self._resource_pools
 
@@ -500,7 +500,7 @@ class Lab:
         :param x: The X coordinate.
         :param y: The Y coordinate.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         :param populate_interfaces: Automatically create a pre-defined number
             of interfaces on node creation.
         :returns: A Node object.
@@ -616,7 +616,7 @@ class Lab:
 
         :param node: The node object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(node, str):
             node = self.get_node_by_id(node)
@@ -647,7 +647,7 @@ class Lab:
         Remove all nodes from the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         # Use case - user was assigned one lab, wants to reset work;
         # can't delete lab, so removing all nodes is the only option
@@ -670,7 +670,7 @@ class Lab:
 
         :param link: The link object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(link, str):
             link = self.get_link_by_id(link)
@@ -706,7 +706,7 @@ class Lab:
 
         :param iface: The interface object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(iface, str):
             iface = self.get_interface_by_id(iface)
@@ -744,7 +744,7 @@ class Lab:
         :param i1: The first interface object or ID.
         :param i2: The second interface object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         :returns: The created link.
         """
         if isinstance(i1, str):
@@ -803,7 +803,7 @@ class Lab:
         :param node: The node on which the interface is created.
         :param slot: (optional) The slot number to create the interface in.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         :returns: The newly created interface.
         """
         if isinstance(node, str):
@@ -986,7 +986,7 @@ class Lab:
         Starts all the nodes and links in the lab.
 
         :param wait: (optional) A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("start")
         self._session.put(url)
@@ -1000,7 +1000,7 @@ class Lab:
         Stop all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("stop")
         self._session.put(url)
@@ -1050,7 +1050,7 @@ class Lab:
         Wipe all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property takes precedence.
+            If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("wipe")
         self._session.put(url)
@@ -1099,8 +1099,7 @@ class Lab:
         exclude_configurations=False,
     ) -> None:
         """
-        Synchronize the current lab, applying changes made
-        in the UI or another ClientLibrary session.
+        Synchronize the current lab, locally applying changes made to the server.
 
         :param topology_only: Only sync the topology without statistics and IP
             addresses.

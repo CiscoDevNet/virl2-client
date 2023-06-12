@@ -61,7 +61,7 @@ class TokenAuth(httpx.Auth):
     def token(self) -> str | None:
         """
         Return the authentication token. If the token has not been set, it is obtained
-        from the server by calling the API's 'authenticate' endpoint.
+        from the server.
         """
         if self._token is not None:
             return self._token
@@ -83,7 +83,7 @@ class TokenAuth(httpx.Auth):
         return self._token
 
     @token.setter
-    def token(self, value: str | None):
+    def token(self, value: str | None) -> None:
         """
         Set the authentication token to the specified value.
 
@@ -111,12 +111,12 @@ class TokenAuth(httpx.Auth):
 
         response_raise(response)
 
-    def logout(self, clear_all_sessions=False):
+    def logout(self, clear_all_sessions=False) -> bool:
         """
-        Log out the user using the API's 'logout' endpoint.
+        Log out the user. Invalidates the current token.
 
         :param clear_all_sessions: Whether to clear all sessions.
-        :returns: The response from the 'logout' endpoint.
+        :returns: Whether the logout succeeded.
         """
         url = "logout" + ("?clear_all_sessions=true" if clear_all_sessions else "")
         return self.client_library._session.delete(url).json()

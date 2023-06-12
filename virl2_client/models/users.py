@@ -49,7 +49,7 @@ class UserManagement:
         """
         return _url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def users(self) -> list:
+    def users(self) -> list[str]:
         """
         Get the list of available users.
 

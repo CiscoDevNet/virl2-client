@@ -641,7 +641,7 @@ class Node:
         Get the console logs of the node.
 
         :param console_id: The ID of the console.
-        :param lines: The number of lines to retrieve.
+        :param lines: Limit the number of lines to retrieve.
         :returns: A dictionary containing the console logs.
         """
         if lines:

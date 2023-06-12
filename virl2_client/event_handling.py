@@ -58,6 +58,13 @@ class Event:
         self.lab: Lab | None = None
         self.element: Union[Node, Interface, Link, None] = None
 
+    def __str__(self):
+        return (
+            f"Event type: {self.type}, "
+            f"Subtype: {self.subtype}, "
+            f"Element type: {self.element_type}"
+        )
+
 
 class EventHandlerBase(ABC):
     def __init__(self, client_library: ClientLibrary = None):
@@ -69,42 +76,43 @@ class EventHandlerBase(ABC):
 
         :param client_library: The client library which should be modified by events.
         """
-        self.client_library = client_library
+        self._client_library = client_library
 
-    def parse_event(self, event: Event) -> None:
+    def handle_event(self, event: Event) -> None:
         """
         Parse and handle the given event.
 
         :param event: An Event object representing the event to be parsed.
         """
         if event.type == "lab_event":
-            self._parse_lab(event)
+            self._handle_lab(event)
         elif event.type == "lab_element_event":
-            self._parse_element(event)
+            self._handle_element(event)
         elif event.type == "state_change":
-            self._parse_state_change(event)
+            self._handle_state_change(event)
         else:
-            self._parse_other(event)
+            self._handle_other(event)
 
-    def _parse_lab(self, event: Event) -> None:
+    def _handle_lab(self, event: Event) -> None:
         """
         Handle lab events.
 
         :param event: An Event object representing the lab event.
         """
         if event.subtype == "created":
-            self._parse_lab_created(event)
+            self._handle_lab_created(event)
         elif event.subtype == "modified":
-            self._parse_lab_modified(event)
+            self._handle_lab_modified(event)
         elif event.subtype == "deleted":
-            self._parse_lab_deleted(event)
+            self._handle_lab_deleted(event)
         elif event.subtype == "state":
-            self._parse_lab_state(event)
+            self._handle_lab_state(event)
         else:
-            _LOGGER.warning(f"Received an invalid lab event ({event.subtype})")
+            # There are only four subtypes, anything else is invalid
+            _LOGGER.warning(f"Received an invalid event. {event}")
 
     @abstractmethod
-    def _parse_lab_created(self, event: Event) -> None:
+    def _handle_lab_created(self, event: Event) -> None:
         """
         Handle lab created events.
 
@@ -113,7 +121,7 @@ class EventHandlerBase(ABC):
         pass
 
     @abstractmethod
-    def _parse_lab_modified(self, event: Event) -> None:
+    def _handle_lab_modified(self, event: Event) -> None:
         """
         Handle lab modified events.
 
@@ -122,7 +130,7 @@ class EventHandlerBase(ABC):
         pass
 
     @abstractmethod
-    def _parse_lab_deleted(self, event: Event) -> None:
+    def _handle_lab_deleted(self, event: Event) -> None:
         """
         Handle lab deleted events.
 
@@ -131,7 +139,7 @@ class EventHandlerBase(ABC):
         pass
 
     @abstractmethod
-    def _parse_lab_state(self, event: Event) -> None:
+    def _handle_lab_state(self, event: Event) -> None:
         """
         Handle lab state events.
 
@@ -139,23 +147,29 @@ class EventHandlerBase(ABC):
         """
         pass
 
-    def _parse_element(self, event: Event) -> None:
+    def _handle_element(self, event: Event) -> None:
         """
         Handle lab element events.
 
         :param event: An Event object representing the lab element event.
         """
+        if event.element_type in ("annotation", "connectormapping"):
+            # These are not used in this client library
+            _LOGGER.debug(f"Received an unused element type: {event.data}")
+
         if event.subtype == "created":
-            self._parse_element_created(event)
+            self._handle_element_created(event)
         elif event.subtype == "modified":
-            self._parse_element_modified(event)
+            self._handle_element_modified(event)
         elif event.subtype == "deleted":
-            self._parse_element_deleted(event)
+            self._handle_element_deleted(event)
         else:
-            _LOGGER.warning(f"Received an invalid element event ({event.subtype})")
+            # There are only three subtypes, anything else is invalid
+            # ("state" is under type "state_change", not "lab_element_event")
+            _LOGGER.warning(f"Received an invalid event. {event}")
 
     @abstractmethod
-    def _parse_element_created(self, event: Event) -> None:
+    def _handle_element_created(self, event: Event) -> None:
         """
         Handle element created events.
 
@@ -164,7 +178,7 @@ class EventHandlerBase(ABC):
         pass
 
     @abstractmethod
-    def _parse_element_modified(self, event: Event) -> None:
+    def _handle_element_modified(self, event: Event) -> None:
         """
         Handle element modified events.
 
@@ -173,7 +187,7 @@ class EventHandlerBase(ABC):
         pass
 
     @abstractmethod
-    def _parse_element_deleted(self, event: Event) -> None:
+    def _handle_element_deleted(self, event: Event) -> None:
         """
         Handle element deleted events.
 
@@ -182,7 +196,7 @@ class EventHandlerBase(ABC):
         pass
 
     @abstractmethod
-    def _parse_state_change(self, event: Event) -> None:
+    def _handle_state_change(self, event: Event) -> None:
         """
         Handle state change events.
 
@@ -190,7 +204,7 @@ class EventHandlerBase(ABC):
         """
         pass
 
-    def _parse_other(self, event: Event) -> None:
+    def _handle_other(self, event: Event) -> None:
         """
         Handle other events.
 
@@ -208,12 +222,16 @@ class EventHandler(EventHandlerBase):
     to change/extend the handling mechanism, then passed to EventListener.
     """
 
-    def parse_event(self, event: Event) -> None:
-        if event.type in ("lab_stats", "system_stats"):
+    def handle_event(self, event: Event) -> None:
+        if event.type in ("lab_stats", "system_stats") or (
+            event.element_type in ("annotation", "connectormapping")
+        ):
+            # Some events are unused in the client library
+            _LOGGER.debug(f"Received an unused event. {event}")
             return
 
         try:
-            event.lab = self.client_library.get_local_lab(event.lab_id)
+            event.lab = self._client_library.get_local_lab(event.lab_id)
         except LabNotFound:
             # lab is not locally joined, so we can ignore its events
             return
@@ -222,30 +240,37 @@ class EventHandler(EventHandlerBase):
             try:
                 if event.element_type == "node":
                     event.element = event.lab.get_node_by_id(event.element_id)
-                if event.element_type == "interface":
+                elif event.element_type == "interface":
                     event.element = event.lab.get_interface_by_id(event.element_id)
-                if event.element_type == "link":
+                elif event.element_type == "link":
                     event.element = event.lab.get_link_by_id(event.element_id)
             except ElementNotFound:
-                return
+                if event.subtype == "deleted":
+                    # Element was likely already deleted in a cascading deletion
+                    # (e.g. node being deleting and all its links and interfaces being
+                    # deleted with it) so the event is useless
+                    return
+                else:
+                    # A modify event arrived for a missing element - something is wrong
+                    raise
 
-        super().parse_event(event)
+        super().handle_event(event)
 
-    def _parse_lab_created(self, event: Event) -> None:
+    def _handle_lab_created(self, event: Event) -> None:
         # we don't care about labs the user hasn't joined,
         # so we don't need the lab creation event
         pass
 
-    def _parse_lab_modified(self, event: Event) -> None:
+    def _handle_lab_modified(self, event: Event) -> None:
         event.lab.update_lab_properties(event.data)
 
-    def _parse_lab_deleted(self, event: Event) -> None:
-        self.client_library._remove_lab_local(event.lab)
+    def _handle_lab_deleted(self, event: Event) -> None:
+        self._client_library._remove_lab_local(event.lab)
 
-    def _parse_lab_state(self, event: Event) -> None:
+    def _handle_lab_state(self, event: Event) -> None:
         event.lab._state = event.data["state"]
 
-    def _parse_element_created(self, event: Event) -> None:
+    def _handle_element_created(self, event: Event) -> None:
         new_element: Node | Interface | Link
         if event.element_type == "node":
             new_element = event.lab._import_node(
@@ -265,11 +290,13 @@ class EventHandler(EventHandlerBase):
                 event.data["interface_b"],
             )
         else:
-            _LOGGER.warning(f"Received an invalid element type ({event.element_type})")
+            # "Annotation" and "ConnectorMapping" were weeded out before,
+            # so we should never get here
+            _LOGGER.warning(f"Received an invalid event. {event}")
             return
         new_element._state = event.data.get("state")
 
-    def _parse_element_modified(self, event: Event) -> None:
+    def _handle_element_modified(self, event: Event) -> None:
         if event.element_type == "node":
             event.element.update(
                 event.data, exclude_configurations=False, push_to_server=False
@@ -286,12 +313,11 @@ class EventHandler(EventHandlerBase):
             pass
 
         else:
-            _LOGGER.warning(
-                f"Received an invalid lab element event "
-                f"({event.subtype} {event.element_type})"
-            )
+            # "Annotation" and "ConnectorMapping" were weeded out before,
+            # so we should never get here
+            _LOGGER.warning(f"Received an invalid event. {event}")
 
-    def _parse_element_deleted(self, event: Event) -> None:
+    def _handle_element_deleted(self, event: Event) -> None:
         if event.element_type == "node":
             event.lab._remove_node_local(event.element)
 
@@ -302,10 +328,9 @@ class EventHandler(EventHandlerBase):
             event.lab._remove_link_local(event.element)
 
         else:
-            _LOGGER.warning(
-                f"Received an invalid lab element event "
-                f"({event.subtype} {event.element_type})"
-            )
+            # "Annotation" and "ConnectorMapping" were weeded out before,
+            # so we should never get here
+            _LOGGER.warning(f"Received an invalid event. {event}")
 
-    def _parse_state_change(self, event: Event) -> None:
+    def _handle_state_change(self, event: Event) -> None:
         event.element._state = event.subtype_original

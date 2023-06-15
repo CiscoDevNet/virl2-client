@@ -21,10 +21,10 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
-from .resource_pools import ResourcePool
 from ..exceptions import MethodNotActive
+from .resource_pools import ResourcePool
 
 if TYPE_CHECKING:
     from httpx import Client

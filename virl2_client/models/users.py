@@ -21,7 +21,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
-from ..utils import _UNCHANGED
+
+from ..utils import UNCHANGED
+
 if TYPE_CHECKING:
     import httpx
 
@@ -98,12 +100,12 @@ class UserManagement:
     def update_user(
         self,
         user_id: str,
-        fullname: Optional[str] = _UNCHANGED,
-        description: Optional[str] = _UNCHANGED,
-        groups: Optional[list[str]] = _UNCHANGED,
+        fullname: Optional[str] = UNCHANGED,
+        description: Optional[str] = UNCHANGED,
+        groups: Optional[list[str]] = UNCHANGED,
         admin: Optional[bool] = None,
         password_dict: Optional[dict[str, str]] = None,
-        resource_pool: Optional[str] = _UNCHANGED,
+        resource_pool: Optional[str] = UNCHANGED,
     ) -> dict:
         """
         Updates user.
@@ -118,17 +120,17 @@ class UserManagement:
         :return: user object
         """
         data: dict[str, Any] = {}
-        if fullname is not _UNCHANGED:
+        if fullname is not UNCHANGED:
             data["fullname"] = fullname
-        if description is not _UNCHANGED:
+        if description is not UNCHANGED:
             data["description"] = description
         if admin is not None:
             data["admin"] = admin
-        if groups is not _UNCHANGED:
+        if groups is not UNCHANGED:
             data["groups"] = groups
         if password_dict is not None:
             data["password"] = password_dict
-        if resource_pool is not _UNCHANGED:
+        if resource_pool is not UNCHANGED:
             data["resource_pool"] = resource_pool
 
         url = self.base_url + "/{}".format(user_id)

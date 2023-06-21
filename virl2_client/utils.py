@@ -47,7 +47,7 @@ class _Sentinel:
         return "<Unchanged>"
 
 
-_UNCHANGED = _Sentinel()
+UNCHANGED = _Sentinel()
 
 
 def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:

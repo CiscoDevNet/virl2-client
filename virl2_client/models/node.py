@@ -163,12 +163,12 @@ class Node:
     @check_stale
     @locked
     def interfaces(self) -> list[Interface]:
-        self.lab.sync_topology_if_outdated()
+        # self.lab.sync_topology_if_outdated()
         return [iface for iface in self.lab.interfaces() if iface.node is self]
 
     @locked
     def physical_interfaces(self) -> list[Interface]:
-        self.lab.sync_topology_if_outdated()
+        # self.lab.sync_topology_if_outdated()
         return [iface for iface in self.interfaces() if iface.physical]
 
     @check_stale
@@ -607,8 +607,9 @@ class Node:
                 continue
             ipv4 = entry.get("ip4")
             ipv6 = entry.get("ip6")
-            iface = self.get_interface_by_label(label)
-            if not iface:
+            try:
+                iface = self.get_interface_by_label(label)
+            except InterfaceNotFound:
                 continue
             iface.ip_snooped_info = {
                 "mac_address": mac_address,

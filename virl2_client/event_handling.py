@@ -177,7 +177,7 @@ class EventHandler(EventHandlerBase):
 
     def _parse_element_created(self, event: Event) -> None:
         new_element: Node | Interface | Link
-        existing_elements: dict = getattr(event.lab, f"_{event.element_type}s")
+        existing_elements: dict = getattr(event.lab, f"_{event.element_type}s", {})
         if event.element_id in existing_elements:
             # element was created by this client, so it already exists,
             # but the event might at least contain some new data

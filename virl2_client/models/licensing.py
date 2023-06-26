@@ -34,7 +34,6 @@ DEFAULT_PROXY_PORT = None
 
 
 class Licensing:
-
     max_wait = 30
     wait_interval = 1.5
 

@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import TYPE_CHECKING, Generator, Optional
+from uuid import uuid4
 
 import httpx
 
@@ -75,7 +76,6 @@ class TokenAuth(httpx.Auth):
     def auth_flow(
         self, request: httpx.Request
     ) -> Generator[httpx.Request, httpx.Response, None]:
-
         request.headers["Authorization"] = "Bearer {}".format(self.token)
         response = yield request
 
@@ -123,4 +123,5 @@ def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
         auth=BlankAuth(),
         follow_redirects=True,
         timeout=None,
+        headers={"X-Client-UUID": str(uuid4())},
     )

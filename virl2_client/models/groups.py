@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from ..utils import UNCHANGED
+
 if TYPE_CHECKING:
     import httpx
 
@@ -90,9 +92,9 @@ class GroupManagement:
         self,
         group_id: str,
         name: Optional[str] = None,
-        description: Optional[str] = None,
-        members: Optional[list[str]] = None,
-        labs: Optional[list[dict[str, str]]] = None,
+        description: Optional[str] = UNCHANGED,
+        members: Optional[list[str]] = UNCHANGED,
+        labs: Optional[list[dict[str, str]]] = UNCHANGED,
     ) -> dict:
         """
         Updates a group.
@@ -107,11 +109,11 @@ class GroupManagement:
         data: dict[str, str | list] = {}
         if name is not None:
             data["name"] = name
-        if description is not None:
+        if description is not UNCHANGED:
             data["description"] = description
-        if members is not None:
+        if members is not UNCHANGED:
             data["members"] = members
-        if labs is not None:
+        if labs is not UNCHANGED:
             data["labs"] = labs
         url = self.base_url + "/{}".format(group_id)
         return self._session.patch(url, json=data).json()

@@ -26,7 +26,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from virl2_client.exceptions import InvalidImageFile
-from virl2_client.models.authentication import make_session
 from virl2_client.models.node_image_definitions import NodeImageDefinitions
 
 wrong_format_list = [
@@ -97,10 +96,8 @@ def windows_path(path: str):
     + [pytest.param(test_str, "") for test_str in expected_pass_list],
 )
 def test_image_upload_file(usage: str, test_string: str, message: str, test_path: str):
-    context = make_session("http://dontcare")
-    context.session = MagicMock()
-    nid = NodeImageDefinitions(context)
-
+    session = MagicMock()
+    nid = NodeImageDefinitions(session)
     rename = None
     filename = test_path + test_string
 

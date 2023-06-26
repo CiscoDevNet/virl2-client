@@ -20,20 +20,16 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import time
 import warnings
 from typing import TYPE_CHECKING, BinaryIO, Callable, Optional
 
-from virl2_client.exceptions import InvalidImageFile
+from virl2_client.exceptions import InvalidContentType, InvalidImageFile
 
 if TYPE_CHECKING:
     import httpx
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class NodeImageDefinitions:
@@ -86,33 +82,75 @@ class NodeImageDefinitions:
         url = "node_definitions/" + definition_id + "/image_definitions"
         return self._session.get(url).json()
 
-    def upload_node_definition(self, body, json: bool = False) -> str:
+    def set_image_definition_read_only(
+        self, definition_id: str, read_only: bool
+    ) -> dict:
         """
-        Upload new node definition.
+        Set the read-only attribute of the image definition with the given ID.
+
+        :param definition_id: The ID of the image definition.
+        :param read_only: The new value of the read-only attribute.
+        :returns: The modified image definition.
+        """
+        url = f"image_definitions/{definition_id}/read_only"
+        return self._session.put(url, json=read_only).json()
+
+    def set_node_definition_read_only(
+        self, definition_id: str, read_only: bool
+    ) -> dict:
+        """
+        Set the read-only attribute of the node definition with the given ID.
+
+        :param definition_id: The ID of the node definition.
+        :param read_only: The new value of the read-only attribute.
+        :returns: The modified node definition.
+        """
+        url = f"node_definitions/{definition_id}/read_only"
+        return self._session.put(url, json=read_only).json()
+
+    def upload_node_definition(self, body: str | dict, json: bool | None = None) -> str:
+        """
+        Uploads a new node definition.
 
         :param body: node definition (yaml or json)
-        :type: str or dict
-        :param json: whether we are sending json data
+        :param json: DEPRECATED, replaced with type check
         :return: "Success"
         """
+        is_json = _is_json_content(body)
+        if json is not None:
+            warnings.warn(
+                'The argument "json" is deprecated as the content type is determined '
+                "from the provided body",
+                DeprecationWarning,
+            )
+            is_json = True
         url = "node_definitions/"
-        if json:
+        if is_json:
             return self._session.post(url, json=body).json()
         else:
             # YAML
             return self._session.post(url, content=body).json()
 
-    def upload_image_definition(self, body, json: bool = False) -> str:
+    def upload_image_definition(
+        self, body: str | dict, json: bool | None = None
+    ) -> str:
         """
-        Upload new image definition.
+        Uploads a new image definition.
 
         :param body: image definition (yaml or json)
-        :type: str or dict
-        :param json: whether we are sending json data
+        :param json: DEPRECATED, replaced with type check
         :return: "Success"
         """
+        is_json = _is_json_content(body)
+        if json is not None:
+            warnings.warn(
+                'The argument "json" is deprecated as the content type is determined '
+                "from the provided body",
+                DeprecationWarning,
+            )
+            is_json = True
         url = "image_definitions/"
-        if json:
+        if is_json:
             return self._session.post(url, json=body).json()
         else:
             # YAML
@@ -267,3 +305,11 @@ def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> No
     )
     if cur == total:
         print()
+
+
+def _is_json_content(content: dict | str) -> bool:
+    if isinstance(content, dict):
+        return True
+    elif isinstance(content, str):
+        return False
+    raise InvalidContentType(type(content))

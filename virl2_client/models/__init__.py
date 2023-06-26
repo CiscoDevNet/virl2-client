@@ -22,6 +22,7 @@ labs, nodes, interfaces and links. It also contains classes for
 node and image definition and helper classes for automation
 and authentication."""
 
+from .auth_management import AuthManagement
 from .authentication import TokenAuth
 from .groups import GroupManagement
 from .interface import Interface
@@ -46,4 +47,5 @@ __all__ = (
     "GroupManagement",
     "TokenAuth",
     "ResourcePoolManagement",
+    "AuthManagement",
 )

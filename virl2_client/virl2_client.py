@@ -27,6 +27,7 @@ import re
 import time
 from functools import lru_cache
 from pathlib import Path
+from threading import RLock
 from typing import Any, NamedTuple, Optional
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
@@ -34,6 +35,7 @@ import httpx
 
 from .exceptions import InitializationError, LabNotFound
 from .models import (
+    AuthManagement,
     GroupManagement,
     Lab,
     Licensing,
@@ -44,6 +46,8 @@ from .models import (
     UserManagement,
 )
 from .models.authentication import make_session
+from .models.configuration import get_configuration
+from .utils import locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -134,6 +138,7 @@ class ClientConfig(NamedTuple):
     ssl_verify: bool | str = True
     allow_http: bool = False
     auto_sync: float = 1.0
+    events: bool = False
     raise_for_auth_failure: bool = True
     convergence_wait_max_iter: int = 500
     convergence_wait_time: int | float = 5
@@ -148,9 +153,10 @@ class ClientConfig(NamedTuple):
             allow_http=self.allow_http,
             convergence_wait_max_iter=self.convergence_wait_max_iter,
             convergence_wait_time=self.convergence_wait_time,
+            events=self.events,
         )
-        client.auto_sync = self.auto_sync >= 0.0
         client.auto_sync_interval = self.auto_sync
+        client.auto_sync = self.auto_sync >= 0.0 and not self.events
         return client
 
 
@@ -158,7 +164,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.5.0")
+    VERSION = Version("2.6.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -181,58 +187,52 @@ class ClientLibrary:
         allow_http: bool = False,
         convergence_wait_max_iter: int = 500,
         convergence_wait_time: int | float = 5,
+        events: bool = False,
     ) -> None:
         """
         Initializes a ClientLibrary instance. Note that ssl_verify can
         also be a string that points to a cert (see class documentation).
 
         :param url: URL of controller. It's also possible to pass the
-            URL via the ``VIRL2_URL`` environment variable. If no protocol
-            scheme is provided, "https:" is used.
-        :param username: Username of the user to authenticate
-        :param password: Password of the user to authenticate
+            URL via the ``VIRL2_URL`` or ``VIRL_HOST`` environment variable.
+            If no protocol scheme is provided, "https:" is used.
+        :param username: Username of the user to authenticate. It's also possible
+            to pass the username via ``VIRL2_USER`` or ``VIRL_USERNAME`` variable.
+        :param password: Password of the user to authenticate. It's also possible
+            to pass the password via ``VIRL2_PASS`` or ``VIRL_PASSWORD`` variable.
         :param ssl_verify: Path SSL controller certificate, or True to load
-            from ``CA_BUNDLE`` environment variable, or False to disable
+            from ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variable,
+            or False to disable.
         :param raise_for_auth_failure: Raise an exception if unable
-            to connect to controller (use for scripting scenarios)
+            to connect to controller (use for scripting scenarios).
         :param allow_http: If set, a https URL will not be enforced
         :param convergence_wait_max_iter: maximum number of iterations to wait for
-            lab to converge
+            lab to converge.
         :param convergence_wait_time: wait interval in seconds to wait during one
-            iteration during lab convergence wait
+            iteration during lab convergence wait.
+        :param events: whether to use events - event listeners for state updates and
+            event handlers for custom handling.
         :raises InitializationError: If no URL is provided,
-            authentication fails or host can't be reached
+            authentication fails or host can't be reached.
         """
-
-        url = self._environ_get("VIRL2_URL", url)
-        if url is None or len(url) == 0:
-            message = "no URL provided"
-            raise InitializationError(message)
+        url, username, password, cert = get_configuration(
+            url, username, password, ssl_verify
+        )
+        if cert is not None:
+            ssl_verify = cert
 
         url, base_url = prepare_url(url, allow_http)
-
-        # check environment for username
-        username = self._environ_get("VIRL2_USER", username)
-        if username is None or len(username) == 0:
-            message = "no username provided"
-            raise InitializationError(message)
         self.username: str = username
-
-        # check environment for password
-        password = self._environ_get("VIRL2_PASS", password)
-        if password is None or len(password) == 0:
-            message = "no password provided"
-            raise InitializationError(message)
         self.password: str = password
-
-        if ssl_verify is True:
-            ssl_verify = self._environ_get("CA_BUNDLE", default=True)
 
         if ssl_verify is False:
             _LOGGER.warning("SSL Verification disabled")
 
         self._ssl_verify = ssl_verify
-        self._session = make_session(base_url, ssl_verify)
+        try:
+            self._session = make_session(base_url, ssl_verify)
+        except httpx.InvalidURL as exc:
+            raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION
         self.check_controller_version()
 
@@ -270,6 +270,11 @@ class ClientLibrary:
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
         )
+        self.auth_management = AuthManagement(
+            self._session,
+            auto_sync=self.auto_sync,
+            auto_sync_interval=self.auto_sync_interval,
+        )
 
         try:
             self._make_test_auth_call()
@@ -279,6 +284,13 @@ class ClientLibrary:
             else:
                 _LOGGER.warning(exc)
                 return
+
+        self.event_listener = None
+        self.session.lock = None
+        if events:
+            # http-based auto sync should be off by default when using events
+            self.auto_sync = False
+            self.start_event_listening()
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
@@ -332,6 +344,15 @@ class ClientLibrary:
         :returns: The session object
         """
         return self._session
+
+    @property
+    def uuid(self) -> str:
+        """
+        Returns the UUID4 that identifies this client to the server.
+
+        :returns: the UUID4 string
+        """
+        return self._session.headers["X-Client-UUID"]
 
     def logout(self, clear_all_sessions: bool = False) -> None:
         """
@@ -436,6 +457,32 @@ class ClientLibrary:
             return True
         return False
 
+    @locked
+    def start_event_listening(self):
+        """
+        Starts listening for and parsing websocket events.
+
+        To replace the default event handling mechanism,
+        subclass `event_handling.EventHandler` (or `EventHandlerBase` if necessary),
+        then do:
+            self.websockets = event_listening.EventListener(self)
+            self.websockets._event_handler = handler
+        """
+        from .event_listening import EventListener
+
+        if self.event_listener is None:
+            self.event_listener = EventListener(self)
+        if not self.event_listener:
+            self._session.lock = RLock()
+            self.event_listener.start_listening()
+
+    @locked
+    def stop_event_listening(self):
+        if self.event_listener:
+            self.session.lock = None
+            self.event_listener.stop_listening()
+
+    @locked
     def import_lab(
         self,
         topology: str,
@@ -495,6 +542,7 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
+    @locked
     def import_lab_from_path(self, path: str, title: Optional[str] = None) -> Lab:
         """
         Imports an existing topology from a file / path.
@@ -522,6 +570,7 @@ class ClientLibrary:
         url = "sample/labs"
         return self._session.get(url).json()
 
+    @locked
     def import_sample_lab(self, title: str) -> Lab:
         """
         Imports a built-in sample lab.
@@ -534,15 +583,14 @@ class ClientLibrary:
         lab_id = self._session.put(url).json()
         return self.join_existing_lab(lab_id)
 
+    @locked
     def all_labs(self, show_all: bool = False) -> list[Lab]:
         """
-        Retrieves a list of all defined labs.
+        Joins all labs owned by this user (or all labs period) and returns their list.
 
         :param show_all: Whether to get only labs owned by the admin or all user labs
         :returns: A list of lab objects
-        :rtype: list[models.Lab]
         """
-        # TODO: integrate this further with local labs - check if already exist
         url = "labs"
         if show_all:
             url += "?show_all=true"
@@ -554,16 +602,26 @@ class ClientLibrary:
 
         return result
 
-    def local_labs(self) -> list[Lab]:
-        # TODO: first sync with controller to pull all possible labs
-        return [lab for lab in self._labs.values()]
+    @locked
+    def _remove_stale_labs(self):
+        for lab in list(self._labs.values()):
+            if lab._stale:
+                self._remove_lab_local(lab)
 
+    @locked
+    def local_labs(self) -> list[Lab]:
+        self._remove_stale_labs()
+        return list(self._labs.values())
+
+    @locked
     def get_local_lab(self, lab_id: str) -> Lab:
+        self._remove_stale_labs()
         try:
             return self._labs[lab_id]
         except KeyError:
             raise LabNotFound(lab_id)
 
+    @locked
     def create_lab(self, title: Optional[str] = None) -> Lab:
         """
         Creates an empty lab with the given name. If no name is given, then
@@ -602,19 +660,47 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def remove_lab(self, lab_id: str) -> None:
+    @locked
+    def remove_lab(self, lab_id: str | Lab) -> None:
         """
         Use carefully, it removes a given lab::
 
             client_library.remove_lab("1f6cd7")
 
-        :param lab_id: The lab ID to be removed.
-        :type lab_id: str
-        """
-        url = "labs/{}".format(lab_id)
-        self._session.delete(url)
-        self._labs.pop(lab_id, None)
+        If you have a lab object, you can also simply do:
 
+            lab.remove()
+
+        :param lab_id: the lab ID or object
+        """
+        self._remove_stale_labs()
+        if isinstance(lab_id, Lab):
+            lab_id.remove()
+            self._remove_lab_local(lab_id)
+        elif lab_id in self._labs:
+            self._labs[lab_id].remove()
+            self._remove_lab_local(self._labs[lab_id])
+
+        else:
+            self._remove_unjoined_lab(lab_id)
+
+    @locked
+    def _remove_lab_local(self, lab: Lab) -> None:
+        """Helper function to remove a lab from the client library."""
+        try:
+            del self._labs[lab._id]
+            lab._stale = True
+        except KeyError:
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
+            pass
+
+    def _remove_unjoined_lab(self, lab_id: str):
+        url = "labs/{}".format(lab_id)
+        response = self._session.delete(url)
+        _LOGGER.debug("removed lab: %s", response.text)
+
+    @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:
         """
         Creates a new ClientLibrary lab instance that is retrieved
@@ -632,9 +718,22 @@ class ClientLibrary:
         :param sync_lab: Synchronize changes.
         :returns: A Lab instance
         """
-        # TODO: check if lab exists through REST call
-        title = None
-        # TODO: sync lab name
+        self._remove_stale_labs()
+        if lab_id in self._labs:
+            return self._labs[lab_id]
+        topology = {}
+        if sync_lab:
+            try:
+                # check if lab exists through REST call
+                topology = self.session.get(f"labs/{lab_id}/topology").json()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    raise LabNotFound("No lab with the given ID exists on the host.")
+                raise
+            title = topology.get("lab", {}).get("title")
+        else:
+            title = None
+
         lab = Lab(
             title,
             lab_id,
@@ -646,7 +745,8 @@ class ClientLibrary:
             resource_pool_manager=self.resource_pool_management,
         )
         if sync_lab:
-            lab.sync()
+            lab.import_lab(topology)
+            lab._initialized = True
 
         self._labs[lab_id] = lab
         return lab
@@ -656,7 +756,6 @@ class ClientLibrary:
         Returns the controller diagnostic data as JSON
 
         :returns: diagnostic data
-        :rtype: dict
         """
         url = "diagnostics"
         return self._session.get(url).json()
@@ -679,6 +778,7 @@ class ClientLibrary:
         url = "system_stats"
         return self._session.get(url).json()
 
+    @locked
     def find_labs_by_title(self, title: str) -> list[Lab]:
         """
         Return a list of labs which match the given title.
@@ -713,9 +813,7 @@ class ClientLibrary:
         Returns list of all lab IDs.
 
         :param show_all: Whether to get only labs owned by the admin or all user labs
-        :type show_all: bool
         :returns: a list of Lab IDs
-        :rtype: list[str]
         """
         url = "labs"
         if show_all:

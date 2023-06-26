@@ -1,4 +1,5 @@
 #
+#
 # This file is part of VIRL 2
 # Copyright (c) 2019-2023, Cisco Systems, Inc.
 # All rights reserved.
@@ -27,6 +28,8 @@ from functools import total_ordering
 from typing import TYPE_CHECKING, Any, Optional
 
 from ..exceptions import InterfaceNotFound
+from ..utils import check_stale, locked
+from ..utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx
@@ -83,7 +86,7 @@ class Node:
         :param resource_pool: A resource pool ID if the node is in a resource pool
         """
         self.lab = lab
-        self.id = nid
+        self._id = nid
         self._label = label
         self._node_definition = node_definition
         self._x = x
@@ -101,6 +104,7 @@ class Node:
         self._tags = tags
         self._compute_id: Optional[str] = None
         self._resource_pool = resource_pool
+        self._stale = False
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -109,7 +113,7 @@ class Node:
         }
 
     def __str__(self):
-        return "Node: {}".format(self._label)
+        return f"Node: {self._label}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
         return (
@@ -117,7 +121,7 @@ class Node:
             "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
                 str(self.lab),
-                self.id,
+                self._id,
                 self._label,
                 self._node_definition,
                 self._image_definition,
@@ -137,17 +141,18 @@ class Node:
     def __eq__(self, other):
         if not isinstance(other, Node):
             return False
-        return self.id == other.id
+        return self._id == other._id
 
     def __lt__(self, other):
         if not isinstance(other, Node):
             return False
-        return int(self.id) < int(other.id)
+        return self._id < other._id
 
     def __hash__(self):
-        return hash(self.id)
+        return hash(self._id)
 
     @property
+    @locked
     def state(self) -> Optional[str]:
         self.lab.sync_states_if_outdated()
         if self._state is None:
@@ -155,18 +160,19 @@ class Node:
             self._state = self._session.get(url).json()["state"]
         return self._state
 
-    @state.setter
-    def state(self, value: Optional[str]) -> None:
-        self._state = value
-
+    @check_stale
+    @locked
     def interfaces(self) -> list[Interface]:
-        self.lab.sync_topology_if_outdated()
+        # self.lab.sync_topology_if_outdated()
         return [iface for iface in self.lab.interfaces() if iface.node is self]
 
+    @locked
     def physical_interfaces(self) -> list[Interface]:
-        self.lab.sync_topology_if_outdated()
+        # self.lab.sync_topology_if_outdated()
         return [iface for iface in self.interfaces() if iface.physical]
 
+    @check_stale
+    @locked
     def create_interface(
         self, slot: Optional[int] = None, wait: bool = False
     ) -> Interface:
@@ -177,10 +183,10 @@ class Node:
         :param slot: (optional)
         :param wait: Wait for the creation
         :returns: The newly created interface
-        :rtype: models.Interface
         """
         return self.lab.create_interface(self, slot, wait=wait)
 
+    @locked
     def next_available_interface(self) -> Optional[Interface]:
         """
         Returns the next available physical interface on this node.
@@ -190,13 +196,13 @@ class Node:
         to connect to other nodes!
 
         :returns: an interface or None, if all existing ones are connected
-        :rtype: models.Interface
         """
         for iface in self.interfaces():
             if not iface.connected and iface.physical:
                 return iface
         return None
 
+    @locked
     def peer_interfaces(self) -> list[Interface]:
         peer_ifaces = []
         for iface in self.interfaces():
@@ -205,17 +211,24 @@ class Node:
                 peer_ifaces.append(peer_iface)
         return peer_ifaces
 
+    @locked
     def peer_nodes(self) -> list[Node]:
         return list({iface.node for iface in self.peer_interfaces()})
 
+    @locked
     def links(self) -> list[Link]:
         return list(
             {link for iface in self.interfaces() if (link := iface.link) is not None}
         )
 
+    @locked
     def degree(self) -> int:
         self.lab.sync_topology_if_outdated()
         return len(self.links())
+
+    @property
+    def id(self) -> str:
+        return self._id
 
     @property
     def label(self) -> str:
@@ -223,6 +236,7 @@ class Node:
         return self._label
 
     @label.setter
+    @locked
     def label(self, value: str) -> None:
         self._set_node_property("label", value)
         self._label = value
@@ -233,6 +247,7 @@ class Node:
         return self._x
 
     @x.setter
+    @locked
     def x(self, value: int) -> None:
         self._set_node_property("x", value)
         self._x = value
@@ -243,6 +258,7 @@ class Node:
         return self._y
 
     @y.setter
+    @locked
     def y(self, value: int) -> None:
         self._set_node_property("y", value)
         self._y = value
@@ -253,6 +269,7 @@ class Node:
         return self._ram
 
     @ram.setter
+    @locked
     def ram(self, value: int) -> None:
         self._set_node_property("ram", value)
         self._ram = value
@@ -263,6 +280,7 @@ class Node:
         return self._cpus
 
     @cpus.setter
+    @locked
     def cpus(self, value: int) -> None:
         self._set_node_property("cpus", value)
         self._cpus = value
@@ -273,6 +291,7 @@ class Node:
         return self._cpu_limit
 
     @cpu_limit.setter
+    @locked
     def cpu_limit(self, value: int) -> None:
         self._set_node_property("cpu_limit", value)
         self._cpu_limit = value
@@ -283,6 +302,7 @@ class Node:
         return self._data_volume
 
     @data_volume.setter
+    @locked
     def data_volume(self, value: int) -> None:
         self._set_node_property("data_volume", value)
         self._data_volume = value
@@ -303,6 +323,7 @@ class Node:
         return self._boot_disk_size
 
     @boot_disk_size.setter
+    @locked
     def boot_disk_size(self, value: int) -> None:
         self._set_node_property("boot_disk_size", value)
         self._boot_disk_size = value
@@ -323,6 +344,7 @@ class Node:
         return self.configuration
 
     @config.setter
+    @locked
     def config(self, value: str) -> None:
         warnings.warn(CONFIG_WARNING, DeprecationWarning)
         self.configuration = value
@@ -333,6 +355,7 @@ class Node:
         return self._image_definition
 
     @image_definition.setter
+    @locked
     def image_definition(self, value: str) -> None:
         self.lab.sync_topology_if_outdated()
         self._set_node_property("image_definition", value)
@@ -376,12 +399,14 @@ class Node:
         self.lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
 
+    @locked
     def get_interface_by_label(self, label: str) -> Interface:
         for iface in self.interfaces():
             if iface.label == label:
                 return iface
         raise InterfaceNotFound("{}:{}".format(label, self))
 
+    @locked
     def get_interface_by_slot(self, slot: int) -> Interface:
         for iface in self.interfaces():
             if iface.slot == slot:
@@ -413,6 +438,7 @@ class Node:
                 return link
         return None
 
+    @check_stale
     def wait_until_converged(
         self, max_iterations: Optional[int] = None, wait_time: Optional[int] = None
     ) -> None:
@@ -446,61 +472,83 @@ class Node:
         # specified
         raise RuntimeError(msg)
 
+    @check_stale
     def has_converged(self) -> bool:
         url = self._base_url + "/check_if_converged"
         return self._session.get(url).json()
 
+    @check_stale
     def start(self, wait=False) -> None:
         url = self._base_url + "/state/start"
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
+    @check_stale
     def stop(self, wait=False) -> None:
         url = self._base_url + "/state/stop"
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
+    @check_stale
     def wipe(self, wait=False) -> None:
         url = self._base_url + "/wipe_disks"
         self._session.put(url)
         if self.lab.need_to_wait(wait):
             self.wait_until_converged()
 
+    @check_stale
     def extract_configuration(self) -> None:
         url = self._base_url + "/extract_configuration"
         self._session.put(url)
 
+    @check_stale
     def console_logs(self, console_id: int, lines: Optional[int] = None) -> dict:
         query = "?lines=%d" % lines if lines else ""
         url = self._base_url + "/consoles/%d/log%s" % (console_id, query)
         return self._session.get(url).json()
 
+    @check_stale
     def console_key(self) -> str:
         url = self._base_url + "/keys/console"
         return self._session.get(url).json()
 
+    @check_stale
     def vnc_key(self) -> str:
         url = self._base_url + "/keys/vnc"
         return self._session.get(url).json()
 
-    def remove_on_server(self) -> None:
+    def remove(self) -> None:
+        self.lab.remove_node(self)
+
+    @check_stale
+    def _remove_on_server(self) -> None:
         _LOGGER.info("Removing node %s", self)
         url = self._base_url
         self._session.delete(url)
 
+    def remove_on_server(self) -> None:
+        warnings.warn(
+            "'Node.remove_on_server()' is deprecated, use 'Node.remove()' instead.",
+            DeprecationWarning,
+        )
+        self._remove_on_server()
+
+    @check_stale
     def tags(self) -> list[str]:
         """Returns the tags set on this node"""
         self.lab.sync_topology_if_outdated()
         return self._tags
 
+    @locked
     def add_tag(self, tag: str) -> None:
         current = self.tags()
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
 
+    @locked
     def remove_tag(self, tag: str) -> None:
         current = self.tags()
         current.remove(tag)
@@ -524,6 +572,8 @@ class Node:
         label = self.label
         return self.lab.pyats.run_config_command(label, command)
 
+    @check_stale
+    @locked
     def sync_layer3_addresses(self) -> None:
         """Acquire all L3 addresses from the controller. For this
         to work, the device has to be attached to the external network
@@ -536,6 +586,8 @@ class Node:
         interfaces = result.get("interfaces", {})
         self.map_l3_addresses_to_interfaces(interfaces)
 
+    @check_stale
+    @locked
     def sync_operational(self, response: dict[str, Any] = None):
         if response is None:
             url = self._base_url + "?operational=true"
@@ -544,6 +596,8 @@ class Node:
         self._compute_id = operational.get("compute_id")
         self._resource_pool = operational.get("resource_pool")
 
+    @check_stale
+    @locked
     def map_l3_addresses_to_interfaces(
         self, mapping: dict[str, dict[str, str]]
     ) -> None:
@@ -553,8 +607,9 @@ class Node:
                 continue
             ipv4 = entry.get("ip4")
             ipv6 = entry.get("ip6")
-            iface = self.get_interface_by_label(label)
-            if not iface:
+            try:
+                iface = self.get_interface_by_label(label)
+            except InterfaceNotFound:
                 continue
             iface.ip_snooped_info = {
                 "mac_address": mac_address,
@@ -562,6 +617,8 @@ class Node:
                 "ipv6": ipv6,
             }
 
+    @check_stale
+    @locked
     def update(
         self,
         node_data: dict[str, Any],
@@ -592,5 +649,6 @@ class Node:
         _LOGGER.debug("Setting node property %s %s: %s", self, key, val)
         self._set_node_properties({key: val})
 
+    @check_stale
     def _set_node_properties(self, node_data: dict[str, Any]) -> None:
         self._session.patch(url=self._base_url, json=node_data)

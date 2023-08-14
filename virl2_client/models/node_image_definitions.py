@@ -183,23 +183,11 @@ class NodeImageDefinitions:
         url = "image_definitions/" + definition_id
         return self._session.get(url).json()
 
-    def upload_image_file(
-        self,
-        filename: str,
-        rename: Optional[str] = None,
-        chunk_size_mb: Optional[int] = None,
-    ) -> None:
+    def upload_image_file(self, filename: str, rename: Optional[str] = None) -> None:
         """
         :param filename: the path of the image to upload
         :param rename:  Optional filename to rename to
-        :param chunk_size_mb: Optional size of upload chunk (mb)
-            (deprecated since 2.2.0)
         """
-        if chunk_size_mb is not None:
-            warnings.warn(
-                'The argument "chunk_size_mb" is deprecated as it never worked',
-                DeprecationWarning,
-            )
 
         extension_list = [".qcow", ".qcow2"]
         url = "images/upload"
@@ -207,7 +195,7 @@ class NodeImageDefinitions:
         path = pathlib.Path(filename)
         extension = "".join(path.suffixes)
         last_ext = path.suffix
-        name = rename or path.stem
+        name = rename or path.name
 
         if extension == "" or name == "":
             message = (

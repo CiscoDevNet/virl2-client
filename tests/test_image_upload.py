@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
-from unittest.mock import MagicMock
+from io import BufferedReader
+from unittest.mock import ANY, MagicMock
 
 import pytest
 
@@ -61,6 +62,11 @@ expected_pass_list = [
 ]
 
 
+@pytest.fixture(scope="module")
+def test_data_path():
+    return pathlib.Path("test_data")
+
+
 @contextlib.contextmanager
 def windows_path(path: str):
     if "\\" in path:
@@ -72,6 +78,23 @@ def windows_path(path: str):
             pathlib.Path = orig
     else:
         yield path
+
+
+@pytest.fixture(autouse=True, scope="module")
+def create_test_files(test_data_path):
+    # Create test files
+    created = []
+    for file_path in expected_pass_list:
+        path = test_data_path.joinpath(file_path)
+        with path.open("w") as f:
+            f.write("test")
+        created.append(path)
+
+    yield created
+
+    # Teardown
+    for path in created:
+        path.unlink()
 
 
 @pytest.mark.parametrize(
@@ -86,30 +109,48 @@ def windows_path(path: str):
         pytest.param("\\"),
         pytest.param("..\\..\\"),
         pytest.param("\\test\\"),
+        pytest.param("test_data/"),
     ],
 )
-@pytest.mark.parametrize("usage", [pytest.param("name"), pytest.param("rename")])
+@pytest.mark.parametrize(
+    "rename",
+    [
+        pytest.param(None),
+        pytest.param("renamed.qcow"),
+        pytest.param("renamed.qcow2"),
+        pytest.param("renamed"),
+    ],
+)
 @pytest.mark.parametrize(
     "test_string, message",
     [pytest.param(test_str, "wrong format") for test_str in wrong_format_list]
     + [pytest.param(test_str, "not supported") for test_str in not_supported_list]
     + [pytest.param(test_str, "") for test_str in expected_pass_list],
 )
-def test_image_upload_file(usage: str, test_string: str, message: str, test_path: str):
+def test_image_upload_file(rename: str, test_string: str, message: str, test_path: str):
     session = MagicMock()
+    session.post = MagicMock()
     nid = NodeImageDefinitions(session)
-    rename = None
     filename = test_path + test_string
 
-    if usage == "rename":
-        rename = test_string
+    if message in ("wrong format", "not supported"):
+        with pytest.raises(InvalidImageFile, match=message):
+            with windows_path(filename):
+                nid.upload_image_file(filename, rename)
 
-    try:
+    elif test_path == "test_data/":
         with windows_path(filename):
             nid.upload_image_file(filename, rename)
-    except FileNotFoundError:
-        assert message == ""
-    except InvalidImageFile as exc:
-        assert message in exc.args[0]
+        name = rename or test_string
+        files = {"field0": (name, ANY)}
+        headers = {"X-Original-File-Name": name}
+        session.post.assert_called_with("images/upload", files=files, headers=headers)
+        file = session.post.call_args.kwargs["files"]["field0"][1]
+        assert isinstance(file, BufferedReader)
+        assert pathlib.Path(file.name).resolve() == pathlib.Path(filename).resolve()
+        file.close()
+
     else:
-        assert message == ""
+        with pytest.raises(FileNotFoundError):
+            with windows_path(filename):
+                nid.upload_image_file(filename, rename)

@@ -20,8 +20,10 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import pathlib
 from io import BufferedReader
+from typing import Iterator
 from unittest.mock import ANY, MagicMock
 
 import pytest
@@ -63,6 +65,13 @@ expected_pass_list = [
 
 
 @pytest.fixture(scope="module")
+def change_test_dir_module(request: pytest.FixtureRequest) -> Iterator[None]:
+    os.chdir(request.path.parent)
+    yield
+    os.chdir(request.config.invocation_params.dir)
+
+
+@pytest.fixture(scope="module")
 def test_data_path():
     return pathlib.Path("test_data")
 
@@ -81,7 +90,7 @@ def windows_path(path: str):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def create_test_files(test_data_path):
+def create_test_files(test_data_path, change_test_dir_module):
     # Create test files
     created = []
     for file_path in expected_pass_list:
@@ -94,7 +103,8 @@ def create_test_files(test_data_path):
 
     # Teardown
     for path in created:
-        path.unlink()
+        if path.is_file():
+            path.unlink()
 
 
 @pytest.mark.parametrize(

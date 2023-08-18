@@ -20,10 +20,8 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import pathlib
 from io import BufferedReader
-from typing import Iterator
 from unittest.mock import ANY, MagicMock
 
 import pytest
@@ -64,16 +62,24 @@ expected_pass_list = [
 ]
 
 
-@pytest.fixture(scope="module")
-def change_test_dir_module(request: pytest.FixtureRequest) -> Iterator[None]:
-    os.chdir(request.path.parent)
-    yield
-    os.chdir(request.config.invocation_params.dir)
-
-
-@pytest.fixture(scope="module")
+@pytest.fixture
 def test_data_path():
     return pathlib.Path("test_data")
+
+
+# This fixture is not meant to be used in tests - rather, it's here to easily manually
+# update files when the expected_pass_list is changed. Just change autouse to True,
+# then locally run test_image_upload_file, and this will generate all the files
+# in the expected_pass_list into test_data.
+@pytest.fixture(autouse=False)
+def create_test_files(test_data_path, change_test_dir):
+    created = []
+    for file_path in expected_pass_list:
+        path = test_data_path.joinpath(file_path)
+        with path.open("w") as f:
+            f.write("test")
+        created.append(path)
+    yield created
 
 
 @contextlib.contextmanager
@@ -87,20 +93,6 @@ def windows_path(path: str):
             pathlib.Path = orig
     else:
         yield path
-
-
-# Whenever you modify expected_pass_list, delete files with names from the old list
-# from test_data, set autouse to True and run test_image_upload_file to regenerate files
-@pytest.fixture(autouse=False, scope="module")
-def create_test_files(test_data_path, change_test_dir_module):
-    created = []
-    for file_path in expected_pass_list:
-        path = test_data_path.joinpath(file_path)
-        with path.open("w") as f:
-            f.write("test")
-        created.append(path)
-
-    yield created
 
 
 @pytest.mark.parametrize(
@@ -133,7 +125,9 @@ def create_test_files(test_data_path, change_test_dir_module):
     + [pytest.param(test_str, "not supported") for test_str in not_supported_list]
     + [pytest.param(test_str, "") for test_str in expected_pass_list],
 )
-def test_image_upload_file(rename: str, test_string: str, message: str, test_path: str):
+def test_image_upload_file(
+    rename: str, test_string: str, message: str, test_path: str, change_test_dir
+):
     session = MagicMock()
     session.post = MagicMock()
     nid = NodeImageDefinitions(session)

@@ -20,7 +20,6 @@
 
 import json
 import logging
-import os
 import re
 import sys
 from pathlib import Path
@@ -44,7 +43,21 @@ python37_or_newer = pytest.mark.skipif(
     sys.version_info < (3, 7), reason="requires Python3.7"
 )
 
+
 # TODO: split into multiple test modules, by feature
+@pytest.fixture
+def reset_env(monkeypatch):
+    env_vars = [
+        "VIRL2_URL",
+        "VIRL_HOST",
+        "VIRL2_USER",
+        "VIRL_USERNAME",
+        "VIRL2_PASS",
+        "VIRL_PASSWORD",
+    ]
+
+    for key in env_vars:
+        monkeypatch.delenv(key, raising=False)
 
 
 @python37_or_newer
@@ -104,24 +117,20 @@ def test_ssl_certificate(client_library_server_current, mocked_session):
     cl.is_system_ready(wait=True)
 
     assert cl._ssl_verify == "/home/user/cert.pem"
-    assert cl.session.mock_calls[:4] == [
-        call.get("authok"),
-    ]
+    assert cl.session.mock_calls[:4] == [call.get("authok")]
 
 
 def test_ssl_certificate_from_env_variable(
     client_library_server_current, monkeypatch, mocked_session
 ):
-    monkeypatch.setitem(os.environ, "CA_BUNDLE", "/home/user/cert.pem")
+    monkeypatch.setenv("CA_BUNDLE", "/home/user/cert.pem")
     cl = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
 
     assert cl.is_system_ready()
     assert cl._ssl_verify == "/home/user/cert.pem"
-    assert cl.session.mock_calls[:4] == [
-        call.get("authok"),
-    ]
+    assert cl.session.mock_calls[:4] == [call.get("authok")]
 
 
 @python37_or_newer
@@ -201,7 +210,7 @@ def test_client_library_init_disallow_http(client_library_server_current):
         ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
 
 
-# the test fails if you have variables set in .virlci or env
+# the test fails if you have variables set in env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("env_var", ["VIRL2_URL", "VIRL_HOST"])
 @pytest.mark.parametrize(
@@ -217,7 +226,7 @@ def test_client_library_init_disallow_http(client_library_server_current):
     ],
 )
 def test_client_library_init_url(
-    client_library_server_current, monkeypatch, via, env_var, params
+    client_library_server_current, reset_env, monkeypatch, via, env_var, params
 ):
     monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
@@ -240,9 +249,9 @@ def test_client_library_init_url(
                 allow_http=True,
                 raise_for_auth_failure=True,
             )
-            if isinstance(err, OSError):
-                pattern = "(reading from stdin)"
-                assert re.match(pattern, str(err.value))
+        if isinstance(err, OSError):
+            pattern = "(reading from stdin)"
+            assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
         url_parts = cl.session.base_url
@@ -255,12 +264,12 @@ def test_client_library_init_url(
         assert cl.password == "virl2"
 
 
-# the test fails if you have variables set in .virlci or env
+# the test fails if you have variables set in env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("env_var", ["VIRL2_USER", "VIRL_USERNAME"])
 @pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_server_current, monkeypatch, via, env_var, params
+    client_library_server_current, reset_env, monkeypatch, via, env_var, params
 ):
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
@@ -278,9 +287,9 @@ def test_client_library_init_user(
     if fail:
         with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username=user, password="virl2")
-            if isinstance(err, OSError):
-                pattern = "(reading from stdin)"
-                assert re.match(pattern, str(err.value))
+        if isinstance(err, OSError):
+            pattern = "(reading from stdin)"
+            assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
         assert cl.username == params[1]
@@ -288,12 +297,12 @@ def test_client_library_init_user(
         assert cl.session.base_url == "https://validhostname/api/v0/"
 
 
-# the test fails if you have variables set in .virlci or env
+# the test fails if you have variables set in env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("env_var", ["VIRL2_PASS", "VIRL_PASSWORD"])
 @pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_server_current, monkeypatch, via, env_var, params
+    client_library_server_current, reset_env, monkeypatch, via, env_var, params
 ):
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
@@ -311,9 +320,9 @@ def test_client_library_init_password(
     if fail:
         with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username="virl2", password=password)
-            if isinstance(err, OSError):
-                pattern = "(reading from stdin)"
-                assert re.match(pattern, str(err.value))
+        if isinstance(err, OSError):
+            pattern = "(reading from stdin)"
+            assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"

@@ -47,8 +47,8 @@ def pytest_addoption(
         parser.addini("asyncio_mode", "suppress the warning")
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def change_test_dir(request: pytest.FixtureRequest) -> Iterator[None]:
     os.chdir(request.path.parent)
     yield
-    os.chdir(request.config.invocation_params.dir)
+    os.chdir(request.config.invocation_dir)

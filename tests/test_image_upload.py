@@ -89,9 +89,10 @@ def windows_path(path: str):
         yield path
 
 
-@pytest.fixture(autouse=True, scope="module")
+# Whenever you modify expected_pass_list, delete files with names from the old list
+# from test_data, set autouse to True and run test_image_upload_file to regenerate files
+@pytest.fixture(autouse=False, scope="module")
 def create_test_files(test_data_path, change_test_dir_module):
-    # Create test files
     created = []
     for file_path in expected_pass_list:
         path = test_data_path.joinpath(file_path)
@@ -100,11 +101,6 @@ def create_test_files(test_data_path, change_test_dir_module):
         created.append(path)
 
     yield created
-
-    # Teardown
-    for path in created:
-        if path.is_file():
-            path.unlink()
 
 
 @pytest.mark.parametrize(

@@ -465,8 +465,8 @@ class ClientLibrary:
         To replace the default event handling mechanism,
         subclass `event_handling.EventHandler` (or `EventHandlerBase` if necessary),
         then do:
-            self.websockets = event_listening.EventListener(self)
-            self.websockets._event_handler = handler
+        self.websockets = event_listening.EventListener(self)
+        self.websockets._event_handler = handler
         """
         from .event_listening import EventListener
 

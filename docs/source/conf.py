@@ -194,7 +194,7 @@ autodoc_default_options = {
     # 'member-order': 'bysource',
     "member-order": "groupwise",
     "special-members": "__init__",
-    # "ignore-module-all": None,
+    "ignore-module-all": True,
     # 'undoc-members': None,
     # 'exclude-members': '__weakref__'
 }

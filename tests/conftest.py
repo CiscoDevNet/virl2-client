@@ -141,6 +141,6 @@ def respx_mock_with_labs(respx_mock):
 
 
 @pytest.fixture
-def client_library(respx_mock_with_labs, change_test_dir):
+def client_library(respx_mock_with_labs):
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     yield client

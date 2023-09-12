@@ -21,8 +21,7 @@
 
 from __future__ import annotations
 
-import os
-from typing import Iterator
+from pathlib import Path
 
 import pytest
 
@@ -48,5 +47,5 @@ def pytest_addoption(
 
 
 @pytest.fixture
-def test_dir(request: pytest.FixtureRequest):
+def test_dir(request: pytest.FixtureRequest) -> Path:
     return request.path.parent

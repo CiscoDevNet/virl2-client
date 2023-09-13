@@ -84,7 +84,8 @@ def resp_body_from_file(request: httpx.Request) -> httpx.Response:
     elif endpoint_parts[0] == "labs":
         lab_id = endpoint_parts[1]
         filename = "_".join(endpoint_parts[2:]) + "-" + lab_id + ".json"
-    file_path = Path("test_data", filename)
+    test_dir = Path(__file__).parent.resolve()
+    file_path = test_dir / "test_data" / filename
     return httpx.Response(200, text=file_path.read_text())
 
 
@@ -141,6 +142,6 @@ def respx_mock_with_labs(respx_mock):
 
 
 @pytest.fixture
-def client_library(respx_mock_with_labs, change_test_dir):
+def client_library(respx_mock_with_labs):
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     yield client

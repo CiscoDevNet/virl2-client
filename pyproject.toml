@@ -22,6 +22,8 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.8.1"
 httpx = "^0.24.0"
+# SIMPLE-5904
+urllib3 = "^1"
 
 # optional package for events
 aiohttp = {version = "*", optional = true}

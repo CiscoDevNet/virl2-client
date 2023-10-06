@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import time
 import warnings
+from copy import deepcopy
 from functools import total_ordering
 from typing import TYPE_CHECKING, Any
 
@@ -66,7 +67,7 @@ class Node:
         label: str,
         node_definition: str,
         image_definition: str | None,
-        configuration: str | None,
+        configuration: list[dict[str, str]] | None,
         x: int,
         y: int,
         ram: int | None,
@@ -406,15 +407,48 @@ class Node:
 
     @property
     def configuration(self) -> str | None:
-        """Return the initial configuration of this node."""
-        self.lab._sync_topology(exclude_configurations=False)
-        return self._configuration
+        """Return the contents of the main configuration file."""
+        self.lab.sync_topology_if_outdated(exclude_configurations=False)
+        return self._configuration[0] if self._configuration else None
 
     @configuration.setter
-    def configuration(self, value) -> None:
-        """Set the initial configuration of this node."""
+    def configuration(self, value: str | list | dict) -> None:
+        """
+        Set the content of:
+         - the main configuration file if passed a string,
+         - one configuration file if passed a dictionary in the format of
+        `{"name": "filename.txt", "content": "<file content>"}`,
+         - or multiple configuration files if passed a list of above dictionaries.
+        Can also use "Main" in place of the filename of the main configuration file.
+
+        :param value: The configuration data in one of three formats.
+        """
         self._set_node_property("configuration", value)
-        self._configuration = value
+        self._configuration = (
+            self._configuration if self._configuration is not None else []
+        )
+        if isinstance(value, str):
+            if not self._configuration:
+                self._configuration.append({"name": "Main", "content": value})
+            else:
+                self._configuration[0]["content"] = value
+            return
+        new_configs = value if isinstance(value, list) else [value]
+        new_configs_by_name = {
+            new_config["name"]: new_config for new_config in new_configs
+        }
+        for i, config in enumerate(self._configuration):
+            if config["name"] in new_configs_by_name:
+                self._configuration[i] = new_configs_by_name[config["name"]]
+
+    @property
+    def configuration_files(self) -> list[dict[str, str]] | None:
+        """
+        Return all configuration files, in a list in the following format:
+        `[{"name": "filename.txt", "content": "<file content>"}]`
+        """
+        self.lab.sync_topology_if_outdated(exclude_configurations=False)
+        return deepcopy(self._configuration)
 
     @property
     def config(self) -> str | None:

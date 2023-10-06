@@ -164,6 +164,7 @@ class Lab:
         self._resource_pool_manager = resource_pool_manager
         self._resource_pools = []
         self._stale = False
+        self._synced_configs = True
 
     def __len__(self):
         return len(self._nodes)
@@ -245,14 +246,17 @@ class Lab:
 
     @check_stale
     @locked
-    def sync_topology_if_outdated(self) -> None:
+    def sync_topology_if_outdated(self, exclude_configurations=True) -> None:
         """Sync the topology if it is outdated."""
         timestamp = time.time()
-        if (
+        if not exclude_configurations and not self._synced_configs:
+            self._sync_topology(exclude_configurations=False)
+        elif (
             self.auto_sync
             and timestamp - self._last_sync_topology_time > self.auto_sync_interval
         ):
-            self._sync_topology(exclude_configurations=True)
+            self._sync_topology(exclude_configurations=exclude_configurations)
+            self._synced_configs = not exclude_configurations
 
     @check_stale
     @locked
@@ -563,7 +567,7 @@ class Lab:
         label: str,
         node_definition: str,
         image_definition: str | None,
-        configuration: str | None,
+        configuration: list[dict[str, str]] | None,
         x: int,
         y: int,
         ram: int | None = None,

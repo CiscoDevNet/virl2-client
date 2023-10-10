@@ -21,33 +21,29 @@
 from __future__ import annotations
 
 import io
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING
+
+from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
-    from pyats.topology import Device
+    from genie.libs.conf.device import Device
+    from genie.libs.conf.testbed import Testbed
 
     from .lab import Lab
 
 
-class PyatsNotInstalled(Exception):
-    pass
-
-
-class PyatsDeviceNotFound(Exception):
-    pass
-
-
 class ClPyats:
-    def __init__(self, lab: Lab, hostname: Optional[str] = None) -> None:
+    def __init__(self, lab: Lab, hostname: str | None = None) -> None:
         """
-        Creates a pyATS object that can be used to run commands
+        Create a pyATS object that can be used to run commands
         against a device either in exec mode ``show version`` or in
         configuration mode ``interface gi0/0 \\n no shut``.
 
-        :param lab: the lab which should be used with pyATS
-        :param hostname: force hostname/ip and port for console terminal server
-        :raises PyatsNotInstalled: when pyATS can not be found
-        :raises PyatsDeviceNotFound: when the device can not be found
+        :param lab: The lab object to be used with pyATS.
+        :param hostname: Forced hostname or IP address and port of the console
+            terminal server.
+        :raises PyatsNotInstalled: If pyATS is not installed.
+        :raises PyatsDeviceNotFound: If the device cannot be found.
         """
         self._pyats_installed = False
         self._lab = lab
@@ -58,31 +54,40 @@ class ClPyats:
             return
         else:
             self._pyats_installed = True
-        self._testbed: Any = None
-        self._connections: list[Any] = []
+        self._testbed: Testbed | None = None
+        self._connections: set[Device] = set()
 
     @property
-    def hostname(self) -> Optional[str]:
-        """Return forced hostname/ip and port terminal server setting"""
+    def hostname(self) -> str | None:
+        """Return the forced hostname/IP and port terminal server setting."""
         return self._hostname
 
     @hostname.setter
-    def hostname(self, hostname: Optional[str] = None) -> None:
+    def hostname(self, hostname: str | None = None) -> None:
+        """
+        Set the forced hostname/IP and port terminal server setting.
+
+        :param hostname: The hostname or IP address and port of the console terminal
+            server.
+        """
         self._hostname = hostname
 
     def _check_pyats_installed(self) -> None:
+        """
+        Check if pyATS is installed and raise an exception if not.
+
+        :raises PyatsNotInstalled: If pyATS is not installed.
+        """
         if not self._pyats_installed:
             raise PyatsNotInstalled
 
     def sync_testbed(self, username: str, password: str) -> None:
         """
-        Syncs the testbed from the server. Note that this
-        will always fetch the latest topology data from the server.
+        Sync the testbed from the server.
+        This fetches the latest topology data from the server.
 
-        :param username: the username that will be inserted into
-            the testbed data
-        :param password: the password that will be inserted into
-            the testbed data
+        :param username: The username to be inserted into the testbed data.
+        :param password: The password to be inserted into the testbed data.
         """
         self._check_pyats_installed()
         from pyats.topology import loader
@@ -93,32 +98,19 @@ class ClPyats:
         data.devices.terminal_server.credentials.default.password = password
         self._testbed = data
 
-    def _prepare_device(self, node_label: str) -> Device:
-        self._check_pyats_installed()
-        try:
-            pyats_device = self._testbed.devices[node_label]
-        except KeyError:
-            raise PyatsDeviceNotFound(node_label)
-
-        # TODO: later check if connected
-        # TODO: later look at pooling connections
-        pyats_device.connect(log_stdout=False, learn_hostname=True)
-        self._connections.append(pyats_device)
-        return pyats_device
-
     def _prepare_params(
         self,
-        init_exec_commands: Optional[list] = None,
-        init_config_commands: Optional[list] = None,
+        init_exec_commands: list[str] | None = None,
+        init_config_commands: list[str] | None = None,
     ) -> dict:
         """
         Prepare a dictionary of optional parameters to be executed before a command.
-        None means that default commands will be executed.  If you want no commands
-        to be executed pass an empty list instead.
+        None means that default commands will be executed. If you want no commands
+        to be executed, pass an empty list instead.
 
-        :param init_exec_commands: a list of exec commands to be executed
-        :param init_config_commangs: a list of config commands to be executed
-        :returns:  a dictionary of optional parameters to be executed with a command
+        :param init_exec_commands: A list of exec commands to be executed.
+        :param init_config_commands: A list of config commands to be executed.
+        :returns: A dictionary of optional parameters to be executed with a command.
         """
         params = {}
         if init_exec_commands:
@@ -127,48 +119,108 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
+    def _execute_command(
+        self,
+        node_label: str,
+        command: str,
+        configure_mode: bool = False,
+        init_exec_commands: list[str] | None = None,
+        init_config_commands: list[str] | None = None,
+    ) -> str:
+        """
+        Execute a command on the device.
+
+        :param node_label: The label/title of the device.
+        :param command: The command to be executed.
+        :param configure_mode: True if the command is to be run in configure mode,
+            False for exec mode.
+        :param init_exec_commands: A list of exec commands to be executed
+            before the command. Default commands will be run if omitted.
+            Pass an empty list to run no commands.
+        :param init_config_commands: A list of config commands to be executed
+            before the command. Default commands will be run if omitted.
+            Pass an empty list to run no commands.
+        :returns: The output from the device.
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        """
+        self._check_pyats_installed()
+
+        try:
+            pyats_device: Device = self._testbed.devices[node_label]
+        except KeyError:
+            raise PyatsDeviceNotFound(node_label)
+
+        if pyats_device not in self._connections or not pyats_device.is_connected():
+            if pyats_device in self._connections:
+                pyats_device.destroy()
+
+            pyats_device.connect(log_stdout=False, learn_hostname=True)
+            self._connections.add(pyats_device)
+        params = self._prepare_params(init_exec_commands, init_config_commands)
+        if configure_mode:
+            return pyats_device.configure(command, log_stdout=False, **params)
+        else:
+            return pyats_device.execute(command, log_stdout=False, **params)
+
     def run_command(
         self,
         node_label: str,
         command: str,
-        init_exec_commands: Optional[list] = None,
-        init_config_commands: Optional[list] = None,
+        init_exec_commands: list[str] | None = None,
+        init_config_commands: list[str] | None = None,
     ) -> str:
         """
-        Run a command on the device in `exec` mode.
+        Run a command on the device in exec mode.
 
-        :param node_label: the label / title of the device
-        :param command: the command to be run in exec mode
-        :param init_exec_commands: a list of exec commands to be executed
-        :param init_config_commangs: a list of config commands to be executed
-        :returns: the output from the device
+        :param node_label: The label/title of the device.
+        :param command: The command to be run in exec mode.
+        :param init_exec_commands: A list of exec commands to be executed
+            before the command. Default commands will be run if omitted.
+            Pass an empty list to run no commands.
+        :param init_config_commands: A list of config commands to be executed
+            before the command. Default commands will be run if omitted.
+            Pass an empty list to run no commands.
+        :returns: The output from the device.
         """
-        pyats_device = self._prepare_device(node_label)
-        params = self._prepare_params(init_exec_commands, init_config_commands)
-        return pyats_device.execute(command, log_stdout=False, **params)
+        return self._execute_command(
+            node_label,
+            command,
+            configure_mode=False,
+            init_exec_commands=init_exec_commands,
+            init_config_commands=init_config_commands,
+        )
 
     def run_config_command(
         self,
         node_label: str,
         command: str,
-        init_exec_commands: Optional[list] = None,
-        init_config_commands: Optional[list] = None,
+        init_exec_commands: list[str] | None = None,
+        init_config_commands: list[str] | None = None,
     ) -> str:
         """
-        Run a command on the device in `configure` mode. pyATS
-        handles the change into `configure` mode automatically.
+        Run a command on the device in configure mode. pyATS automatically handles the
+        change into configure mode.
 
-        :param node_label: the label / title of the device
-        :param command: the command to be run in exec mode
-        :param init_exec_commands: a list of exec commands to be executed
-        :param init_config_commangs: a list of config commands to be executed
-        :returns: the output from the device
+        :param node_label: The label/title of the device.
+        :param command: The command to be run in configure mode.
+        :param init_exec_commands: A list of exec commands to be executed
+            before the command. Default commands will be run if omitted.
+            Pass an empty list to run no commands.
+        :param init_config_commands: A list of config commands to be executed
+            before the command. Default commands will be run if omitted.
+            Pass an empty list to run no commands.
+        :returns: The output from the device.
         """
-        pyats_device = self._prepare_device(node_label)
-        params = self._prepare_params(init_exec_commands, init_config_commands)
-        return pyats_device.configure(command, log_stdout=False, **params)
+        return self._execute_command(
+            node_label,
+            command,
+            configure_mode=True,
+            init_exec_commands=init_exec_commands,
+            init_config_commands=init_config_commands,
+        )
 
     def cleanup(self) -> None:
-        """Cleans up the pyATS connections."""
+        """Clean up the pyATS connections."""
         for pyats_device in self._connections:
             pyats_device.destroy()
+        self._connections.clear()

@@ -24,62 +24,75 @@ import os
 import pathlib
 import time
 import warnings
-from typing import TYPE_CHECKING, BinaryIO, Callable, Optional
+from typing import TYPE_CHECKING, BinaryIO, Callable
 
-from virl2_client.exceptions import InvalidContentType, InvalidImageFile
+from ..exceptions import InvalidContentType, InvalidImageFile
+from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
 
 
 class NodeImageDefinitions:
+    _URL_TEMPLATES = {
+        "node_defs": "node_definitions/",
+        "image_defs": "image_definitions/",
+        "node_def": "node_definitions/{definition_id}",
+        "image_def": "image_definitions/{definition_id}",
+        "node_image_defs": "node_definitions/{definition_id}/image_definitions",
+        "upload": "images/upload",
+        "image_list": "list_image_definition_drop_folder/",
+        "image_manage": "images/manage/{filename}",
+    }
+
     def __init__(self, session: httpx.Client) -> None:
         """
-        VIRL2 Definition classes to specify a node VM and associated disk images.
+        Manage node and image definitions.
 
-        :param session: httpx Client session
+        Node definitions define the properties of a virtual network node.
+        Image definitions define disk images that are required to boot a network node.
+        Together, they define a complete virtual network node.
+
+        :param session: The httpx-based HTTP client for this session with the server.
         """
         self._session = session
 
-    @property
-    def session(self) -> httpx.Client:
+    def _url_for(self, endpoint, **kwargs):
         """
-        Returns the used httpx client session object.
+        Generate the URL for a given API endpoint.
 
-        :returns: The session object
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
         """
-        return self._session
+        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     def node_definitions(self) -> list[dict]:
         """
-        Returns all node definitions.
+        Return all node definitions.
 
-        :return: list of node definitions
+        :returns: A list of node definitions.
         """
-        url = "node_definitions/"
+        url = self._url_for("node_defs")
         return self._session.get(url).json()
 
     def image_definitions(self) -> list[dict]:
         """
-        Returns all image definitions.
+        Return all image definitions.
 
-        :return: list of image definitions
+        :returns: A list of image definitions.
         """
-        url = "image_definitions/"
+        url = self._url_for("image_defs")
         return self._session.get(url).json()
 
     def image_definitions_for_node_definition(self, definition_id: str) -> list[dict]:
         """
-        Returns all image definitions for a given node definition
+        Return all image definitions for a given node definition.
 
-        example::
-
-            client_library.definitions.image_definitions_for_node_definition("iosv")
-
-        :param definition_id: node definition id
-        :returns: list of image definition objects
+        :param definition_id: The ID of the node definition.
+        :returns: A list of image definition objects.
         """
-        url = "node_definitions/" + definition_id + "/image_definitions"
+        url = self._url_for("node_image_defs", definition_id=definition_id)
         return self._session.get(url).json()
 
     def set_image_definition_read_only(
@@ -110,21 +123,22 @@ class NodeImageDefinitions:
 
     def upload_node_definition(self, body: str | dict, json: bool | None = None) -> str:
         """
-        Uploads a new node definition.
+        Upload a new node definition.
 
-        :param body: node definition (yaml or json)
-        :param json: DEPRECATED, replaced with type check
-        :return: "Success"
+        :param body: The node definition (yaml or json).
+        :param json: DEPRECATED: Replaced with type check.
+        :returns: "Success".
         """
         is_json = _is_json_content(body)
         if json is not None:
             warnings.warn(
-                'The argument "json" is deprecated as the content type is determined '
-                "from the provided body",
+                "'NodeImageDefinitions.upload_node_definition()': "
+                "The argument 'json' is deprecated as the content type "
+                "is determined from the provided 'body'.",
                 DeprecationWarning,
             )
             is_json = True
-        url = "node_definitions/"
+        url = self._url_for("node_defs")
         if is_json:
             return self._session.post(url, json=body).json()
         else:
@@ -135,21 +149,22 @@ class NodeImageDefinitions:
         self, body: str | dict, json: bool | None = None
     ) -> str:
         """
-        Uploads a new image definition.
+        Upload a new image definition.
 
-        :param body: image definition (yaml or json)
-        :param json: DEPRECATED, replaced with type check
-        :return: "Success"
+        :param body: The image definition (yaml or json).
+        :param json: DEPRECATED: Replaced with type check.
+        :returns: "Success".
         """
         is_json = _is_json_content(body)
         if json is not None:
             warnings.warn(
-                'The argument "json" is deprecated as the content type is determined '
-                "from the provided body",
+                "'NodeImageDefinitions.upload_image_definition()': "
+                "The argument 'json' is deprecated as the content type "
+                "is determined from the provided 'body'.",
                 DeprecationWarning,
             )
             is_json = True
-        url = "image_definitions/"
+        url = self._url_for("image_defs")
         if is_json:
             return self._session.post(url, json=body).json()
         else:
@@ -158,51 +173,45 @@ class NodeImageDefinitions:
 
     def download_node_definition(self, definition_id: str) -> str:
         """
-        Returns the node definition for a given definition ID
+        Return the node definition for a given definition ID.
 
         Example::
 
             client_library.definitions.download_node_definition("iosv")
 
-        :param definition_id: the node definition ID
-        :returns: the node definition as YAML
+        :param definition_id: The ID of the node definition.
+        :returns: The node definition as YAML.
         """
-        url = "node_definitions/" + definition_id
+        url = self._url_for("node_def", definition_id=definition_id)
         return self._session.get(url).json()
 
     def download_image_definition(self, definition_id: str) -> str:
         """
+        Return the image definition for a given definition ID.
+
         Example::
 
             client_library.definitions.download_image_definition("iosv-158-3")
 
-        :param definition_id: the image definition ID
-        :returns: the image definition as YAML
+        :param definition_id: The ID of the image definition.
+        :returns: The image definition as YAML.
         """
-
-        url = "image_definitions/" + definition_id
+        url = self._url_for("image_def", definition_id=definition_id)
         return self._session.get(url).json()
 
     def upload_image_file(
         self,
         filename: str,
-        rename: Optional[str] = None,
-        chunk_size_mb: Optional[int] = None,
+        rename: str | None = None,
     ) -> None:
         """
-        :param filename: the path of the image to upload
-        :param rename:  Optional filename to rename to
-        :param chunk_size_mb: Optional size of upload chunk (mb)
-            (deprecated since 2.2.0)
-        """
-        if chunk_size_mb is not None:
-            warnings.warn(
-                'The argument "chunk_size_mb" is deprecated as it never worked',
-                DeprecationWarning,
-            )
+        Upload an image file.
 
+        :param filename: The path of the image to upload.
+        :param rename: Optional filename to rename to.
+        """
         extension_list = [".qcow", ".qcow2"]
-        url = "images/upload"
+        url = self._url_for("upload")
 
         path = pathlib.Path(filename)
         extension = "".join(path.suffixes)
@@ -245,55 +254,69 @@ class NodeImageDefinitions:
 
             return callback_read
 
-        file = open(filename, "rb")
-        file.read = callback_read_factory(file, print_progress_bar)
-        files = {"field0": (name, file)}
+        _file = open(filename, "rb")
+        _file.read = callback_read_factory(_file, print_progress_bar)
+        files = {"field0": (name, _file)}
 
         self._session.post(url, files=files, headers=headers)
         print("Upload completed")
 
     def download_image_file_list(self) -> list[str]:
-        url = "list_image_definition_drop_folder/"
+        """
+        Return a list of image files.
+
+        :returns: A list of image file names.
+        """
+        url = self._url_for("image_list")
         return self._session.get(url).json()
 
     def remove_dropfolder_image(self, filename: str) -> str:
         """
-        :returns: "Success"
+        Remove an image file from the drop folder.
+
+        :param filename: The name of the image file to remove.
+        :returns: "Success".
         """
-        url = "images/manage/" + filename
+        url = self._url_for("image_manage", filename=filename)
         return self._session.delete(url).json()
 
     def remove_node_definition(self, definition_id: str) -> None:
         """
-        Removes the node definition with the given ID.
+        Remove the node definition with the given ID.
 
         Example::
 
             client_library.definitions.remove_node_definition("iosv-custom")
 
-        :param definition_id: the definition ID to delete
+        :param definition_id: The ID of the node definition to remove.
         """
-
-        url = "node_definitions/" + definition_id
+        url = self._url_for("node_def", definition_id=definition_id)
         self._session.delete(url)
 
     def remove_image_definition(self, definition_id: str) -> None:
         """
-        Removes the image definition with the given ID.
+        Remove the image definition with the given ID.
 
         Example::
 
             client_library.definitions.remove_image_definition("iosv-158-3-custom")
 
-        :param definition_id: the image definition ID to remove
+        :param definition_id: The ID of the image definition to remove.
         """
-
-        url = "image_definitions/" + definition_id
+        url = self._url_for("image_def", definition_id=definition_id)
         self._session.delete(url)
 
 
 def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> None:
-    percent = "{0:.1f}".format(100 * (cur / float(total)))
+    """
+    Print a progress bar.
+
+    :param cur: The current progress value.
+    :param total: The total progress value.
+    :param start_time: The start time of the progress.
+    :param length: The length of the progress bar.
+    """
+    percent = f"{100 * (cur / float(total)):.1f}"
     filled_len = int(round(length * cur / float(total)))
     bar = "#" * filled_len + "-" * (length - filled_len)
     raw_elapsed = time.time() - start_time
@@ -308,6 +331,13 @@ def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> No
 
 
 def _is_json_content(content: dict | str) -> bool:
+    """
+    Check if the content is JSON.
+
+    :param content: The content to check.
+    :returns: True if the content is JSON, False otherwise.
+    :raises InvalidContentType: If the content type is invalid.
+    """
     if isinstance(content, dict):
         return True
     elif isinstance(content, str):

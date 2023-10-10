@@ -20,47 +20,61 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
-from ..utils import UNCHANGED
+from ..utils import UNCHANGED, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
 
 
 class UserManagement:
+    _URL_TEMPLATES = {
+        "users": "users",
+        "user": "users/{user_id}",
+        "user_groups": "users/{user_id}/groups",
+        "user_id": "users/{username}/id",
+    }
+
     def __init__(self, session: httpx.Client) -> None:
         self._session = session
 
-    @property
-    def base_url(self) -> str:
-        return "users"
+    def _url_for(self, endpoint, **kwargs):
+        """
+        Generate the URL for a given API endpoint.
 
-    def users(self) -> list:
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
+        """
+        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
+    def users(self) -> list[str]:
         """
         Get the list of available users.
 
-        :return: list of user objects
+        :returns: List of user IDs.
         """
-        return self._session.get(self.base_url).json()
+        url = self._url_for("users")
+        return self._session.get(url).json()
 
     def get_user(self, user_id: str) -> dict:
         """
-        Gets user info.
+        Get user information.
 
-        :param user_id: user uuid4
-        :return: user object
+        :param user_id: User UUID4.
+        :returns: User object.
         """
-        url = self.base_url + "/{}".format(user_id)
+        url = self._url_for("user", user_id=user_id)
         return self._session.get(url).json()
 
     def delete_user(self, user_id: str) -> None:
         """
-        Deletes user.
+        Delete a user.
 
-        :param user_id: user uuid4
+        :param user_id: User UUID4.
         """
-        url = self.base_url + "/{}".format(user_id)
+        url = self._url_for("user", user_id=user_id)
         self._session.delete(url)
 
     def create_user(
@@ -70,20 +84,20 @@ class UserManagement:
         fullname: str = "",
         description: str = "",
         admin: bool = False,
-        groups: Optional[list[str]] = None,
-        resource_pool: Optional[str] = None,
+        groups: list[str] | None = None,
+        resource_pool: str | None = None,
     ) -> dict:
         """
-        Creates user.
+        Create a new user.
 
-        :param username: username
-        :param pwd: desired password
-        :param fullname: full name
-        :param description: description
-        :param admin: whether to create admin user
-        :param groups: adds user to groups specified
-        :param resource_pool: adds user to resource pool specified
-        :return: user object
+        :param username: Username.
+        :param pwd: Desired password.
+        :param fullname: Full name.
+        :param description: Description.
+        :param admin: Whether to create an admin user.
+        :param groups: List of groups to which the user should be added.
+        :param resource_pool: Resource pool to which the user should be added.
+        :returns: User object.
         """
         data = {
             "username": username,
@@ -94,30 +108,30 @@ class UserManagement:
             "groups": groups or [],
             "resource_pool": resource_pool,
         }
-        url = self.base_url
+        url = self._url_for("users")
         return self._session.post(url, json=data).json()
 
     def update_user(
         self,
         user_id: str,
-        fullname: Optional[str] = UNCHANGED,
-        description: Optional[str] = UNCHANGED,
-        groups: Optional[list[str]] = UNCHANGED,
-        admin: Optional[bool] = None,
-        password_dict: Optional[dict[str, str]] = None,
-        resource_pool: Optional[str] = UNCHANGED,
+        fullname: str | None = UNCHANGED,
+        description: str | None = UNCHANGED,
+        groups: list[str] | None = UNCHANGED,
+        admin: bool | None = None,
+        password_dict: dict[str, str] | None = None,
+        resource_pool: str | None = UNCHANGED,
     ) -> dict:
         """
-        Updates user.
+        Update an existing user.
 
-        :param user_id: user uuid4
-        :param fullname: full name
-        :param description: description
-        :param admin: whether to create admin user
-        :param groups: adds user to groups specified
-        :param password_dict: dict containing old and new passwords
-        :param resource_pool: adds user to resource pool specified
-        :return: user object
+        :param user_id: User UUID4.
+        :param fullname: Full name.
+        :param description: Description.
+        :param admin: Whether to create an admin user.
+        :param groups: List of groups to which the user should be added.
+        :param password_dict: Dictionary containing old and new passwords.
+        :param resource_pool: Resource pool to which the user should be added.
+        :returns: User object.
         """
         data: dict[str, Any] = {}
         if fullname is not UNCHANGED:
@@ -133,24 +147,25 @@ class UserManagement:
         if resource_pool is not UNCHANGED:
             data["resource_pool"] = resource_pool
 
-        url = self.base_url + "/{}".format(user_id)
+        url = self._url_for("user", user_id=user_id)
         return self._session.patch(url, json=data).json()
 
     def user_groups(self, user_id: str) -> list[str]:
         """
-        Get the groups the user is member of.
+        Get the groups that a user is a member of.
 
-        :param user_id: user uuid4
+        :param user_id: User UUID4.
+        :returns: List of group names.
         """
-        url = self.base_url + "/{}/groups".format(user_id)
+        url = self._url_for("user_groups", user_id=user_id)
         return self._session.get(url).json()
 
     def user_id(self, username: str) -> str:
         """
-        Get unique user uuid4.
+        Get the unique UUID4 of a user.
 
-        :param username: user name
-        :return: user unique identifier
+        :param username: User name.
+        :returns: User unique identifier.
         """
-        url = self.base_url + "/{}/id".format(username)
+        url = self._url_for("user_id", username=username)
         return self._session.get(url).json()

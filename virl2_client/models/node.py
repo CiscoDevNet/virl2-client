@@ -409,7 +409,7 @@ class Node:
     def configuration(self) -> str | None:
         """Return the contents of the main configuration file."""
         self.lab.sync_topology_if_outdated(exclude_configurations=False)
-        return self._configuration[0] if self._configuration else None
+        return self._configuration[0].get("content") if self._configuration else None
 
     @configuration.setter
     def configuration(self, value: str | list | dict) -> None:

@@ -77,6 +77,7 @@ class Node:
         hide_links: bool,
         tags: list[str],
         resource_pool: str | None,
+        parameters: dict,
     ) -> None:
         """
         A VIRL2 node object representing a virtual machine that serves
@@ -123,6 +124,7 @@ class Node:
         self._resource_pool = resource_pool
         self._stale = False
         self._last_sync_l3_address_time = 0.0
+        self._parameters = parameters
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -136,7 +138,7 @@ class Node:
     def __repr__(self):
         return (
             "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
-            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
+            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
                 str(self.lab),
                 self._id,
@@ -153,6 +155,7 @@ class Node:
                 self._boot_disk_size,
                 self._hide_links,
                 self._tags,
+                self._parameters,
             )
         )
 
@@ -442,6 +445,20 @@ class Node:
             DeprecationWarning,
         )
         self.configuration = value
+
+    @property
+    def parameters(self) -> dict:
+        self.lab.sync_topology_if_outdated()
+        return self._parameters
+
+    def update_parameters(self, new_params: dict) -> None:
+        self._session.patch(
+            self._url_for("node"), json={"parameters": new_params}
+        )
+        self.sync_parameters()
+
+    def sync_parameters(self) -> None:
+        self._parameters = self._session.get(self._url_for("node")).json()["parameters"]
 
     @property
     def image_definition(self) -> str | None:

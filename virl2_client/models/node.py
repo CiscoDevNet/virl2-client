@@ -452,9 +452,7 @@ class Node:
         return self._parameters
 
     def update_parameters(self, new_params: dict) -> None:
-        self._session.patch(
-            self._url_for("node"), json={"parameters": new_params}
-        )
+        self._session.patch(self._url_for("node"), json={"parameters": new_params})
         self.sync_parameters()
 
     def sync_parameters(self) -> None:

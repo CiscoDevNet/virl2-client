@@ -186,6 +186,7 @@ def test_create_link(respx_mock, connect_two_nodes):
     respx_mock.post("mock://mock/labs/1/links").respond(
         json={"id": "l0", "label": "segment0"}
     )
+    respx_mock.get("mock://mock/labs/1/nodes/n0").respond(json={})
     session = make_session("mock://mock")
     session.lock = MagicMock()
     username = password = "test"

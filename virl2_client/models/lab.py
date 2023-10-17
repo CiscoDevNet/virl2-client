@@ -1326,7 +1326,6 @@ class Lab:
 
         node = self._create_node_local(node_id, **node_data)
         node._state = state
-        node.sync_parameters()
         return node
 
     @locked

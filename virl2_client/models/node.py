@@ -456,7 +456,8 @@ class Node:
         self.sync_parameters()
 
     def sync_parameters(self) -> None:
-        self._parameters = self._session.get(self._url_for("node")).json()["parameters"]
+        node = self._session.get(self._url_for("node")).json()
+        self._parameters = node.get("parameters", {})
 
     @property
     def image_definition(self) -> str | None:

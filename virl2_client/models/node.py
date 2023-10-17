@@ -138,7 +138,7 @@ class Node:
     def __repr__(self):
         return (
             "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
-            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
+            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
                 str(self.lab),
                 self._id,
@@ -155,7 +155,6 @@ class Node:
                 self._boot_disk_size,
                 self._hide_links,
                 self._tags,
-                self._parameters,
             )
         )
 
@@ -448,14 +447,24 @@ class Node:
 
     @property
     def parameters(self) -> dict:
+        """Return node parameters."""
         self.lab.sync_topology_if_outdated()
         return self._parameters
 
     def update_parameters(self, new_params: dict) -> None:
+        """
+        Update node parameters.
+        If parameter doesn't exist it will be created. Existing nodes will be updated.
+        To delete parameter set its value to None.
+        """
         self._session.patch(self._url_for("node"), json={"parameters": new_params})
-        self.sync_parameters()
+        self._parameters.update(new_params)
+        for key, value in new_params.items():
+            if value is None:
+                self._parameters.pop(key, None)
 
     def sync_parameters(self) -> None:
+        """Sync node parameters from controller."""
         node = self._session.get(self._url_for("node")).json()
         self._parameters = node.get("parameters", {})
 

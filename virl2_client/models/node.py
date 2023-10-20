@@ -67,7 +67,7 @@ class Node:
         label: str,
         node_definition: str,
         image_definition: str | None,
-        configuration: list[dict[str, str]] | None,
+        configuration: list[dict[str, str]] | str | None,
         x: int,
         y: int,
         ram: int | None,
@@ -114,7 +114,10 @@ class Node:
         self._session: httpx.Client = lab._session
         self._image_definition = image_definition
         self._ram = ram
-        self._configuration = configuration
+        if isinstance(configuration, str):
+            self._configuration = [{"name": "Main", "content": configuration}]
+        else:
+            self._configuration = configuration
         self._cpus = cpus
         self._cpu_limit = cpu_limit
         self._data_volume = data_volume

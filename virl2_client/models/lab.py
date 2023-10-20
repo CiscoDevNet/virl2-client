@@ -567,7 +567,7 @@ class Lab:
         label: str,
         node_definition: str,
         image_definition: str | None,
-        configuration: list[dict[str, str]] | None,
+        configuration: list[dict[str, str]] | str | None,
         x: int,
         y: int,
         ram: int | None = None,

@@ -8,7 +8,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "aiohttp"
-version = "3.8.5"
+version = "3.8.6"
 description = "Async http client/server framework (asyncio)"
 category = "main"
 optional = true
@@ -281,7 +281,7 @@ python-versions = ">=3.8"
 
 [[package]]
 name = "gitdb"
-version = "4.0.10"
+version = "4.0.11"
 description = "Git Object Database"
 category = "main"
 optional = true
@@ -292,7 +292,7 @@ smmap = ">=3.0.1,<6"
 
 [[package]]
 name = "gitpython"
-version = "3.1.37"
+version = "3.1.40"
 description = "GitPython is a Python library used to interact with Git repositories"
 category = "main"
 optional = true
@@ -302,7 +302,7 @@ python-versions = ">=3.7"
 gitdb = ">=4.0.1,<5"
 
 [package.extras]
-test = ["black", "coverage", "ddt (>=1.1.1,!=1.4.3)", "mypy", "pre-commit", "pytest", "pytest-cov", "pytest-sugar"]
+test = ["black", "coverage", "ddt (>=1.1.1,!=1.4.3)", "mypy", "pre-commit", "pytest", "pytest-cov", "pytest-instafail", "pytest-subtests", "pytest-sugar", "mock"]
 
 [[package]]
 name = "h11"
@@ -500,7 +500,7 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pre-commit"
-version = "3.4.0"
+version = "3.5.0"
 description = "A framework for managing and maintaining multi-language pre-commit hooks."
 category = "dev"
 optional = false
@@ -529,14 +529,14 @@ tests = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
 
 [[package]]
 name = "psutil"
-version = "5.9.5"
+version = "5.9.6"
 description = "Cross-platform lib for process and system monitoring in Python."
 category = "main"
 optional = true
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.extras]
-test = ["ipaddress", "mock", "enum34", "pywin32", "wmi"]
+test = ["enum34", "ipaddress", "mock", "pywin32", "wmi"]
 
 [[package]]
 name = "pyats"
@@ -797,7 +797,7 @@ dev = ["sphinx", "sphinx-rtd-theme", "requests-mock"]
 
 [[package]]
 name = "pycodestyle"
-version = "2.11.0"
+version = "2.11.1"
 description = "Python style guide checker"
 category = "dev"
 optional = false
@@ -1139,7 +1139,7 @@ dev = ["setuptools", "pip", "wheel", "coverage", "restview", "sphinx", "sphinxco
 
 [[package]]
 name = "urllib3"
-version = "2.0.6"
+version = "2.0.7"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = true

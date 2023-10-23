@@ -463,11 +463,6 @@ class Node:
             if value is None:
                 self._parameters.pop(key, None)
 
-    def sync_parameters(self) -> None:
-        """Sync node parameters from controller."""
-        node = self._session.get(self._url_for("node")).json()
-        self._parameters = node.get("parameters", {})
-
     @property
     def image_definition(self) -> str | None:
         """Return the definition of the image used by this node."""

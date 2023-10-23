@@ -277,7 +277,7 @@ class EventHandler(EventHandlerBase):
             # but the event might at least contain some new data
             # that was added during serverside creation
             event.element = existing_elements[event.element_id]
-            self._parse_element_modified(event)
+            self._handle_element_modified(event)
             return
         if event.element_type == "node":
             new_element = event.lab._import_node(

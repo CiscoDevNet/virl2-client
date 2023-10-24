@@ -576,6 +576,7 @@ class Lab:
         compute_id: str | None = None,
         resource_pool: ResourcePool | None = None,
         parameters: dict = {},
+        locked_compute_id: str | None = None,
     ) -> Node:
         """Helper function to add a node to the client library."""
         if tags is None:
@@ -599,6 +600,7 @@ class Lab:
             tags,
             resource_pool,
             parameters,
+            locked_compute_id,
         )
         if compute_id is not None:
             node._compute_id = compute_id

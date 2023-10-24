@@ -603,7 +603,6 @@ class Lab:
         if compute_id is not None:
             node._compute_id = compute_id
         self._nodes[node.id] = node
-        self.sync_topology_if_outdated()
         return node
 
     @check_stale

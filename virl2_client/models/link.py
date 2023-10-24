@@ -175,33 +175,28 @@ class Link:
     @property
     def node_a(self) -> Node:
         """Return the first node connected to the link."""
-        self.lab.sync_topology_if_outdated()
         return self.interface_a.node
 
     @property
     def node_b(self) -> Node:
         """Return the second node connected to the link."""
-        self.lab.sync_topology_if_outdated()
         return self.interface_b.node
 
     @property
     @locked
     def nodes(self) -> tuple[Node, Node]:
         """Return the nodes connected by the link."""
-        self.lab.sync_topology_if_outdated()
         return self.node_a, self.node_b
 
     @property
     @locked
     def interfaces(self) -> tuple[Interface, Interface]:
         """Return the interfaces connected by the link."""
-        self.lab.sync_topology_if_outdated()
         return self.interface_a, self.interface_b
 
     @property
     def label(self) -> str | None:
         """Return the label of the link."""
-        self.lab.sync_topology_if_outdated()
         return self._label
 
     @locked

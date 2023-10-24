@@ -149,7 +149,6 @@ class Interface:
     @property
     def physical(self) -> bool:
         """Check if the interface is physical."""
-        self.node.lab.sync_topology_if_outdated()
         return self.type == "physical"
 
     @property

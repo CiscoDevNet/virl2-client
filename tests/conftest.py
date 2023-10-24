@@ -23,8 +23,6 @@ from unittest.mock import patch
 
 import httpx
 import pytest
-import json
-import os
 
 from virl2_client.virl2_client import ClientLibrary
 
@@ -123,14 +121,6 @@ def respx_mock_with_labs(respx_mock):
         ).respond(
             json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
         )
-
-    populate_lab_tiles = open(os.path.join(os.path.dirname(__file__), "test_data","populate_lab_tiles.json"))
-    labs = json.load(populate_lab_tiles)["lab_tiles"]
-
-    for lab_id, lab in labs.items():
-        for node in lab["topology"]["nodes"]:
-            respx_mock.get(FAKE_HOST_API + f"labs/{lab_id}/nodes/{node['id']}").respond(json={})
-
     resp_from_files = (
         "labs",
         "populate_lab_tiles",

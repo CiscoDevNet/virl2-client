@@ -227,7 +227,7 @@ class ClientLibrary:
         :param events: A flag indicating whether to enable event-based data
             synchronization from the server. When enabled, utilizes a mechanism for
             receiving real-time updates from the server, instead of periodically
-             requesting the data.
+            requesting the data.
         :raises InitializationError: If no URL is provided, authentication fails or host
             can't be reached.
         """

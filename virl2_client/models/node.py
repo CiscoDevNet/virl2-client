@@ -77,6 +77,7 @@ class Node:
         hide_links: bool,
         tags: list[str],
         resource_pool: str | None,
+        parameters: dict,
     ) -> None:
         """
         A VIRL2 node object representing a virtual machine that serves
@@ -123,6 +124,7 @@ class Node:
         self._resource_pool = resource_pool
         self._stale = False
         self._last_sync_l3_address_time = 0.0
+        self._parameters = parameters
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -442,6 +444,24 @@ class Node:
             DeprecationWarning,
         )
         self.configuration = value
+
+    @property
+    def parameters(self) -> dict:
+        """Return node parameters."""
+        self.lab.sync_topology_if_outdated()
+        return self._parameters
+
+    def update_parameters(self, new_params: dict) -> None:
+        """
+        Update node parameters.
+        If parameter doesn't exist it will be created. Existing nodes will be updated.
+        To delete parameter set its value to None.
+        """
+        self._session.patch(self._url_for("node"), json={"parameters": new_params})
+        self._parameters.update(new_params)
+        for key, value in new_params.items():
+            if value is None:
+                self._parameters.pop(key, None)
 
     @property
     def image_definition(self) -> str | None:

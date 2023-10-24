@@ -575,6 +575,7 @@ class Lab:
         tags: list | None = None,
         compute_id: str | None = None,
         resource_pool: ResourcePool | None = None,
+        parameters: dict = {},
     ) -> Node:
         """Helper function to add a node to the client library."""
         if tags is None:
@@ -597,10 +598,12 @@ class Lab:
             hide_links,
             tags,
             resource_pool,
+            parameters,
         )
         if compute_id is not None:
             node._compute_id = compute_id
         self._nodes[node.id] = node
+        self.sync_topology_if_outdated()
         return node
 
     @check_stale

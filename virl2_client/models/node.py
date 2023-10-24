@@ -473,7 +473,6 @@ class Node:
     @locked
     def image_definition(self, value: str) -> None:
         """Set the definition of the image used by this node."""
-        self.lab.sync_topology_if_outdated()
         self._set_node_property("image_definition", value)
         self._image_definition = value
 

@@ -431,14 +431,14 @@ class Node:
         :param value: The configuration data in one of three formats.
         """
         self._set_node_property("configuration", value)
+        if self._configuration is None:
+            self._configuration = []
         if isinstance(value, str):
             if not self._configuration:
                 self._configuration.append({"name": "Main", "content": value})
             else:
                 self._configuration[0]["content"] = value
             return
-        if self._configuration is None:
-            self._configuration = []
         new_configs = value if isinstance(value, list) else [value]
         new_configs_by_name = {
             new_config["name"]: new_config for new_config in new_configs

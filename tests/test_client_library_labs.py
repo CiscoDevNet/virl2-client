@@ -301,7 +301,7 @@ def test_find_by_label():
     node = lab.get_node_by_label("server-a")
     assert node.id == "n0"
 
-    with pytest.raises(NodeNotFound) as exc:
+    with pytest.raises(NodeNotFound):
         node = lab.get_node_by_label("does-not-exist")
         assert node is None
 

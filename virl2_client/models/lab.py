@@ -249,7 +249,7 @@ class Lab:
     def sync_topology_if_outdated(self, exclude_configurations=True) -> None:
         """Sync the topology if it is outdated."""
         timestamp = time.time()
-        if not(exclude_configurations or self._synced_configs):
+        if not (exclude_configurations or self._synced_configs):
             self._sync_topology(exclude_configurations=False)
         elif (
             self.auto_sync

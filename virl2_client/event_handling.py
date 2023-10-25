@@ -226,7 +226,7 @@ class EventHandler(EventHandlerBase):
             event.element_type in ("annotation", "connectormapping")
         ):
             # Some events are unused in the client library
-            _LOGGER.debug(f"Received an unused event. {event}")
+            _LOGGER.debug(f"Received an unused event: {event}")
             return
 
         try:
@@ -236,13 +236,13 @@ class EventHandler(EventHandlerBase):
             return
 
         if event.subtype != "created":
+            event_types = {
+                "node": event.lab.get_node_by_id,
+                "interface": event.lab.get_interface_by_id,
+                "link": event.lab.get_link_by_id,
+            }
             try:
-                if event.element_type == "node":
-                    event.element = event.lab.get_node_by_id(event.element_id)
-                elif event.element_type == "interface":
-                    event.element = event.lab.get_interface_by_id(event.element_id)
-                elif event.element_type == "link":
-                    event.element = event.lab.get_link_by_id(event.element_id)
+                event.element = event_types[event.element_type](event.element_id)
             except ElementNotFound:
                 if event.subtype == "deleted":
                     # Element was likely already deleted in a cascading deletion

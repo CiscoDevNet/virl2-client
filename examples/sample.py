@@ -25,22 +25,6 @@ import pathlib
 
 from virl2_client import ClientLibrary
 
-# Licensing setup configuration
-CERT = """-----BEGIN CERTIFICATE-----
-MIIDGzCCAgOgAwIBAgIBATANBgkqhkiG9w0BAQsFADAvMQ4wDAYDVQQKEwVDaXNj
-WhcNMzMwNDI0MjE1NTQzWjAvMQ4wDAYDVQQKEwVDaXNjbzEdMBsGA1UEAxMUTGlj
-ZW5zaW5nIFJvb3QgLSBERVYwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB
-AQCcVnEB1h7fLrzDunrg27JBs7QyipsA64qA0Cqob17xrr/etnvWrX2te0P1gnU7
-/8wcpaeEGgdpNNOvmQeO9heRlvpPs/LtOULHVr8coKnMmKen+eQ3JNnmHUeJ6eeS
-3Z8ntFF8K97Q61uaeHughdm78APwVjvgpEUMjxJ7VYM+vBOFLZutmGjTrgdcJ5h8
-HRMBAf8EBTADAQH/MB0GA1UdDgQWBBRDIUUhtfshehpNG7cCNuZky+yLZTANBgkq
-hkiG9w0BAQsFAAOCAQEAhfGx8q6ufS+cqwNRwynj8a6YLfEfXjyQ9gCzze1aFJH7
-3wfgbKoPQyWftMSuIID2dYw7esVOqqA+xbUKL2cK/4ftpkYvz8Q5Z8AkqzLuPM3P
-oEudrhu6u9rI31WHz1HLHABaKC+LUYpajG+bPKq6NEYy7zp1wvRUUHqbz9MMi+VK
-EYct4M8SANDRAY/ZrGhZaBZ+Qhybw5Ttm8hUY4OygUYHsr3t38FgW00WAHtocj4l
-z1LPIlCn0j76n2sH+w9jhp3MO7xlJQaTOM9rpsuO/Q==
------END CERTIFICATE-----"""
-
 SSMS = "https://sch-alpha.cisco.com/its/service/oddce/services/DDCEService"
 
 TOKEN = (
@@ -63,7 +47,6 @@ client_library.is_system_ready(wait=True)
 
 # Set up licensing configuration
 client_library.licensing.set_transport(ssms=SSMS)
-client_library.licensing.install_certificate(cert=CERT)
 client_library.licensing.register_wait(token=TOKEN)
 
 # Get a list of existing labs and print their details
@@ -116,10 +99,7 @@ lab.stop()
 lab.wipe()
 lab.remove()  # or client_library.remove_lab(lab_id)
 
-# Deregister and remove the certificate (optional)
-client_library.licensing.deregister()
-client_library.licensing.remove_certificate()
-
-# Set licensing back to the default transport (optional)
+# Deregister (optional) and set licensing back to the default transport (optional)
 # Default SSMS is "https://smartreceiver.cisco.com/licservice/license"
+client_library.licensing.deregister()
 client_library.licensing.set_default_transport()

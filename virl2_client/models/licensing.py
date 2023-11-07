@@ -53,7 +53,7 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, session: httpx.Client, is_cert_deprecated) -> None:
+    def __init__(self, session: httpx.Client, is_cert_deprecated: bool) -> None:
         """
         Manage licensing.
 

@@ -250,7 +250,7 @@ class ClientLibrary:
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION
-        self.check_controller_version()
+        controller_version = self.check_controller_version()
 
         self._session.auth = TokenAuth(self)
         # Note: session.auth is defined in the httpx module to be of type Auth,
@@ -273,7 +273,9 @@ class ClientLibrary:
         self.raise_for_auth_failure = raise_for_auth_failure
         self._labs: dict[str, Lab] = {}
 
-        self.licensing = Licensing(self._session)
+        self.licensing = Licensing(
+            self._session, is_cert_deprecated=controller_version >= Version("2.7.0")
+        )
         self.user_management = UserManagement(self._session)
         self.group_management = GroupManagement(self._session)
         self.system_management = SystemManagement(
@@ -405,7 +407,7 @@ class ClientLibrary:
         url = self._url_for("system_info")
         return self._session.get(url).json()
 
-    def check_controller_version(self) -> None:
+    def check_controller_version(self) -> Version | None:
         """
         Check remote controller version against current client version
         (specified in `self.VERSION`) and against controller version
@@ -413,14 +415,13 @@ class ClientLibrary:
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
         """
-        controller_version = self.system_info().get("version", "").split("-")[0]
+        controller_version = self.system_info().get("version")
+        try:
+            controller_version_obj = Version(controller_version)
+        except (TypeError, ValueError):
+            _LOGGER.warning(f"Invalid version detected: {controller_version}!")
+            return None
 
-        # are we running against a test version?
-        if controller_version == "testing":
-            _LOGGER.warning("testing version detected!")
-            return
-
-        controller_version_obj = Version(controller_version)
         if controller_version_obj in self.INCOMPATIBLE_CONTROLLER_VERSIONS:
             raise InitializationError(
                 f"Controller version {controller_version_obj} is marked incompatible! "
@@ -439,6 +440,7 @@ class ClientLibrary:
                 f"Please ensure the client version is compatible with the controller "
                 f"version. Client {self.VERSION}, controller {controller_version_obj}."
             )
+        return controller_version_obj
 
     def is_system_ready(
         self, wait: bool = False, max_wait: int = 60, sleep: int = 5

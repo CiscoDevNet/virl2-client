@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from ..utils import get_url_from_template
@@ -52,13 +53,15 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(self, session: httpx.Client, is_cert_deprecated: bool) -> None:
         """
         Manage licensing.
 
         :param session: The httpx-based HTTP client for this session with the server.
+        :param is_cert_deprecated: Whether the certificate supported is deprecated.
         """
         self._session = session
+        self._is_cert_deprecated = is_cert_deprecated
 
     def _url_for(self, endpoint, **kwargs):
         """
@@ -117,7 +120,17 @@ class Licensing:
         return response.status_code == 204
 
     def get_certificate(self) -> str | None:
-        """Get the currently installed licensing public certificate."""
+        """
+        DEPRECATED: There is no replacement as the certificate support was dropped.
+        (Reason: the certificate support was dropped in CML 2.7.0)
+
+        Get the currently installed licensing public certificate.
+        """
+        if self._is_cert_deprecated:
+            warnings.warn(
+                "'Licensing.get_certificate' is deprecated.", DeprecationWarning
+            )
+            return None
         url = self._url_for("certificate")
         response = self._session.get(url)
         if response.is_success:
@@ -127,9 +140,17 @@ class Licensing:
 
     def install_certificate(self, cert: str) -> bool:
         """
+        DEPRECATED: There is no replacement as the certificate support was dropped.
+        (Reason: the certificate support was dropped in CML 2.7.0)
+
         Set up a licensing public certificate for internal deployment
         of an unregistered product instance.
         """
+        if self._is_cert_deprecated:
+            warnings.warn(
+                "'Licensing.install_certificate' is deprecated.", DeprecationWarning
+            )
+            return False
         url = self._url_for("certificate")
         response = self._session.post(url, content=cert)
         _LOGGER.info("Certificate was accepted by the agent.")
@@ -137,9 +158,17 @@ class Licensing:
 
     def remove_certificate(self) -> bool:
         """
+        DEPRECATED: There is no replacement as the certificate support was dropped.
+        (Reason: the certificate support was dropped in CML 2.7.0)
+
         Clear any licensing public certificate for internal deployment
         of an unregistered product instance.
         """
+        if self._is_cert_deprecated:
+            warnings.warn(
+                "'Licensing.remove_certificate' is deprecated.", DeprecationWarning
+            )
+            return False
         url = self._url_for("certificate")
         response = self._session.delete(url)
         _LOGGER.info("Certificate was removed.")

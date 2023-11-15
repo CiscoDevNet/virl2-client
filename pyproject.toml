@@ -21,7 +21,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
-httpx = "^0.24.0"
+httpx = "^0.25.0"
 
 # optional package for events
 aiohttp = {version = "*", optional = true}

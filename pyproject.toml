@@ -24,7 +24,7 @@ python = "^3.8.1"
 httpx = "^0.25.0"
 
 # optional package for events
-aiohttp = {version = "*", optional = true}
+aiohttp = {version = "^3.8", optional = true}
 
 # optional pyATS package
 # (this pulls in a lot more dependencies)
@@ -35,7 +35,7 @@ pyats = {version = "^23", optional = true}
 # needed to build documentation, technically, this is a dev-dependency
 # https://github.com/python-poetry/poetry/pull/606 -- no support
 sphinx_rtd_theme = {version="^1", optional = true}
-sphinx =  {version="^6", optional = true}
+sphinx =  {version="^7", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6"

@@ -419,7 +419,12 @@ class Node:
         return self._configuration[0].get("content") if self._configuration else None
 
     @configuration.setter
-    def configuration(self, value: str | list | dict) -> None:
+    def configuration(self, value: str | list | dict | None) -> None:
+        """Set the configuration."""
+        self._set_node_property("configuration", value)
+        self._set_configuration(value)
+
+    def _set_configuration(self, value: str | list | dict | None) -> None:
         """
         Set the content of:
          - the main configuration file if passed a string,
@@ -430,14 +435,13 @@ class Node:
 
         :param value: The configuration data in one of three formats.
         """
-        self._set_node_property("configuration", value)
         if self._configuration is None:
             self._configuration = []
-        if isinstance(value, str):
-            if not self._configuration:
-                self._configuration.append({"name": "Main", "content": value})
-            else:
+        if value is None or isinstance(value, str):
+            if self._configuration:
                 self._configuration[0]["content"] = value
+            else:
+                self._configuration.append({"name": "Main", "content": value})
             return
         new_configs = value if isinstance(value, list) else [value]
         new_configs_by_name = {
@@ -898,7 +902,9 @@ class Node:
             node_data = node_data["data"]
 
         for key, value in node_data.items():
-            if key == "configuration" and exclude_configurations:
+            if key == "configuration":
+                if not exclude_configurations:
+                    self._set_configuration(value)
                 continue
             if key == "operational":
                 self.sync_operational(node_data)

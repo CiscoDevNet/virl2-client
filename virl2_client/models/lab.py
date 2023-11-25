@@ -537,10 +537,8 @@ class Lab:
         for key in ("image_definition", "configuration"):
             if key not in kwargs:
                 kwargs[key] = None
-
-        if "compute_id" in kwargs:
-            kwargs.pop("compute_id")
         kwargs["resource_pool"] = None
+        kwargs.pop("compute_id", None)
         node = self._create_node_local(node_id, **kwargs)
         return node
 

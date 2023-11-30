@@ -437,11 +437,14 @@ class Node:
         """
         if self._configuration is None:
             self._configuration = []
-        if value is None or isinstance(value, str):
+        if isinstance(value, str):
             if self._configuration:
                 self._configuration[0]["content"] = value
             else:
                 self._configuration.append({"name": "Main", "content": value})
+            return
+        if not value:
+            self._configuration = []
             return
         new_configs = value if isinstance(value, list) else [value]
         new_configs_by_name = {

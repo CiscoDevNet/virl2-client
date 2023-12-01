@@ -57,7 +57,7 @@ class Node:
         "console_key": "{lab}/nodes/{id}/keys/console",
         "vnc_key": "{lab}/nodes/{id}/keys/vnc",
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
-        "operational": "{lab}/nodes/{id}?operational=true",
+        "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
     }
 
     def __init__(

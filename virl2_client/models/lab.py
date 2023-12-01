@@ -57,6 +57,8 @@ class Lab:
         "lab": "labs/{lab_id}",
         "nodes": "labs/{lab_id}/nodes",
         "nodes_populated": "labs/{lab_id}/nodes?populate_interfaces=true",
+        "nodes_operational": "labs/{lab_id}/nodes?data=true&operational=true"
+        "&exclude_configurations=true",
         "links": "labs/{lab_id}/links",
         "interfaces": "labs/{lab_id}/interfaces",
         "simulation_stats": "labs/{lab_id}/simulation_stats",
@@ -1652,7 +1654,11 @@ class Lab:
         response = self._session.get(url).json()
         res_pools = self._resource_pool_manager.get_resource_pools_by_ids(response)
         self._resource_pools = list(res_pools.values())
-        self._last_sync_operational_time = time.time()
 
-        for node in self._nodes.values():
-            node.sync_operational()
+        url = self._url_for("nodes_operational")
+        response: list[dict] = self._session.get(url).json()
+        for node_data in response:
+            if node := self._nodes.get(node_data["id"]):
+                node.sync_operational(node_data)
+
+        self._last_sync_operational_time = time.time()

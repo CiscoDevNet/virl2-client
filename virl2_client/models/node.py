@@ -447,12 +447,14 @@ class Node:
             self._configuration = []
             return
         new_configs = value if isinstance(value, list) else [value]
-        new_configs_by_name = {
-            new_config["name"]: new_config for new_config in new_configs
+        current_configs = {
+            config["name"]: idx for idx, config in enumerate(self._configuration)
         }
-        for i, config in enumerate(self._configuration):
-            if config["name"] in new_configs_by_name:
-                self._configuration[i] = new_configs_by_name[config["name"]]
+        for config in new_configs:
+            if config["name"] in current_configs:
+                self._configuration[current_configs[config["name"]]] = config
+            else:
+                self._configuration.append(config)
 
     @property
     def configuration_files(self) -> list[dict[str, str]] | None:

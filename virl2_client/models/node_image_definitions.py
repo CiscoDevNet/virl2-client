@@ -121,11 +121,14 @@ class NodeImageDefinitions:
         url = f"node_definitions/{definition_id}/read_only"
         return self._session.put(url, json=read_only).json()
 
-    def upload_node_definition(self, body: str | dict, json: bool | None = None) -> str:
+    def upload_node_definition(
+        self, body: str | dict, update: bool = False, json: bool | None = None
+    ) -> str:
         """
         Upload a new node definition.
 
         :param body: The node definition (yaml or json).
+        :param update: If creating a new node definition or updating an existing one.
         :param json: DEPRECATED: Replaced with type check.
         :returns: "Success".
         """
@@ -139,19 +142,21 @@ class NodeImageDefinitions:
             )
             is_json = True
         url = self._url_for("node_defs")
+        method = "PUT" if update else "POST"
         if is_json:
-            return self._session.post(url, json=body).json()
+            return self._session.request(method, url, json=body).json()
         else:
             # YAML
-            return self._session.post(url, content=body).json()
+            return self._session.request(method, url, content=body).json()
 
     def upload_image_definition(
-        self, body: str | dict, json: bool | None = None
+        self, body: str | dict, update: bool = False, json: bool | None = None
     ) -> str:
         """
         Upload a new image definition.
 
         :param body: The image definition (yaml or json).
+        :param update: If creating a new image definition or updating an existing one.
         :param json: DEPRECATED: Replaced with type check.
         :returns: "Success".
         """
@@ -165,11 +170,12 @@ class NodeImageDefinitions:
             )
             is_json = True
         url = self._url_for("image_defs")
+        method = "PUT" if update else "POST"
         if is_json:
-            return self._session.post(url, json=body).json()
+            return self._session.request(method, url, json=body).json()
         else:
             # YAML
-            return self._session.post(url, content=body).json()
+            return self._session.request(method, url, content=body).json()
 
     def download_node_definition(self, definition_id: str) -> str:
         """

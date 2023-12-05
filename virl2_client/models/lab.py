@@ -1188,11 +1188,14 @@ class Lab:
         lab_dict = topology.get("lab")
 
         if lab_dict is None:
-            warnings.warn(
-                "Labs created in older CML releases (schema version 0.0.5 or lower) "
-                "are deprecated. Use labs with schema version 0.1.0 or higher.",
-                DeprecationWarning,
-            )
+            # If we just created the node, we skip the warning, since the
+            # lab post endpoint returns data in the old format
+            if not topology.pop("_created", False):
+                warnings.warn(
+                    "Labs created in older CML releases (schema version 0.0.5 or lower)"
+                    " are deprecated. Use labs with schema version 0.1.0 or higher.",
+                    DeprecationWarning,
+                )
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]

@@ -216,7 +216,7 @@ class NodeImageDefinitions:
         :param filename: The path of the image to upload.
         :param rename: Optional filename to rename to.
         """
-        extension_list = [".qcow", ".qcow2"]
+        extension_list = [".qcow", ".qcow2", ".iol"]
         url = self._url_for("upload")
 
         path = pathlib.Path(filename)

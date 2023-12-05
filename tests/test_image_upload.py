@@ -58,6 +58,8 @@ expected_pass_list = [
     "file.qcow.qcow",
     "qcow2.qcow2.qcow2",
     ".file.qcow",
+    "file.iol",
+    "qcow.iol",
 ]
 
 

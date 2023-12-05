@@ -222,7 +222,7 @@ class NodeImageDefinitions:
         path = pathlib.Path(filename)
         extension = "".join(path.suffixes)
         last_ext = path.suffix
-        name = rename or path.stem
+        name = rename or path.name
 
         if extension == "" or name == "":
             message = (

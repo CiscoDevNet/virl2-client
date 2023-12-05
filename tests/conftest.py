@@ -118,9 +118,23 @@ def respx_mock_with_labs(respx_mock):
         respx_mock.get(
             FAKE_HOST_API
             + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}?operational=true"
+            f"&exclude_configurations=true"
         ).respond(
             json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
         )
+    respx_mock.get(
+        FAKE_HOST_API
+        + "labs/444a78d1-575c-4746-8469-696e580f17b6/nodes?data=true&operational=true&"
+        "exclude_configurations=true"
+    ).respond(
+        json=[
+            {
+                "id": node,
+                "operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"},
+            }
+            for node in nodes
+        ]
+    )
     resp_from_files = (
         "labs",
         "populate_lab_tiles",

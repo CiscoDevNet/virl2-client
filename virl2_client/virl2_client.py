@@ -276,7 +276,9 @@ class ClientLibrary:
         self.licensing = Licensing(
             self._session, is_cert_deprecated=controller_version >= Version("2.7.0")
         )
-        self.user_management = UserManagement(self._session)
+        self.user_management = UserManagement(
+            self._session, is_rp_supported=controller_version >= Version("2.5.0")
+        )
         self.group_management = GroupManagement(self._session)
         self.system_management = SystemManagement(
             self._session,

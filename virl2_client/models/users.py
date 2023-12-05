@@ -36,8 +36,9 @@ class UserManagement:
         "user_id": "users/{username}/id",
     }
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(self, session: httpx.Client, is_rp_supported: bool = True) -> None:
         self._session = session
+        self._is_rp_supported = is_rp_supported
 
     def _url_for(self, endpoint, **kwargs):
         """
@@ -106,8 +107,9 @@ class UserManagement:
             "description": description,
             "admin": admin,
             "groups": groups or [],
-            "resource_pool": resource_pool,
         }
+        if self._is_rp_supported:
+            data["resource_pool"] = resource_pool
         url = self._url_for("users")
         return self._session.post(url, json=data).json()
 
@@ -144,7 +146,7 @@ class UserManagement:
             data["groups"] = groups
         if password_dict is not None:
             data["password"] = password_dict
-        if resource_pool is not UNCHANGED:
+        if resource_pool is not UNCHANGED and self._is_rp_supported:
             data["resource_pool"] = resource_pool
 
         url = self._url_for("user", user_id=user_id)

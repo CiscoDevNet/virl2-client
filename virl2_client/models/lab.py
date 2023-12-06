@@ -1188,7 +1188,7 @@ class Lab:
         lab_dict = topology.get("lab")
 
         if lab_dict is None:
-            # If we just created the node, we skip the warning, since the
+            # If we just created the lab, we skip the warning, since the
             # lab post endpoint returns data in the old format
             if not topology.pop("_created", False):
                 warnings.warn(

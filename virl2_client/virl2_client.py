@@ -721,6 +721,8 @@ class ClientLibrary:
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
+        # This is just to skip a deprecation warning in _import_lab
+        result["_created"] = True
         lab._import_lab(result)
         self._labs[lab_id] = lab
         return lab

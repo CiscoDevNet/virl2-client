@@ -51,9 +51,9 @@ class _Sentinel:
 UNCHANGED = _Sentinel()
 
 
-def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
+def _make_not_found(instance: Element) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
-    class_name = owner.__name__
+    class_name = type(instance).__name__
     instance_id = instance._id
     instance_label = instance._title if class_name == "Lab" else instance._label
 
@@ -72,7 +72,6 @@ def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
 def _check_and_mark_stale(
     func: Callable,
     instance: Element,
-    owner: Type[Element] | None = None,
     *args,
     **kwargs,
 ):
@@ -80,35 +79,32 @@ def _check_and_mark_stale(
     Check staleness before and after calling `func`
     and updates staleness if a 404 is raised.
 
-    :param func: the function to be called if not stale
-    :param instance: the instance of the parent class of `func`
-        which has a `_stale` attribute
-    :param owner: the class of `instance`
-    :param args: positional arguments to be passed to `func`
-    :param kwargs: keyword arguments to be passed to `func`
+    :param func: The function to be called if the instance is not stale.
+    :param instance: The instance of the parent class of `func`
+        which has a `_stale` attribute.
+    :param args: Positional arguments to be passed to `func`.
+    :param kwargs: Keyword arguments to be passed to `func`.
     """
-    if owner is None:
-        owner = type(instance)
 
     if instance._stale:
-        raise _make_not_found(instance, owner)
+        raise _make_not_found(instance)
 
     try:
         ret = func(*args, **kwargs)
         if instance._stale:
-            raise _make_not_found(instance, owner)
+            raise _make_not_found(instance)
         return ret
 
     except httpx.HTTPStatusError as exc:
         resp = exc.response
-        class_name = owner.__name__
+        class_name = type(instance).__name__
         instance_id = instance._id
         if (
             resp.status_code == 404
             and f"{class_name} not found: {instance_id}" in resp.text
         ):
             instance._stale = True
-            raise _make_not_found(instance, owner) from exc
+            raise _make_not_found(instance) from exc
         raise
 
 
@@ -117,7 +113,7 @@ def check_stale(func: TCallable) -> TCallable:
 
     @wraps(func)
     def wrapper_stale(*args, **kwargs):
-        return _check_and_mark_stale(func, args[0], None, *args, **kwargs)
+        return _check_and_mark_stale(func, args[0], *args, **kwargs)
 
     return cast(TCallable, wrapper_stale)
 
@@ -126,7 +122,7 @@ class property_s(property):
     """A modified `property` that will check staleness."""
 
     def __get__(self, instance, owner):
-        return _check_and_mark_stale(super().__get__, instance, owner, instance, owner)
+        return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 
 def locked(func: TCallable) -> TCallable:

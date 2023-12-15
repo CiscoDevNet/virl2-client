@@ -88,14 +88,14 @@ class ClPyats:
         https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
         """
         processor = TestbedMarkupProcessor(
-            reference = True,
-            callable = False,
-            env_var = False,
-            include_file = False,
-            ask = False,
-            encode = False,
-            cli_var = False,
-            extend_list = False,
+            reference=True,
+            callable=False,
+            env_var=False,
+            include_file=False,
+            ask=False,
+            encode=False,
+            cli_var=False,
+            extend_list=False,
         )
         return pyats_load(io.StringIO(testbed_yaml), markupprocessor=processor)
 

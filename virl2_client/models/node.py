@@ -750,7 +750,6 @@ class Node:
         url = self._url_for("vnc_key")
         return self._session.get(url).json()
 
-    @check_stale
     def remove(self) -> None:
         """Remove the node from the system."""
         self.lab.remove_node(self)

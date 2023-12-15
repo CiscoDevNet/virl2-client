@@ -23,6 +23,18 @@ from __future__ import annotations
 import io
 from typing import TYPE_CHECKING
 
+try:
+    from pyats.topology.loader.base import TestbedFileLoader as _PyatsTFLoader
+    from pyats.topology.loader.markup import TestbedMarkupProcessor as _PyatsTMProcessor
+    from pyats.utils.yaml.markup import Processor as _PyatsProcessor
+except ImportError:
+    _PyatsTFLoader = None
+    _PyatsTMProcessor = None
+else:
+    # Ensure markup processor never uses the command line arguments as that's broken
+    _PyatsProcessor.argv.clear()
+
+
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
@@ -45,15 +57,8 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         """
-        self._pyats_installed = False
         self._lab = lab
         self._hostname = hostname
-        try:
-            import pyats  # noqa: F401
-        except ImportError:
-            return
-        else:
-            self._pyats_installed = True
         self._testbed: Testbed | None = None
         self._connections: set[Device] = set()
 
@@ -78,8 +83,29 @@ class ClPyats:
 
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
-        if not self._pyats_installed:
+        if _PyatsTFLoader is None:
             raise PyatsNotInstalled
+
+    def _load_pyats_testbed(self, testbed_yaml: str) -> Testbed:
+        """
+        Load a PyATS testbed instance from YAML representation.
+
+        Disable all templating features of PyATS markup processor.
+        Also disable extensions loading (which still uses all of the templating)
+        https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
+        """
+        processor = _PyatsTMProcessor(
+            reference=True,
+            callable=False,
+            env_var=False,
+            include_file=False,
+            ask=False,
+            encode=False,
+            cli_var=False,
+            extend_list=False,
+        )
+        loader = _PyatsTFLoader(markupprocessor=processor, enable_extensions=False)
+        return loader.load(io.StringIO(testbed_yaml))
 
     def sync_testbed(self, username: str, password: str) -> None:
         """
@@ -90,13 +116,11 @@ class ClPyats:
         :param password: The password to be inserted into the testbed data.
         """
         self._check_pyats_installed()
-        from pyats.topology import loader
-
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
-        data = loader.load(io.StringIO(testbed_yaml))
-        data.devices.terminal_server.credentials.default.username = username
-        data.devices.terminal_server.credentials.default.password = password
-        self._testbed = data
+        testbed = self._load_pyats_testbed(testbed_yaml)
+        testbed.devices.terminal_server.credentials.default.username = username
+        testbed.devices.terminal_server.credentials.default.password = password
+        self._testbed = testbed
 
     def _prepare_params(
         self,

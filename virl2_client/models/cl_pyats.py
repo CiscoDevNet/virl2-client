@@ -23,6 +23,12 @@ from __future__ import annotations
 import io
 from typing import TYPE_CHECKING
 
+try:
+    from pyats.topology.loader import load as pyats_load
+    from pyats.topology.loader.markup import TestbedMarkupProcessor
+except ImportError:
+    pyats_load = None
+
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
@@ -45,15 +51,8 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         """
-        self._pyats_installed = False
         self._lab = lab
         self._hostname = hostname
-        try:
-            import pyats  # noqa: F401
-        except ImportError:
-            return
-        else:
-            self._pyats_installed = True
         self._testbed: Testbed | None = None
         self._connections: set[Device] = set()
 
@@ -78,8 +77,27 @@ class ClPyats:
 
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
-        if not self._pyats_installed:
+        if pyats_load is None:
             raise PyatsNotInstalled
+
+    def _load_pyats_testbed(self, testbed_yaml: str) -> Testbed:
+        """
+        Load a PyATS testbed instance from YAML representation.
+
+        Disable all templating features of PyATS markup processor.
+        https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
+        """
+        processor = TestbedMarkupProcessor(
+            reference = True,
+            callable = False,
+            env_var = False,
+            include_file = False,
+            ask = False,
+            encode = False,
+            cli_var = False,
+            extend_list = False,
+        )
+        return pyats_load(io.StringIO(testbed_yaml), markupprocessor=processor)
 
     def sync_testbed(self, username: str, password: str) -> None:
         """
@@ -90,13 +108,11 @@ class ClPyats:
         :param password: The password to be inserted into the testbed data.
         """
         self._check_pyats_installed()
-        from pyats.topology import loader
-
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
-        data = loader.load(io.StringIO(testbed_yaml))
-        data.devices.terminal_server.credentials.default.username = username
-        data.devices.terminal_server.credentials.default.password = password
-        self._testbed = data
+        testbed = self._load_pyats_testbed(testbed_yaml)
+        testbed.devices.terminal_server.credentials.default.username = username
+        testbed.devices.terminal_server.credentials.default.password = password
+        self._testbed = testbed
 
     def _prepare_params(
         self,

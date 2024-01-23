@@ -1,3 +1,8 @@
+#
+# This file is part of VIRL 2
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# All rights reserved.
+#
 import os
 
 import pytest

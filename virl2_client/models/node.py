@@ -79,7 +79,7 @@ class Node:
         tags: list[str],
         resource_pool: str | None,
         parameters: dict,
-        locked_compute_id: str | None,
+        pinned_compute_id: str | None,
     ) -> None:
         """
         A VIRL2 node object representing a virtual machine that serves
@@ -104,7 +104,7 @@ class Node:
         :param tags: A list of tags associated with the node.
         :param resource_pool: The ID of the resource pool if the node is part
             of a resource pool.
-        :param locked_compute_id: The ID of the compute this node is locked to.
+        :param pinned_compute_id: The ID of the compute this node is locked to.
             The node will not run on any other compute.
         """
         self.lab = lab
@@ -129,7 +129,7 @@ class Node:
         self._tags = tags
         self._compute_id: str | None = None
         self._resource_pool = resource_pool
-        self._locked_compute_id = locked_compute_id
+        self._pinned_compute_id = pinned_compute_id
         self._stale = False
         self._last_sync_l3_address_time = 0.0
         self._parameters = parameters
@@ -544,16 +544,16 @@ class Node:
         return self._resource_pool
 
     @property
-    def locked_compute_id(self) -> str | None:
-        """Return the ID of the compute this node is locked to."""
+    def pinned_compute_id(self) -> str | None:
+        """Return the ID of the compute this node is pinned to."""
         self.lab.sync_operational_if_outdated()
-        return self._locked_compute_id
+        return self._pinned_compute_id
 
-    @locked_compute_id.setter
-    def locked_compute_id(self, value) -> None:
-        """Set the ID of the compute this node should be locked to."""
-        self._set_node_property("locked_compute_id", value)
-        self._locked_compute_id = value
+    @pinned_compute_id.setter
+    def pinned_compute_id(self, value) -> None:
+        """Set the ID of the compute this node should be pinned to."""
+        self._set_node_property("pinned_compute_id", value)
+        self._pinned_compute_id = value
 
     @property
     def cpu_usage(self) -> int | float:
@@ -853,7 +853,7 @@ class Node:
         if response is None:
             url = self._url_for("operational")
             response = self._session.get(url).json()
-        self._locked_compute_id = response.get("locked_compute_id")
+        self._pinned_compute_id = response.get("pinned_compute_id")
         operational = response.get("operational", {})
         self._compute_id = operational.get("compute_id")
         self._resource_pool = operational.get("resource_pool")

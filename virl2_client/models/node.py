@@ -104,7 +104,7 @@ class Node:
         :param tags: A list of tags associated with the node.
         :param resource_pool: The ID of the resource pool if the node is part
             of a resource pool.
-        :param pinned_compute_id: The ID of the compute this node is locked to.
+        :param pinned_compute_id: The ID of the compute this node is pinned to.
             The node will not run on any other compute.
         """
         self.lab = lab

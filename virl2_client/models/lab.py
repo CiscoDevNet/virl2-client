@@ -205,7 +205,7 @@ class Lab:
 
         :param local_wait: Local wait flag.
         :returns: True if waiting is required, False otherwise.
-        :raises ValueError: If `local_wait` is not a boolean.
+        :raises ValueError: If `local_wait` is not a boolean or None.
         """
         if local_wait is None:
             return self.wait_for_convergence

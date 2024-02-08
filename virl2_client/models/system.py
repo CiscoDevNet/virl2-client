@@ -85,6 +85,18 @@ class SystemManagement:
         return self._compute_hosts.copy()
 
     @property
+    def controller(self) -> ComputeHost:
+        """Return the controller
+
+        :raises ValueError: If no controller has been found (should never be the case).
+        :returns: The controller object.
+        """
+        for compute_host in self._compute_hosts.values():
+            if compute_host.is_connector:
+                return compute_host
+        raise ValueError("Controller not found")
+
+    @property
     def system_notices(self) -> dict[str, SystemNotice]:
         """Return a dictionary of system notices."""
         self.sync_system_notices_if_outdated()
@@ -202,7 +214,7 @@ class SystemManagement:
         :param sync: Admin only. A boolean indicating whether to refresh the cached list
             from host state. If sync is False, the state is retrieved;
             if True, configuration is applied back into the controller host.
-        :return: A list of objects with the device name and label.
+        :returns: A list of objects with the device name and label.
         """
         url = self._url_for("external_connectors")
         if sync is None:
@@ -219,7 +231,7 @@ class SystemManagement:
 
         :param connector_id: The ID of the connector to update.
         :param data: The data to update.
-        :return: The updated data.
+        :returns: The updated data.
         """
         url = self._url_for("external_connector", connector_id=connector_id)
         return self._session.patch(url, json=data).json()
@@ -237,7 +249,7 @@ class SystemManagement:
         """
         Get the web session timeout in seconds.
 
-        :return: The web session timeout.
+        :returns: The web session timeout.
         """
         url = self._url_for("web_session_timeout", timeout="")
         return self._session.get(url).json()
@@ -247,7 +259,7 @@ class SystemManagement:
         Set the web session timeout in seconds.
 
         :param timeout: The timeout value in seconds.
-        :return: 'OK'
+        :returns: 'OK'
         """
         url = self._url_for("web_session_timeout", timeout=timeout)
         return self._session.patch(url).json()
@@ -256,7 +268,7 @@ class SystemManagement:
         """
         Get the MAC address block.
 
-        :return: The MAC address block.
+        :returns: The MAC address block.
         """
         url = self._url_for("mac_address_block", block="")
         return self._session.get(url).json()
@@ -266,7 +278,7 @@ class SystemManagement:
         Set the MAC address block.
 
         :param block: The MAC address block.
-        :return: 'OK'
+        :returns: 'OK'
         :raises ValueError: If the MAC address block is not in the range 0-7.
         """
         if block < 0 or block > 7:
@@ -282,7 +294,7 @@ class SystemManagement:
         """
         Get the admission state of the new compute host.
 
-        :return: The admission state of the new compute host.
+        :returns: The admission state of the new compute host.
         """
         url = self._url_for("host_configuration")
         return self._session.get(url).json()["admission_state"]
@@ -292,7 +304,7 @@ class SystemManagement:
         Set the admission state of the new compute host.
 
         :param admission_state: The admission state to set.
-        :return: The updated admission state.
+        :returns: The updated admission state.
         """
         url = self._url_for("host_configuration")
         return self._session.patch(
@@ -323,7 +335,7 @@ class SystemManagement:
         :param is_synced: A boolean indicating if the compute host is synced.
         :param admission_state: The admission state of the compute host.
         :param nodes: A list of node IDs associated with the compute host.
-        :return: The added compute host.
+        :returns: The added compute host.
         """
         new_compute_host = ComputeHost(
             self,
@@ -362,7 +374,7 @@ class SystemManagement:
             status.
         :param groups: A list of group names to associate with the system notice.
             (Optional)
-        :return: The newly created system notice object.
+        :returns: The newly created system notice object.
         """
         new_system_notice = SystemNotice(
             self,

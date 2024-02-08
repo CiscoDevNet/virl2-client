@@ -24,6 +24,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
+from virl2_client.exceptions import ControllerNotFound, InvalidMacAddressBlock
+
 from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
@@ -88,13 +90,14 @@ class SystemManagement:
     def controller(self) -> ComputeHost:
         """Return the controller
 
-        :raises ValueError: If no controller has been found (should never be the case).
+        :raises ControllerNotFound: If no controller has been found
+            (should never be the case).
         :returns: The controller object.
         """
         for compute_host in self._compute_hosts.values():
             if compute_host.is_connector:
                 return compute_host
-        raise ValueError("Controller not found")
+        raise ControllerNotFound
 
     @property
     def system_notices(self) -> dict[str, SystemNotice]:
@@ -279,10 +282,10 @@ class SystemManagement:
 
         :param block: The MAC address block.
         :returns: 'OK'
-        :raises ValueError: If the MAC address block is not in the range 0-7.
+        :raises InvalidMacAddressBlock: If the MAC address block is not in 0-7 range.
         """
         if block < 0 or block > 7:
-            raise ValueError("MAC address block has to be in range 0-7.")
+            raise InvalidMacAddressBlock
         return self._set_mac_address_block(block=block)
 
     def _set_mac_address_block(self, block: int) -> str:

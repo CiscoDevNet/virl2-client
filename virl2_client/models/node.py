@@ -45,7 +45,7 @@ _LOGGER = logging.getLogger(__name__)
 @total_ordering
 class Node:
     _URL_TEMPLATES = {
-        "node": "{lab}/nodes/{id}",
+        "node": "{lab}/nodes/{id}?{CONFIG_MODE}",
         "state": "{lab}/nodes/{id}/state",
         "check_if_converged": "{lab}/nodes/{id}/check_if_converged",
         "start": "{lab}/nodes/{id}/state/start",

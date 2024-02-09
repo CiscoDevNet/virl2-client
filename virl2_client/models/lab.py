@@ -55,8 +55,8 @@ _LOGGER = logging.getLogger(__name__)
 class Lab:
     _URL_TEMPLATES = {
         "lab": "labs/{lab_id}",
-        "nodes": "labs/{lab_id}/nodes",
-        "nodes_populated": "labs/{lab_id}/nodes?populate_interfaces=true",
+        "nodes": "labs/{lab_id}/nodes?{CONFIG_MODE}",
+        "nodes_populated": "labs/{lab_id}/nodes?populate_interfaces=true&{CONFIG_MODE}",
         "nodes_operational": "labs/{lab_id}/nodes?data=true&operational=true"
         "&exclude_configurations=true",
         "links": "labs/{lab_id}/links",
@@ -1104,7 +1104,7 @@ class Lab:
         self,
         topology_only=True,
         with_node_configurations: bool | None = None,
-        exclude_configurations=False,
+        exclude_configurations: bool | None = False,
     ) -> None:
         """
         Synchronize the current lab, locally applying changes made to the server.
@@ -1133,7 +1133,7 @@ class Lab:
             self.sync_operational()
 
     @locked
-    def _sync_topology(self, exclude_configurations=False) -> None:
+    def _sync_topology(self, exclude_configurations: bool | None = False) -> None:
         """Helper function to sync topologies from the backend server."""
         url = self._url_for("topology")
         params = {"exclude_configurations": exclude_configurations}
@@ -1158,7 +1158,7 @@ class Lab:
         topology = result.json()
 
         if self._initialized:
-            self.update_lab(topology, exclude_configurations)
+            self.update_lab(topology, exclude_configurations or False)
         else:
             self.import_lab(topology)
             self._initialized = True

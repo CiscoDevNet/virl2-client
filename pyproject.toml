@@ -21,26 +21,26 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
-httpx = "^0.25.0"
+httpx = "^0.26.0"
 
+# https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
 # optional package for events
 aiohttp = {version = "^3.8", optional = true}
 
 # optional pyATS package
 # (this pulls in a lot more dependencies)
 # it does not pull in genie, need to specify extras=["full"] for pyATS.
-# pyats = {extras=["full"], version = "^23", optional = true}
-pyats = {version = "^23", optional = true}
+pyats = {version = "^24", optional = true}
 
-# needed to build documentation, technically, this is a dev-dependency
-# https://github.com/python-poetry/poetry/pull/606 -- no support
+# optional packages for documentation build
 sphinx_rtd_theme = {version="^1", optional = true}
 sphinx =  {version="^7", optional = true}
 
 [tool.poetry.group.dev.dependencies]
-flake8 = "^6"
+flake8 = "^7"
 pre-commit = "^3"
-pytest = "*"
+# https://github.com/pytest-dev/pytest-asyncio/issues/737
+pytest = "<8"
 respx = "^0.20.0"
 
 [tool.poetry.extras]

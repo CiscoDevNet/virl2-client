@@ -49,6 +49,7 @@ class _Sentinel:
 
 
 UNCHANGED = _Sentinel()
+_CONFIG_MODE = "exclude_configurations=false"
 
 
 def _make_not_found(instance: Element) -> ElementNotFound:
@@ -160,5 +161,6 @@ def get_url_from_template(
     if endpoint_url_template is None:
         raise VirlException(f"Invalid endpoint: {endpoint}")
     if values is None:
-        return endpoint_url_template
+        values = {}
+    values["CONFIG_MODE"] = _CONFIG_MODE
     return endpoint_url_template.format(**values)

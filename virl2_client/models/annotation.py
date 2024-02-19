@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Literal, Any, Union
 
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
+from ..exceptions import InvalidProperty
 
 if TYPE_CHECKING:
     import httpx
@@ -109,17 +110,17 @@ class Annotation:
         "annotation": "labs/{lab_id}/annotations/{annotation_id}",
     }
 
-    def __init__(self, lab: Lab, annotation_id: str, type: str, **kwargs) -> None:
+    def __init__(self, lab: Lab, annotation_id: str, annotation_type: str) -> None:
         """
         A VIRL2 lab annotation.
 
         :param lab: The lab object to which the link belongs.
         :param annotation_id: The ID of the annotation.
-        :param type: annotation type (text, line, ellipse, rectangle)
+        :param annotation_type: annotation type (text, line, ellipse, rectangle)
         """
-        self._id = ann_id
+        self._id = annotation_id
         self._lab = lab
-        self._type = type
+        self._type = annotation_type
         self._session: httpx.Client = lab._session
         # When the annotationis removed on the server, this annotation object is marked
         # stale and can no longer be interacted with - the user should discard it
@@ -127,10 +128,12 @@ class Annotation:
 
         # set all properties (private only)
         for ppty in ANNOTATION_PROPERTY_MAP:
+            if ppty == "type":
+                continue
             ppty_default = ANNOTATION_PROPERTIES_DEFAULTS[ppty]
             if isinstance(ppty_default, dict):
-                ppty_default = ppty_default[type]
-            setattr(self, f"_{ppty}", )
+                ppty_default = ppty_default[annotation_type]
+            setattr(self, f"_{ppty}", ppty_default)
 
     def __str__(self):
         return f"Annotation: {self._id}{' (STALE)' if self._stale else ''}"
@@ -162,7 +165,8 @@ class Annotation:
         kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def _is_valid_property(self, annotation_type: str, _property: str) -> bool:
+    @classmethod
+    def _is_valid_property(cls, annotation_type: str, _property: str) -> bool:
         assert annotation_type in ANNOTATION_TYPES
         assert _property in ANNOTATION_PROPERTY_MAP
         annotation_map = {
@@ -223,7 +227,7 @@ class Annotation:
 
         # make sure all properties we want to update are valid
         for key, value in annotation_data.items():
-            if not hasattr(self, f"{key}"):
+            if not key in dir(self):
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:
@@ -241,24 +245,50 @@ class Annotation:
         self._session.patch(url=self._base_url, json=annotation_data)
 
 
+class AnnotationRectangle(Annotation):
+    def __init__(self, lab: Lab, annotation_id: str, annotation_data: dict[str, Any]):
+        super().__init__(lab, annotation_id, "rectangle")
+        self.update(annotation_data)
+
+
+class AnnotationEllipse(Annotation):
+    def __init__(self, lab: Lab, annotation_id: str, annotation_data: dict[str, Any]):
+        super().__init__(lab, annotation_id, "ellipse")
+        self.update(annotation_data)
+
+
+class AnnotationLine(Annotation):
+    def __init__(self, lab: Lab, annotation_id: str, annotation_data: dict[str, Any]):
+        super().__init__(lab, annotation_id, "line")
+        self.update(annotation_data)
+
+
+class AnnotationText(Annotation):
+    def __init__(self, lab: Lab, annotation_id: str, annotation_data: dict[str, Any]):
+        super().__init__(lab, annotation_id, "text")
+        self.update(annotation_data)
+
+
+# ~~~~~< setup Annotation Classes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 def annotation_property_getter(_property: str) -> Any:
-    def wrapper(self):
-        return getattr(self, _property)
-    return wrapper
+    return lambda self: self.__dict__[f"_{_property}"]
 
 
 def annotation_property_setter(_property: str) -> None:
-    def wrapper(self, value):
-        setattr(self, _property, value)
-    return wrapper
+    return lambda self, value: setattr(self, f"_{_property}", value)
 
 
-def set_annotation_properties(annotation: Annotation, type: AnnotationTypeString):
+def set_annotation_properties(
+    annotation_class: Type[AnnotationType],
+    _type: AnnotationTypeString,
+) -> None:
     """Dynamically generate annotation properties based on it's type."""
     for ppty in ANNOTATION_PROPERTY_MAP:
-        if annotation._is_valid_property("rectangle", ppty):
+        if annotation_class._is_valid_property(_type, ppty):
             setattr(
-                annotation,
+                annotation_class,
                 ppty,
                 property(
                     fget=annotation_property_getter(ppty),
@@ -266,19 +296,7 @@ def set_annotation_properties(annotation: Annotation, type: AnnotationTypeString
                 )
             )
 
-
-class AnnotationRectangle(Annotation):
-
-    def __init__(self, **kwargs):
-        super().__init__(lab, annotation_id, "rectangle")
-        set_annotation_properties(self, type=self._type)
-
-
-class AnnotationEllipse(Annotation):
-    ...
-
-class AnnotationLine(Annotation):
-    ...
-
-class AnnotationText(Annotation):
-    ...
+set_annotation_properties(AnnotationRectangle, "rectangle")
+set_annotation_properties(AnnotationEllipse, "ellipse")
+set_annotation_properties(AnnotationLine, "line")
+set_annotation_properties(AnnotationText, "text")

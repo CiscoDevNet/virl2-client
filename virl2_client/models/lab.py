@@ -970,19 +970,20 @@ class Lab:
 
     @check_stale
     @locked
-    def _create_annotation_local(self, annotation_id: str, type: str, **kwargs) -> Annotation:
+    def _create_annotation_local(self, annotation_id: str, _type: str, **kwargs) -> Annotation:
         """Helper function to create a link in the client library."""
-        if type == "rectangle":
-            annotation_class =  AnnotationRectangle
-        elif type == "ellipse":
-            annotation_class =  AnnotationEllipse
-        elif type == "line":
-            annotation_class =  AnnotationLine
-        elif type == "text":
-            annotation_class =  AnnotationText
+        if _type == "rectangle":
+            annotation_class = AnnotationRectangle
+        elif _type == "ellipse":
+            annotation_class = AnnotationEllipse
+        elif _type == "line":
+            annotation_class = AnnotationLine
+        elif _type == "text":
+            annotation_class = AnnotationText
         else:
             raise InvalidAnnotationType
-        annotation = annotation_class(self, annotation_id, kwargs)
+
+        annotation = annotation_class(self, annotation_id, annotation_data=kwargs)
         self._annotations[annotation_id] = annotation
         return annotation
 
@@ -1660,7 +1661,7 @@ class Lab:
         topology: dict,
         kept_nodes: Iterable[str] | None = None,
         kept_annotations: Iterable[str] | None = None,
-        exclude_configurations: bool,
+        exclude_configurations: bool = False,
     ) -> None:
         """
         Update elements in the lab.

@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Callable, Type, TypeVar, Union, cast
 import httpx
 
 from .exceptions import (
+    AnnotationNotFound,
     ElementNotFound,
     InterfaceNotFound,
     LabNotFound,
@@ -36,9 +37,9 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .models import Interface, Lab, Link, Node
+    from .models import Interface, Lab, Link, Node, Annotation
 
-    Element = Union[Lab, Node, Interface, Link]
+    Element = Union[Lab, Node, Interface, Link, Annotation]
 
 TCallable = TypeVar("TCallable", bound=Callable)
 
@@ -56,7 +57,12 @@ def _make_not_found(instance: Element) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
     class_name = type(instance).__name__
     instance_id = instance._id
-    instance_label = instance._title if class_name == "Lab" else instance._label
+    if class_name == "Lab":
+        instance_label = instance._title
+    elif class_name.startswith("Annotation"):
+        instance_label = instance._type
+    else:
+        instance_label = instance._label
 
     error_text = (
         f"{class_name} {instance_label} ({instance_id}) no longer exists on the server."
@@ -66,6 +72,7 @@ def _make_not_found(instance: Element) -> ElementNotFound:
         "Node": NodeNotFound,
         "Interface": InterfaceNotFound,
         "Link": LinkNotFound,
+        "Annotation": AnnotationNotFound,
     }[class_name]
     return error(error_text)
 

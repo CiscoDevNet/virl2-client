@@ -35,6 +35,10 @@ class ElementNotFound(VirlException, KeyError):
     pass
 
 
+class AnnotationNotFound(ElementNotFound):
+    pass
+
+
 class NodeNotFound(ElementNotFound):
     pass
 
@@ -60,6 +64,10 @@ class InvalidContentType(VirlException):
 
 
 class InvalidImageFile(VirlException):
+    pass
+
+
+class InvalidAnnotationType(VirlException):
     pass
 
 

@@ -69,7 +69,7 @@ class Lab:
         "nodes": "labs/{lab_id}/nodes?{CONFIG_MODE}",
         "nodes_populated": "labs/{lab_id}/nodes?populate_interfaces=true&{CONFIG_MODE}",
         "nodes_operational": "labs/{lab_id}/nodes?data=true&operational=true"
-        "&exclude_configurations=true",
+            "&exclude_configurations=true",
         "links": "labs/{lab_id}/links",
         "interfaces": "labs/{lab_id}/interfaces",
         "simulation_stats": "labs/{lab_id}/simulation_stats",
@@ -88,6 +88,7 @@ class Lab:
         "groups": "labs/{lab_id}/groups",
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
+        "annotations": "labs/{lab_id}/annotations",
     }
 
     def __init__(
@@ -801,13 +802,11 @@ class Lab:
         annotation._remove_on_server()
         self._remove_annotation_local(annotation)
 
-        _LOGGER.debug("%s node removed from lab %s", node._id, self._id)
+        _LOGGER.debug("%s annotation removed from lab %s", annotation._id, self._id)
 
     @locked
     def _remove_annotation_local(self, annotation: Annotation) -> None:
         """Helper function to remove an annotation from the client library."""
-        for ann in tuple(self._annotations.values()):
-            self._remove_annotation_local(ann)
         try:
             del self._annotations[annotation._id]
             annotation._stale = True
@@ -953,19 +952,27 @@ class Lab:
 
     @check_stale
     @locked
-    def create_annotation(self, type: str, **kwargs) -> Annotation:
+    def create_annotation(self, annotation_type: str, **kwargs) -> Annotation:
         """
         Creates a lab annotation
 
         :param type: type of annotation (rectangle, ellipse, line or text)
         :returns: the created annotation
         """
-        url = self.lab_base_url + "/annotations"
-        response = self._session.post(url, json=kwargs)
+        url = self._url_for("annotations")
+
+        # create POST json with default annotation property values
+        # override some values by new, expected ones
+        annotation_data = Annotation._get_default_property_values(annotation_type)
+        for ppty, value in kwargs.items():
+            annotation_data[ppty] = value
+        annotation_data["type"] = annotation_type
+
+        response = self._session.post(url, json=annotation_data)
         result = response.json()
         annotation_id = result["id"]
 
-        annotation = self._create_annotation_local(annotation_id, type, kwargs)
+        annotation = self._create_annotation_local(annotation_id, annotation_type, **annotation_data)
         return annotation
 
     @check_stale

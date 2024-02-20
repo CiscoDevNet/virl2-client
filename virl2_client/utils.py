@@ -56,6 +56,8 @@ _CONFIG_MODE = "exclude_configurations=false"
 def _make_not_found(instance: Element) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
     class_name = type(instance).__name__
+    if class_name.startswith("Annotation"):
+        class_name = "Annotation"
     instance_id = instance._id
     if class_name == "Lab":
         instance_label = instance._title
@@ -128,6 +130,10 @@ def check_stale(func: TCallable) -> TCallable:
 
 class property_s(property):
     """A modified `property` that will check staleness."""
+
+    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
+        super().__init__(fget=fget, fset=fset, fdel=fdel)
+        self.__doc__ = doc
 
     def __get__(self, instance, owner):
         return _check_and_mark_stale(super().__get__, instance, instance, owner)

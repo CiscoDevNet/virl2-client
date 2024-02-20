@@ -88,10 +88,10 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
     "line_end": None,
     "line_start": None,
     "rotation": 0,
-    "text_bold": "false",
-    "text_content": "",
+    "text_bold": False,
+    "text_content": "text annotation",
     "text_font": "monospace",
-    "text_italic": "false",
+    "text_italic": False,
     "text_size": 12,
     "text_unit": "pt",
     "thickness": 1,
@@ -100,6 +100,28 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
     "y1": 0,
     "y2": 100,
     "z_index": 0,
+}
+
+ANNOTATION_PROPERTIES_DOCSTRINGS = {
+    "border_color": "border color (example: `#FF00FF00`)",
+    "border_radius": "border radius",
+    "border_style": "valid values: '' (solid), '2,2' (dotted), '4,2' (dashed)",
+    "color": "Annotation color (example: `#00AAFF`)",
+    "line_end": "line arror start style: (arrow, square, circle)",
+    "line_start": "line arror end style: (arrow, square, circle)",
+    "rotation": "Rotation of an object, in degrees.",
+    "text_bold": "text boldness (bool)",
+    "text_content": "Actual text annotation content",
+    "text_font": "text font",
+    "text_italic": "text cursive (bool)",
+    "text_size": "Size of the text (various units are recognized.)",
+    "text_unit": "text size unit (pt, px, em, ...)",
+    "thickness": "annotation thickness",
+    "x1": "x1 coordinate",
+    "x2": "x2 coordinate",
+    "y1": "y1 coordinate",
+    "y2": "y2 coordinate",
+    "z_index": "Z layer (depth) of an annotation",
 }
 ANNOTATION_TYPES = ["text", "line", "ellipse", "rectangle"]
 
@@ -161,12 +183,43 @@ class Annotation:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self._lab._url_for("lab")
-        kwargs["id"] = self._id
+        kwargs["lab_id"] = self._lab._id
+        kwargs["annotation_id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @classmethod
-    def _is_valid_property(cls, annotation_type: str, _property: str) -> bool:
+    def _get_default_property_values(cls, annotation_type: str) -> dict[str, Any]:
+        """
+        Return list of all valid properties for selected annotation type
+        """
+        default_values = {}
+        annotation_map = {
+            "text": 0b1000,
+            "line": 0b0100,
+            "ellipse": 0b0010,
+            "rectangle": 0b0001,
+        }
+        for ppty in ANNOTATION_PROPERTY_MAP:
+            if ppty == "type":
+                continue
+            if not annotation_map[annotation_type] & ANNOTATION_PROPERTY_MAP[ppty]:
+                continue
+            ppty_default = ANNOTATION_PROPERTIES_DEFAULTS[ppty]
+            if isinstance(ppty_default, dict):
+                ppty_default = ppty_default[annotation_type]
+            default_values[ppty] = ppty_default
+
+        return default_values
+
+    @classmethod
+    def _is_valid_property(
+        cls,
+        annotation_type: AnnotationTypeString | AnnotationType,
+        _property: str,
+    ) -> bool:
+        """
+        Checks if given property is recognized by selected annotation type
+        """
         assert annotation_type in ANNOTATION_TYPES
         assert _property in ANNOTATION_PROPERTY_MAP
         annotation_map = {
@@ -224,10 +277,11 @@ class Annotation:
         :param annotation_data: JSON dict with new annotation property:value pairs.
         :param push_to_server: Whether to update the annotation on the server side too.
         """
+        annotation_data["type"] = self._type
 
         # make sure all properties we want to update are valid
         for key, value in annotation_data.items():
-            if not key in dir(self):
+            if key not in dir(self):
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:
@@ -242,7 +296,10 @@ class Annotation:
 
     @check_stale
     def _set_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
-        self._session.patch(url=self._base_url, json=annotation_data)
+        self._session.patch(url=self._url_for("annotation"), json=annotation_data)
+
+
+# ~~~~~< Annotation subclasses >~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 class AnnotationRectangle(Annotation):
@@ -273,11 +330,21 @@ class AnnotationText(Annotation):
 
 
 def annotation_property_getter(_property: str) -> Any:
-    return lambda self: self.__dict__[f"_{_property}"]
+    def sync_and_get(self, ppty):
+        self._lab.sync_topology_if_outdated()
+        return self.__dict__[f"_{ppty}"]
+    return lambda self: sync_and_get(self, _property)
 
 
 def annotation_property_setter(_property: str) -> None:
-    return lambda self, value: setattr(self, f"_{_property}", value)
+    return lambda self, value: self.update(
+        annotation_data={_property: value},
+        push_to_server=True,
+    )
+
+
+def annotation_property_doc(_property: str) -> None:
+    return ANNOTATION_PROPERTIES_DOCSTRINGS[_property]
 
 
 def set_annotation_properties(
@@ -286,6 +353,8 @@ def set_annotation_properties(
 ) -> None:
     """Dynamically generate annotation properties based on it's type."""
     for ppty in ANNOTATION_PROPERTY_MAP:
+        if ppty == "type":
+            continue
         if annotation_class._is_valid_property(_type, ppty):
             setattr(
                 annotation_class,
@@ -293,6 +362,7 @@ def set_annotation_properties(
                 property(
                     fget=annotation_property_getter(ppty),
                     fset=annotation_property_setter(ppty),
+                    doc=annotation_property_doc(ppty),
                 )
             )
 
@@ -300,3 +370,10 @@ set_annotation_properties(AnnotationRectangle, "rectangle")
 set_annotation_properties(AnnotationEllipse, "ellipse")
 set_annotation_properties(AnnotationLine, "line")
 set_annotation_properties(AnnotationText, "text")
+
+ANNOTATION_TYPES_CLASSES = [
+    AnnotationRectangle,
+    AnnotationEllipse,
+    AnnotationLine,
+    AnnotationText,
+]

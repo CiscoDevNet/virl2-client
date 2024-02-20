@@ -123,7 +123,7 @@ ANNOTATION_PROPERTIES_DOCSTRINGS = {
     "y2": "y2 coordinate",
     "z_index": "Z layer (depth) of an annotation",
 }
-ANNOTATION_TYPES = ["text", "line", "ellipse", "rectangle"]
+_ANNOTATION_TYPES = ["text", "line", "ellipse", "rectangle"]
 
 
 class Annotation:
@@ -132,7 +132,12 @@ class Annotation:
         "annotation": "labs/{lab_id}/annotations/{annotation_id}",
     }
 
-    def __init__(self, lab: Lab, annotation_id: str, annotation_type: str) -> None:
+    def __init__(
+        self,
+        lab: Lab,
+        annotation_id: str,
+        annotation_type: AnnotationTypeString,
+    ) -> None:
         """
         A VIRL2 lab annotation.
 
@@ -158,13 +163,14 @@ class Annotation:
             setattr(self, f"_{ppty}", ppty_default)
 
     def __str__(self):
-        return f"Annotation: {self._id}{' (STALE)' if self._stale else ''}"
+        return f"{self.__class__.__name__}: {self._id}{' (STALE)' if self._stale else ''}" 
 
     def __repr__(self):
-        return "{}({!r}, {!r})".format(
+        return "{}({!r}, {!r}, {!r})".format(
             self.__class__.__name__,
             str(self._lab),
             self._id,
+            self._type,
         )
 
     def __eq__(self, other: object):
@@ -220,7 +226,7 @@ class Annotation:
         """
         Checks if given property is recognized by selected annotation type
         """
-        assert annotation_type in ANNOTATION_TYPES
+        assert annotation_type in _ANNOTATION_TYPES
         assert _property in ANNOTATION_PROPERTY_MAP
         annotation_map = {
             "text": 0b1000,
@@ -240,26 +246,30 @@ class Annotation:
         """Return type of the annotation."""
         return self._type
 
-    # TODO
-    #@locked
-    #def as_dict(self) -> dict[str, str]:
-    #    """
-    #    Convert the annotation object to a dictionary representation.
+    @locked
+    def as_dict(self) -> dict[str, str]:
+        """
+        Convert the annotation object to a dictionary representation.
 
-    #    :returns: A dictionary representation of the annotation object.
-    #    """
-    #    return {
-    #        "id": self.id,
-    #        "interface_a": self.interface_a.id,
-    #        "interface_b": self.interface_b.id,
-    #    }
+        :returns: A dictionary representation of the annotation object.
+        """
+        return {
+            "id": self._id,
+            "type": self._type,
+            **{
+                ppty: getattr(self, ppty)
+                for ppty in ANNOTATION_PROPERTY_MAP
+                if self._is_valid_property(self._type, ppty)
+            },
+        }
 
     def remove(self):
-        """Remove the annotation from the lab."""
+        """Remove annotation from the lab."""
         self._lab.remove_annotation(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
+        """remove annotation on the server side"""
         _LOGGER.info(f"Removing annotation {self}")
         url = self._url_for("annotation")
         self._session.delete(url)
@@ -290,12 +300,9 @@ class Annotation:
         for key, value in annotation_data.items():
             setattr(self, f"_{key}", value)
 
-    def _set_annotation_property(self, key: str, val: Any) -> None:
-        _LOGGER.debug("Setting annotation property %s %s: %s", self, key, val)
-        self._set_annotation_properties({key: val})
-
     @check_stale
     def _set_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
+        """update annotation properties server-side"""
         self._session.patch(url=self._url_for("annotation"), json=annotation_data)
 
 
@@ -330,6 +337,7 @@ class AnnotationText(Annotation):
 
 
 def annotation_property_getter(_property: str) -> Any:
+    """generate property getters for each annotation property"""
     def sync_and_get(self, ppty):
         self._lab.sync_topology_if_outdated()
         return self.__dict__[f"_{ppty}"]
@@ -337,6 +345,7 @@ def annotation_property_getter(_property: str) -> Any:
 
 
 def annotation_property_setter(_property: str) -> None:
+    """generate property setters for each annotation property"""
     return lambda self, value: self.update(
         annotation_data={_property: value},
         push_to_server=True,
@@ -344,6 +353,7 @@ def annotation_property_setter(_property: str) -> None:
 
 
 def annotation_property_doc(_property: str) -> None:
+    """generate docstrings for each annotation property"""
     return ANNOTATION_PROPERTIES_DOCSTRINGS[_property]
 
 

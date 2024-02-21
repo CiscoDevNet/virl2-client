@@ -37,7 +37,7 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .models import Interface, Lab, Link, Node, Annotation
+    from .models import Annotation, Interface, Lab, Link, Node
 
     Element = Union[Lab, Node, Interface, Link, Annotation]
 

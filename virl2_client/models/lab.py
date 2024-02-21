@@ -30,10 +30,10 @@ from httpx import HTTPStatusError
 
 from ..exceptions import (
     AnnotationNotFound,
-    InvalidAnnotationType,
     ElementAlreadyExists,
     ElementNotFound,
     InterfaceNotFound,
+    InvalidAnnotationType,
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
@@ -41,23 +41,23 @@ from ..exceptions import (
 )
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
+from .annotation import (
+    Annotation,
+    AnnotationEllipse,
+    AnnotationLine,
+    AnnotationRectangle,
+    AnnotationText,
+)
 from .cl_pyats import ClPyats
 from .interface import Interface
 from .link import Link
 from .node import Node
-from .annotation import (
-    Annotation,
-    AnnotationRectangle,
-    AnnotationEllipse,
-    AnnotationLine,
-    AnnotationText,
-)
 
 if TYPE_CHECKING:
     import httpx
 
-    from .resource_pools import ResourcePool, ResourcePoolManagement
     from .annotation import AnnotationType
+    from .resource_pools import ResourcePool, ResourcePoolManagement
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class Lab:
         "nodes": "labs/{lab_id}/nodes?{CONFIG_MODE}",
         "nodes_populated": "labs/{lab_id}/nodes?populate_interfaces=true&{CONFIG_MODE}",
         "nodes_operational": "labs/{lab_id}/nodes?data=true&operational=true"
-            "&exclude_configurations=true",
+        "&exclude_configurations=true",
         "links": "labs/{lab_id}/links",
         "interfaces": "labs/{lab_id}/interfaces",
         "simulation_stats": "labs/{lab_id}/simulation_stats",
@@ -822,7 +822,6 @@ class Lab:
             self.remove_annotation(ann)
         _LOGGER.debug("all nodes removed from lab %s", self._id)
 
-
     @check_stale
     @locked
     def create_link(
@@ -961,7 +960,7 @@ class Lab:
         """
         url = self._url_for("annotations")
 
-        # create POST json with default annotation property values
+        # create POST json with default annotation property values
         # override some values by new, expected ones
         annotation_data = Annotation.get_default_property_values(annotation_type)
         for ppty, value in kwargs.items():
@@ -984,7 +983,9 @@ class Lab:
 
     @check_stale
     @locked
-    def _create_annotation_local(self, annotation_id: str, _type: str, **kwargs) -> Annotation:
+    def _create_annotation_local(
+        self, annotation_id: str, _type: str, **kwargs
+    ) -> Annotation:
         """Helper function to create a link in the client library."""
         if _type == "rectangle":
             annotation_class = AnnotationRectangle
@@ -1507,9 +1508,7 @@ class Lab:
         ann_type = annotation_data.pop("type")
 
         annotation = self._create_annotation_local(
-            annotation_id,
-            ann_type,
-            **annotation_data
+            annotation_id, ann_type, **annotation_data
         )
         return annotation
 

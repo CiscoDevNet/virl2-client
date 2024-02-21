@@ -21,16 +21,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal, Any, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
+from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
-from ..exceptions import InvalidProperty
 
 if TYPE_CHECKING:
     import httpx
 
     from .lab import Lab
+
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
     AnnotationType = Union[
         Annotation,
@@ -143,7 +144,9 @@ class Annotation:
         self._z_index = 0
 
     def __str__(self):
-        return f"{self.__class__.__name__}: {self._id}{' (STALE)' if self._stale else ''}" 
+        return (
+            f"{self.__class__.__name__}: {self._id}{' (STALE)' if self._stale else ''}"
+        )
 
     def __repr__(self):
         return "{}({!r}, {!r}, {!r})".format(
@@ -351,9 +354,7 @@ class Annotation:
     @check_stale
     @locked
     def update(
-        self,
-        annotation_data: dict[str, Any],
-        push_to_server: bool = True
+        self, annotation_data: dict[str, Any], push_to_server: bool = True
     ) -> None:
         """
         Update annotation properties.

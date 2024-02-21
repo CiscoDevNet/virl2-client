@@ -380,9 +380,9 @@ class Lab:
 
     def annotations(self) -> list[AnnotationType]:
         """
-        Return the list of nodes in the lab.
+        Return the list of annotations in the lab.
 
-        :returns: A list of Node objects.
+        :returns: A list of Annotation objects.
         """
         self.sync_topology_if_outdated()
         return list(self._annotations.values())
@@ -505,7 +505,7 @@ class Lab:
 
     def get_annotation_by_id(self, annotation_id: str) -> Annotation:
         """
-        Returns the annotation identified by the ID.
+        Return the annotation identified by the ID.
 
         :param annotation_id: ID of the annotation to be returned
         :returns: An Annotation object
@@ -658,7 +658,7 @@ class Lab:
         """
         Remove a node from the lab.
 
-        If you have a node object, you can also simply do:
+        If you have a node object, you can also simply do::
 
             node.remove()
 
@@ -713,7 +713,7 @@ class Lab:
         """
         Remove a link from the lab.
 
-        If you have a link object, you can also simply do:
+        If you have a link object, you can also simply do::
 
             link.remove()
 
@@ -749,7 +749,7 @@ class Lab:
         """
         Remove an interface from the lab.
 
-        If you have an interface object, you can also simply do:
+        If you have an interface object, you can also simply do::
 
             interface.remove()
 
@@ -789,9 +789,9 @@ class Lab:
         annotation: Annotation | str,
     ) -> None:
         """
-        Removes an annotation from the lab.
+        Remove an annotation from the lab.
 
-        If you have an annotation object, you can also simply do:
+        If you have an annotation object, you can also simply do::
 
             annotation.remove()
 
@@ -954,7 +954,7 @@ class Lab:
     @locked
     def create_annotation(self, annotation_type: str, **kwargs) -> Annotation:
         """
-        Creates a lab annotation
+        Create a lab annotation
 
         :param type: type of annotation (rectangle, ellipse, line or text)
         :returns: the created annotation
@@ -963,16 +963,23 @@ class Lab:
 
         # create POST json with default annotation property values
         # override some values by new, expected ones
-        annotation_data = Annotation._get_default_property_values(annotation_type)
+        annotation_data = Annotation.get_default_property_values(annotation_type)
         for ppty, value in kwargs.items():
             annotation_data[ppty] = value
         annotation_data["type"] = annotation_type
 
         response = self._session.post(url, json=annotation_data)
-        result = response.json()
-        annotation_id = result["id"]
+        res_annotation = response.json()
 
-        annotation = self._create_annotation_local(annotation_id, annotation_type, **annotation_data)
+        # after adding an annotation to an empty lab, consider it "initialized"
+        if not self._initialized:
+            self._initialized = True
+
+        annotation = self._create_annotation_local(
+            res_annotation["id"],
+            annotation_type,
+            **annotation_data,
+        )
         return annotation
 
     @check_stale

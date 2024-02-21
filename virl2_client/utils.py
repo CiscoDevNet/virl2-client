@@ -133,7 +133,8 @@ class property_s(property):
 
     def __init__(self, fget=None, fset=None, fdel=None, doc=None):
         super().__init__(fget=fget, fset=fset, fdel=fdel)
-        self.__doc__ = doc
+        if doc:
+            self.__doc__ = doc
 
     def __get__(self, instance, owner):
         return _check_and_mark_stale(super().__get__, instance, instance, owner)

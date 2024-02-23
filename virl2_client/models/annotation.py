@@ -325,7 +325,7 @@ class Annotation:
         return annotation_map[annotation_type] & ANNOTATION_PROPERTY_MAP[_property] > 0
 
     @locked
-    def as_dict(self) -> dict[str, str]:
+    def as_dict(self) -> dict[str, Any]:
         """
         Convert the annotation object to a dictionary representation.
 
@@ -340,7 +340,7 @@ class Annotation:
             },
         }
 
-    def remove(self):
+    def remove(self) -> None:
         """Remove annotation from the lab."""
         self._lab.remove_annotation(self)
 
@@ -706,11 +706,3 @@ class AnnotationText(Annotation):
         """Set text size unit (pt, px, em, ...)."""
         self._set_annotation_property("text_unit", value)
         self._text_unit = value
-
-
-ANNOTATION_TYPES_CLASSES = [
-    AnnotationRectangle,
-    AnnotationEllipse,
-    AnnotationLine,
-    AnnotationText,
-]

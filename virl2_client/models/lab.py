@@ -503,7 +503,7 @@ class Lab:
             return link
         raise LinkNotFound
 
-    def get_annotation_by_id(self, annotation_id: str) -> Annotation:
+    def get_annotation_by_id(self, annotation_id: str) -> AnnotationType:
         """
         Return the annotation identified by the ID.
 
@@ -951,7 +951,7 @@ class Lab:
 
     @check_stale
     @locked
-    def create_annotation(self, annotation_type: str, **kwargs) -> Annotation:
+    def create_annotation(self, annotation_type: str, **kwargs) -> AnnotationType:
         """
         Create a lab annotation
 
@@ -977,7 +977,7 @@ class Lab:
         annotation = self._create_annotation_local(
             res_annotation["id"],
             annotation_type,
-            **annotation_data,
+            **res_annotation,
         )
         return annotation
 
@@ -985,7 +985,7 @@ class Lab:
     @locked
     def _create_annotation_local(
         self, annotation_id: str, _type: str, **kwargs
-    ) -> Annotation:
+    ) -> AnnotationType:
         """Helper function to create a link in the client library."""
         if _type == "rectangle":
             annotation_class = AnnotationRectangle
@@ -1761,7 +1761,10 @@ class Lab:
         raise NodeNotFound
 
     @staticmethod
-    def _find_annotation_in_topology(annotation_id: str, topology: dict) -> dict:
+    def _find_annotation_in_topology(
+        annotation_id: str,
+        topology: dict,
+    ) -> dict[str, Any]:
         """
         Find an annotation in the given topology.
 

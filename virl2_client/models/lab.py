@@ -1538,7 +1538,9 @@ class Lab:
                 for node in topology["nodes"]
                 for interface in node["interfaces"]
             )
-        update_annotation_ids = set(ann["id"] for ann in topology["annotations"])
+        update_annotation_ids = set(
+            ann["id"] for ann in topology.get("annotations", [])
+        )
 
         # removed elements
         removed_nodes = existing_node_ids - update_node_ids

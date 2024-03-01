@@ -23,7 +23,6 @@ from __future__ import annotations
 import logging
 import time
 import warnings
-from functools import total_ordering
 from typing import TYPE_CHECKING
 
 from ..utils import check_stale, get_url_from_template, locked
@@ -39,7 +38,6 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-@total_ordering
 class Link:
     _URL_TEMPLATES = {
         "link": "{lab}/links/{id}",
@@ -102,11 +100,6 @@ class Link:
         if not isinstance(other, Link):
             return False
         return self._id == other._id
-
-    def __lt__(self, other: object):
-        if not isinstance(other, Link):
-            return False
-        return self._id < other._id
 
     def __hash__(self):
         return hash(self._id)

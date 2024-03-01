@@ -29,8 +29,10 @@ from typing import TYPE_CHECKING, Any, Iterable
 from httpx import HTTPStatusError
 
 from ..exceptions import (
+    AnnotationNotFound,
     ElementAlreadyExists,
     InterfaceNotFound,
+    InvalidAnnotationType,
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
@@ -38,6 +40,13 @@ from ..exceptions import (
 )
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
+from .annotation import (
+    Annotation,
+    AnnotationEllipse,
+    AnnotationLine,
+    AnnotationRectangle,
+    AnnotationText,
+)
 from .cl_pyats import ClPyats
 from .interface import Interface
 from .link import Link
@@ -46,6 +55,7 @@ from .node import Node
 if TYPE_CHECKING:
     import httpx
 
+    from .annotation import AnnotationType
     from .resource_pools import ResourcePool, ResourcePoolManagement
 
 
@@ -77,6 +87,7 @@ class Lab:
         "groups": "labs/{lab_id}/groups",
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
+        "annotations": "labs/{lab_id}/annotations",
     }
 
     def __init__(
@@ -140,6 +151,11 @@ class Lab:
         """
         Dictionary containing all interfaces in the lab.
         It maps interface identifier to `models.Interface`.
+        """
+        self._annotations: dict[str, Annotation] = {}
+        """
+        Dictionary containing all annotations in the lab.
+        It maps annotation identifier to `models.Annotation`.
         """
         self.events: list = []
         self.pyats = ClPyats(self, hostname)
@@ -361,6 +377,15 @@ class Lab:
         self.sync_topology_if_outdated()
         return list(self._interfaces.values())
 
+    def annotations(self) -> list[AnnotationType]:
+        """
+        Return the list of annotations in the lab.
+
+        :returns: A list of Annotation objects.
+        """
+        self.sync_topology_if_outdated()
+        return list(self._annotations.values())
+
     @property
     @locked
     def statistics(self) -> dict:
@@ -373,6 +398,7 @@ class Lab:
             "nodes": len(self._nodes),
             "links": len(self._links),
             "interfaces": len(self._interfaces),
+            "annotations": len(self._annotations),
         }
 
     def get_node_by_id(self, node_id: str) -> Node:
@@ -475,6 +501,20 @@ class Lab:
         if (link := iface1.link) is not None and iface2 in link.interfaces:
             return link
         raise LinkNotFound
+
+    def get_annotation_by_id(self, annotation_id: str) -> AnnotationType:
+        """
+        Return the annotation identified by the ID.
+
+        :param annotation_id: ID of the annotation to be returned
+        :returns: An Annotation object.
+        :raises AnnotationNotFound: If annotation is not found.
+        """
+        self.sync_topology_if_outdated()
+        try:
+            return self._annotations[annotation_id]
+        except KeyError:
+            raise AnnotationNotFound(annotation_id)
 
     def find_nodes_by_tag(self, tag: str) -> list[Node]:
         """
@@ -743,6 +783,46 @@ class Lab:
 
     @check_stale
     @locked
+    def remove_annotation(
+        self,
+        annotation: Annotation | str,
+    ) -> None:
+        """
+        Remove an annotation from the lab.
+
+        If you have an annotation object, you can also simply do::
+
+            annotation.remove()
+
+        :param annotation: The annotation object or ID.
+        """
+        if isinstance(annotation, str):
+            annotation = self.get_annotation_by_id(annotation)
+        annotation._remove_on_server()
+        self._remove_annotation_local(annotation)
+
+        _LOGGER.debug("%s annotation removed from lab %s", annotation._id, self._id)
+
+    @locked
+    def _remove_annotation_local(self, annotation: Annotation) -> None:
+        """Helper function to remove an annotation from the client library."""
+        try:
+            del self._annotations[annotation._id]
+            annotation._stale = True
+        except KeyError:
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
+            pass
+
+    @locked
+    def remove_annotations(self) -> None:
+        """Remove all annotations from the lab."""
+        for ann in list(self._annotations.values()):
+            self.remove_annotation(ann)
+        _LOGGER.debug("all nodes removed from lab %s", self._id)
+
+    @check_stale
+    @locked
     def create_link(
         self, i1: Interface | str, i2: Interface | str, wait: bool | None = None
     ) -> Link:
@@ -867,6 +947,59 @@ class Lab:
             iface._slot = slot
             iface._type = iface_type
         return iface
+
+    @check_stale
+    @locked
+    def create_annotation(self, annotation_type: str, **kwargs) -> AnnotationType:
+        """
+        Create a lab annotation.
+
+        :param type: Type of the annotation (rectangle, ellipse, line or text).
+        :returns: The created annotation.
+        """
+        url = self._url_for("annotations")
+
+        # create POST json with default annotation property values
+        # override some values by new, expected ones
+        annotation_data = Annotation.get_default_property_values(annotation_type)
+        for ppty, value in kwargs.items():
+            annotation_data[ppty] = value
+        annotation_data["type"] = annotation_type
+
+        response = self._session.post(url, json=annotation_data)
+        res_annotation = response.json()
+
+        # after adding an annotation to an empty lab, consider it "initialized"
+        if not self._initialized:
+            self._initialized = True
+
+        annotation = self._create_annotation_local(
+            res_annotation["id"],
+            annotation_type,
+            **res_annotation,
+        )
+        return annotation
+
+    @check_stale
+    @locked
+    def _create_annotation_local(
+        self, annotation_id: str, _type: str, **kwargs
+    ) -> AnnotationType:
+        """Helper function to create a link in the client library."""
+        if _type == "rectangle":
+            annotation_class = AnnotationRectangle
+        elif _type == "ellipse":
+            annotation_class = AnnotationEllipse
+        elif _type == "line":
+            annotation_class = AnnotationLine
+        elif _type == "text":
+            annotation_class = AnnotationText
+        else:
+            raise InvalidAnnotationType
+
+        annotation = annotation_class(self, annotation_id, annotation_data=kwargs)
+        self._annotations[annotation_id] = annotation
+        return annotation
 
     @check_stale
     @locked
@@ -1176,6 +1309,7 @@ class Lab:
         self._handle_import_nodes(topology)
         self._handle_import_interfaces(topology)
         self._handle_import_links(topology)
+        self._handle_import_annotations(topology)
 
     @locked
     def _import_lab(self, topology: dict) -> None:
@@ -1240,15 +1374,17 @@ class Lab:
 
         :param topology: The topology to import interfaces from.
         """
-        if "interfaces" in topology:
-            for iface in topology["interfaces"]:
-                iface_id = iface["id"]
-                node_id = iface["node"]
+        if "interfaces" not in topology:
+            return
 
-                if iface_id in self._interfaces:
-                    raise ElementAlreadyExists("Interface already exists")
+        for iface in topology["interfaces"]:
+            iface_id = iface["id"]
+            node_id = iface["node"]
 
-                self._import_interface(iface_id, node_id, iface)
+            if iface_id in self._interfaces:
+                raise ElementAlreadyExists("Interface already exists")
+
+            self._import_interface(iface_id, node_id, iface)
 
     @locked
     def _handle_import_links(self, topology: dict) -> None:
@@ -1268,6 +1404,24 @@ class Lab:
             label = link.get("label")
 
             self._import_link(link_id, iface_b_id, iface_a_id, label)
+
+    @locked
+    def _handle_import_annotations(self, topology: dict) -> None:
+        """
+        Handle the import of annotations from the given topology.
+
+        :param topology: The topology to import annotations from.
+        """
+        if "annotations" not in topology:
+            return
+
+        for annotation in topology["annotations"]:
+            annotation_id = annotation["id"]
+
+            if annotation_id in self._annotations:
+                raise ElementAlreadyExists("Annotation already exists")
+
+            self._import_annotation(annotation_id, annotation)
 
     @locked
     def _import_link(
@@ -1337,6 +1491,27 @@ class Lab:
         return node
 
     @locked
+    def _import_annotation(
+        self,
+        annotation_id: str,
+        annotation_data: dict,
+    ) -> AnnotationType:
+        """
+        Import an annotation with the given parameters.
+
+        :param annotation_id: The ID of the annotation.
+        :param annotation_data: The data of the annotation.
+        :returns: The imported Annotation object.
+        """
+        annotation_data.pop("id", None)
+        ann_type = annotation_data.pop("type")
+
+        annotation = self._create_annotation_local(
+            annotation_id, ann_type, **annotation_data
+        )
+        return annotation
+
+    @locked
     def update_lab(self, topology: dict, exclude_configurations: bool) -> None:
         """
         Update the lab with the given topology.
@@ -1346,44 +1521,61 @@ class Lab:
         """
         self._import_lab(topology)
 
-        # add in order: node -> interface -> link
-        # remove in reverse, eg link -> interface -> node
-        existing_node_keys = set(self._nodes)
-        existing_link_keys = set(self._links)
-        existing_interface_keys = set(self._interfaces)
+        # add in order: node -> interface -> link -> annotation
+        # remove in reverse: annotation -> link -> interface -> node
+        existing_node_ids = set(self._nodes)
+        existing_link_ids = set(self._links)
+        existing_interface_ids = set(self._interfaces)
+        existing_annotation_ids = set(self._annotations)
 
-        update_node_keys = set(node["id"] for node in topology["nodes"])
-        update_link_keys = set(links["id"] for links in topology["links"])
-
+        update_node_ids = set(node["id"] for node in topology["nodes"])
+        update_link_ids = set(link["id"] for link in topology["links"])
         if "interfaces" in topology:
-            update_interface_keys = set(iface["id"] for iface in topology["interfaces"])
+            update_interface_ids = set(iface["id"] for iface in topology["interfaces"])
         else:
-            update_interface_keys = set(
+            update_interface_ids = set(
                 interface["id"]
                 for node in topology["nodes"]
                 for interface in node["interfaces"]
             )
+        update_annotation_ids = set(ann["id"] for ann in topology["annotations"])
 
         # removed elements
-        removed_nodes = existing_node_keys - update_node_keys
-        removed_links = existing_link_keys - update_link_keys
-        removed_interfaces = existing_interface_keys - update_interface_keys
-
-        self._remove_elements(removed_nodes, removed_links, removed_interfaces)
+        removed_nodes = existing_node_ids - update_node_ids
+        removed_links = existing_link_ids - update_link_ids
+        removed_interfaces = existing_interface_ids - update_interface_ids
+        removed_annotations = existing_annotation_ids - update_annotation_ids
+        self._remove_elements(
+            removed_nodes,
+            removed_links,
+            removed_interfaces,
+            removed_annotations,
+        )
 
         # new elements
-        new_nodes = update_node_keys - existing_node_keys
-        new_links = update_link_keys - existing_link_keys
-        new_interfaces = update_interface_keys - existing_interface_keys
-
-        self._add_elements(topology, new_nodes, new_links, new_interfaces)
+        new_nodes = update_node_ids - existing_node_ids
+        new_links = update_link_ids - existing_link_ids
+        new_interfaces = update_interface_ids - existing_interface_ids
+        new_annotations = update_annotation_ids - existing_annotation_ids
+        self._add_elements(
+            topology,
+            new_nodes,
+            new_links,
+            new_interfaces,
+            new_annotations,
+        )
 
         # kept elements
-        kept_nodes = update_node_keys.intersection(existing_node_keys)
-        # kept_links = update_link_keys.intersection(existing_link_keys)
-        # kept_interfaces = update_interface_keys.intersection(existing_interface_keys)
-
-        self._update_elements(topology, kept_nodes, exclude_configurations)
+        kept_nodes = update_node_ids.intersection(existing_node_ids)
+        # kept_links = update_link_ids.intersection(existing_link_ids)
+        # kept_interfaces = update_interface_ids.intersection(existing_interface_ids)
+        kept_annotations = update_annotation_ids.intersection(existing_annotation_ids)
+        self._update_elements(
+            topology=topology,
+            kept_nodes=kept_nodes,
+            kept_annotations=kept_annotations,
+            exclude_configurations=exclude_configurations,
+        )
 
     @locked
     def _remove_elements(
@@ -1391,6 +1583,7 @@ class Lab:
         removed_nodes: Iterable[str],
         removed_links: Iterable[str],
         removed_interfaces: Iterable[str],
+        removed_annotations: Iterable[str],
     ) -> None:
         """
         Remove elements from the lab.
@@ -1398,6 +1591,7 @@ class Lab:
         :param removed_nodes: Iterable of node IDs to be removed.
         :param removed_links: Iterable of link IDs to be removed.
         :param removed_interfaces: Iterable of interface IDs to be removed.
+        :param removed_annotations: Iterable of annotation IDs to be removed.
         """
         for link_id in removed_links:
             link = self._links.pop(link_id)
@@ -1414,6 +1608,11 @@ class Lab:
             _LOGGER.info(f"Removed node {node}")
             node._stale = True
 
+        for ann_id in removed_annotations:
+            annotation = self._annotations.pop(ann_id)
+            _LOGGER.info(f"Removed annotation {annotation}")
+            annotation._stale = True
+
     @locked
     def _add_elements(
         self,
@@ -1421,6 +1620,7 @@ class Lab:
         new_nodes: Iterable[str],
         new_links: Iterable[str],
         new_interfaces: Iterable[str],
+        new_annotations: Iterable[str],
     ) -> None:
         """
         Add elements to the lab.
@@ -1429,6 +1629,7 @@ class Lab:
         :param new_nodes: Iterable of node IDs to be added.
         :param new_links: Iterable of link IDs to be added.
         :param new_interfaces: Iterable of interface IDs to be added.
+        :param new_annotations: Iterable of annotation IDs to be added.
         """
         for node in topology["nodes"]:
             node_id = node["id"]
@@ -1461,9 +1662,18 @@ class Lab:
             link = self._import_link(link_id, iface_b_id, iface_a_id, label)
             _LOGGER.info(f"Added link {link}")
 
+        for ann_id in new_annotations:
+            annotation_data = self._find_annotation_in_topology(ann_id, topology)
+            annotation = self._import_annotation(ann_id, annotation_data)
+            _LOGGER.info(f"Added annotation {annotation}")
+
     @locked
     def _update_elements(
-        self, topology: dict, kept_nodes: Iterable[str], exclude_configurations: bool
+        self,
+        topology: dict,
+        kept_nodes: Iterable[str] | None = None,
+        kept_annotations: Iterable[str] | None = None,
+        exclude_configurations: bool = False,
     ) -> None:
         """
         Update elements in the lab.
@@ -1473,10 +1683,11 @@ class Lab:
          :param exclude_configurations: Boolean indicating whether to exclude
             configurations during update.
         """
-        for node_id in kept_nodes:
-            node = self._find_node_in_topology(node_id, topology)
-            lab_node = self._nodes[node_id]
-            lab_node.update(node, exclude_configurations, push_to_server=False)
+        if kept_nodes:
+            for node_id in kept_nodes:
+                node = self._find_node_in_topology(node_id, topology)
+                lab_node = self._nodes[node_id]
+                lab_node.update(node, exclude_configurations, push_to_server=False)
 
         # For now, can't update interface data server-side, this will change with tags
         # for interface_id in kept_interfaces:
@@ -1485,6 +1696,12 @@ class Lab:
         # For now, can't update link data server-side, this will change with tags
         # for link_id in kept_links:
         #     link_data = self._find_link_in_topology(link_id, topology)
+
+        if kept_annotations:
+            for ann_id in kept_annotations:
+                annotation = self._find_annotation_in_topology(ann_id, topology)
+                lab_annotation = self._annotations[ann_id]
+                lab_annotation.update(annotation, push_to_server=False)
 
     @locked
     def update_lab_properties(self, properties: dict[str, Any]):
@@ -1541,6 +1758,26 @@ class Lab:
                 return node
         # if it cannot be found, it is an internal structure error
         raise NodeNotFound
+
+    @staticmethod
+    def _find_annotation_in_topology(
+        annotation_id: str,
+        topology: dict,
+    ) -> dict[str, Any]:
+        """
+        Find an annotation in the given topology.
+
+        :param annotation_id: The ID of the annotation to find.
+        :param topology: Dictionary containing the lab topology.
+        :returns: The annotation with the specified ID.
+        :raises AnnotationNotFound: If the annotation cannot be found in the topology.
+        """
+
+        for annotation in topology["annotations"]:
+            if annotation["id"] == annotation_id:
+                return annotation
+        # if it cannot be found, it is an internal structure error
+        raise AnnotationNotFound
 
     @check_stale
     def get_pyats_testbed(self, hostname: str | None = None) -> str:

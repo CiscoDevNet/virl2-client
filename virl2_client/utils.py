@@ -162,7 +162,7 @@ def locked(func: TCallable) -> TCallable:
 
 def get_url_from_template(
     endpoint: str, url_templates: dict[str, str], values: dict | None = None
-):
+) -> str:
     """
     Generate the URL for a given API endpoint from given templates.
 

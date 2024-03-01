@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
     from .lab import Lab
 
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
-    AnnotationType = Union[
-        Annotation,
-        AnnotationRectangle,
-        AnnotationEllipse,
-        AnnotationLine,
-        AnnotationText,
-    ]
+    AnnotationType = (
+        "Annotation"
+        | "AnnotationRectangle"
+        | "AnnotationEllipse"
+        | "AnnotationLine"
+        | "AnnotationText"
+    )
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class Annotation:
         return self._id
 
     @property
-    def border_color(self):
+    def border_color(self) -> str:
         """Border color (example: `#FF00FF00`)."""
         self._lab.sync_topology_if_outdated()
         return self._border_color
@@ -183,7 +183,7 @@ class Annotation:
         self._border_color = value
 
     @property
-    def border_style(self):
+    def border_style(self) -> str:
         self._lab.sync_topology_if_outdated()
         return self._border_style
 
@@ -197,8 +197,8 @@ class Annotation:
         self._border_style = value
 
     @property
-    def color(self):
-        """Annotation color (example: `#00AAFF`)"""
+    def color(self) -> str:
+        """Annotation color (example: `#00AAFF`)."""
         self._lab.sync_topology_if_outdated()
         return self._color
 
@@ -210,14 +210,14 @@ class Annotation:
         self._color = value
 
     @property
-    def thickness(self):
+    def thickness(self) -> int:
         """Annotation border thickness."""
         self._lab.sync_topology_if_outdated()
         return self._thickness
 
     @thickness.setter
     @locked
-    def thickness(self, value: str) -> None:
+    def thickness(self, value: int) -> None:
         """Set annotation border thickness."""
         self._set_annotation_property("thickness", value)
         self._thickness = value
@@ -228,45 +228,45 @@ class Annotation:
         return self._type
 
     @property
-    def x1(self):
+    def x1(self) -> int:
         """X1 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._x1
 
     @x1.setter
     @locked
-    def x1(self, value: str) -> None:
+    def x1(self, value: int) -> None:
         """Set x1 coordinate."""
         self._set_annotation_property("x1", value)
         self._x1 = value
 
     @property
-    def y1(self):
+    def y1(self) -> int:
         """Y1 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._y1
 
     @y1.setter
     @locked
-    def y1(self, value: str) -> None:
-        """set y1 coordinate"""
+    def y1(self, value: int) -> None:
+        """Set y1 coordinate."""
         self._set_annotation_property("y1", value)
         self._y1 = value
 
     @property
-    def z_index(self):
-        """Z layer (depth) of an annotation"""
+    def z_index(self) -> int:
+        """Z layer (depth) of an annotation."""
         self._lab.sync_topology_if_outdated()
         return self._z_index
 
     @z_index.setter
     @locked
-    def z_index(self, value: str) -> None:
-        """set Z layer (depth) of an annotation"""
+    def z_index(self, value: int) -> None:
+        """Set Z layer (depth) of an annotation."""
         self._set_annotation_property("z_index", value)
         self._z_index = value
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs) -> str:
         """
         Generate the URL for a given API endpoint.
 
@@ -281,7 +281,8 @@ class Annotation:
     @classmethod
     def get_default_property_values(cls, annotation_type: str) -> dict[str, Any]:
         """
-        Return list of all valid properties for selected annotation type
+        Return a list of all valid properties set to default values for the selected
+        annotation type.
         """
         default_values = {}
         annotation_map = {
@@ -305,12 +306,10 @@ class Annotation:
     @classmethod
     def is_valid_property(
         cls,
-        annotation_type: AnnotationTypeString | AnnotationType,
+        annotation_type: AnnotationTypeString,
         _property: str,
     ) -> bool:
-        """
-        Check if given property is recognized by selected annotation type
-        """
+        """Check if the given property is recognized by the selected annotation type."""
         try:
             assert annotation_type in _ANNOTATION_TYPES
             assert _property in ANNOTATION_PROPERTY_MAP
@@ -346,7 +345,7 @@ class Annotation:
 
     @check_stale
     def _remove_on_server(self) -> None:
-        """remove annotation on the server side"""
+        """Remove annotation on the server side."""
         _LOGGER.info(f"Removing annotation {self}")
         url = self._url_for("annotation")
         self._session.delete(url)
@@ -393,7 +392,7 @@ class Annotation:
 
     @check_stale
     def _set_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
-        """update annotation properties server-side"""
+        """Update annotation properties server-side."""
         if "type" not in annotation_data:
             annotation_data["type"] = self._type
         self._session.patch(url=self._url_for("annotation"), json=annotation_data)
@@ -425,40 +424,40 @@ class AnnotationRectangle(Annotation):
             self.update(annotation_data, push_to_server=False)
 
     @property
-    def border_radius(self):
+    def border_radius(self) -> int:
         """Border radius."""
         self._lab.sync_topology_if_outdated()
         return self._border_radius
 
     @border_radius.setter
     @locked
-    def border_radius(self, value: str) -> None:
+    def border_radius(self, value: int) -> None:
         """Set border radius."""
         self._set_annotation_property("border_radius", value)
         self._border_radius = value
 
     @property
-    def x2(self):
-        """x2 coordinate."""
+    def x2(self) -> int:
+        """X2 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._x2
 
     @x2.setter
     @locked
-    def x2(self, value: str) -> None:
+    def x2(self, value: int) -> None:
         """Set x2 coordinate."""
         self._set_annotation_property("x2", value)
         self._x2 = value
 
     @property
-    def y2(self):
-        """y2 coordinate."""
+    def y2(self) -> int:
+        """Y2 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._y2
 
     @y2.setter
     @locked
-    def y2(self, value: str) -> None:
+    def y2(self, value: int) -> None:
         """Set y2 coordinate."""
         self._set_annotation_property("y2", value)
         self._y2 = value
@@ -486,27 +485,27 @@ class AnnotationEllipse(Annotation):
             self.update(annotation_data, push_to_server=False)
 
     @property
-    def x2(self):
-        """x2 coordinate."""
+    def x2(self) -> int:
+        """X2 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._x2
 
     @x2.setter
     @locked
-    def x2(self, value: str) -> None:
+    def x2(self, value: int) -> None:
         """Set x2 coordinate."""
         self._set_annotation_property("x2", value)
         self._x2 = value
 
     @property
-    def y2(self):
-        """y2 coordinate."""
+    def y2(self) -> int:
+        """Y2 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._y2
 
     @y2.setter
     @locked
-    def y2(self, value: str) -> None:
+    def y2(self, value: int) -> None:
         """Set y2 coordinate."""
         self._set_annotation_property("y2", value)
         self._y2 = value
@@ -536,53 +535,53 @@ class AnnotationLine(Annotation):
             self.update(annotation_data, push_to_server=False)
 
     @property
-    def x2(self):
-        """x2 coordinate."""
+    def x2(self) -> int:
+        """X2 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._x2
 
     @x2.setter
     @locked
-    def x2(self, value: str) -> None:
+    def x2(self, value: int) -> None:
         """Set x2 coordinate."""
         self._set_annotation_property("x2", value)
         self._x2 = value
 
     @property
-    def y2(self):
-        """y2 coordinate."""
+    def y2(self) -> int:
+        """Y2 coordinate."""
         self._lab.sync_topology_if_outdated()
         return self._y2
 
     @y2.setter
     @locked
-    def y2(self, value: str) -> None:
+    def y2(self, value: int) -> None:
         """Set y2 coordinate."""
         self._set_annotation_property("y2", value)
         self._y2 = value
 
     @property
-    def line_start(self):
+    def line_start(self) -> str | None:
         """Line arrow start style."""
         self._lab.sync_topology_if_outdated()
         return self._line_start
 
     @line_start.setter
     @locked
-    def line_start(self, value: str) -> None:
+    def line_start(self, value: str | None) -> None:
         """Set line arrow start style: (arrow, square, circle)."""
         self._set_annotation_property("line_start", value)
         self._line_start = value
 
     @property
-    def line_end(self):
+    def line_end(self) -> str | None:
         """Line arrow end style."""
         self._lab.sync_topology_if_outdated()
         return self._line_end
 
     @line_end.setter
     @locked
-    def line_end(self, value: str) -> None:
+    def line_end(self, value: str | None) -> None:
         """Set line arrow end style: (arrow, square, circle)."""
         self._set_annotation_property("line_end", value)
         self._line_end = value
@@ -617,33 +616,33 @@ class AnnotationText(Annotation):
             self.update(annotation_data, push_to_server=False)
 
     @property
-    def rotation(self):
+    def rotation(self) -> int:
         """Rotation of an object, in degrees."""
         self._lab.sync_topology_if_outdated()
         return self._rotation
 
     @rotation.setter
     @locked
-    def rotation(self, value: str) -> None:
+    def rotation(self, value: int) -> None:
         """Set rotation of an object, in degrees."""
         self._set_annotation_property("rotation", value)
         self._rotation = value
 
     @property
-    def text_bold(self):
+    def text_bold(self) -> bool:
         """Text boldness."""
         self._lab.sync_topology_if_outdated()
         return self._text_bold
 
     @text_bold.setter
     @locked
-    def text_bold(self, value: str) -> None:
+    def text_bold(self, value: bool) -> None:
         """Set text boldness (bool)."""
         self._set_annotation_property("text_bold", value)
         self._text_bold = value
 
     @property
-    def text_content(self):
+    def text_content(self) -> str:
         """Text annotation content."""
         self._lab.sync_topology_if_outdated()
         return self._text_content
@@ -656,7 +655,7 @@ class AnnotationText(Annotation):
         self._text_content = value
 
     @property
-    def text_font(self):
+    def text_font(self) -> str:
         """Text font."""
         self._lab.sync_topology_if_outdated()
         return self._text_font
@@ -669,33 +668,33 @@ class AnnotationText(Annotation):
         self._text_font = value
 
     @property
-    def text_italic(self):
+    def text_italic(self) -> bool:
         """Text cursive."""
         self._lab.sync_topology_if_outdated()
         return self._text_italic
 
     @text_italic.setter
     @locked
-    def text_italic(self, value: str) -> None:
+    def text_italic(self, value: bool) -> None:
         """Set text cursive (bool)."""
         self._set_annotation_property("text_italic", value)
         self._text_italic = value
 
     @property
-    def text_size(self):
+    def text_size(self) -> int:
         """Size of the text."""
         self._lab.sync_topology_if_outdated()
         return self._text_size
 
     @text_size.setter
     @locked
-    def text_size(self, value: str) -> None:
+    def text_size(self, value: int) -> None:
         """Set size of the text (various units are recognized)."""
         self._set_annotation_property("text_size", value)
         self._text_size = value
 
     @property
-    def text_unit(self):
+    def text_unit(self) -> str:
         """Text size unit."""
         self._lab.sync_topology_if_outdated()
         return self._text_unit

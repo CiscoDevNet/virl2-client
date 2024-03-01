@@ -31,7 +31,6 @@ from httpx import HTTPStatusError
 from ..exceptions import (
     AnnotationNotFound,
     ElementAlreadyExists,
-    ElementNotFound,
     InterfaceNotFound,
     InvalidAnnotationType,
     LabNotFound,
@@ -156,7 +155,7 @@ class Lab:
         self._annotations: dict[str, Annotation] = {}
         """
         Dictionary containing all annotations in the lab.
-        It maps annotation identifier to `models.Annotation`
+        It maps annotation identifier to `models.Annotation`.
         """
         self.events: list = []
         self.pyats = ClPyats(self, hostname)
@@ -508,8 +507,8 @@ class Lab:
         Return the annotation identified by the ID.
 
         :param annotation_id: ID of the annotation to be returned
-        :returns: An Annotation object
-        :raises AnnotationNotFound: If annotation is not found
+        :returns: An Annotation object.
+        :raises AnnotationNotFound: If annotation is not found.
         """
         self.sync_topology_if_outdated()
         try:
@@ -795,7 +794,7 @@ class Lab:
 
             annotation.remove()
 
-        :param annotation: the annotation object or ID
+        :param annotation: The annotation object or ID.
         """
         if isinstance(annotation, str):
             annotation = self.get_annotation_by_id(annotation)
@@ -953,10 +952,10 @@ class Lab:
     @locked
     def create_annotation(self, annotation_type: str, **kwargs) -> AnnotationType:
         """
-        Create a lab annotation
+        Create a lab annotation.
 
-        :param type: type of annotation (rectangle, ellipse, line or text)
-        :returns: the created annotation
+        :param type: Type of the annotation (rectangle, ellipse, line or text).
+        :returns: The created annotation.
         """
         url = self._url_for("annotations")
 

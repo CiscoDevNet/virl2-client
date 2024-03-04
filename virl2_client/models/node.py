@@ -25,7 +25,6 @@ import logging
 import time
 import warnings
 from copy import deepcopy
-from functools import total_ordering
 from typing import TYPE_CHECKING, Any
 
 from ..exceptions import InterfaceNotFound
@@ -42,7 +41,6 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-@total_ordering
 class Node:
     _URL_TEMPLATES = {
         "node": "{lab}/nodes/{id}?{CONFIG_MODE}",
@@ -170,11 +168,6 @@ class Node:
         if not isinstance(other, Node):
             return False
         return self._id == other._id
-
-    def __lt__(self, other):
-        if not isinstance(other, Node):
-            return False
-        return self._id < other._id
 
     def __hash__(self):
         return hash(self._id)

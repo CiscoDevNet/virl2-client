@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import warnings
-from functools import total_ordering
 from typing import TYPE_CHECKING
 
 from ..utils import check_stale, get_url_from_template
@@ -37,7 +36,6 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-@total_ordering
 class Interface:
     _URL_TEMPLATES = {
         "interface": "{lab}/interfaces/{id}",
@@ -87,11 +85,6 @@ class Interface:
         if not isinstance(other, Interface):
             return False
         return self._id == other._id
-
-    def __lt__(self, other):
-        if not isinstance(other, Interface):
-            return False
-        return self._id < other._id
 
     def __str__(self):
         return f"Interface: {self._label}{' (STALE)' if self._stale else ''}"

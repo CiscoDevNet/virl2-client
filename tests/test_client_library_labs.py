@@ -52,18 +52,13 @@ def test_topology_creation_and_removal():
     lnk1 = lab._create_link_local(i1, i2, "0")
     lnk2 = lab._create_link_local(i3, i4, "1")
 
-    assert sorted([node_b, node_c, node_a]) == [node_a, node_b, node_c]
-    assert sorted([i4, i2, i3, i1]) == [i1, i2, i3, i4]
-    assert sorted([lnk2, lnk1]) == [lnk1, lnk2]
-
     assert set(lab.nodes()) == {node_a, node_b, node_c}
-    assert lab.statistics == {"nodes": 3, "links": 2, "interfaces": 4}
+    assert lab.statistics == {"annotations": 0, "nodes": 3, "links": 2, "interfaces": 4}
     assert node_a.degree() == 1
     assert node_b.degree() == 2
     assert node_c.degree() == 1
 
     assert node_a.links() == [lnk1]
-    assert sorted(node_b.links()) == [lnk1, lnk2]
     assert node_c.links() == [lnk2]
 
     assert i1.connected is True
@@ -87,22 +82,22 @@ def test_topology_creation_and_removal():
     assert lnk2.interfaces == (i3, i4)
 
     lab.remove_link(lnk2)
-    assert lab.statistics == {"nodes": 3, "links": 1, "interfaces": 4}
+    assert lab.statistics == {"annotations": 0, "nodes": 3, "links": 1, "interfaces": 4}
 
     lab.remove_node(node_b)
-    assert lab.statistics == {"nodes": 2, "links": 0, "interfaces": 2}
+    assert lab.statistics == {"annotations": 0, "nodes": 2, "links": 0, "interfaces": 2}
 
     lab.remove_interface(i4)
-    assert lab.statistics == {"nodes": 2, "links": 0, "interfaces": 1}
+    assert lab.statistics == {"annotations": 0, "nodes": 2, "links": 0, "interfaces": 1}
 
     lab.remove_interface(i1)
-    assert lab.statistics == {"nodes": 2, "links": 0, "interfaces": 0}
+    assert lab.statistics == {"annotations": 0, "nodes": 2, "links": 0, "interfaces": 0}
 
     lab.remove_node(node_a)
-    assert lab.statistics == {"nodes": 1, "links": 0, "interfaces": 0}
+    assert lab.statistics == {"annotations": 0, "nodes": 1, "links": 0, "interfaces": 0}
 
     lab.remove_node(node_c)
-    assert lab.statistics == {"nodes": 0, "links": 0, "interfaces": 0}
+    assert lab.statistics == {"annotations": 0, "nodes": 0, "links": 0, "interfaces": 0}
 
 
 def test_need_to_wait1():
@@ -338,7 +333,12 @@ def test_next_free_interface():
 def test_join_existing_lab(client_library):
     lab = client_library.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
     assert lab.title == "IOSv Feature Tests"
-    assert lab.statistics == {"nodes": 7, "links": 8, "interfaces": 24}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 7,
+        "links": 8,
+        "interfaces": 24,
+    }
 
 
 def test_all_labs(client_library):

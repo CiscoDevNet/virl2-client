@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Callable, Type, TypeVar, Union, cast
 import httpx
 
 from .exceptions import (
+    AnnotationNotFound,
     ElementNotFound,
     InterfaceNotFound,
     LabNotFound,
@@ -36,9 +37,9 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .models import Interface, Lab, Link, Node
+    from .models import Annotation, Interface, Lab, Link, Node
 
-    Element = Union[Lab, Node, Interface, Link]
+    Element = Union[Lab, Node, Interface, Link, Annotation]
 
 TCallable = TypeVar("TCallable", bound=Callable)
 
@@ -55,8 +56,15 @@ _CONFIG_MODE = "exclude_configurations=false"
 def _make_not_found(instance: Element) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
     class_name = type(instance).__name__
+    if class_name.startswith("Annotation"):
+        class_name = "Annotation"
     instance_id = instance._id
-    instance_label = instance._title if class_name == "Lab" else instance._label
+    if class_name == "Lab":
+        instance_label = instance._title
+    elif class_name.startswith("Annotation"):
+        instance_label = instance._type
+    else:
+        instance_label = instance._label
 
     error_text = (
         f"{class_name} {instance_label} ({instance_id}) no longer exists on the server."
@@ -66,6 +74,7 @@ def _make_not_found(instance: Element) -> ElementNotFound:
         "Node": NodeNotFound,
         "Interface": InterfaceNotFound,
         "Link": LinkNotFound,
+        "Annotation": AnnotationNotFound,
     }[class_name]
     return error(error_text)
 
@@ -122,6 +131,11 @@ def check_stale(func: TCallable) -> TCallable:
 class property_s(property):
     """A modified `property` that will check staleness."""
 
+    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
+        super().__init__(fget=fget, fset=fset, fdel=fdel)
+        if doc:
+            self.__doc__ = doc
+
     def __get__(self, instance, owner):
         return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
@@ -148,7 +162,7 @@ def locked(func: TCallable) -> TCallable:
 
 def get_url_from_template(
     endpoint: str, url_templates: dict[str, str], values: dict | None = None
-):
+) -> str:
     """
     Generate the URL for a given API endpoint from given templates.
 

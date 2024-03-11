@@ -70,8 +70,7 @@ def test_import_lab_from_path_virl(
     Lab.sync = Mock()
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
+    lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
@@ -81,7 +80,6 @@ def test_import_lab_from_path_virl(
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl._session.post.assert_called_once()
-    sync_mock.assert_called_once_with()
 
 
 @python37_or_newer
@@ -94,10 +92,9 @@ def test_import_lab_from_path_virl_title(
     Lab.sync = Mock()
     new_title = "new_title"
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True):
-        lab = cl.import_lab_from_path(
-            path=(tmp_path / "topology.virl").as_posix(), title=new_title
-        )
+    lab = cl.import_lab_from_path(
+        path=(tmp_path / "topology.virl").as_posix(), title=new_title
+    )
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
 

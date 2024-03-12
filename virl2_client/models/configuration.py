@@ -21,6 +21,7 @@
 A collection of utility classes to make getting credentials and
 configuration easier.
 """
+
 from __future__ import annotations
 
 import getpass

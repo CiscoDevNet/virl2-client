@@ -76,7 +76,9 @@ class TokenAuth(httpx.Auth):
             "password": self.client_library.password,
         }
         response = self.client_library._session.post(
-            _AUTH_URL, json=data, auth=None  # type: ignore
+            _AUTH_URL,
+            json=data,
+            auth=None,  # type: ignore
         )  # auth=None works but is missing from .post's type hint
         response_raise(response)
         self._token = response.json()

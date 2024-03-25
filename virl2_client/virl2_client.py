@@ -552,7 +552,7 @@ class ClientLibrary:
             lab.import_lab(topology_dict)
         else:
             lab.sync()
-        self._labs[lab_id] = lab
+        self._labs[lab.id] = lab
         return lab
 
     @locked

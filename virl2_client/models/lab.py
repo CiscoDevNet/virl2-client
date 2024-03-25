@@ -1633,6 +1633,20 @@ class Lab:
         :param new_interfaces: Iterable of interface IDs to be added.
         :param new_annotations: Iterable of annotation IDs to be added.
         """
+        self._add_nodes(topology, new_nodes, new_interfaces)
+        self._add_interfaces(topology, new_interfaces)
+        self._add_links(topology, new_links)
+        self._add_annotations(topology, new_annotations)
+
+    @locked
+    def _add_nodes(self, topology: dict, new_nodes, new_interfaces):
+        """
+        Add nodes and its interfaces to the lab.
+
+        :param topology: Dictionary containing the lab topology.
+        :param new_nodes: Iterable of node IDs to be added.
+        :param new_interfaces: Iterable of interface IDs to be added.
+        """
         for node in topology["nodes"]:
             node_id = node["id"]
             interfaces = node.pop("interfaces", [])
@@ -1649,6 +1663,14 @@ class Lab:
                     interface = self._import_interface(interface_id, node_id, interface)
                     _LOGGER.info(f"Added interface {interface}")
 
+    @locked
+    def _add_interfaces(self, topology, new_interfaces):
+        """
+        Add interfaces to the lab.
+
+        :param topology: Dictionary containing the lab topology.
+        :param new_interfaces: Iterable of interface IDs to be added.
+        """
         if "interfaces" in topology:
             for iface in topology["interfaces"]:
                 iface_id = iface["id"]
@@ -1656,6 +1678,14 @@ class Lab:
                     node_id = iface["node"]
                     self._import_interface(iface_id, node_id, iface)
 
+    @locked
+    def _add_links(self, topology, new_links):
+        """
+        Add links to the lab.
+
+        :param topology: Dictionary containing the lab topology.
+        :param new_links: Iterable of link IDs to be added.
+        """
         for link_id in new_links:
             link_data = self._find_link_in_topology(link_id, topology)
             iface_a_id = link_data["interface_a"]
@@ -1664,6 +1694,14 @@ class Lab:
             link = self._import_link(link_id, iface_b_id, iface_a_id, label)
             _LOGGER.info(f"Added link {link}")
 
+    @locked
+    def _add_annotations(self, topology, new_annotations):
+        """
+        Add annotations to the lab.
+
+        :param topology: Dictionary containing the lab topology.
+        :param new_annotations: Iterable of annotation IDs to be added.
+        """
         for ann_id in new_annotations:
             annotation_data = self._find_annotation_in_topology(ann_id, topology)
             annotation = self._import_annotation(ann_id, annotation_data)

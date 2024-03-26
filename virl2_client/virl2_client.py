@@ -541,6 +541,28 @@ class ClientLibrary:
                     # Lab of this title already exists, sync and return it
                     lab.sync()
                     return lab
+
+        lab = self._create_imported_lab(topology, title, offline, virl_1x)
+
+        if offline:
+            topology_dict = json.loads(topology)
+            # ensure the lab owner is not properly set
+            # how does below get to offline? user_id is calling controller
+            topology_dict["lab"]["owner"] = self.user_management.user_id(self.username)
+            lab.import_lab(topology_dict)
+        else:
+            lab.sync()
+        self._labs[lab.id] = lab
+        return lab
+
+    @locked
+    def _create_imported_lab(
+        self,
+        topology: str,
+        title: str | None = None,
+        offline: bool = False,
+        virl_1x: bool = False,
+    ):
         if offline:
             lab_id = "offline_lab"
         else:
@@ -558,7 +580,7 @@ class ClientLibrary:
             if lab_id is None:
                 raise ValueError("No lab ID returned!")
 
-        lab = Lab(
+        return Lab(
             title,
             lab_id,
             self._session,
@@ -568,17 +590,6 @@ class ClientLibrary:
             auto_sync_interval=self.auto_sync_interval,
             resource_pool_manager=self.resource_pool_management,
         )
-
-        if offline:
-            topology_dict = json.loads(topology)
-            # ensure the lab owner is not properly set
-            # how does below get to offline? user_id is calling controller
-            topology_dict["lab"]["owner"] = self.user_management.user_id(self.username)
-            lab.import_lab(topology_dict)
-        else:
-            lab.sync()
-        self._labs[lab_id] = lab
-        return lab
 
     @locked
     def import_lab_from_path(self, path: str, title: str | None = None) -> Lab:

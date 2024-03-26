@@ -43,6 +43,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+GREY = "#808080FF"
+WHITE = "#FFFFFFFF"
+TRANSPARENT = "#00000000"
 # map properties to the annotation types by using binary flags array
 # ---X: rectangle
 # --X-: ellipse
@@ -73,18 +76,18 @@ ANNOTATION_PROPERTY_MAP = {
 
 ANNOTATION_PROPERTIES_DEFAULTS = {
     "border_color": {
-        "rectangle": "#808080FF",
-        "ellipse": "#808080FF",
-        "line": "#808080FF",
-        "text": "#00000000",
+        "rectangle": GREY,
+        "ellipse": GREY,
+        "line": GREY,
+        "text": TRANSPARENT,
     },
     "border_radius": 0,
     "border_style": "",
     "color": {
-        "rectangle": "#FFFFFFFF",
-        "ellipse": "#FFFFFFFF",
-        "line": "#FFFFFFFF",
-        "text": "#808080FF",
+        "rectangle": WHITE,
+        "ellipse": WHITE,
+        "line": WHITE,
+        "text": GREY,
     },
     "line_end": None,
     "line_start": None,
@@ -416,9 +419,9 @@ class AnnotationRectangle(Annotation):
         super().__init__(lab, annotation_id, "rectangle")
 
         # default values
-        self._border_color = "#808080FF"
+        self._border_color = GREY
         self._border_radius = 0
-        self._color = "#FFFFFFFF"
+        self._color = WHITE
         self._x2 = 100
         self._y2 = 100
         if annotation_data:
@@ -478,8 +481,8 @@ class AnnotationEllipse(Annotation):
         super().__init__(lab, annotation_id, "ellipse")
 
         # default values
-        self._border_color = "#808080FF"
-        self._color = "#FFFFFFFF"
+        self._border_color = GREY
+        self._color = WHITE
         self._x2 = 100
         self._y2 = 100
         if annotation_data:
@@ -526,8 +529,8 @@ class AnnotationLine(Annotation):
         super().__init__(lab, annotation_id, "line")
 
         # default values
-        self._border_color = "#808080FF"
-        self._color = "#FFFFFFFF"
+        self._border_color = GREY
+        self._color = WHITE
         self._x2 = 100
         self._y2 = 100
         self._line_start = None
@@ -602,8 +605,8 @@ class AnnotationText(Annotation):
         super().__init__(lab, annotation_id, "text")
 
         # default values
-        self._border_color = "#00000000"
-        self._color = "#808080FF"
+        self._border_color = TRANSPARENT
+        self._color = GREY
         self._x2 = 100
         self._y2 = 100
         self._rotation = 0

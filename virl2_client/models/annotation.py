@@ -362,10 +362,9 @@ class Annotation:
         :param push_to_server: Whether to push the changes to the server.
             Defaults to True; should only be False when used by internal methods.
         """
-        annotation_data.pop("id", None)
         if "type" not in annotation_data:
             annotation_data["type"] = self._type
-        if annotation_data["type"] != self._type:
+        elif annotation_data["type"] != self._type:
             raise ValueError("Can't update annotation type.")
 
         # make sure all properties we want to update are valid
@@ -378,6 +377,8 @@ class Annotation:
 
         # update locally
         for key, value in annotation_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_annotation_property(self, key: str, val: Any) -> None:

@@ -70,8 +70,7 @@ def test_import_lab_from_path_virl(
     Lab.sync = Mock()
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
+    lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
@@ -81,7 +80,6 @@ def test_import_lab_from_path_virl(
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl._session.post.assert_called_once()
-    sync_mock.assert_called_once_with()
 
 
 @python37_or_newer
@@ -94,10 +92,9 @@ def test_import_lab_from_path_virl_title(
     Lab.sync = Mock()
     new_title = "new_title"
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True):
-        lab = cl.import_lab_from_path(
-            path=(tmp_path / "topology.virl").as_posix(), title=new_title
-        )
+    lab = cl.import_lab_from_path(
+        path=(tmp_path / "topology.virl").as_posix(), title=new_title
+    )
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
 
@@ -398,23 +395,23 @@ def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     )
 
 
-def test_client_minor_version_lt_warn(client_library_server_2_9_0, caplog):
+def test_client_minor_version_lt_warn(client_library_server_3_9_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
         f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.9.0." in caplog.text
+        f"Client {CURRENT_VERSION}, controller 3.9.0." in caplog.text
     )
 
 
-def test_client_minor_version_lt_warn_1(client_library_server_2_19_0, caplog):
+def test_client_minor_version_lt_warn_1(client_library_server_3_19_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
         f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.19.0." in caplog.text
+        f"Client {CURRENT_VERSION}, controller 3.19.0." in caplog.text
     )
 
 

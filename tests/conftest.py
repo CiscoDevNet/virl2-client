@@ -54,13 +54,13 @@ def client_library_server_1_0_0():
 
 
 @pytest.fixture
-def client_library_server_2_9_0():
-    yield from client_library_patched_system_info(version="2.9.0")
+def client_library_server_3_9_0():
+    yield from client_library_patched_system_info(version="3.9.0")
 
 
 @pytest.fixture
-def client_library_server_2_19_0():
-    yield from client_library_patched_system_info(version="2.19.0")
+def client_library_server_3_19_0():
+    yield from client_library_patched_system_info(version="3.19.0")
 
 
 @pytest.fixture

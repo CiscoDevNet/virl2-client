@@ -21,14 +21,15 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
-from unittest.mock import MagicMock
+from io import BufferedReader
+from unittest.mock import ANY, MagicMock
 
 import pytest
 
 from virl2_client.exceptions import InvalidImageFile
 from virl2_client.models.node_image_definitions import NodeImageDefinitions
 
-wrong_format_list = [
+WRONG_FORMAT_LIST = [
     "",
     ".",
     "file",
@@ -41,7 +42,7 @@ wrong_format_list = [
     ".file.",
     "file.qcow.",
 ]
-not_supported_list = [
+NOT_SUPPORTED_LIST = [
     " . ",
     "file.txt",
     "file.qcw",
@@ -52,7 +53,7 @@ not_supported_list = [
     "file.qcow ",
     "file.qcow.tar.gz",
 ]
-expected_pass_list = [
+EXPECTED_PASS_LIST = [
     "file.qcow",
     "file.tar.gz.qcow",
     "file.qcow.qcow",
@@ -61,6 +62,17 @@ expected_pass_list = [
     "file.iol",
     "qcow.iol",
 ]
+
+
+# This fixture is not meant to be used in tests - rather, it's here to easily manually
+# update files when the expected_pass_list is changed. Just change autouse to True,
+# then locally run test_image_upload_file, and this will generate all the files
+# in the expected_pass_list into test_data.
+@pytest.fixture
+def create_test_files(change_test_dir):
+    for file_path in EXPECTED_PASS_LIST:
+        path = pathlib.Path("test_data") / file_path
+        path.write_text("test")
 
 
 @contextlib.contextmanager
@@ -93,9 +105,9 @@ def windows_path(path: str):
 @pytest.mark.parametrize("usage", [pytest.param("name"), pytest.param("rename")])
 @pytest.mark.parametrize(
     "test_string, message",
-    [pytest.param(test_str, "wrong format") for test_str in wrong_format_list]
-    + [pytest.param(test_str, "not supported") for test_str in not_supported_list]
-    + [pytest.param(test_str, "") for test_str in expected_pass_list],
+    [pytest.param(test_str, "wrong format") for test_str in WRONG_FORMAT_LIST]
+    + [pytest.param(test_str, "not supported") for test_str in NOT_SUPPORTED_LIST]
+    + [pytest.param(test_str, "") for test_str in EXPECTED_PASS_LIST],
 )
 def test_image_upload_file(usage: str, test_string: str, message: str, test_path: str):
     session = MagicMock()
@@ -103,15 +115,24 @@ def test_image_upload_file(usage: str, test_string: str, message: str, test_path
     rename = None
     filename = test_path + test_string
 
-    if usage == "rename":
-        rename = test_string
+    if message in ("wrong format", "not supported"):
+        with pytest.raises(InvalidImageFile, match=message):
+            with windows_path(filename):
+                nid.upload_image_file(filename, rename)
 
-    try:
+    elif test_path == "test_data/":
         with windows_path(filename):
             nid.upload_image_file(filename, rename)
-    except FileNotFoundError:
-        assert message == ""
-    except InvalidImageFile as exc:
-        assert message in exc.args[0]
+        name = rename or test_string
+        files = {"field0": (name, ANY)}
+        headers = {"X-Original-File-Name": name}
+        session.post.assert_called_with("images/upload", files=files, headers=headers)
+        file = session.post.call_args.kwargs["files"]["field0"][1]
+        assert isinstance(file, BufferedReader)
+        assert pathlib.Path(file.name).resolve() == pathlib.Path(filename).resolve()
+        file.close()
+
     else:
-        assert message == ""
+        with pytest.raises(FileNotFoundError):
+            with windows_path(filename):
+                nid.upload_image_file(filename, rename)

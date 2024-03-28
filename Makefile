@@ -5,7 +5,7 @@
 # https://github.com/python-poetry/poetry/issues/3160
 # when resolved, we should be able to run with hashes
 tests/requirements.txt: poetry.lock
-	poetry export --format=requirements.txt --dev --without-hashes --output=$@
+	poetry export --format=requirements.txt --with dev --without-hashes --output=$@
 
 clean:
 	rm -rf dist virl2_client.egg-info .built .pytest_cache .coverage coverage.xml

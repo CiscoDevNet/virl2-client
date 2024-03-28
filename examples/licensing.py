@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -43,7 +43,7 @@ licensing.set_default_transport()
 result = licensing.register_wait(SL_TOKEN)
 if not result:
     result = licensing.get_reservation_return_code()
-    print("ERROR: Failed to register with Smart License server: {}!".format(result))
+    print(f"ERROR: Failed to register with Smart License server: {result}!")
     exit(1)
 
 # Get the current registration status. This returns a JSON blob with license

@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -84,7 +84,8 @@ def resp_body_from_file(request: httpx.Request) -> httpx.Response:
     elif endpoint_parts[0] == "labs":
         lab_id = endpoint_parts[1]
         filename = "_".join(endpoint_parts[2:]) + "-" + lab_id + ".json"
-    file_path = Path("test_data", filename)
+    test_dir = Path(__file__).parent.resolve()
+    file_path = test_dir / "test_data" / filename
     return httpx.Response(200, text=file_path.read_text())
 
 
@@ -117,9 +118,23 @@ def respx_mock_with_labs(respx_mock):
         respx_mock.get(
             FAKE_HOST_API
             + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}?operational=true"
+            f"&exclude_configurations=true"
         ).respond(
             json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
         )
+    respx_mock.get(
+        FAKE_HOST_API
+        + "labs/444a78d1-575c-4746-8469-696e580f17b6/nodes?data=true&operational=true&"
+        "exclude_configurations=true"
+    ).respond(
+        json=[
+            {
+                "id": node,
+                "operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"},
+            }
+            for node in nodes
+        ]
+    )
     resp_from_files = (
         "labs",
         "populate_lab_tiles",
@@ -141,6 +156,6 @@ def respx_mock_with_labs(respx_mock):
 
 
 @pytest.fixture
-def client_library(respx_mock_with_labs, change_test_dir):
+def client_library(respx_mock_with_labs):
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     yield client

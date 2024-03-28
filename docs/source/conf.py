@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Configuration file for the Sphinx documentation builder.
@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath("../virl2_client"))
 # -- Project information -----------------------------------------------------
 
 project = "virl2_client"
-copyright = "Copyright (c) 2019-2022, Cisco Systems, Inc."
+copyright = "Copyright (c) 2019-2024, Cisco Systems, Inc."
 author = "VIRL2 team <virl@cisco.com>"
 
 # The short X.Y version
@@ -176,7 +176,7 @@ texinfo_documents = [
 # Bibliographic Dublin Core info.
 epub_title = project
 
-# The unique identifier of the text. This can be a ISBN number
+# The unique identifier of the text. This can be an ISBN
 # or the project homepage.
 #
 # epub_identifier = ''
@@ -194,7 +194,7 @@ autodoc_default_options = {
     # 'member-order': 'bysource',
     "member-order": "groupwise",
     "special-members": "__init__",
-    # "ignore-module-all": None,
+    "ignore-module-all": True,
     # 'undoc-members': None,
     # 'exclude-members': '__weakref__'
 }

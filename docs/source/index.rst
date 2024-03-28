@@ -14,7 +14,6 @@ CML 2 controller.
 
     intro
     examples
-    api/*
 
 .. only:: internal
 

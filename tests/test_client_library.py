@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -20,7 +20,6 @@
 
 import json
 import logging
-import os
 import re
 import sys
 from pathlib import Path
@@ -44,7 +43,21 @@ python37_or_newer = pytest.mark.skipif(
     sys.version_info < (3, 7), reason="requires Python3.7"
 )
 
-# TODO: split into multiple test modules, by feature
+
+# TODO: split into multiple test modules, by feature.
+@pytest.fixture
+def reset_env(monkeypatch):
+    env_vars = [
+        "VIRL2_URL",
+        "VIRL_HOST",
+        "VIRL2_USER",
+        "VIRL_USERNAME",
+        "VIRL2_PASS",
+        "VIRL_PASSWORD",
+    ]
+
+    for key in env_vars:
+        monkeypatch.delenv(key, raising=False)
 
 
 @python37_or_newer
@@ -61,13 +74,13 @@ def test_import_lab_from_path_virl(
         lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
-    assert lab.lab_base_url.startswith("labs/")
+    assert lab._url_for("lab").startswith("labs/")
 
-    cl.session.post.assert_called_once_with(
+    cl._session.post.assert_called_once_with(
         "import/virl-1x",
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
-    cl.session.post.assert_called_once()
+    cl._session.post.assert_called_once()
     sync_mock.assert_called_once_with()
 
 
@@ -86,10 +99,11 @@ def test_import_lab_from_path_virl_title(
             path=(tmp_path / "topology.virl").as_posix(), title=new_title
         )
     assert lab.title is not None
-    assert lab.lab_base_url.startswith("labs/")
+    assert lab._url_for("lab").startswith("labs/")
 
-    cl.session.post.assert_called_once_with(
-        f"import/virl-1x?title={new_title}",
+    cl._session.post.assert_called_once_with(
+        "import/virl-1x",
+        params={"title": new_title},
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
 
@@ -104,24 +118,20 @@ def test_ssl_certificate(client_library_server_current, mocked_session):
     cl.is_system_ready(wait=True)
 
     assert cl._ssl_verify == "/home/user/cert.pem"
-    assert cl.session.mock_calls[:4] == [
-        call.get("authok"),
-    ]
+    assert cl._session.mock_calls[:4] == [call.get("authok")]
 
 
 def test_ssl_certificate_from_env_variable(
     client_library_server_current, monkeypatch, mocked_session
 ):
-    monkeypatch.setitem(os.environ, "CA_BUNDLE", "/home/user/cert.pem")
+    monkeypatch.setenv("CA_BUNDLE", "/home/user/cert.pem")
     cl = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
 
     assert cl.is_system_ready()
     assert cl._ssl_verify == "/home/user/cert.pem"
-    assert cl.session.mock_calls[:4] == [
-        call.get("authok"),
-    ]
+    assert cl._session.mock_calls[:4] == [call.get("authok")]
 
 
 @python37_or_newer
@@ -186,10 +196,10 @@ def test_auth_and_reauth_token(client_library_server_current):
 
 def test_client_library_init_allow_http(client_library_server_current):
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
-    assert cl.session.base_url.scheme == "http"
-    assert cl.session.base_url.host == "somehost"
-    assert cl.session.base_url.port is None
-    assert cl.session.base_url.path.endswith("/api/v0/")
+    assert cl._session.base_url.scheme == "http"
+    assert cl._session.base_url.host == "somehost"
+    assert cl._session.base_url.port is None
+    assert cl._session.base_url.path.endswith("/api/v0/")
     assert cl.username == "virl2"
     assert cl.password == "virl2"
 
@@ -201,7 +211,7 @@ def test_client_library_init_disallow_http(client_library_server_current):
         ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
 
 
-# the test fails if you have variables set in .virlci or env
+# the test fails if you have variables set in env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("env_var", ["VIRL2_URL", "VIRL_HOST"])
 @pytest.mark.parametrize(
@@ -217,7 +227,7 @@ def test_client_library_init_disallow_http(client_library_server_current):
     ],
 )
 def test_client_library_init_url(
-    client_library_server_current, monkeypatch, via, env_var, params
+    client_library_server_current, reset_env, monkeypatch, via, env_var, params
 ):
     monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
@@ -240,27 +250,27 @@ def test_client_library_init_url(
                 allow_http=True,
                 raise_for_auth_failure=True,
             )
-            if isinstance(err, OSError):
-                pattern = "(reading from stdin)"
-                assert re.match(pattern, str(err.value))
+        if isinstance(err, OSError):
+            pattern = "(reading from stdin)"
+            assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
-        url_parts = cl.session.base_url
+        url_parts = cl._session.base_url
         assert url_parts.scheme == (expected_parts.scheme or "https")
         assert url_parts.host == (expected_parts.host or expected_parts.path)
         assert url_parts.port == expected_parts.port
         assert url_parts.path == "/api/v0/"
-        assert cl.session.base_url.path.endswith("/api/v0/")
+        assert cl._session.base_url.path.endswith("/api/v0/")
         assert cl.username == "virl2"
         assert cl.password == "virl2"
 
 
-# the test fails if you have variables set in .virlci or env
+# the test fails if you have variables set in env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("env_var", ["VIRL2_USER", "VIRL_USERNAME"])
 @pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_server_current, monkeypatch, via, env_var, params
+    client_library_server_current, reset_env, monkeypatch, via, env_var, params
 ):
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
@@ -278,22 +288,22 @@ def test_client_library_init_user(
     if fail:
         with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username=user, password="virl2")
-            if isinstance(err, OSError):
-                pattern = "(reading from stdin)"
-                assert re.match(pattern, str(err.value))
+        if isinstance(err, OSError):
+            pattern = "(reading from stdin)"
+            assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
         assert cl.username == params[1]
         assert cl.password == "virl2"
-        assert cl.session.base_url == "https://validhostname/api/v0/"
+        assert cl._session.base_url == "https://validhostname/api/v0/"
 
 
-# the test fails if you have variables set in .virlci or env
+# the test fails if you have variables set in env
 @pytest.mark.parametrize("via", ["environment", "parameter"])
 @pytest.mark.parametrize("env_var", ["VIRL2_PASS", "VIRL_PASSWORD"])
 @pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_server_current, monkeypatch, via, env_var, params
+    client_library_server_current, reset_env, monkeypatch, via, env_var, params
 ):
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
@@ -311,14 +321,14 @@ def test_client_library_init_password(
     if fail:
         with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username="virl2", password=password)
-            if isinstance(err, OSError):
-                pattern = "(reading from stdin)"
-                assert re.match(pattern, str(err.value))
+        if isinstance(err, OSError):
+            pattern = "(reading from stdin)"
+            assert re.match(pattern, str(err.value))
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"
         assert cl.password == params[1]
-        assert cl.session.base_url == "https://validhostname/api/v0/"
+        assert cl._session.base_url == "https://validhostname/api/v0/"
 
 
 @pytest.mark.parametrize(
@@ -334,14 +344,14 @@ def test_client_library_init_password(
 )
 def test_client_library_config(client_library_server_current, mocked_session, config):
     client_library = config.make_client()
-    assert client_library.session.base_url.path.startswith(config.url)
+    assert client_library._session.base_url.path.startswith(config.url)
     assert client_library.username == config.username
     assert client_library.password == config.password
     assert client_library.allow_http == config.allow_http
     assert client_library._ssl_verify == config.ssl_verify
     assert client_library.auto_sync == (config.auto_sync >= 0.0)
     assert client_library.auto_sync_interval == config.auto_sync
-    assert client_library.session.mock_calls == [
+    assert client_library._session.mock_calls == [
         call.get("authok"),
         call.base_url.path.startswith(config.url),
         call.base_url.path.startswith().__bool__(),
@@ -360,9 +370,10 @@ def test_client_library_str_and_repr(client_library_server_current):
 def test_major_version_mismatch(client_library_server_1_0_0):
     with pytest.raises(InitializationError) as err:
         ClientLibrary("somehost", "virl2", password="virl2")
-    assert str(
-        err.value
-    ) == "Major version mismatch. Client {}, controller 1.0.0.".format(CURRENT_VERSION)
+    assert (
+        str(err.value)
+        == f"Major version mismatch. Client {CURRENT_VERSION}, controller 1.0.0."
+    )
 
 
 def test_incompatible_version(client_library_server_2_0_0):
@@ -382,8 +393,8 @@ def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
-        "Please ensure the client version is compatible with the controller version. "
-        "Client {}, controller 2.0.0.".format(CURRENT_VERSION) not in caplog.text
+        f"Please ensure the client version is compatible with the controller version. "
+        f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
     )
 
 
@@ -392,8 +403,8 @@ def test_client_minor_version_lt_warn(client_library_server_2_9_0, caplog):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
-        "Please ensure the client version is compatible with the controller version. "
-        "Client {}, controller 2.9.0.".format(CURRENT_VERSION) in caplog.text
+        f"Please ensure the client version is compatible with the controller version. "
+        f"Client {CURRENT_VERSION}, controller 2.9.0." in caplog.text
     )
 
 
@@ -402,8 +413,8 @@ def test_client_minor_version_lt_warn_1(client_library_server_2_19_0, caplog):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
-        "Please ensure the client version is compatible with the controller version. "
-        "Client {}, controller 2.19.0.".format(CURRENT_VERSION) in caplog.text
+        f"Please ensure the client version is compatible with the controller version. "
+        f"Client {CURRENT_VERSION}, controller 2.19.0." in caplog.text
     )
 
 
@@ -412,8 +423,8 @@ def test_exact_version_no_warn(client_library_server_current, caplog):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
     assert (
-        "Please ensure the client version is compatible with the controller version. "
-        "Client {}, controller 2.0.0.".format(CURRENT_VERSION) not in caplog.text
+        f"Please ensure the client version is compatible with the controller version. "
+        f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
     )
 
 
@@ -704,12 +715,12 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline(
-    change_test_dir, client_library_server_current, mocked_session, tmp_path: Path
+    client_library_server_current, mocked_session, tmp_path: Path, test_dir
 ):
     client_library = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
-    topology_file_path = "test_data/sample_topology.json"
+    topology_file_path = test_dir / "test_data/sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
         client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)

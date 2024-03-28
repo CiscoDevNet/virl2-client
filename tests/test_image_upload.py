@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -59,6 +59,8 @@ EXPECTED_PASS_LIST = [
     "file.qcow.qcow",
     "qcow2.qcow2.qcow2",
     ".file.qcow",
+    "file.iol",
+    "qcow.iol",
 ]
 
 
@@ -98,34 +100,19 @@ def windows_path(path: str):
         pytest.param("\\"),
         pytest.param("..\\..\\"),
         pytest.param("\\test\\"),
-        pytest.param("test_data/"),
     ],
 )
-@pytest.mark.parametrize(
-    "rename",
-    [
-        pytest.param(None),
-        pytest.param("renamed.qcow"),
-        pytest.param("renamed.qcow2"),
-        pytest.param("renamed"),
-    ],
-)
+@pytest.mark.parametrize("usage", [pytest.param("name"), pytest.param("rename")])
 @pytest.mark.parametrize(
     "test_string, message",
     [pytest.param(test_str, "wrong format") for test_str in WRONG_FORMAT_LIST]
     + [pytest.param(test_str, "not supported") for test_str in NOT_SUPPORTED_LIST]
     + [pytest.param(test_str, "") for test_str in EXPECTED_PASS_LIST],
 )
-def test_image_upload_file(
-    change_test_dir,
-    test_path: str,
-    rename: str,
-    test_string: str,
-    message: str,
-):
+def test_image_upload_file(usage: str, test_string: str, message: str, test_path: str):
     session = MagicMock()
-    session.post = MagicMock()
     nid = NodeImageDefinitions(session)
+    rename = None
     filename = test_path + test_string
 
     if message in ("wrong format", "not supported"):

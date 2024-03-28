@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 #
@@ -21,8 +21,7 @@
 
 from __future__ import annotations
 
-import os
-from typing import Iterator
+from pathlib import Path
 
 import pytest
 
@@ -47,8 +46,6 @@ def pytest_addoption(
         parser.addini("asyncio_mode", "suppress the warning")
 
 
-@pytest.fixture(scope="function")
-def change_test_dir(request: pytest.FixtureRequest) -> Iterator[None]:
-    os.chdir(request.path.parent)
-    yield
-    os.chdir(request.config.invocation_params.dir)
+@pytest.fixture
+def test_dir(request: pytest.FixtureRequest) -> Path:
+    return request.path.parent

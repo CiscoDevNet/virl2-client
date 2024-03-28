@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2022, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -22,22 +22,24 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Optional, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Callable, Type, TypeVar, Union, cast
 
 import httpx
 
 from .exceptions import (
+    AnnotationNotFound,
     ElementNotFound,
     InterfaceNotFound,
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
+    VirlException,
 )
 
 if TYPE_CHECKING:
-    from .models import Interface, Lab, Link, Node
+    from .models import Annotation, Interface, Lab, Link, Node
 
-    Element = Union[Lab, Node, Interface, Link]
+    Element = Union[Lab, Node, Interface, Link, Annotation]
 
 TCallable = TypeVar("TCallable", bound=Callable)
 
@@ -48,13 +50,21 @@ class _Sentinel:
 
 
 UNCHANGED = _Sentinel()
+_CONFIG_MODE = "exclude_configurations=false"
 
 
-def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
+def _make_not_found(instance: Element) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
-    class_name = owner.__name__
+    class_name = type(instance).__name__
+    if class_name.startswith("Annotation"):
+        class_name = "Annotation"
     instance_id = instance._id
-    instance_label = instance._title if class_name == "Lab" else instance._label
+    if class_name == "Lab":
+        instance_label = instance._title
+    elif class_name.startswith("Annotation"):
+        instance_label = instance._type
+    else:
+        instance_label = instance._label
 
     error_text = (
         f"{class_name} {instance_label} ({instance_id}) no longer exists on the server."
@@ -64,6 +74,7 @@ def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
         "Node": NodeNotFound,
         "Interface": InterfaceNotFound,
         "Link": LinkNotFound,
+        "Annotation": AnnotationNotFound,
     }[class_name]
     return error(error_text)
 
@@ -71,54 +82,48 @@ def _make_not_found(instance: Element, owner: Type[Element]) -> ElementNotFound:
 def _check_and_mark_stale(
     func: Callable,
     instance: Element,
-    owner: Optional[Type[Element]] = None,
     *args,
     **kwargs,
 ):
     """
-    Checks staleness before and after calling `func`
+    Check staleness before and after calling `func`
     and updates staleness if a 404 is raised.
 
-    :param func: the function to be called if not stale
-    :param instance: the instance of the parent class of `func`
-        which has a `_stale` attribute
-    :param owner: the class of `instance`
-    :param args: positional arguments to be passed to `func`
-    :param kwargs: keyword arguments to be passed to `func`
+    :param func: The function to be called if the instance is not stale.
+    :param instance: The instance of the parent class of `func`
+        which has a `_stale` attribute.
+    :param args: Positional arguments to be passed to `func`.
+    :param kwargs: Keyword arguments to be passed to `func`.
     """
-    if owner is None:
-        owner = type(instance)
 
     if instance._stale:
-        raise _make_not_found(instance, owner)
+        raise _make_not_found(instance)
 
     try:
         ret = func(*args, **kwargs)
         if instance._stale:
-            raise _make_not_found(instance, owner)
+            raise _make_not_found(instance)
         return ret
 
     except httpx.HTTPStatusError as exc:
         resp = exc.response
-        class_name = owner.__name__
+        class_name = type(instance).__name__
         instance_id = instance._id
         if (
             resp.status_code == 404
             and f"{class_name} not found: {instance_id}" in resp.text
         ):
             instance._stale = True
-            raise _make_not_found(instance, owner) from exc
+            raise _make_not_found(instance) from exc
         raise
 
 
 def check_stale(func: TCallable) -> TCallable:
-    """
-    A decorator that will make the wrapped function check staleness.
-    """
+    """A decorator that will make the wrapped function check staleness."""
 
     @wraps(func)
     def wrapper_stale(*args, **kwargs):
-        return _check_and_mark_stale(func, args[0], None, *args, **kwargs)
+        return _check_and_mark_stale(func, args[0], *args, **kwargs)
 
     return cast(TCallable, wrapper_stale)
 
@@ -126,8 +131,13 @@ def check_stale(func: TCallable) -> TCallable:
 class property_s(property):
     """A modified `property` that will check staleness."""
 
+    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
+        super().__init__(fget=fget, fset=fset, fdel=fdel)
+        if doc:
+            self.__doc__ = doc
+
     def __get__(self, instance, owner):
-        return _check_and_mark_stale(super().__get__, instance, owner, instance, owner)
+        return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 
 def locked(func: TCallable) -> TCallable:
@@ -148,3 +158,23 @@ def locked(func: TCallable) -> TCallable:
             return func(*args, **kwargs)
 
     return cast(TCallable, wrapper_locked)
+
+
+def get_url_from_template(
+    endpoint: str, url_templates: dict[str, str], values: dict | None = None
+) -> str:
+    """
+    Generate the URL for a given API endpoint from given templates.
+
+    :param endpoint: The desired endpoint.
+    :param url_templates: The templates to map values to.
+    :param values: Keyword arguments used to format the URL.
+    :returns: The formatted URL.
+    """
+    endpoint_url_template = url_templates.get(endpoint)
+    if endpoint_url_template is None:
+        raise VirlException(f"Invalid endpoint: {endpoint}")
+    if values is None:
+        values = {}
+    values["CONFIG_MODE"] = _CONFIG_MODE
+    return endpoint_url_template.format(**values)

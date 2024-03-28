@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2023, Cisco Systems, Inc.
+# Copyright (c) 2019-2024, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -35,6 +35,10 @@ class ElementNotFound(VirlException, KeyError):
     pass
 
 
+class AnnotationNotFound(ElementNotFound):
+    pass
+
+
 class NodeNotFound(ElementNotFound):
     pass
 
@@ -63,9 +67,33 @@ class InvalidImageFile(VirlException):
     pass
 
 
+class InvalidAnnotationType(VirlException):
+    pass
+
+
 class InvalidProperty(VirlException):
     pass
 
 
 class MethodNotActive(VirlException):
     pass
+
+
+class PyatsException(Exception):
+    pass
+
+
+class PyatsNotInstalled(PyatsException):
+    pass
+
+
+class PyatsDeviceNotFound(PyatsException):
+    pass
+
+
+class InvalidMacAddressBlock(VirlException):
+    message = "MAC address block has to be in range 0-7"
+
+
+class ControllerNotFound(VirlException):
+    message = "Controller not found"

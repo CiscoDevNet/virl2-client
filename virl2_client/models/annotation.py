@@ -365,10 +365,8 @@ class Annotation:
         :param push_to_server: Whether to push the changes to the server.
             Defaults to True; should only be False when used by internal methods.
         """
-        if "type" not in annotation_data:
-            annotation_data["type"] = self._type
-        elif annotation_data["type"] != self._type:
-            raise ValueError("Can't update annotation type.")
+        if annotation_data.get("type") not in (None, self._type):
+            raise ValueError("Can't change annotation type.")
 
         # make sure all properties we want to update are valid
         for key, value in annotation_data.items():
@@ -397,9 +395,9 @@ class Annotation:
     @check_stale
     def _set_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
         """Update annotation properties server-side."""
-        if "type" not in annotation_data:
-            annotation_data["type"] = self._type
-        self._session.patch(url=self._url_for("annotation"), json=annotation_data)
+        self._session.patch(
+            url=self._url_for("annotation"), json=annotation_data | {"type": self._type}
+        )
 
 
 # ~~~~~< Annotation subclasses >~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

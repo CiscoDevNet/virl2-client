@@ -1312,11 +1312,14 @@ class Lab:
         self._handle_import_annotations(topology)
 
     @locked
-    def _import_lab(self, topology: dict) -> None:
+    def _import_lab(self, topology: dict, created: bool = False) -> None:
         """
         Replace lab properties with the given topology.
 
         :param topology: The topology to import.
+        :param created: The node create API endpoint returns data in the old format,
+            which would print an unnecessary old schema warning;
+            setting this flag to True skips that warning.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
@@ -1324,7 +1327,7 @@ class Lab:
         if lab_dict is None:
             # If we just created the lab, we skip the warning, since the
             # lab post endpoint returns data in the old format
-            if not topology.pop("_created", False):
+            if not created:
                 warnings.warn(
                     "Labs created in older CML releases (schema version 0.0.5 or lower)"
                     " are deprecated. Use labs with schema version 0.1.0 or higher.",

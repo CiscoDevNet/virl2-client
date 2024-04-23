@@ -424,6 +424,7 @@ class AnnotationRectangle(Annotation):
         self._color = WHITE
         self._x2 = 100
         self._y2 = 100
+        self._rotation = 0
         if annotation_data:
             self.update(annotation_data, push_to_server=False)
 
@@ -466,6 +467,19 @@ class AnnotationRectangle(Annotation):
         self._set_annotation_property("y2", value)
         self._y2 = value
 
+    @property
+    def rotation(self) -> int:
+        """Rotation of an object, in degrees."""
+        self._lab.sync_topology_if_outdated()
+        return self._rotation
+
+    @rotation.setter
+    @locked
+    def rotation(self, value: int) -> None:
+        """Set rotation of an object, in degrees."""
+        self._set_annotation_property("rotation", value)
+        self._rotation = value
+
 
 class AnnotationEllipse(Annotation):
     """
@@ -485,6 +499,7 @@ class AnnotationEllipse(Annotation):
         self._color = WHITE
         self._x2 = 100
         self._y2 = 100
+        self._rotation = 0
         if annotation_data:
             self.update(annotation_data, push_to_server=False)
 
@@ -513,6 +528,19 @@ class AnnotationEllipse(Annotation):
         """Set y2 coordinate."""
         self._set_annotation_property("y2", value)
         self._y2 = value
+
+    @property
+    def rotation(self) -> int:
+        """Rotation of an object, in degrees."""
+        self._lab.sync_topology_if_outdated()
+        return self._rotation
+
+    @rotation.setter
+    @locked
+    def rotation(self, value: int) -> None:
+        """Set rotation of an object, in degrees."""
+        self._set_annotation_property("rotation", value)
+        self._rotation = value
 
 
 class AnnotationLine(Annotation):

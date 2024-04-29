@@ -24,7 +24,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Literal
 
 from ..exceptions import InvalidProperty
-from ..utils import check_stale, get_url_from_template, locked
+from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -353,17 +353,25 @@ class Annotation:
         url = self._url_for("annotation")
         self._session.delete(url)
 
+    def update(self, annotation_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update annotation properties.
+
+        :param annotation_data: JSON dict with new annotation property:value pairs.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(annotation_data, push_to_server=True)
+
     @check_stale
     @locked
-    def update(
-        self, annotation_data: dict[str, Any], push_to_server: bool = True
-    ) -> None:
+    def _update(self, annotation_data: dict[str, Any], push_to_server: bool) -> None:
         """
         Update annotation properties.
 
         :param annotation_data: JSON dict with new annotation property:value pairs.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if "type" not in annotation_data:
             annotation_data["type"] = self._type
@@ -425,7 +433,7 @@ class AnnotationRectangle(Annotation):
         self._x2 = 100
         self._y2 = 100
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def border_radius(self) -> int:
@@ -486,7 +494,7 @@ class AnnotationEllipse(Annotation):
         self._x2 = 100
         self._y2 = 100
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def x2(self) -> int:
@@ -536,7 +544,7 @@ class AnnotationLine(Annotation):
         self._line_start = None
         self._line_end = None
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def x2(self) -> int:
@@ -617,7 +625,7 @@ class AnnotationText(Annotation):
         self._text_size = 12
         self._text_unit = "pt"
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def rotation(self) -> int:

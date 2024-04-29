@@ -77,6 +77,7 @@ def test_import_lab_from_path_virl(
 
     cl._session.post.assert_called_once_with(
         "import/virl-1x",
+        params=None,
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl._session.post.assert_called_once()

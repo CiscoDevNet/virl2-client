@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -47,7 +46,7 @@ from .models import (
 )
 from .models.authentication import make_session
 from .models.configuration import get_configuration
-from .utils import get_url_from_template, locked
+from .utils import _deprecated_argument, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -521,7 +520,7 @@ class ClientLibrary:
         self,
         topology: str,
         title: str | None = None,
-        offline: bool = False,
+        offline=None,
         virl_1x: bool = False,
     ) -> Lab:
         """
@@ -529,29 +528,22 @@ class ClientLibrary:
 
         :param topology: The topology representation as a string.
         :param title: The title of the lab.
-        :param offline: Whether to import the lab locally.
+        :param offline: DEPRECATED: Offline mode has been removed.
         :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
         :returns: The imported Lab instance.
         :raises ValueError: If no lab ID is returned in the API response.
         :raises httpx.HTTPError: If there was a transport error.
         """
+        _deprecated_argument(self.import_lab, offline, "offline")
+
         if title is not None:
             for lab_id in self._labs:
                 if (lab := self._labs[lab_id]).title == title:
                     # Lab of this title already exists, sync and return it
                     lab.sync()
                     return lab
-
-        lab = self._create_imported_lab(topology, title, offline, virl_1x)
-
-        if offline:
-            topology_dict = json.loads(topology)
-            # ensure the lab owner is not properly set
-            # how does below get to offline? user_id is calling controller
-            topology_dict["lab"]["owner"] = self.user_management.user_id(self.username)
-            lab.import_lab(topology_dict)
-        else:
-            lab.sync()
+        lab = self._create_imported_lab(topology, title, virl_1x)
+        lab.sync()
         self._labs[lab.id] = lab
         return lab
 
@@ -560,25 +552,17 @@ class ClientLibrary:
         self,
         topology: str,
         title: str | None = None,
-        offline: bool = False,
         virl_1x: bool = False,
     ):
-        if offline:
-            lab_id = "offline_lab"
+        if virl_1x:
+            url = self._url_for("import_1x")
         else:
-            if virl_1x:
-                url = self._url_for("import_1x")
-            else:
-                url = self._url_for("import")
-            if title is not None:
-                result = self._session.post(
-                    url, params={"title": title}, content=topology
-                ).json()
-            else:
-                result = self._session.post(url, content=topology).json()
-            lab_id = result.get("id")
-            if lab_id is None:
-                raise ValueError("No lab ID returned!")
+            url = self._url_for("import")
+        params = {"title": title} if title else None
+        result = self._session.post(url, params=params, content=topology).json()
+        lab_id = result.get("id")
+        if lab_id is None:
+            raise ValueError("No lab ID returned!")
 
         return Lab(
             title,

@@ -305,7 +305,7 @@ class EventHandler(EventHandlerBase):
 
     def _handle_element_modified(self, event: Event) -> None:
         if event.element_type == "node":
-            event.element.update(
+            event.element._update(
                 event.data, exclude_configurations=False, push_to_server=False
             )
 

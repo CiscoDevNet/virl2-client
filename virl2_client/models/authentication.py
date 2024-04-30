@@ -27,6 +27,8 @@ from uuid import uuid4
 
 import httpx
 
+from ..exceptions import APIError
+
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -34,6 +36,19 @@ if TYPE_CHECKING:
 
 
 _AUTH_URL = "authenticate"
+
+
+def raise_for_status(response: httpx.Response):
+    """
+    https://github.com/encode/httpx/discussions/2224#discussioncomment-2732372
+
+    When raising for status from certain places, if response is unread, the stream is
+    automatically closed, and we then cannot read the response in later error handling.
+    We thus need to check if the response is 4/500 and read it preemptively if so.
+    """
+    if response.status_code // 100 in (4, 5):
+        response.read()
+    response.raise_for_status()
 
 
 class TokenAuth(httpx.Auth):
@@ -80,7 +95,7 @@ class TokenAuth(httpx.Auth):
             json=data,
             auth=None,  # type: ignore
         )  # auth=None works but is missing from .post's type hint
-        response_raise(response)
+        raise_for_status(response)
         self._token = response.json()
         return self._token
 
@@ -111,7 +126,7 @@ class TokenAuth(httpx.Auth):
             request.headers["Authorization"] = f"Bearer {self.token}"
             response = yield request
 
-        response_raise(response)
+        raise_for_status(response)
 
     def logout(self, clear_all_sessions=False) -> bool:
         """
@@ -131,29 +146,39 @@ class BlankAuth(httpx.Auth):
         self, request: httpx.Request
     ) -> Generator[httpx.Request, httpx.Response, None]:
         response = yield request
-        response_raise(response)
+        raise_for_status(response)
 
 
-def response_raise(response: httpx.Response) -> None:
-    """
-    Raise an exception if the response has an HTTP status error.
-    Replace the useless link to httpstatuses.com with error description.
+class CustomClient(httpx.Client):
+    _ERROR_PREFIX = {4: "Client error - ", 5: "Server error - "}
 
-    :param response: The response object to check.
-    :raises httpx.HTTPStatusError: If the response has an HTTP status error.
-    """
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as error:
-        error.response.read()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_request = self.request
+        self.request = self._request
+
+    def _request(self, *args, **kwargs):
+        """
+        httpx.Client.request modified to raise an exception if the response
+        has an HTTP status error and replace the useless link
+        to httpstatuses.com with error description.
+
+        :raises APIError: If the response has an HTTP status error.
+        """
         try:
-            error_msg = json.loads(error.response.text)["description"]
-        except (json.JSONDecodeError, IndexError, TypeError):
-            error_msg = error.response.text
-        error_text: str = error.args[0].split("\n")[0]
-        error_text += "\n" + error_msg
-        error.args = (error_text,)
-        raise error
+            return self._original_request(*args, **kwargs)
+        except httpx.HTTPStatusError as error:
+            try:
+                error_detail = json.loads(error.response.text)["description"]
+            except (json.JSONDecodeError, IndexError, TypeError):
+                error_detail = error.response.text
+            prefix = self._ERROR_PREFIX.get(error.response.status_code // 100, "")
+            api_error = APIError(
+                f"{prefix}{error_detail or error}",
+                request=error.request,
+                response=error.response,
+            )
+            raise api_error from None
 
 
 def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
@@ -168,7 +193,7 @@ def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
     :param ssl_verify: Whether to perform SSL verification.
     :returns: The created httpx Client object.
     """
-    return httpx.Client(
+    return CustomClient(
         base_url=base_url,
         verify=ssl_verify,
         auth=BlankAuth(),

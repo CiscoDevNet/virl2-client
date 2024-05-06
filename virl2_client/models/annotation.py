@@ -58,7 +58,7 @@ ANNOTATION_PROPERTY_MAP = {
     "color": 0b1111,
     "line_end": 0b0100,
     "line_start": 0b0100,
-    "rotation": 0b1000,
+    "rotation": 0b1011,
     "text_bold": 0b1000,
     "text_content": 0b1000,
     "text_font": 0b1000,

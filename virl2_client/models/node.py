@@ -841,7 +841,9 @@ class Node:
         """
         Synchronize the operational state of the node.
 
-        :param response: The response from the server.
+        :param response: If the operational data was fetched from the server elsewhere,
+            it can be passed here to save an API call. Will be fetched automatically
+            otherwise.
         """
         if response is None:
             url = self._url_for("operational")

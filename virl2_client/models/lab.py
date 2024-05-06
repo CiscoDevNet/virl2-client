@@ -1312,11 +1312,14 @@ class Lab:
         self._handle_import_annotations(topology)
 
     @locked
-    def _import_lab(self, topology: dict) -> None:
+    def _import_lab(self, topology: dict, created: bool = False) -> None:
         """
         Replace lab properties with the given topology.
 
         :param topology: The topology to import.
+        :param created: The node create API endpoint returns data in the old format,
+            which would print an unnecessary old schema warning;
+            setting this flag to True skips that warning.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
@@ -1324,7 +1327,7 @@ class Lab:
         if lab_dict is None:
             # If we just created the lab, we skip the warning, since the
             # lab post endpoint returns data in the old format
-            if not topology.pop("_created", False):
+            if not created:
                 warnings.warn(
                     "Labs created in older CML releases (schema version 0.0.5 or lower)"
                     " are deprecated. Use labs with schema version 0.1.0 or higher.",
@@ -1347,15 +1350,15 @@ class Lab:
 
         :param topology: The topology to import nodes from.
         """
-        for node in topology["nodes"]:
+        for node in topology["nodes"]:  # type: dict
             node_id = node["id"]
 
             if node_id in self._nodes:
                 raise ElementAlreadyExists("Node already exists")
 
-            interfaces = node.pop("interfaces", [])
             self._import_node(node_id, node)
 
+            interfaces = node.get("interfaces", [])
             if not interfaces:
                 continue
 
@@ -1477,10 +1480,12 @@ class Lab:
         if "data" in node_data:
             node_data = node_data["data"]
 
-        node_data.pop("id", None)
-        state = node_data.pop("state", None)
-        node_data.pop("lab_id", None)
-        node_data.pop("boot_progress", None)
+        state = node_data.get("state", None)
+        node_data = {
+            key: node_data[key]
+            for key in node_data
+            if key not in ("id", "state", "lab_id", "boot_progress", "interfaces")
+        }
 
         for key in ("image_definition", "configuration"):
             if key not in node_data:
@@ -1503,11 +1508,15 @@ class Lab:
         :param annotation_data: The data of the annotation.
         :returns: The imported Annotation object.
         """
-        annotation_data.pop("id", None)
-        ann_type = annotation_data.pop("type")
+        annotation_type = annotation_data["type"]
+        annotation_data = {
+            key: annotation_data[key]
+            for key in annotation_data
+            if key not in ("id", "type")
+        }
 
         annotation = self._create_annotation_local(
-            annotation_id, ann_type, **annotation_data
+            annotation_id, annotation_type, **annotation_data
         )
         return annotation
 
@@ -1647,12 +1656,12 @@ class Lab:
         :param new_nodes: Iterable of node IDs to be added.
         :param new_interfaces: Iterable of interface IDs to be added.
         """
-        for node in topology["nodes"]:
+        for node in topology["nodes"]:  # type: dict
             node_id = node["id"]
-            interfaces = node.pop("interfaces", [])
+            interfaces = node.get("interfaces", [])
             if node_id in new_nodes:
-                node = self._import_node(node_id, node)
-                _LOGGER.info(f"Added node {node}")
+                new_node = self._import_node(node_id, node)
+                _LOGGER.info(f"Added node {new_node}")
 
             if not interfaces:
                 continue

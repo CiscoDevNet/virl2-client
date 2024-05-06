@@ -438,12 +438,14 @@ class ResourcePool:
 
     def _set_resource_pool_properties(self, resource_pool_data: dict[str, Any]) -> None:
         """Helper method to set multiple properties on the server."""
-        for key in list(resource_pool_data):
-            # drop unmodifiable properties
-            if key in ("id", "template", "users", "user_pools"):
-                resource_pool_data.pop(key)
+        # drop unmodifiable properties
+        resource_pool_data_post = {
+            key: resource_pool_data[key]
+            for key in resource_pool_data
+            if key not in ("id", "template", "users", "user_pools")
+        }
         url = self._url_for("resource_pool")
-        self._session.patch(url, json=resource_pool_data)
+        self._session.patch(url, json=resource_pool_data_post)
 
 
 ResourcePools = Dict[str, ResourcePool]

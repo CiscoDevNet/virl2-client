@@ -24,6 +24,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
+from virl2_client.models import authentication
 from virl2_client.virl2_client import ClientLibrary
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
@@ -65,7 +66,7 @@ def client_library_server_3_19_0():
 
 @pytest.fixture
 def mocked_session():
-    with patch.object(httpx, "Client", autospec=True) as session:
+    with patch.object(authentication, "CustomClient", autospec=True) as session:
         yield session
 
 

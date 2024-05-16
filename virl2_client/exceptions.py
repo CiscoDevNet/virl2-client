@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import httpx
 
 
 class VirlException(Exception):
@@ -97,3 +98,7 @@ class InvalidMacAddressBlock(VirlException):
 
 class ControllerNotFound(VirlException):
     message = "Controller not found"
+
+
+class APIError(VirlException, httpx.HTTPStatusError):
+    pass

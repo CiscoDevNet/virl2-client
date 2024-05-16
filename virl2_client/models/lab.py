@@ -1736,7 +1736,7 @@ class Lab:
             for node_id in kept_nodes:
                 node = self._find_node_in_topology(node_id, topology)
                 lab_node = self._nodes[node_id]
-                lab_node.update(node, exclude_configurations, push_to_server=False)
+                lab_node._update(node, exclude_configurations, push_to_server=False)
 
         # For now, can't update interface data server-side, this will change with tags
         # for interface_id in kept_interfaces:
@@ -1750,7 +1750,7 @@ class Lab:
             for ann_id in kept_annotations:
                 annotation = self._find_annotation_in_topology(ann_id, topology)
                 lab_annotation = self._annotations[ann_id]
-                lab_annotation.update(annotation, push_to_server=False)
+                lab_annotation._update(annotation, push_to_server=False)
 
     @locked
     def update_lab_properties(self, properties: dict[str, Any]):

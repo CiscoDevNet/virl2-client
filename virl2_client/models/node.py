@@ -28,7 +28,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from ..exceptions import InterfaceNotFound
-from ..utils import check_stale, get_url_from_template, locked
+from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -879,9 +879,26 @@ class Node:
             }
         self._last_sync_l3_address_time = time.time()
 
+    def update(
+        self,
+        node_data: dict[str, Any],
+        exclude_configurations: bool,
+        push_to_server=None,
+    ) -> None:
+        """
+        Update the node with the provided data.
+
+        :param node_data: The data to update the node with.
+        :param exclude_configurations: Whether to exclude configuration updates.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(node_data, exclude_configurations, push_to_server=True)
+
     @check_stale
     @locked
-    def update(
+    def _update(
         self,
         node_data: dict[str, Any],
         exclude_configurations: bool,
@@ -893,7 +910,6 @@ class Node:
         :param node_data: The data to update the node with.
         :param exclude_configurations: Whether to exclude configuration updates.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_node_properties(node_data)

@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound, InvalidMacAddressBlock
 
-from ..utils import get_url_from_template
+from ..utils import _deprecated_argument, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -136,7 +136,7 @@ class SystemManagement:
         else:
             notice = self._system_notices.get(resolved["id"])
         if notice is not None and resolved is not None:
-            notice.update(resolved, push_to_server=False)
+            notice._update(resolved, push_to_server=False)
         self._maintenance_notice = notice
 
     def sync_compute_hosts_if_outdated(self) -> None:
@@ -167,7 +167,7 @@ class SystemManagement:
             compute_id = compute_host.pop("id")
             compute_host["compute_id"] = compute_id
             if compute_id in self._compute_hosts:
-                self._compute_hosts[compute_id].update(
+                self._compute_hosts[compute_id]._update(
                     compute_host, push_to_server=False
                 )
             else:
@@ -188,7 +188,7 @@ class SystemManagement:
         for system_notice in system_notices:
             notice_id = system_notice.get("id")
             if notice_id in self._system_notices:
-                self._system_notices[notice_id].update(
+                self._system_notices[notice_id]._update(
                     system_notice, push_to_server=False
                 )
             else:
@@ -512,13 +512,23 @@ class ComputeHost:
         url = self._url_for("compute_host")
         self._session.delete(url)
 
-    def update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
+    def update(self, host_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update the compute host with the given data.
+
+        :param host_data: The data to update the compute host.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(host_data, push_to_server=True)
+
+    def _update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
         """
         Update the compute host with the given data.
 
         :param host_data: The data to update the compute host.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_compute_host_properties(host_data)
@@ -545,7 +555,7 @@ class ComputeHost:
         """
         url = self._url_for("compute_host")
         new_data = self._session.patch(url, json=host_data).json()
-        self.update(new_data, push_to_server=False)
+        self._update(new_data, push_to_server=False)
 
 
 class SystemNotice:
@@ -642,13 +652,23 @@ class SystemNotice:
         url = self._url_for("notice")
         self._session.delete(url)
 
-    def update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:
+    def update(self, notice_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update the system notice with the given data.
+
+        :param notice_data: The data to update the system notice with.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(notice_data, push_to_server=True)
+
+    def _update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:
         """
         Update the system notice with the given data.
 
         :param notice_data: The data to update the system notice with.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_notice_properties(notice_data)
@@ -675,4 +695,4 @@ class SystemNotice:
         """
         url = self._url_for("notice")
         new_data = self._session.patch(url, json=notice_data).json()
-        self.update(new_data, push_to_server=False)
+        self._update(new_data, push_to_server=False)

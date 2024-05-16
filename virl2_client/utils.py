@@ -20,9 +20,10 @@
 
 from __future__ import annotations
 
+import warnings
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, Union, cast
 
 import httpx
 
@@ -178,3 +179,19 @@ def get_url_from_template(
         values = {}
     values["CONFIG_MODE"] = _CONFIG_MODE
     return endpoint_url_template.format(**values)
+
+
+_DEPRECATION_MESSAGES = {
+    "push_to_server": "meant to be used only by internal methods",
+    "offline": "offline mode has been removed",
+}
+
+
+def _deprecated_argument(func, argument: Any, argument_name: str):
+    if argument is not None:
+        reason = _DEPRECATION_MESSAGES[argument_name]
+        warnings.warn(
+            f"{type(func.__self__).__name__}.{func.__name__}: "
+            f"The argument '{argument_name}' is deprecated. Reason: {reason}",
+            DeprecationWarning,
+        )

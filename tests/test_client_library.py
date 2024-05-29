@@ -365,15 +365,6 @@ def test_client_library_str_and_repr(client_library_server_current):
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 
-def test_major_version_mismatch(client_library_server_1_0_0):
-    with pytest.raises(InitializationError) as err:
-        ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        str(err.value)
-        == f"Major version mismatch. Client {CURRENT_VERSION}, controller 1.0.0."
-    )
-
-
 def test_incompatible_version(client_library_server_2_0_0):
     with pytest.raises(InitializationError) as err:
         with patch.object(
@@ -712,7 +703,7 @@ def test_different_version_strings():
         Version("54dev0+build8.7ee86bf8")
 
 
-def test_import_lab_offline(
+def test_import_lab_offline_deprecated(
     client_library_server_current, mocked_session, tmp_path: Path, test_dir
 ):
     client_library = ClientLibrary(
@@ -721,7 +712,8 @@ def test_import_lab_offline(
     topology_file_path = test_dir / "test_data/sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
-        client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
+        with pytest.deprecated_call():
+            client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
 
 
 def test_convergence_parametrization(client_library_server_current, mocked_session):

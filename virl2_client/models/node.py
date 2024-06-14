@@ -246,7 +246,7 @@ class Node:
         :returns: An available physical interface or None if all existing
             ones are connected.
         """
-        for iface in enumerate(self.interfaces(), index):
+        for _, iface in enumerate(self.interfaces(), index):
             if not iface.connected and iface.physical:
                 return iface
         return None

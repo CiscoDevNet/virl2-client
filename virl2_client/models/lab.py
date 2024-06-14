@@ -867,16 +867,17 @@ class Lab:
 
     @check_stale
     @locked
-    def connect_two_nodes(self, node1: Node, node2: Node) -> Link:
+    def connect_two_nodes(self, node1: Node, node2: Node, index: int = 0) -> Link:
         """
         Connect two nodes within a lab.
 
         :param node1: The first node object.
         :param node2: The second node object.
+        :param index: An optional starting interface index (default: 0).
         :returns: The created link.
         """
-        iface1 = node1.next_available_interface() or node1.create_interface()
-        iface2 = node2.next_available_interface() or node2.create_interface()
+        iface1 = node1.next_available_interface(index) or node1.create_interface()
+        iface2 = node2.next_available_interface(index) or node2.create_interface()
         return self.create_link(iface1, iface2)
 
     @check_stale

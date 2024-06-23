@@ -109,8 +109,7 @@ class ClPyats:
 
     def sync_testbed(self, username: str, password: str) -> None:
         """
-        Sync the testbed from the server.
-        This fetches the latest topology data from the server.
+        Sync the testbed (the latest topology data) from the server.
 
         :param username: The username to be inserted into the testbed data.
         :param password: The password to be inserted into the testbed data.

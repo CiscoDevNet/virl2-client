@@ -1746,14 +1746,18 @@ class Lab:
                 lab_node = self._nodes[node_id]
                 lab_node._update(node, exclude_configurations, push_to_server=False)
 
-        for interface_id in kept_interfaces:
-            interface_data = self._find_interface_in_topology(interface_id, topology)
-            interface = self.get_interface_by_id(interface_id)
-            interface._update(interface_data, push_to_server=False)
+        if kept_interfaces:
+            for interface_id in kept_interfaces:
+                interface_data = self._find_interface_in_topology(interface_id, topology)
+                interface = self._interfaces[interface_id]
+                interface._update(interface_data, push_to_server=False)
 
         # For now, can't update link data server-side, this will change with tags
-        # for link_id in kept_links:
-        #     link_data = self._find_link_in_topology(link_id, topology)
+        # if kept_links:
+        #     for link_id in kept_links:
+        #         link_data = self._find_link_in_topology(link_id, topology)
+        #         link = self._links[link_id]
+        #         link._update(link_data, push_to_server=False)
 
         if kept_annotations:
             for ann_id in kept_annotations:

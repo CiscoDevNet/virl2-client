@@ -144,7 +144,7 @@ class property_s(property):
 def locked(func: TCallable) -> TCallable:
     """
     A decorator that makes a method threadsafe.
-    Parent class instance must have a `session.lock` property for locking to occur.
+    Parent class instance must have a `_session.lock` property for locking to occur.
     """
 
     @wraps(func)

@@ -935,10 +935,11 @@ class Lab:
         node: Node,
         slot: int | None,
         iface_type: str = "physical",
+        mac_address: str | None = None,
     ) -> Interface:
         """Helper function to create an interface in the client library."""
         if iface_id not in self._interfaces:
-            iface = Interface(iface_id, node, label, slot, iface_type)
+            iface = Interface(iface_id, node, label, slot, iface_type, mac_address)
             self._interfaces[iface_id] = iface
         else:  # update the interface if it already exists:
             iface = self._interfaces[iface_id]
@@ -946,6 +947,7 @@ class Lab:
             iface._label = label
             iface._slot = slot
             iface._type = iface_type
+            iface._mac_address = mac_address
         return iface
 
     @check_stale
@@ -954,7 +956,8 @@ class Lab:
         """
         Create a lab annotation.
 
-        :param type: Type of the annotation (rectangle, ellipse, line or text).
+        :param annotation_type: Type of the annotation (rectangle, ellipse, line or
+            text).
         :returns: The created annotation.
         """
         url = self._url_for("annotations")
@@ -1465,8 +1468,11 @@ class Lab:
         label = iface_data["label"]
         slot = iface_data.get("slot")
         iface_type = iface_data["type"]
+        mac_address = iface_data.get("mac_address")
         node = self._nodes[node_id]
-        return self._create_interface_local(iface_id, label, node, slot, iface_type)
+        return self._create_interface_local(
+            iface_id, label, node, slot, iface_type, mac_address
+        )
 
     @locked
     def _import_node(self, node_id: str, node_data: dict) -> Node:
@@ -1579,11 +1585,12 @@ class Lab:
         # kept elements
         kept_nodes = update_node_ids.intersection(existing_node_ids)
         # kept_links = update_link_ids.intersection(existing_link_ids)
-        # kept_interfaces = update_interface_ids.intersection(existing_interface_ids)
+        kept_interfaces = update_interface_ids.intersection(existing_interface_ids)
         kept_annotations = update_annotation_ids.intersection(existing_annotation_ids)
         self._update_elements(
             topology=topology,
             kept_nodes=kept_nodes,
+            kept_interfaces=kept_interfaces,
             kept_annotations=kept_annotations,
             exclude_configurations=exclude_configurations,
         )
@@ -1721,6 +1728,7 @@ class Lab:
         self,
         topology: dict,
         kept_nodes: Iterable[str] | None = None,
+        kept_interfaces: Iterable[str] | None = None,
         kept_annotations: Iterable[str] | None = None,
         exclude_configurations: bool = False,
     ) -> None:
@@ -1738,9 +1746,10 @@ class Lab:
                 lab_node = self._nodes[node_id]
                 lab_node._update(node, exclude_configurations, push_to_server=False)
 
-        # For now, can't update interface data server-side, this will change with tags
-        # for interface_id in kept_interfaces:
-        #     interface_data = self._find_interface_in_topology(interface_id, topology)
+        for interface_id in kept_interfaces:
+            interface_data = self._find_interface_in_topology(interface_id, topology)
+            interface = self.get_interface_by_id(interface_id)
+            interface._update(interface_data, push_to_server=False)
 
         # For now, can't update link data server-side, this will change with tags
         # for link_id in kept_links:
@@ -1782,14 +1791,14 @@ class Lab:
         # if it cannot be found, it is an internal structure error
         raise LinkNotFound
 
-    # @staticmethod
-    # def _find_interface_in_topology(interface_id: str, topology: dict) -> dict:
-    #     for node in topology["nodes"]:
-    #         for interface in node["interfaces"]:
-    #             if interface["id"] == interface_id:
-    #                 return interface
-    #     # if it cannot be found, it is an internal structure error
-    #     raise InterfaceNotFound
+    @staticmethod
+    def _find_interface_in_topology(interface_id: str, topology: dict) -> dict:
+        for node in topology["nodes"]:
+            for interface in node["interfaces"]:
+                if interface["id"] == interface_id:
+                    return interface
+        # if it cannot be found, it is an internal structure error
+        raise InterfaceNotFound
 
     @staticmethod
     def _find_node_in_topology(node_id: str, topology: dict) -> dict:

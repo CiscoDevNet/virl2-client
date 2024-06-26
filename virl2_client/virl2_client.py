@@ -114,6 +114,9 @@ class Version:
     def major_differs(self, other: Version) -> bool:
         return self.major != other.major
 
+    def major_lt(self, other: Version) -> bool:
+        return self.major < other.major
+
     def minor_differs(self, other: Version) -> bool:
         return self.minor != other.minor
 
@@ -174,6 +177,12 @@ class ClientLibrary:
         Version("2.2.1"),
         Version("2.2.2"),
         Version("2.2.3"),
+        Version("2.3.0"),
+        Version("2.3.1"),
+        Version("2.4.0"),
+        Version("2.4.1"),
+        Version("2.5.0"),
+        Version("2.5.1"),
     ]
     _URL_TEMPLATES = {
         "auth_test": "authok",
@@ -427,14 +436,12 @@ class ClientLibrary:
                 f"List of versions marked explicitly as incompatible: "
                 f"{self.INCOMPATIBLE_CONTROLLER_VERSIONS}."
             )
-        if self.VERSION.major_differs(controller_version_obj):
+        if self.VERSION.major_lt(controller_version_obj):
             raise InitializationError(
                 f"Major version mismatch. Client {self.VERSION}, "
                 f"controller {controller_version_obj}."
             )
-        if self.VERSION.minor_differs(controller_version_obj) and self.VERSION.minor_lt(
-            controller_version_obj
-        ):
+        if self.VERSION.minor_lt(controller_version_obj):
             _LOGGER.warning(
                 f"Please ensure the client version is compatible with the controller "
                 f"version. Client {self.VERSION}, controller {controller_version_obj}."

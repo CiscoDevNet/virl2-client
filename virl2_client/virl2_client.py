@@ -527,7 +527,7 @@ class ClientLibrary:
         self,
         topology: str,
         title: str | None = None,
-        offline=None,
+        offline: bool | None = None,
         virl_1x: bool = False,
     ) -> Lab:
         """

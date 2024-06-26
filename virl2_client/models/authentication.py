@@ -130,7 +130,7 @@ class TokenAuth(httpx.Auth):
 
     def logout(self, clear_all_sessions=False) -> bool:
         """
-        Log out the user. Invalidates the current token.
+        Log out the user (invalidate the current token).
 
         :param clear_all_sessions: Whether to clear all sessions.
         :returns: Whether the logout succeeded.

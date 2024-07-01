@@ -1748,7 +1748,9 @@ class Lab:
 
         if kept_interfaces:
             for interface_id in kept_interfaces:
-                interface_data = self._find_interface_in_topology(interface_id, topology)
+                interface_data = self._find_interface_in_topology(
+                    interface_id, topology
+                )
                 interface = self._interfaces[interface_id]
                 interface._update(interface_data, push_to_server=False)
 
@@ -1797,10 +1799,23 @@ class Lab:
 
     @staticmethod
     def _find_interface_in_topology(interface_id: str, topology: dict) -> dict:
-        for node in topology["nodes"]:
-            for interface in node["interfaces"]:
+        """
+        Find an interface in the given topology.
+
+        :param interface_id: The ID of the interface to find.
+        :param topology: Dictionary containing the lab topology.
+        :returns: The interface with the specified ID.
+        :raises InterfaceNotFound: If the interface cannot be found in the topology.
+        """
+        if "interfaces" in topology:
+            for interface in topology["interfaces"]:
                 if interface["id"] == interface_id:
                     return interface
+        else:
+            for node in topology["nodes"]:
+                for interface in node["interfaces"]:
+                    if interface["id"] == interface_id:
+                        return interface
         # if it cannot be found, it is an internal structure error
         raise InterfaceNotFound
 

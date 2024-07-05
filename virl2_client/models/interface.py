@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
@@ -156,7 +156,7 @@ class Interface:
 
     @mac_address.setter
     @locked
-    def mac_address(self, value: str) -> None:
+    def mac_address(self, value: str | None) -> None:
         """Set the MAC address of the node to the given value."""
         self._set_interface_property("mac_address", value)
         self._mac_address = value
@@ -418,6 +418,8 @@ class Interface:
         """
         if push_to_server:
             self._set_interface_properties(interface_data)
+        if "data" in interface_data:
+            interface_data = interface_data["data"]
         for key, value in interface_data.items():
             setattr(self, f"_{key}", value)
 
@@ -432,11 +434,11 @@ class Interface:
         self._set_interface_properties({key: val})
 
     @check_stale
-    def _set_interface_properties(self, node_data: dict[str, Any]) -> None:
+    def _set_interface_properties(self, interface_data: dict[str, Any]) -> None:
         """
         Set multiple properties of the interface.
 
         :param node_data: A dictionary containing the properties to set.
         """
         url = self._url_for("interface")
-        self._session.patch(url, json=node_data)
+        self._session.patch(url, json=interface_data)

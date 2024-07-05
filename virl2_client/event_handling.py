@@ -310,9 +310,7 @@ class EventHandler(EventHandlerBase):
             )
 
         elif event.element_type == "interface":
-            event.element._update(
-                event.data, push_to_server=False
-            )
+            event.element._update(event.data, push_to_server=False)
 
         elif event.element_type == "link":
             # only sends link_capture_key which is not used by the client,

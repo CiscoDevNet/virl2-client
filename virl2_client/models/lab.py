@@ -104,6 +104,7 @@ class Lab:
         wait_time: int = 5,
         hostname: str | None = None,
         resource_pool_manager: ResourcePoolManagement | None = None,
+        owner: str | None = None,
     ) -> None:
         """
         A VIRL2 lab network topology.
@@ -135,7 +136,7 @@ class Lab:
         self._notes = ""
         self._id = lab_id
         self._session = session
-        self._owner = username
+        self._owner = owner if owner else username
         self._state = None
         self._nodes: dict[str, Node] = {}
         """

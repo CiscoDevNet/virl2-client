@@ -190,3 +190,16 @@ class UserManagement:
         """
         url = self._url_for("user_id", username=username)
         return self._session.get(url).json()
+
+    def user_name(self, user_id: str) -> str | None:
+        """
+        Get the username of the user with the given ID.
+
+        :param user_id: User unique identifier.
+        :returns: User name.
+        """
+        users = self.users()
+        for user in users:
+            if user["id"] == user_id:
+                return user["username"]
+        return None

@@ -88,6 +88,7 @@ class Lab:
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
         "annotations": "labs/{lab_id}/annotations",
+        "user_list": "users",
     }
 
     def __init__(
@@ -104,7 +105,6 @@ class Lab:
         wait_time: int = 5,
         hostname: str | None = None,
         resource_pool_manager: ResourcePoolManagement | None = None,
-        owner: str | None = None,
     ) -> None:
         """
         A VIRL2 lab network topology.
@@ -136,7 +136,7 @@ class Lab:
         self._notes = ""
         self._id = lab_id
         self._session = session
-        self._owner = owner if owner else username
+        self._owner = username
         self._state = None
         self._nodes: dict[str, Node] = {}
         """
@@ -1320,10 +1320,12 @@ class Lab:
         :param topology: The topology to import.
         :param created: The node create API endpoint returns data in the old format,
             which would print an unnecessary old schema warning;
-            setting this flag to True skips that warning.
+            setting this flag to True skips that warning. Also decides whether default
+            username is to be the current user or None.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
+        default_owner = self.username if created else None
 
         if lab_dict is None:
             # If we just created the lab, we skip the warning, since the
@@ -1337,12 +1339,12 @@ class Lab:
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
-            self._owner = topology.get("lab_owner", self.username)
+            self._set_owner(topology.get("lab_owner"), default_owner)
         else:
             self._title = lab_dict["title"]
             self._description = lab_dict["description"]
             self._notes = lab_dict["notes"]
-            self._owner = lab_dict.get("owner", self.username)
+            self._set_owner(lab_dict.get("owner"), default_owner)
 
     @locked
     def _handle_import_nodes(self, topology: dict) -> None:
@@ -1952,3 +1954,28 @@ class Lab:
                 node.sync_operational(node_data)
 
         self._last_sync_operational_time = time.time()
+
+    def _user_name(self, user_id: str) -> str | None:
+        """
+        Get the username of the user with the given ID.
+
+        :param user_id: User unique identifier.
+        :returns: Username.
+        """
+        # Need an endpoint here in Lab that would normally be handled by UserManagement,
+        # but a Lab has no access to UserManagement, this seems like a better idea than
+        # dragging the entire UserManagement to the Lab for two lines
+        url = self._url_for("user_list")
+        users = self._session.get(url).json()
+        for user in users:
+            if user["id"] == user_id:
+                return user["username"]
+        return None
+
+    def _set_owner(self, user_id: str | None = None, user_name: str | None = None):
+        """Sets the owner to the name of the user specified by the provided user_id.
+        If given ID is None/doesn't exist, we fall back to the given user_name,
+        which will usually be the name of the current user or None."""
+        if user_id:
+            user_name = self._user_name(user_id) or user_name
+        self._owner = user_name

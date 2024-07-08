@@ -796,12 +796,8 @@ class ClientLibrary:
                     raise LabNotFound("No lab with the given ID exists on the host.")
                 raise
             title = topology.get("lab", {}).get("title")
-            owner_id = topology.get("owner")
-            # Get the user's name, use the ID as fallback
-            owner = self.user_management.user_name(owner_id) or owner_id
         else:
             title = None
-            owner = None
 
         lab = Lab(
             title,
@@ -812,12 +808,12 @@ class ClientLibrary:
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
             resource_pool_manager=self.resource_pool_management,
-            owner=owner,
         )
         if sync_lab:
             lab.import_lab(topology)
             lab._initialized = True
-
+        else:
+            lab._owner = None
         self._labs[lab_id] = lab
         return lab
 

@@ -22,9 +22,9 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from ..utils import check_stale, get_url_from_template
+from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -51,6 +51,7 @@ class Interface:
         label: str,
         slot: int | None,
         iface_type: str = "physical",
+        mac_address: str | None = None,
     ) -> None:
         """
         A CML 2 network interface, part of a node.
@@ -60,12 +61,14 @@ class Interface:
         :param label: The label of the interface.
         :param slot: The slot of the interface.
         :param iface_type: The type of the interface.
+        :param mac_address: The MAC address of the interface.
         """
         self._id = iid
         self._node = node
         self._type = iface_type
         self._label = label
         self._slot = slot
+        self._mac_address = mac_address
         self._state: str | None = None
         self._session: httpx.Client = node.lab._session
         self._stale = False
@@ -143,6 +146,20 @@ class Interface:
     def physical(self) -> bool:
         """Check if the interface is physical."""
         return self.type == "physical"
+
+    @property
+    def mac_address(self) -> str | None:
+        """Return the MAC address set to the interface.
+        This is the address that will be used when the device is started."""
+        self.node.lab.sync_topology_if_outdated()
+        return self._mac_address
+
+    @mac_address.setter
+    @locked
+    def mac_address(self, value: str | None) -> None:
+        """Set the MAC address of the node to the given value."""
+        self._set_interface_property("mac_address", value)
+        self._mac_address = value
 
     @property
     def connected(self) -> bool:
@@ -385,3 +402,43 @@ class Interface:
             DeprecationWarning,
         )
         return self.connected
+
+    @check_stale
+    @locked
+    def _update(
+        self,
+        interface_data: dict[str, Any],
+        push_to_server: bool = True,
+    ) -> None:
+        """
+        Update the interface_data with the provided data.
+
+        :param interface_data: The data to update the interface with.
+        :param push_to_server: Whether to push the changes to the server.
+        """
+        if push_to_server:
+            self._set_interface_properties(interface_data)
+        if "data" in interface_data:
+            interface_data = interface_data["data"]
+        for key, value in interface_data.items():
+            setattr(self, f"_{key}", value)
+
+    def _set_interface_property(self, key: str, val: Any) -> None:
+        """
+        Set a property of the interface.
+
+        :param key: The key of the property to set.
+        :param val: The value to set.
+        """
+        _LOGGER.debug(f"Setting node property {self} {key}: {val}")
+        self._set_interface_properties({key: val})
+
+    @check_stale
+    def _set_interface_properties(self, interface_data: dict[str, Any]) -> None:
+        """
+        Set multiple properties of the interface.
+
+        :param node_data: A dictionary containing the properties to set.
+        """
+        url = self._url_for("interface")
+        self._session.patch(url, json=interface_data)

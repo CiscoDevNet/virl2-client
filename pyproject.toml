@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.8.1"
 httpx = "^0.27.0"
 
 # https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
@@ -37,6 +37,7 @@ sphinx_rtd_theme = {version="^1", optional = true}
 sphinx =  {version="^7", optional = true}
 
 [tool.poetry.group.dev.dependencies]
+flake8 = "^7"
 pre-commit = "^3"
 pytest = "*"
 respx = "^0.21.0"

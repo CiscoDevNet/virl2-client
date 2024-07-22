@@ -185,6 +185,23 @@ class AuthManagement:
         response = self._session.post(url, json=body)
         return response.json()
 
+    def test_group(self, config: dict, group_name: str) -> dict:
+        """
+        Test a group against the specified authentication configuration.
+
+        :param config: A dictionary of authentication settings to test against
+            (including manager password).
+        :param username: The group name to test.
+        :returns: Results of the test.
+        """
+        body = {
+            "auth-config": config,
+            "auth-data": {"group_name": group_name},
+        }
+        url = self._url_for("test")
+        response = self._session.post(url, json=body)
+        return response.json()
+
     def test_current_auth(
         self, manager_password: str, username: str, password: str
     ) -> dict:
@@ -202,6 +219,25 @@ class AuthManagement:
         body = {
             "auth-config": current,
             "auth-data": {"username": username, "password": password},
+        }
+        url = self._url_for("test")
+        response = self._session.post(url, json=body)
+        return response.json()
+
+    def test_current_group(self, manager_password: str, group_name: str) -> dict:
+        """
+        Test a group against the currently applied authentication
+        configuration.
+
+        :param manager_password: The manager password to allow testing.
+        :param username: The group name to test.
+        :returns: Results of the test.
+        """
+        current = self.get_settings()
+        current["manager_password"] = manager_password
+        body = {
+            "auth-config": current,
+            "auth-data": {"group_name": group_name},
         }
         url = self._url_for("test")
         response = self._session.post(url, json=body)

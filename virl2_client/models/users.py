@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ..utils import UNCHANGED, get_url_from_template
+from ..utils import UNCHANGED, _Sentinel, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -49,7 +49,7 @@ class UserManagement:
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def users(self) -> list[str]:
+    def users(self) -> list[dict]:
         """
         Get the list of available users.
 
@@ -83,9 +83,12 @@ class UserManagement:
         pwd: str,
         fullname: str = "",
         description: str = "",
+        email: str = "",
         admin: bool = False,
         groups: list[str] | None = None,
         resource_pool: str | None = None,
+        opt_in: bool | None = None,
+        tour_version: str = "",
     ) -> dict:
         """
         Create a new user.
@@ -94,9 +97,12 @@ class UserManagement:
         :param pwd: Desired password.
         :param fullname: Full name.
         :param description: Description.
+        :param email: Email address.
         :param admin: Whether to create an admin user.
         :param groups: List of groups to which the user should be added.
         :param resource_pool: Resource pool to which the user should be added.
+        :param opt_in: Whether the user has seen the initial contact dialog.
+        :param tour_version: The version of the Workbench tour the user has completed.
         :returns: User object.
         """
         data = {
@@ -104,9 +110,12 @@ class UserManagement:
             "password": pwd,
             "fullname": fullname,
             "description": description,
+            "email": email,
             "admin": admin,
             "groups": groups or [],
             "resource_pool": resource_pool,
+            "opt_in": opt_in,
+            "tour_version": tour_version,
         }
         url = self._url_for("users")
         return self._session.post(url, json=data).json()
@@ -114,12 +123,15 @@ class UserManagement:
     def update_user(
         self,
         user_id: str,
-        fullname: str | None = UNCHANGED,
-        description: str | None = UNCHANGED,
-        groups: list[str] | None = UNCHANGED,
+        fullname: str | None = None,
+        description: str | None = None,
+        email: str | None = None,
+        groups: list[str] | None = None,
         admin: bool | None = None,
         password_dict: dict[str, str] | None = None,
-        resource_pool: str | None = UNCHANGED,
+        resource_pool: str | None | _Sentinel = UNCHANGED,
+        opt_in: bool | None | _Sentinel = UNCHANGED,
+        tour_version: str | None = None,
     ) -> dict:
         """
         Update an existing user.
@@ -127,25 +139,34 @@ class UserManagement:
         :param user_id: User UUID4.
         :param fullname: Full name.
         :param description: Description.
+        :param email: Email address.
         :param admin: Whether to create an admin user.
         :param groups: List of groups to which the user should be added.
         :param password_dict: Dictionary containing old and new passwords.
         :param resource_pool: Resource pool to which the user should be added.
+        :param opt_in: Whether the user has seen the initial contact dialog.
+        :param tour_version: The version of the Workbench tour the user has completed.
         :returns: User object.
         """
         data: dict[str, Any] = {}
-        if fullname is not UNCHANGED:
+        if fullname is not None:
             data["fullname"] = fullname
-        if description is not UNCHANGED:
+        if description is not None:
             data["description"] = description
+        if email is not None:
+            data["email"] = email
         if admin is not None:
             data["admin"] = admin
-        if groups is not UNCHANGED:
+        if groups is not None:
             data["groups"] = groups
         if password_dict is not None:
             data["password"] = password_dict
         if resource_pool is not UNCHANGED:
             data["resource_pool"] = resource_pool
+        if opt_in is not UNCHANGED:
+            data["opt_in"] = opt_in
+        if tour_version is not None:
+            data["tour_version"] = tour_version
 
         url = self._url_for("user", user_id=user_id)
         return self._session.patch(url, json=data).json()

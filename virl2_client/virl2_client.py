@@ -25,6 +25,7 @@ import logging
 import os
 import re
 import time
+import warnings
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
@@ -164,7 +165,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.7.0")
+    VERSION = Version("2.7.1")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -521,7 +522,7 @@ class ClientLibrary:
         self,
         topology: str,
         title: str | None = None,
-        offline: bool = False,
+        offline: bool | None = None,
         virl_1x: bool = False,
     ) -> Lab:
         """
@@ -530,6 +531,7 @@ class ClientLibrary:
         :param topology: The topology representation as a string.
         :param title: The title of the lab.
         :param offline: Whether to import the lab locally.
+            DEPRECATED: The offline mode will be removed in the next version.
         :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
         :returns: The imported Lab instance.
         :raises ValueError: If no lab ID is returned in the API response.
@@ -542,6 +544,10 @@ class ClientLibrary:
                     lab.sync()
                     return lab
         if offline:
+            warnings.warn(
+                "The offline mode will be removed in the next version.",
+                DeprecationWarning,
+            )
             lab_id = "offline_lab"
         else:
             if virl_1x:

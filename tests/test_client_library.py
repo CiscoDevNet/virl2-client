@@ -723,7 +723,8 @@ def test_import_lab_offline(
     topology_file_path = test_dir / "test_data/sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
-        client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
+        with pytest.deprecated_call():
+            client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
 
 
 def test_convergence_parametrization(client_library_server_current, mocked_session):

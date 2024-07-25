@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..utils import UNCHANGED, get_url_from_template
+from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -109,9 +109,9 @@ class GroupManagement:
         self,
         group_id: str,
         name: str | None = None,
-        description: str | None = UNCHANGED,
-        members: list[str] | None = UNCHANGED,
-        labs: list[dict[str, str]] | None = UNCHANGED,
+        description: str | None = None,
+        members: list[str] | None = None,
+        labs: list[dict[str, str]] | None = None,
     ) -> dict:
         """
         Update a group.
@@ -126,11 +126,11 @@ class GroupManagement:
         data: dict[str, str | list] = {}
         if name is not None:
             data["name"] = name
-        if description is not UNCHANGED:
+        if description is not None:
             data["description"] = description
-        if members is not UNCHANGED:
+        if members is not None:
             data["members"] = members
-        if labs is not UNCHANGED:
+        if labs is not None:
             data["labs"] = labs
         url = self._url_for("group", group_id=group_id)
         return self._session.patch(url, json=data).json()

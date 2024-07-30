@@ -1807,15 +1807,13 @@ class Lab:
         :returns: The interface with the specified ID.
         :raises InterfaceNotFound: If the interface cannot be found in the topology.
         """
-        if "interfaces" in topology:
-            for interface in topology["interfaces"]:
+        interface_containers: list = (
+            [topology] if "interfaces" in topology else topology["nodes"]
+        )
+        for container in interface_containers:
+            for interface in container.get("interfaces", []):
                 if interface["id"] == interface_id:
                     return interface
-        else:
-            for node in topology["nodes"]:
-                for interface in node["interfaces"]:
-                    if interface["id"] == interface_id:
-                        return interface
         # if it cannot be found, it is an internal structure error
         raise InterfaceNotFound
 

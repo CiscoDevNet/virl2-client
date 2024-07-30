@@ -35,6 +35,8 @@ class AuthManagement:
     _URL_TEMPLATES = {
         "config": "system/auth/config",
         "test": "system/auth/test",
+        "groups": "system/auth/groups",
+        "refresh": "system/auth/refresh",
     }
 
     def __init__(self, session: Client, auto_sync=True, auto_sync_interval=1.0):
@@ -167,6 +169,29 @@ class AuthManagement:
         self._session.put(url, json=settings)
         self.sync()
 
+    def get_ldap_groups(self, search_filter=None):
+        """
+        Get CNs of groups available on the LDAP server, optionally filtered
+        by supplied filter.
+
+        :param search_filter: An optional filter applied to the search.
+        :returns: A list of CNs of found groups.
+        """
+        params = {"filter": search_filter} if search_filter else None
+        url = self._url_for("groups")
+        response = self._session.get(url, params=params)
+        return response.json()
+
+    def refresh_ldap_groups(self):
+        """
+        Refresh the members of LDAP groups. Removes any users from the group that are
+        not LDAP users or not a part of said group on LDAP, and adds any users that
+        are LDAP users and are a part of said group on LDAP.
+        """
+        url = self._url_for("refresh")
+        response = self._session.put(url)
+        return response.json()
+
     def test_auth(self, config: dict, username: str, password: str) -> dict:
         """
         Test a set of credentials against the specified authentication configuration.
@@ -180,6 +205,23 @@ class AuthManagement:
         body = {
             "auth-config": config,
             "auth-data": {"username": username, "password": password},
+        }
+        url = self._url_for("test")
+        response = self._session.post(url, json=body)
+        return response.json()
+
+    def test_group(self, config: dict, group_name: str) -> dict:
+        """
+        Test a group against the specified authentication configuration.
+
+        :param config: A dictionary of authentication settings to test against
+            (including manager password).
+        :param username: The group name to test.
+        :returns: Results of the test.
+        """
+        body = {
+            "auth-config": config,
+            "auth-data": {"group_name": group_name},
         }
         url = self._url_for("test")
         response = self._session.post(url, json=body)
@@ -202,6 +244,25 @@ class AuthManagement:
         body = {
             "auth-config": current,
             "auth-data": {"username": username, "password": password},
+        }
+        url = self._url_for("test")
+        response = self._session.post(url, json=body)
+        return response.json()
+
+    def test_current_group(self, manager_password: str, group_name: str) -> dict:
+        """
+        Test a group against the currently applied authentication
+        configuration.
+
+        :param manager_password: The manager password to allow testing.
+        :param username: The group name to test.
+        :returns: Results of the test.
+        """
+        current = self.get_settings()
+        current["manager_password"] = manager_password
+        body = {
+            "auth-config": current,
+            "auth-data": {"group_name": group_name},
         }
         url = self._url_for("test")
         response = self._session.post(url, json=body)

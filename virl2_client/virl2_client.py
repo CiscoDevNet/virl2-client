@@ -812,7 +812,8 @@ class ClientLibrary:
         if sync_lab:
             lab.import_lab(topology)
             lab._initialized = True
-
+        else:
+            lab._owner = None
         self._labs[lab_id] = lab
         return lab
 

@@ -100,6 +100,7 @@ def respx_mock_with_labs(respx_mock):
     respx_mock.get(
         FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/resource_pools"
     ).respond(json=[])
+    respx_mock.get(FAKE_HOST_API + "users").respond(json=[])
     respx_mock.get(FAKE_HOST_API + "resource_pools?data=true").respond(json=[])
     nodes = [
         "99cda47a-ecb2-4d31-86c4-74e7a8201958",

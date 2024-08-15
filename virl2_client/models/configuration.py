@@ -138,5 +138,8 @@ def get_configuration(
 
     if ssl_verify is True:
         ssl_verify = _get_prop("CA_BUNDLE") or _get_prop("CML_VERIFY_CERT")
+        # to match the behavior of virlutils, we allow to disable the SSL check via ENV
+        if ssl_verify and ssl_verify.lower() == "false":
+            ssl_verify = False
 
     return host, username, password, ssl_verify

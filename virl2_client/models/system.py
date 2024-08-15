@@ -267,28 +267,28 @@ class SystemManagement:
         url = self._url_for("web_session_timeout", timeout=timeout)
         return self._session.patch(url).json()
 
-    def get_mac_address_block(self) -> dict:
+    def get_mac_address_block(self) -> int:
         """
-        Get the MAC address block and OUI.
+        Get the MAC address block.
 
-        :returns: The MAC address block and OUI.
+        :returns: The MAC address block.
         """
         url = self._url_for("mac_address_block", block="")
         return self._session.get(url).json()
 
-    def set_mac_address_block(self, block: int) -> dict:
+    def set_mac_address_block(self, block: int) -> str:
         """
         Set the MAC address block.
 
         :param block: The MAC address block.
-        :returns: The MAC address block and OUI.
+        :returns: 'OK'
         :raises InvalidMacAddressBlock: If the MAC address block is not in 0-7 range.
         """
         if block < 0 or block > 7:
             raise InvalidMacAddressBlock
         return self._set_mac_address_block(block=block)
 
-    def _set_mac_address_block(self, block: int) -> dict:
+    def _set_mac_address_block(self, block: int) -> str:
         """Helper method to set the MAC address block."""
         url = self._url_for("mac_address_block", block=block)
         return self._session.patch(url).json()

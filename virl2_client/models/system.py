@@ -246,7 +246,7 @@ class SystemManagement:
         :param connector_id: The ID of the connector to delete.
         """
         url = self._url_for("external_connector", connector_id=connector_id)
-        return self._session.delete(url)
+        self._session.delete(url)
 
     def get_web_session_timeout(self) -> int:
         """

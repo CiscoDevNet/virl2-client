@@ -91,6 +91,11 @@ class AuthManagement:
         self.sync_if_outdated()
         return self._settings["method"]
 
+    @method.setter
+    def method(self, value):
+        """Set the authentication method."""
+        self.update_settings({"method": value})
+
     @property
     def manager(self) -> AuthMethodManager:
         """Return the property manager for the current authentication method."""
@@ -189,8 +194,7 @@ class AuthManagement:
         are LDAP users and are a part of said group on LDAP.
         """
         url = self._url_for("refresh")
-        response = self._session.put(url)
-        return response.json()
+        self._session.put(url)
 
     def test_auth(self, config: dict, username: str, password: str) -> dict:
         """

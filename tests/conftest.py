@@ -93,7 +93,7 @@ def respx_mock_with_labs(respx_mock):
     some runtime data, like node states and simulation_statistics.
     """
     respx_mock.get(FAKE_HOST_API + "system_information").respond(
-        json={"version": CURRENT_VERSION, "ready": True},
+        json={"version": CURRENT_VERSION, "ready": True, "oui": "52:54:00:00:00:00"},
     )
     respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
     respx_mock.get(FAKE_HOST_API + "authok")

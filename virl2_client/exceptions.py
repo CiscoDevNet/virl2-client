@@ -92,10 +92,6 @@ class PyatsDeviceNotFound(PyatsException):
     pass
 
 
-class InvalidMacAddressBlock(VirlException):
-    message = "MAC address block has to be in range 0-7"
-
-
 class ControllerNotFound(VirlException):
     message = "Controller not found"
 

@@ -98,8 +98,8 @@ class GroupManagement:
         """
         data = {
             "name": name,
-            "description": description,
-            "members": members or [],
+            **({"description": description} if description else {}),
+            **({"members": members} if members else {}),
             "labs": labs or [],
         }
         url = self._url_for("groups")

@@ -33,7 +33,8 @@ aiohttp = {version = "^3.8", optional = true}
 pyats = {version = "^24", optional = true}
 
 # optional packages for documentation build
-sphinx_rtd_theme = {version="^1", optional = true}
+sphinx_rtd_theme = {version="^2", optional = true}
+# version 8 is available but requires python>=3.10
 sphinx =  {version="^7", optional = true}
 
 [tool.poetry.group.dev.dependencies]

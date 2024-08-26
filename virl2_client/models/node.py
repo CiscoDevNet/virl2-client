@@ -56,6 +56,7 @@ class Node:
         "vnc_key": "{lab}/nodes/{id}/keys/vnc",
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
         "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
+        "inteface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
     }
 
     def __init__(
@@ -130,6 +131,7 @@ class Node:
         self._pinned_compute_id = pinned_compute_id
         self._stale = False
         self._last_sync_l3_address_time = 0.0
+        self._last_sync_interface_operational_time = 0.0
         self._parameters = parameters
 
         self.statistics: dict[str, int | float] = {
@@ -194,6 +196,17 @@ class Node:
             > self.lab.auto_sync_interval
         ):
             self.sync_layer3_addresses()
+
+    @check_stale
+    @locked
+    def sync_interface_operational_if_outdated(self) -> None:
+        timestamp = time.time()
+        if (
+            self.lab.auto_sync
+            and timestamp - self._last_sync_interface_operational_time
+            > self.lab.auto_sync_interval
+        ):
+            self.sync_interface_operational()
 
     @property
     @locked
@@ -837,24 +850,6 @@ class Node:
 
     @check_stale
     @locked
-    def sync_operational(self, response: dict[str, Any] = None):
-        """
-        Synchronize the operational state of the node.
-
-        :param response: If the operational data was fetched from the server elsewhere,
-            it can be passed here to save an API call. Will be fetched automatically
-            otherwise.
-        """
-        if response is None:
-            url = self._url_for("operational")
-            response = self._session.get(url).json()
-        self._pinned_compute_id = response.get("pinned_compute_id")
-        operational = response.get("operational", {})
-        self._compute_id = operational.get("compute_id")
-        self._resource_pool = operational.get("resource_pool")
-
-    @check_stale
-    @locked
     def map_l3_addresses_to_interfaces(
         self, mapping: dict[str, dict[str, str]]
     ) -> None:
@@ -878,6 +873,37 @@ class Node:
                 "ipv6": ipv6,
             }
         self._last_sync_l3_address_time = time.time()
+
+    @check_stale
+    @locked
+    def sync_operational(self, response: dict[str, Any] = None):
+        """
+        Synchronize the operational state of the node.
+
+        :param response: If the operational data was fetched from the server elsewhere,
+            it can be passed here to save an API call. Will be fetched automatically
+            otherwise.
+        """
+        if response is None:
+            url = self._url_for("operational")
+            response = self._session.get(url).json()
+        self._pinned_compute_id = response.get("pinned_compute_id")
+        operational = response.get("operational", {})
+        self._compute_id = operational.get("compute_id")
+        self._resource_pool = operational.get("resource_pool")
+
+    @check_stale
+    @locked
+    def sync_interface_operational(self):
+        """Synchronize the operational state of the node's interfaces."""
+        url = self._url_for("inteface_operational")
+        response = self._session.get(url).json()
+        self.lab.sync_topology_if_outdated()
+        for interface_data in response:
+            interface = self.lab._interfaces[interface_data["id"]]
+            operational = interface_data.get("operational", {})
+            interface._deployed_mac_address = operational.get("mac_address")
+        self._last_sync_interface_operational_time = time.time()
 
     def update(
         self,

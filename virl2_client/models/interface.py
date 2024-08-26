@@ -83,6 +83,7 @@ class Interface:
             "ipv4": None,
             "ipv6": None,
         }
+        self._deployed_mac_address = None
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -251,6 +252,12 @@ class Interface:
         """Return the discovered IPv6 address of the interface."""
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv6"]
+
+    @property
+    def deployed_mac_address(self) -> str | None:
+        """Return the deployed MAC address of the interface."""
+        self.node.sync_interface_operational()
+        return self._deployed_mac_address
 
     @property
     def is_physical(self) -> bool:

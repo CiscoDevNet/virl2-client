@@ -140,15 +140,13 @@ def test_auth_and_reauth_token(client_library_server_current):
         while True:
             yield subsequent
 
-    # mock failed and successful authentication:
-    respx.post(
-        "https://0.0.0.0/fake_url/api/v0/authenticate"
-    ).side_effect = initial_different_response(
+    # mock failed and successful authentication
+    side_effect = initial_different_response(
         httpx.Response(403), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
     )
-    respx.get(
-        "https://0.0.0.0/fake_url/api/v0/authok"
-    ).side_effect = initial_different_response(httpx.Response(401))
+    respx.post("https://0.0.0.0/fake_url/api/v0/authenticate").side_effect = side_effect
+    side_effect = initial_different_response(httpx.Response(401))
+    respx.get("https://0.0.0.0/fake_url/api/v0/authok").side_effect = side_effect
 
     # mock get labs
     respx.get("https://0.0.0.0/fake_url/api/v0/labs").respond(json=[])

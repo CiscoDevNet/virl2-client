@@ -40,6 +40,10 @@ class AnnotationNotFound(ElementNotFound):
     pass
 
 
+class SmartAnnotationNotFound(ElementNotFound):
+    pass
+
+
 class NodeNotFound(ElementNotFound):
     pass
 

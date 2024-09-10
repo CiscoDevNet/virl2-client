@@ -27,6 +27,7 @@ from ..exceptions import InvalidProperty
 from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
+
 if TYPE_CHECKING:
     import httpx
 
@@ -51,6 +52,12 @@ TRANSPARENT = "#00000000"
 # --X-: ellipse
 # -X--: line
 # X---: text
+ANNOTATION_MAP = {
+    "text": 0b1000,
+    "line": 0b0100,
+    "ellipse": 0b0010,
+    "rectangle": 0b0001,
+}
 ANNOTATION_PROPERTY_MAP = {
     "border_color": 0b1111,
     "border_radius": 0b0001,
@@ -131,7 +138,7 @@ class Annotation:
         self._id = annotation_id
         self._lab = lab
         self._session: httpx.Client = lab._session
-        # When the annotationis removed on the server, this annotation object is marked
+        # When the annotation is removed on the server, this annotation object is marked
         # stale and can no longer be interacted with - the user should discard it
         self._stale = False
 
@@ -166,6 +173,18 @@ class Annotation:
 
     def __hash__(self):
         return hash(self._id)
+
+    def _url_for(self, endpoint: str, **kwargs) -> str:
+        """
+        Generate the URL for a given API endpoint.
+
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
+        """
+        kwargs["lab_id"] = self._lab._id
+        kwargs["annotation_id"] = self._id
+        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
     def id(self) -> str:
@@ -269,18 +288,6 @@ class Annotation:
         self._set_annotation_property("z_index", value)
         self._z_index = value
 
-    def _url_for(self, endpoint: str, **kwargs) -> str:
-        """
-        Generate the URL for a given API endpoint.
-
-        :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
-        :returns: The formatted URL.
-        """
-        kwargs["lab_id"] = self._lab._id
-        kwargs["annotation_id"] = self._id
-        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
-
     @classmethod
     def get_default_property_values(cls, annotation_type: str) -> dict[str, Any]:
         """
@@ -288,16 +295,10 @@ class Annotation:
         annotation type.
         """
         default_values = {}
-        annotation_map = {
-            "text": 0b1000,
-            "line": 0b0100,
-            "ellipse": 0b0010,
-            "rectangle": 0b0001,
-        }
         for ppty in ANNOTATION_PROPERTY_MAP:
             if ppty == "type":
                 continue
-            if not annotation_map[annotation_type] & ANNOTATION_PROPERTY_MAP[ppty]:
+            if not ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[ppty]:
                 continue
             ppty_default = ANNOTATION_PROPERTIES_DEFAULTS[ppty]
             if isinstance(ppty_default, dict):
@@ -318,13 +319,7 @@ class Annotation:
             assert _property in ANNOTATION_PROPERTY_MAP
         except AssertionError:
             return False
-        annotation_map = {
-            "text": 0b1000,
-            "line": 0b0100,
-            "ellipse": 0b0010,
-            "rectangle": 0b0001,
-        }
-        return annotation_map[annotation_type] & ANNOTATION_PROPERTY_MAP[_property] > 0
+        return ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[_property] > 0
 
     @locked
     def as_dict(self) -> dict[str, Any]:

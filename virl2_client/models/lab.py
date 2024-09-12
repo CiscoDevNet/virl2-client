@@ -90,7 +90,6 @@ class Lab:
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
         "annotations": "labs/{lab_id}/annotations",
-        "smart_annotations": "labs/{lab_id}/smart_annotations",
         "user_list": "users",
     }
 
@@ -548,6 +547,20 @@ class Lab:
             return self._smart_annotations[annotation_id]
         except KeyError:
             raise SmartAnnotationNotFound(annotation_id)
+
+    def get_smart_annotation_by_tag(self, tag: str) -> SmartAnnotation:
+        """
+        Return the smart annotation identified by the tag.
+
+        :param tag: Tag by which to search for the smart annotation.
+        :returns: A SmartAnnotation object.
+        :raises SmartAnnotationNotFound: If annotation is not found.
+        """
+        self.sync_topology_if_outdated()
+        for annotation in self._smart_annotations.values():
+            if tag == annotation.tag:
+                return annotation
+        raise SmartAnnotationNotFound
 
     def find_nodes_by_tag(self, tag: str) -> list[Node]:
         """
@@ -1081,26 +1094,28 @@ class Lab:
 
     @check_stale
     @locked
-    def create_smart_annotation(self, **kwargs) -> SmartAnnotation:
+    def create_smart_annotation(self, tag: str, nodes: list[str | Node], **kwargs) -> SmartAnnotation:
         """
-        Create a smart annotation in the lab.
+        Create a smart annotation in the lab. Smart annotations are automatically
+        created when adding a new tag to a node, so this is simply a convenience
+        function to add the tag to all listed nodes, retrieve the new smart annotation
+        and update it with the given properties.
 
+        :param tag: Tag which the smart annotation will be bound to.
+        :param nodes: Nodes to which to add the tag and smart annotation.
         :param kwargs: Keyword arguments with annotation property values.
+            See `models.SmartAnnotation` for available properties.
         :returns: The created annotation.
         """
-        url = self._url_for("smart_annotations")
-
-        response = self._session.post(url, json=kwargs)
-        res_annotation = response.json()
-
-        # after adding an annotation to an empty lab, consider it "initialized"
-        if not self._initialized:
-            self._initialized = True
-
-        annotation = self._create_smart_annotation_local(
-            res_annotation["id"],
-            **res_annotation,
-        )
+        assert nodes
+        if isinstance(nodes[0], str):
+            nodes = [self.get_node_by_id(node_id) for node_id in nodes]
+        for node in nodes:
+            node.add_tag(tag)
+        self._sync_topology(exclude_configurations=True)
+        annotation = self.get_smart_annotation_by_tag(tag)
+        if kwargs:
+            annotation.update(kwargs)
         return annotation
 
     @check_stale

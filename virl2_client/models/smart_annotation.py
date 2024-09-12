@@ -134,6 +134,11 @@ class SmartAnnotation:
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
+    def lab(self) -> Lab:
+        """Return the lab of the smart annotation."""
+        return self._lab
+
+    @property
     def id(self) -> str:
         """Return ID of the smart annotation."""
         return self._id
@@ -152,30 +157,10 @@ class SmartAnnotation:
         self._is_on = value
 
     @property
-    def padding(self) -> int:
-        """Padding."""
-        self._lab.sync_topology_if_outdated()
-        return self._padding
-
-    @padding.setter
-    @locked
-    def padding(self, value: int) -> None:
-        """Set padding."""
-        self._set_smart_annotation_property("padding", value)
-        self._padding = value
-
-    @property
     def tag(self) -> str:
         """Tag."""
         self._lab.sync_topology_if_outdated()
         return self._tag
-
-    @tag.setter
-    @locked
-    def tag(self, value: str) -> None:
-        """Set tag."""
-        self._set_smart_annotation_property("tag", value)
-        self._tag = value
 
     @property
     def label(self) -> str:
@@ -189,6 +174,19 @@ class SmartAnnotation:
         """Set label."""
         self._set_smart_annotation_property("label", value)
         self._label = value
+
+    @property
+    def padding(self) -> int:
+        """Padding."""
+        self._lab.sync_topology_if_outdated()
+        return self._padding
+
+    @padding.setter
+    @locked
+    def padding(self, value: int) -> None:
+        """Set padding."""
+        self._set_smart_annotation_property("padding", value)
+        self._padding = value
 
     @property
     def tag_offset_x(self) -> int:
@@ -373,10 +371,12 @@ class SmartAnnotation:
 
     @check_stale
     def _remove_on_server(self) -> None:
-        """Remove smart annotation on the server side."""
+        """Remove smart annotation on the server side along with its tag."""
         _LOGGER.info(f"Removing smart annotation {self}")
-        url = self._url_for("smart_annotation")
-        self._session.delete(url)
+        tag = self._tag
+        nodes = self._lab.find_nodes_by_tag(tag)
+        for node in nodes:
+            node.remove_tag(tag)
 
     def update(self, annotation_data: dict[str, Any]) -> None:
         """
@@ -423,6 +423,4 @@ class SmartAnnotation:
     @check_stale
     def _set_smart_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
         """Update smart annotation properties server-side."""
-        self._session.patch(
-            url=self._url_for("smart_annotation"), json=annotation_data
-        )
+        self._session.patch(url=self._url_for("smart_annotation"), json=annotation_data)

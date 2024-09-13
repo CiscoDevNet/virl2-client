@@ -92,7 +92,7 @@ class Licensing:
 
     def set_transport(
         self,
-        ssms: str,
+        ssms: str | None,
         proxy_server: str | None = None,
         proxy_port: int | None = None,
     ) -> bool:

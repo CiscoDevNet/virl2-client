@@ -27,7 +27,6 @@ from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
-
 if TYPE_CHECKING:
     import httpx
 
@@ -35,8 +34,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-GREY = "#808080FF"
-WHITE = "#FFFFFFFF"
+GREY = "rgba(0, 0, 0, 0.5)"
 
 SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
     "is_on": True,
@@ -46,20 +44,19 @@ SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
     "tag_offset_x": 0,
     "tag_offset_y": 0,
     "tag_size": 14,
-    "tag_color": "rgba(0, 0, 0, 0.5)",
+    "tag_color": GREY,
     "tag_font": "16px Arial",
     "group_distance": 300,
     "thickness": 1,
-    "border_style": "",
-    "fill_color": WHITE,
+    "border_style": "solid",
+    "fill_color": None, # randomly generated
     "border_color": GREY,
-    "z_index": 0,
+    "z_index": 1,
 }
 
 
 class SmartAnnotation:
     _URL_TEMPLATES = {
-        "smart_annotations": "labs/{lab_id}/smart_annotations",
         "smart_annotation": "labs/{lab_id}/smart_annotations/{annotation_id}",
     }
 
@@ -90,14 +87,14 @@ class SmartAnnotation:
         self._tag_offset_x: int = 0
         self._tag_offset_y: int = 0
         self._tag_size: int = 14
-        self._tag_color: str = "rgba(0, 0, 0, 0.5)"
+        self._tag_color: str = GREY
         self._tag_font: str = "16px Arial"
         self._group_distance: int = 300
         self._thickness: int = 1
-        self._border_style: str = ""
-        self._fill_color: str = WHITE
+        self._border_style: str = "solid"
+        self._fill_color: str = GREY
         self._border_color: str = GREY
-        self._z_index: int = 0
+        self._z_index: int = 1
         if annotation_data:
             self._update(annotation_data, push_to_server=False)
 
@@ -376,7 +373,7 @@ class SmartAnnotation:
         tag = self._tag
         nodes = self._lab.find_nodes_by_tag(tag)
         for node in nodes:
-            node.remove_tag(tag)
+            node._remove_tag_on_server(tag)
 
     def update(self, annotation_data: dict[str, Any]) -> None:
         """

@@ -27,7 +27,6 @@ from ..exceptions import InvalidProperty
 from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
-
 if TYPE_CHECKING:
     import httpx
 

@@ -27,7 +27,7 @@ import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
-from ..exceptions import InterfaceNotFound
+from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
@@ -804,9 +804,9 @@ class Node:
         return self._tags
 
     @locked
-    def add_tag(self, tag: str) -> None:
+    def add_tag(self, tag: str) -> SmartAnnotation:
         """
-        Add a tag to this node.
+        Add a tag to this node and return the tag's smart annotation.
 
         :param tag: The tag to add.
         """
@@ -814,9 +814,13 @@ class Node:
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
-        # Smart annotations will be automatically created serverside for the new tags,
-        # so we force a sync to retrieve them
-        self._lab._sync_topology(exclude_configurations=True)
+        try:
+            return self._lab.get_smart_annotation_by_tag(tag)
+        except SmartAnnotationNotFound:
+            # Smart annotations will be automatically created serverside for the new
+            # tags, so we force a sync to retrieve them
+            self._lab._sync_topology(exclude_configurations=True)
+            return self._lab.get_smart_annotation_by_tag(tag)
 
     @locked
     def remove_tag(self, tag: str) -> None:
@@ -825,17 +829,28 @@ class Node:
 
         :param tag: The tag to remove.
         """
+        self._remove_tag_on_server(tag)
+
+        for node in self._lab._nodes.values():
+            if tag in node._tags:
+                # Tag still exists, smart annotation was not removed
+                return
+
+        # Smart annotations for tags removed from all nodes will be automatically
+        # removed serverside, so we remove them locally as well
+        try:
+            annotation = self._lab.get_smart_annotation_by_tag(tag)
+        except SmartAnnotationNotFound:
+            # get_smart_annotation_by_tag probably happened to sync and removed the
+            # annotation already
+            return
+        self._lab._remove_smart_annotation_local(annotation)
+
+    def _remove_tag_on_server(self, tag) -> None:
+        """Helper function to remove the tag from the node on the server."""
         current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
-        # Smart annotations for tags removed from all nodes will be automatically
-        # removed serverside, so we force a sync to remove them locally as well
-        for node in self._lab._nodes.values():
-            if tag in node._tags:
-                # Tag still exists, smart annotation was not removed, skip sync
-                break
-        else:
-            self._lab._sync_topology(exclude_configurations=True)
 
     def run_pyats_command(self, command: str) -> str:
         """

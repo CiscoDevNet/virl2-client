@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any, Iterable
 
 from httpx import HTTPStatusError
 
-from .smart_annotation import SmartAnnotation
 from ..exceptions import (
     AnnotationNotFound,
     ElementAlreadyExists,
@@ -53,6 +52,7 @@ from .cl_pyats import ClPyats
 from .interface import Interface
 from .link import Link
 from .node import Node
+from .smart_annotation import SmartAnnotation
 
 if TYPE_CHECKING:
     import httpx
@@ -849,6 +849,17 @@ class Lab:
 
         _LOGGER.debug("%s annotation removed from lab %s", annotation._id, self._id)
 
+    @locked
+    def _remove_annotation_local(self, annotation: Annotation) -> None:
+        """Helper function to remove an annotation from the client library."""
+        try:
+            del self._annotations[annotation._id]
+            annotation._stale = True
+        except KeyError:
+            # element may already have been deleted on server,
+            # and removed locally due to auto-sync
+            pass
+
     @check_stale
     @locked
     def remove_smart_annotation(
@@ -872,17 +883,6 @@ class Lab:
         _LOGGER.debug(
             "%s smart annotation removed from lab %s", annotation._id, self._id
         )
-
-    @locked
-    def _remove_annotation_local(self, annotation: Annotation) -> None:
-        """Helper function to remove an annotation from the client library."""
-        try:
-            del self._annotations[annotation._id]
-            annotation._stale = True
-        except KeyError:
-            # element may already have been deleted on server,
-            # and removed locally due to auto-sync
-            pass
 
     @locked
     def _remove_smart_annotation_local(self, annotation: SmartAnnotation) -> None:
@@ -1094,7 +1094,9 @@ class Lab:
 
     @check_stale
     @locked
-    def create_smart_annotation(self, tag: str, nodes: list[str | Node], **kwargs) -> SmartAnnotation:
+    def create_smart_annotation(
+        self, tag: str, nodes: list[str | Node], **kwargs
+    ) -> SmartAnnotation:
         """
         Create a smart annotation in the lab. Smart annotations are automatically
         created when adding a new tag to a node, so this is simply a convenience

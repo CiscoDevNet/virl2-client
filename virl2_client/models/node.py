@@ -804,16 +804,21 @@ class Node:
         return self._tags
 
     @locked
-    def add_tag(self, tag: str) -> SmartAnnotation:
+    def add_tag(
+        self, tag: str, return_annotation: bool = False
+    ) -> SmartAnnotation | None:
         """
-        Add a tag to this node and return the tag's smart annotation.
+        Add a tag to this node and return the tag's smart annotation if requested.
 
         :param tag: The tag to add.
+        :param return_annotation: Whether to return the corresponding annotation.
         """
         current = self.tags()
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
+        if not return_annotation:
+            return None
         try:
             return self._lab.get_smart_annotation_by_tag(tag)
         except SmartAnnotationNotFound:

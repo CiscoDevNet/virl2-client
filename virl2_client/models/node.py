@@ -817,15 +817,16 @@ class Node:
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
-        if not return_annotation:
-            return None
         try:
-            return self._lab.get_smart_annotation_by_tag(tag)
+            annotation = self._lab.get_smart_annotation_by_tag(tag)
+            if return_annotation:
+                return annotation
         except SmartAnnotationNotFound:
             # Smart annotations will be automatically created serverside for the new
             # tags, so we force a sync to retrieve them
             self._lab._sync_topology(exclude_configurations=True)
-            return self._lab.get_smart_annotation_by_tag(tag)
+            if return_annotation:
+                return self._lab.get_smart_annotation_by_tag(tag)
 
     @locked
     def remove_tag(self, tag: str) -> None:

@@ -292,6 +292,7 @@ def test_tags():
         auto_sync=0,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
+    lab.get_smart_annotation_by_tag = MagicMock()
     node_a = lab._create_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
     node_b = lab._create_node_local("1", "node B", "nd", "im", "cfg", 0, 0)
     node_c = lab._create_node_local("2", "node C", "nd", "im", "cfg", 0, 0)

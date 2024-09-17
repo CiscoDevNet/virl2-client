@@ -36,7 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 GREY = "rgba(0, 0, 0, 0.5)"
 
-SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
+_SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
     "is_on": True,
     "padding": 30,
     "tag": None,
@@ -52,6 +52,10 @@ SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
     "fill_color": None,  # randomly generated
     "border_color": GREY,
     "z_index": 1,
+}
+
+_SMART_ANNOTATION_PROPERTIES = set(_SMART_ANNOTATION_PROPERTIES_DEFAULTS.keys()) | {
+    "id"
 }
 
 
@@ -333,7 +337,7 @@ class SmartAnnotation:
         Return a list of all valid properties set to default values for smart
          annotations.
         """
-        return SMART_ANNOTATION_PROPERTIES_DEFAULTS.copy()
+        return _SMART_ANNOTATION_PROPERTIES_DEFAULTS.copy()
 
     @locked
     def as_dict(self) -> dict[str, Any]:
@@ -394,7 +398,7 @@ class SmartAnnotation:
 
         # make sure all properties we want to update are valid
         for key in annotation_data:
-            if key not in SMART_ANNOTATION_PROPERTIES_DEFAULTS:
+            if key not in _SMART_ANNOTATION_PROPERTIES:
                 raise InvalidProperty(f"Invalid smart annotation property: {key}")
 
         if push_to_server:

@@ -371,8 +371,9 @@ class Annotation:
             raise ValueError("Can't change annotation type.")
 
         # make sure all properties we want to update are valid
-        for key, value in annotation_data.items():
-            if key not in dir(self):
+        existing_keys = dir(self)
+        for key in annotation_data:
+            if key not in existing_keys:
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:

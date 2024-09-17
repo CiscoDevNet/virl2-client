@@ -49,7 +49,7 @@ SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
     "group_distance": 300,
     "thickness": 1,
     "border_style": "solid",
-    "fill_color": None, # randomly generated
+    "fill_color": None,  # randomly generated
     "border_color": GREY,
     "z_index": 1,
 }
@@ -72,7 +72,6 @@ class SmartAnnotation:
         :param lab: The lab object to which the link belongs.
         :param annotation_id: The ID of the smart annotation.
         """
-        self._is_on = None
         self._id = annotation_id
         self._lab = lab
         self._session: httpx.Client = lab._session
@@ -394,8 +393,8 @@ class SmartAnnotation:
         """
 
         # make sure all properties we want to update are valid
-        for key, value in annotation_data.items():
-            if key not in dir(self):
+        for key in annotation_data:
+            if key not in SMART_ANNOTATION_PROPERTIES_DEFAULTS:
                 raise InvalidProperty(f"Invalid smart annotation property: {key}")
 
         if push_to_server:

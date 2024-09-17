@@ -1110,8 +1110,9 @@ class Lab:
         :returns: The created annotation.
         """
         assert nodes
-        if isinstance(nodes[0], str):
-            nodes = [self.get_node_by_id(node_id) for node_id in nodes]
+        for i, node in enumerate(nodes):
+            if isinstance(node, str):
+                nodes[i] = self.get_node_by_id(node)
         for node in nodes:
             node.add_tag(tag)
         self._sync_topology(exclude_configurations=True)
@@ -1837,7 +1838,9 @@ class Lab:
         self._add_smart_annotations(topology, new_smart_annotations)
 
     @locked
-    def _add_nodes(self, topology: dict, new_nodes, new_interfaces):
+    def _add_nodes(
+        self, topology: dict, new_nodes: Iterable[str], new_interfaces: Iterable[str]
+    ) -> None:
         """
         Add nodes and its interfaces to the lab.
 
@@ -1862,7 +1865,7 @@ class Lab:
                     _LOGGER.info(f"Added interface {interface}")
 
     @locked
-    def _add_interfaces(self, topology, new_interfaces):
+    def _add_interfaces(self, topology: dict, new_interfaces: Iterable[str]) -> None:
         """
         Add interfaces to the lab.
 
@@ -1877,7 +1880,7 @@ class Lab:
                     self._import_interface(iface_id, node_id, iface)
 
     @locked
-    def _add_links(self, topology, new_links):
+    def _add_links(self, topology: dict, new_links: Iterable[str]) -> None:
         """
         Add links to the lab.
 
@@ -1893,7 +1896,7 @@ class Lab:
             _LOGGER.info(f"Added link {link}")
 
     @locked
-    def _add_annotations(self, topology, new_annotations):
+    def _add_annotations(self, topology: dict, new_annotations: Iterable[str]) -> None:
         """
         Add annotations to the lab.
 
@@ -1906,7 +1909,9 @@ class Lab:
             _LOGGER.info(f"Added annotation {annotation}")
 
     @locked
-    def _add_smart_annotations(self, topology, new_smart_annotations):
+    def _add_smart_annotations(
+        self, topology: dict, new_smart_annotations: Iterable[str]
+    ) -> None:
         """
         Add smart annotations to the lab.
 

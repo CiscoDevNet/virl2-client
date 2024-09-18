@@ -808,25 +808,20 @@ class Node:
         self, tag: str, return_annotation: bool = False
     ) -> SmartAnnotation | None:
         """
-        Add a tag to this node and return the tag's smart annotation if requested.
+        Add a tag to this node.
 
         :param tag: The tag to add.
-        :param return_annotation: Whether to return the corresponding annotation.
         """
         current = self.tags()
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
         try:
-            annotation = self._lab.get_smart_annotation_by_tag(tag)
-            if return_annotation:
-                return annotation
+            self._lab.get_smart_annotation_by_tag(tag)
         except SmartAnnotationNotFound:
             # Smart annotations will be automatically created serverside for the new
             # tags, so we force a sync to retrieve them
             self._lab._sync_topology(exclude_configurations=True)
-            if return_annotation:
-                return self._lab.get_smart_annotation_by_tag(tag)
 
     @locked
     def remove_tag(self, tag: str) -> None:

@@ -34,6 +34,7 @@ from .exceptions import (
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
+    SmartAnnotationNotFound,
     VirlException,
 )
 
@@ -76,6 +77,7 @@ def _make_not_found(instance: Element) -> ElementNotFound:
         "Interface": InterfaceNotFound,
         "Link": LinkNotFound,
         "Annotation": AnnotationNotFound,
+        "SmartAnnotation": SmartAnnotationNotFound,
     }[class_name]
     return error(error_text)
 

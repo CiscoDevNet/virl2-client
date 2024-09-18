@@ -70,7 +70,7 @@ class Interface:
         self._slot = slot
         self._mac_address = mac_address
         self._state: str | None = None
-        self._session: httpx.Client = node.lab._session
+        self._session: httpx.Client = node._lab._session
         self._stale = False
         self.statistics = {
             "readbytes": 0,
@@ -114,7 +114,7 @@ class Interface:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self.node.lab._url_for("lab")
+        kwargs["lab"] = self.node._lab._url_for("lab")
         kwargs["id"] = self.id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
@@ -152,7 +152,7 @@ class Interface:
     def mac_address(self) -> str | None:
         """Return the MAC address set to the interface.
         This is the address that will be used when the device is started."""
-        self.node.lab.sync_topology_if_outdated()
+        self.node._lab.sync_topology_if_outdated()
         return self._mac_address
 
     @mac_address.setter
@@ -170,7 +170,7 @@ class Interface:
     @property
     def state(self) -> str | None:
         """Return the state of the interface."""
-        self.node.lab.sync_states_if_outdated()
+        self.node._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("state")
             self._state = self._session.get(url).json()["state"]
@@ -179,8 +179,8 @@ class Interface:
     @property
     def link(self) -> Link | None:
         """Get the link if the interface is connected, otherwise None."""
-        self.node.lab.sync_topology_if_outdated()
-        for link in self.node.lab.links():
+        self.node._lab.sync_topology_if_outdated()
+        for link in self.node._lab.links():
             if self in link.interfaces:
                 return link
         return None
@@ -205,25 +205,25 @@ class Interface:
     @property
     def readbytes(self) -> int:
         """Return the number of bytes read by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["readbytes"])
 
     @property
     def readpackets(self) -> int:
         """Return the number of packets read by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["readpackets"])
 
     @property
     def writebytes(self) -> int:
         """Return the number of bytes written by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["writebytes"])
 
     @property
     def writepackets(self) -> int:
         """Return the number of packets written by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["writepackets"])
 
     @property
@@ -279,7 +279,7 @@ class Interface:
             "id": self.id,
             "node": self.node.id,
             "data": {
-                "lab_id": self.node.lab.id,
+                "lab_id": self.node._lab.id,
                 "label": self.label,
                 "slot": self.slot,
                 "type": self.type,
@@ -303,7 +303,7 @@ class Interface:
 
     def remove(self) -> None:
         """Remove the interface from the node."""
-        self.node.lab.remove_interface(self)
+        self.node._lab.remove_interface(self)
 
     @check_stale
     def _remove_on_server(self) -> None:

@@ -33,6 +33,7 @@ from .link import Link
 from .node import Node
 from .node_image_definitions import NodeImageDefinitions
 from .resource_pools import ResourcePoolManagement
+from .smart_annotation import SmartAnnotation
 from .system import SystemManagement
 from .users import UserManagement
 
@@ -50,4 +51,5 @@ __all__ = (
     "ResourcePoolManagement",
     "AuthManagement",
     "Annotation",
+    "SmartAnnotation",
 )

@@ -804,9 +804,7 @@ class Node:
         return self._tags
 
     @locked
-    def add_tag(
-        self, tag: str, return_annotation: bool = False
-    ) -> SmartAnnotation | None:
+    def add_tag(self, tag: str) -> None:
         """
         Add a tag to this node.
 

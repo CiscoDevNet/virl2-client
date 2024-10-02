@@ -205,6 +205,7 @@ class Annotation:
 
     @property
     def border_style(self) -> str:
+        """Border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed)."""
         self._lab.sync_topology_if_outdated()
         return self._border_style
 

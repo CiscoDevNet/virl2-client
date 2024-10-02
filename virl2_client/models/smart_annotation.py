@@ -28,35 +28,26 @@ from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
-
     from .lab import Lab
 
 _LOGGER = logging.getLogger(__name__)
-
-GREY = "rgba(0, 0, 0, 0.5)"
-
-_SMART_ANNOTATION_PROPERTIES_DEFAULTS = {
+_SMART_ANNOTATION_DEFAULTS = {
     "is_on": True,
-    "padding": 30,
+    "padding": 35,
     "tag": None,
     "label": None,
     "tag_offset_x": 0,
     "tag_offset_y": 0,
     "tag_size": 14,
-    "tag_color": GREY,
-    "tag_font": "16px Arial",
-    "group_distance": 300,
+    "group_distance": 400,
     "thickness": 1,
-    "border_style": "solid",
+    "border_style": "",
     "fill_color": None,  # randomly generated
-    "border_color": GREY,
+    "border_color": "#00000080",
     "z_index": 1,
 }
 
-_SMART_ANNOTATION_PROPERTIES = set(_SMART_ANNOTATION_PROPERTIES_DEFAULTS.keys()) | {
-    "id"
-}
+_SMART_ANNOTATION_PROPERTIES = set(_SMART_ANNOTATION_DEFAULTS) | {"id"}
 
 
 class SmartAnnotation:
@@ -78,26 +69,24 @@ class SmartAnnotation:
         """
         self._id = annotation_id
         self._lab = lab
-        self._session: httpx.Client = lab._session
+        self._session = lab._session
         # When the smart annotation is removed on the server, this object is marked
         # stale and can no longer be interacted with - the user should discard it
         self._stale = False
 
-        self._is_on: bool = True
-        self._padding: int = 30
-        self._tag: str = ""
-        self._label: str = ""
-        self._tag_offset_x: int = 0
-        self._tag_offset_y: int = 0
-        self._tag_size: int = 14
-        self._tag_color: str = GREY
-        self._tag_font: str = "16px Arial"
-        self._group_distance: int = 300
-        self._thickness: int = 1
-        self._border_style: str = "solid"
-        self._fill_color: str = GREY
-        self._border_color: str = GREY
-        self._z_index: int = 1
+        self._is_on = _SMART_ANNOTATION_DEFAULTS["is_on"]
+        self._padding = _SMART_ANNOTATION_DEFAULTS["padding"]
+        self._tag = _SMART_ANNOTATION_DEFAULTS["tag"]
+        self._label = _SMART_ANNOTATION_DEFAULTS["label"]
+        self._tag_offset_x = _SMART_ANNOTATION_DEFAULTS["tag_offset_x"]
+        self._tag_offset_y = _SMART_ANNOTATION_DEFAULTS["tag_offset_y"]
+        self._tag_size = _SMART_ANNOTATION_DEFAULTS["tag_size"]
+        self._group_distance = _SMART_ANNOTATION_DEFAULTS["group_distance"]
+        self._thickness = _SMART_ANNOTATION_DEFAULTS["thickness"]
+        self._border_style = _SMART_ANNOTATION_DEFAULTS["border_style"]
+        self._fill_color = _SMART_ANNOTATION_DEFAULTS["fill_color"]
+        self._border_color = _SMART_ANNOTATION_DEFAULTS["border_color"]
+        self._z_index = _SMART_ANNOTATION_DEFAULTS["z_index"]
         if annotation_data:
             self._update(annotation_data, push_to_server=False)
 
@@ -228,32 +217,6 @@ class SmartAnnotation:
         self._tag_size = value
 
     @property
-    def tag_color(self) -> str:
-        """Tag color."""
-        self._lab.sync_topology_if_outdated()
-        return self._tag_color
-
-    @tag_color.setter
-    @locked
-    def tag_color(self, value: str) -> None:
-        """Set tag color."""
-        self._set_smart_annotation_property("tag_color", value)
-        self._tag_color = value
-
-    @property
-    def tag_font(self) -> str:
-        """Tag font."""
-        self._lab.sync_topology_if_outdated()
-        return self._tag_font
-
-    @tag_font.setter
-    @locked
-    def tag_font(self, value: str) -> None:
-        """Set tag font."""
-        self._set_smart_annotation_property("tag_font", value)
-        self._tag_font = value
-
-    @property
     def group_distance(self) -> int:
         """Group distance."""
         self._lab.sync_topology_if_outdated()
@@ -281,40 +244,42 @@ class SmartAnnotation:
 
     @property
     def border_style(self) -> str:
-        """Border style."""
+        """Border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed)."""
         self._lab.sync_topology_if_outdated()
         return self._border_style
 
     @border_style.setter
     @locked
     def border_style(self, value: str) -> None:
-        """Set border style."""
+        """
+        Set border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed).
+        """
         self._set_smart_annotation_property("border_style", value)
         self._border_style = value
 
     @property
     def fill_color(self) -> str:
-        """Fill color."""
+        """Fill color (example: `#00000080`)."""
         self._lab.sync_topology_if_outdated()
         return self._fill_color
 
     @fill_color.setter
     @locked
     def fill_color(self, value: str) -> None:
-        """Set fill color."""
+        """Set fill color (example: `#00000080`)."""
         self._set_smart_annotation_property("fill_color", value)
         self._fill_color = value
 
     @property
     def border_color(self) -> str:
-        """Border color."""
+        """Border color (example: `#00000080`)."""
         self._lab.sync_topology_if_outdated()
         return self._border_color
 
     @border_color.setter
     @locked
     def border_color(self, value: str) -> None:
-        """Set border color."""
+        """Set border color (example: `#00000080`)."""
         self._set_smart_annotation_property("border_color", value)
         self._border_color = value
 
@@ -330,14 +295,6 @@ class SmartAnnotation:
         """Set Z index."""
         self._set_smart_annotation_property("z_index", value)
         self._z_index = value
-
-    @classmethod
-    def get_default_property_values(cls) -> dict[str, Any]:
-        """
-        Return a list of all valid properties set to default values for smart
-         annotations.
-        """
-        return _SMART_ANNOTATION_PROPERTIES_DEFAULTS.copy()
 
     @locked
     def as_dict(self) -> dict[str, Any]:
@@ -355,8 +312,6 @@ class SmartAnnotation:
             "tag_offset_x": self._tag_offset_x,
             "tag_offset_y": self._tag_offset_y,
             "tag_size": self._tag_size,
-            "tag_color": self._tag_color,
-            "tag_font": self._tag_font,
             "group_distance": self._group_distance,
             "thickness": self._thickness,
             "border_style": self._border_style,

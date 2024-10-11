@@ -542,13 +542,6 @@ class ClientLibrary:
         :raises httpx.HTTPError: If there was a transport error.
         """
         _deprecated_argument(self.import_lab, offline, "offline")
-
-        if title is not None:
-            for lab_id in self._labs:
-                if (lab := self._labs[lab_id]).title == title:
-                    # Lab of this title already exists, sync and return it
-                    lab.sync()
-                    return lab
         lab = self._create_imported_lab(topology, title, virl_1x)
         lab.sync()
         self._labs[lab.id] = lab

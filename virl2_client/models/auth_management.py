@@ -196,78 +196,62 @@ class AuthManagement:
         url = self._url_for("refresh")
         self._session.put(url)
 
-    def test_auth(self, config: dict, username: str, password: str) -> dict:
+    @staticmethod
+    def _get_auth(
+        username: str | None = None,
+        password: str | None = None,
+        group_name: str | None = None,
+    ) -> dict:
+        result = {}
+        if username is not None and password is not None:
+            result["auth-data"] = {"username": username, "password": password}
+        if group_name is not None:
+            result["group-data"] = {"group_name": group_name}
+        return result
+
+    def test_auth(
+        self,
+        config: dict,
+        username: str | None = None,
+        password: str | None = None,
+        group_name: str | None = None,
+    ) -> dict:
         """
-        Test a set of credentials against the specified authentication configuration.
+        Test a set of credentials and/or group against the specified authentication
+        configuration.
 
         :param config: A dictionary of authentication settings to test against
             (including manager password).
         :param username: The username to test.
         :param password: The password to test.
+        :param group_name: The group name to test.
         :returns: Results of the test.
         """
-        body = {
-            "auth-config": config,
-            "auth-data": {"username": username, "password": password},
-        }
-        url = self._url_for("test")
-        response = self._session.post(url, json=body)
-        return response.json()
-
-    def test_group(self, config: dict, group_name: str) -> dict:
-        """
-        Test a group against the specified authentication configuration.
-
-        :param config: A dictionary of authentication settings to test against
-            (including manager password).
-        :param username: The group name to test.
-        :returns: Results of the test.
-        """
-        body = {
-            "auth-config": config,
-            "auth-data": {"group_name": group_name},
-        }
+        body = {"auth-config": config} | self._get_auth(username, password, group_name)
         url = self._url_for("test")
         response = self._session.post(url, json=body)
         return response.json()
 
     def test_current_auth(
-        self, manager_password: str, username: str, password: str
+        self,
+        manager_password: str,
+        username: str | None = None,
+        password: str | None = None,
+        group_name: str | None = None,
     ) -> dict:
         """
-        Test a set of credentials against the currently applied authentication
-        configuration.
+        Test a set of credentials and/or group against the currently applied
+        authentication configuration.
 
         :param manager_password: The manager password to allow testing.
         :param username: The username to test.
         :param password: The password to test.
+        :param group_name: The group name to test.
         :returns: Results of the test.
         """
         current = self.get_settings()
         current["manager_password"] = manager_password
-        body = {
-            "auth-config": current,
-            "auth-data": {"username": username, "password": password},
-        }
-        url = self._url_for("test")
-        response = self._session.post(url, json=body)
-        return response.json()
-
-    def test_current_group(self, manager_password: str, group_name: str) -> dict:
-        """
-        Test a group against the currently applied authentication
-        configuration.
-
-        :param manager_password: The manager password to allow testing.
-        :param username: The group name to test.
-        :returns: Results of the test.
-        """
-        current = self.get_settings()
-        current["manager_password"] = manager_password
-        body = {
-            "auth-config": current,
-            "auth-data": {"group_name": group_name},
-        }
+        body = {"auth-config": current} | self._get_auth(username, password, group_name)
         url = self._url_for("test")
         response = self._session.post(url, json=body)
         return response.json()
@@ -490,6 +474,16 @@ class LDAPManager(AuthMethodManager):
     def display_attribute(self, value: str) -> None:
         """Set the display name LDAP attribute."""
         self._update_setting("display_attribute", value)
+
+    @property
+    def group_display_attribute(self) -> str:
+        """Return the group display name LDAP attribute."""
+        return self._get_setting("group_display_attribute")
+
+    @group_display_attribute.setter
+    def group_display_attribute(self, value: str) -> None:
+        """Set the group display name LDAP attribute."""
+        self._update_setting("group_display_attribute", value)
 
     @property
     def email_address_attribute(self) -> str:

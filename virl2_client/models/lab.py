@@ -1557,6 +1557,10 @@ class Lab:
                 raise ElementAlreadyExists("Annotation already exists")
 
             self._import_annotation(annotation_id, annotation)
+
+        if "smart_annotations" not in topology:
+            return
+
         for smart_annotation in topology["smart_annotations"]:
             smart_annotation_id = smart_annotation["id"]
 
@@ -2039,7 +2043,6 @@ class Lab:
         :returns: The node with the specified ID.
         :raises NodeNotFound: If the node cannot be found in the topology.
         """
-
         for node in topology["nodes"]:
             if node["id"] == node_id:
                 return node
@@ -2059,7 +2062,6 @@ class Lab:
         :returns: The annotation with the specified ID.
         :raises AnnotationNotFound: If the annotation cannot be found in the topology.
         """
-
         for annotation in topology["annotations"]:
             if annotation["id"] == annotation_id:
                 return annotation
@@ -2079,7 +2081,6 @@ class Lab:
         :returns: The annotation with the specified ID.
         :raises AnnotationNotFound: If the annotation cannot be found in the topology.
         """
-
         for annotation in topology["smart_annotations"]:
             if annotation["id"] == annotation_id:
                 return annotation

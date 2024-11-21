@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import httpx
 
 
 class VirlException(Exception):
@@ -36,6 +37,10 @@ class ElementNotFound(VirlException, KeyError):
 
 
 class AnnotationNotFound(ElementNotFound):
+    pass
+
+
+class SmartAnnotationNotFound(ElementNotFound):
     pass
 
 
@@ -91,9 +96,9 @@ class PyatsDeviceNotFound(PyatsException):
     pass
 
 
-class InvalidMacAddressBlock(VirlException):
-    message = "MAC address block has to be in range 0-7"
-
-
 class ControllerNotFound(VirlException):
     message = "Controller not found"
+
+
+class APIError(VirlException, httpx.HTTPStatusError):
+    pass

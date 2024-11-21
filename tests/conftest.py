@@ -24,6 +24,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
+from virl2_client.models import authentication
 from virl2_client.virl2_client import ClientLibrary
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
@@ -49,11 +50,6 @@ def client_library_server_2_0_0():
 
 
 @pytest.fixture
-def client_library_server_1_0_0():
-    yield from client_library_patched_system_info(version="1.0.0")
-
-
-@pytest.fixture
 def client_library_server_2_9_0():
     yield from client_library_patched_system_info(version="2.9.0")
 
@@ -65,7 +61,7 @@ def client_library_server_2_19_0():
 
 @pytest.fixture
 def mocked_session():
-    with patch.object(httpx, "Client", autospec=True) as session:
+    with patch.object(authentication, "CustomClient", autospec=True) as session:
         yield session
 
 
@@ -97,13 +93,14 @@ def respx_mock_with_labs(respx_mock):
     some runtime data, like node states and simulation_statistics.
     """
     respx_mock.get(FAKE_HOST_API + "system_information").respond(
-        json={"version": CURRENT_VERSION, "ready": True},
+        json={"version": CURRENT_VERSION, "ready": True, "oui": "52:54:00:00:00:00"},
     )
     respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
     respx_mock.get(FAKE_HOST_API + "authok")
     respx_mock.get(
         FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/resource_pools"
     ).respond(json=[])
+    respx_mock.get(FAKE_HOST_API + "users").respond(json=[])
     respx_mock.get(FAKE_HOST_API + "resource_pools?data=true").respond(json=[])
     nodes = [
         "99cda47a-ecb2-4d31-86c4-74e7a8201958",

@@ -22,6 +22,7 @@ labs, nodes, interfaces and links. It also contains classes for
 node and image definition and helper classes for automation
 and authentication."""
 
+from .annotation import Annotation
 from .auth_management import AuthManagement
 from .authentication import TokenAuth
 from .groups import GroupManagement
@@ -32,6 +33,7 @@ from .link import Link
 from .node import Node
 from .node_image_definitions import NodeImageDefinitions
 from .resource_pools import ResourcePoolManagement
+from .smart_annotation import SmartAnnotation
 from .system import SystemManagement
 from .users import UserManagement
 
@@ -48,4 +50,6 @@ __all__ = (
     "TokenAuth",
     "ResourcePoolManagement",
     "AuthManagement",
+    "Annotation",
+    "SmartAnnotation",
 )

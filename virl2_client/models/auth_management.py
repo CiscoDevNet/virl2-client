@@ -35,6 +35,8 @@ class AuthManagement:
     _URL_TEMPLATES = {
         "config": "system/auth/config",
         "test": "system/auth/test",
+        "groups": "system/auth/groups",
+        "refresh": "system/auth/refresh",
     }
 
     def __init__(self, session: Client, auto_sync=True, auto_sync_interval=1.0):
@@ -89,6 +91,11 @@ class AuthManagement:
         self.sync_if_outdated()
         return self._settings["method"]
 
+    @method.setter
+    def method(self, value):
+        """Set the authentication method."""
+        self.update_settings({"method": value})
+
     @property
     def manager(self) -> AuthMethodManager:
         """Return the property manager for the current authentication method."""
@@ -132,7 +139,7 @@ class AuthManagement:
         """
         url = self._url_for("config")
         settings = {setting: value, "method": self._settings["method"]}
-        self._session.put(url, json=settings)
+        self._session.patch(url, json=settings)
         if setting in self._settings:
             self._settings[setting] = value
 
@@ -164,45 +171,87 @@ class AuthManagement:
         if not settings:
             raise TypeError("No settings to update.")
         url = self._url_for("config")
-        self._session.put(url, json=settings)
+        self._session.patch(url, json=settings)
         self.sync()
 
-    def test_auth(self, config: dict, username: str, password: str) -> dict:
+    def get_ldap_groups(self, search_filter=None):
         """
-        Test a set of credentials against the specified authentication configuration.
+        Get CNs of groups available on the LDAP server, optionally filtered
+        by supplied filter.
+
+        :param search_filter: An optional filter applied to the search.
+        :returns: A list of CNs of found groups.
+        """
+        params = {"filter": search_filter} if search_filter else None
+        url = self._url_for("groups")
+        response = self._session.get(url, params=params)
+        return response.json()
+
+    def refresh_ldap_groups(self):
+        """
+        Refresh the members of LDAP groups. Removes any users from the group that are
+        not LDAP users or not a part of said group on LDAP, and adds any users that
+        are LDAP users and are a part of said group on LDAP.
+        """
+        url = self._url_for("refresh")
+        self._session.put(url)
+
+    @staticmethod
+    def _get_auth(
+        username: str | None = None,
+        password: str | None = None,
+        group_name: str | None = None,
+    ) -> dict:
+        result = {}
+        if username is not None and password is not None:
+            result["auth-data"] = {"username": username, "password": password}
+        if group_name is not None:
+            result["group-data"] = {"group_name": group_name}
+        return result
+
+    def test_auth(
+        self,
+        config: dict,
+        username: str | None = None,
+        password: str | None = None,
+        group_name: str | None = None,
+    ) -> dict:
+        """
+        Test a set of credentials and/or group against the specified authentication
+        configuration.
 
         :param config: A dictionary of authentication settings to test against
             (including manager password).
         :param username: The username to test.
         :param password: The password to test.
+        :param group_name: The group name to test.
         :returns: Results of the test.
         """
-        body = {
-            "auth-config": config,
-            "auth-data": {"username": username, "password": password},
-        }
+        body = {"auth-config": config} | self._get_auth(username, password, group_name)
         url = self._url_for("test")
         response = self._session.post(url, json=body)
         return response.json()
 
     def test_current_auth(
-        self, manager_password: str, username: str, password: str
+        self,
+        manager_password: str,
+        username: str | None = None,
+        password: str | None = None,
+        group_name: str | None = None,
     ) -> dict:
         """
-        Test a set of credentials against the currently applied authentication
-        configuration.
+        Test a set of credentials and/or group against the currently applied
+        authentication configuration.
 
         :param manager_password: The manager password to allow testing.
         :param username: The username to test.
         :param password: The password to test.
+        :param group_name: The group name to test.
         :returns: Results of the test.
         """
         current = self.get_settings()
         current["manager_password"] = manager_password
-        body = {
-            "auth-config": current,
-            "auth-data": {"username": username, "password": password},
-        }
+        body = {"auth-config": current} | self._get_auth(username, password, group_name)
         url = self._url_for("test")
         response = self._session.post(url, json=body)
         return response.json()
@@ -425,6 +474,16 @@ class LDAPManager(AuthMethodManager):
     def display_attribute(self, value: str) -> None:
         """Set the display name LDAP attribute."""
         self._update_setting("display_attribute", value)
+
+    @property
+    def group_display_attribute(self) -> str:
+        """Return the group display name LDAP attribute."""
+        return self._get_setting("group_display_attribute")
+
+    @group_display_attribute.setter
+    def group_display_attribute(self, value: str) -> None:
+        """Set the group display name LDAP attribute."""
+        self._update_setting("group_display_attribute", value)
 
     @property
     def email_address_attribute(self) -> str:

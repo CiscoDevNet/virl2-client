@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable
 
 from ..exceptions import InvalidProperty
-from ..utils import get_url_from_template
+from ..utils import _deprecated_argument, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -93,7 +93,7 @@ class ResourcePoolManagement:
             pool_id = res_pool.pop("id")
             res_pool["pool_id"] = pool_id
             if pool_id in self._resource_pools:
-                self._resource_pools[pool_id].update(res_pool, push_to_server=False)
+                self._resource_pools[pool_id]._update(res_pool, push_to_server=False)
             else:
                 self._add_resource_pool_local(**res_pool)
             res_pool_ids.append(pool_id)
@@ -417,13 +417,23 @@ class ResourcePool:
         url = self._url_for("resource_pool")
         self._session.delete(url)
 
-    def update(self, pool_data: dict[str, Any], push_to_server: bool = True):
+    def update(self, pool_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update multiple properties of the pool at once.
+
+        :param pool_data: A dictionary of the properties to update.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(pool_data, push_to_server=True)
+
+    def _update(self, pool_data: dict[str, Any], push_to_server: bool = True) -> None:
         """
         Update multiple properties of the pool at once.
 
         :param pool_data: A dictionary of the properties to update.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_resource_pool_properties(pool_data)
@@ -438,12 +448,14 @@ class ResourcePool:
 
     def _set_resource_pool_properties(self, resource_pool_data: dict[str, Any]) -> None:
         """Helper method to set multiple properties on the server."""
-        for key in list(resource_pool_data):
-            # drop unmodifiable properties
-            if key in ("id", "template", "users", "user_pools"):
-                resource_pool_data.pop(key)
+        # drop unmodifiable properties
+        resource_pool_data_post = {
+            key: resource_pool_data[key]
+            for key in resource_pool_data
+            if key not in ("id", "template", "users", "user_pools")
+        }
         url = self._url_for("resource_pool")
-        self._session.patch(url, json=resource_pool_data)
+        self._session.patch(url, json=resource_pool_data_post)
 
 
 ResourcePools = Dict[str, ResourcePool]

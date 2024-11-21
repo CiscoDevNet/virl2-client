@@ -105,18 +105,20 @@ class UserManagement:
         :param tour_version: The version of the Workbench tour the user has completed.
         :returns: User object.
         """
-        data = {
-            "username": username,
-            "password": pwd,
+        data = {"username": username, "password": pwd}
+        optional_data = {
             "fullname": fullname,
             "description": description,
             "email": email,
             "admin": admin,
-            "groups": groups or [],
+            "groups": groups,
             "resource_pool": resource_pool,
             "opt_in": opt_in,
             "tour_version": tour_version,
         }
+        for key, value in optional_data.items():
+            if value:
+                data[key] = value
         url = self._url_for("users")
         return self._session.post(url, json=data).json()
 

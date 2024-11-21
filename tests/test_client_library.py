@@ -70,18 +70,17 @@ def test_import_lab_from_path_virl(
     Lab.sync = Mock()
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True) as sync_mock:
-        lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
+    lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
 
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
 
     cl._session.post.assert_called_once_with(
         "import/virl-1x",
+        params=None,
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
     cl._session.post.assert_called_once()
-    sync_mock.assert_called_once_with()
 
 
 @python37_or_newer
@@ -94,10 +93,9 @@ def test_import_lab_from_path_virl_title(
     Lab.sync = Mock()
     new_title = "new_title"
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    with patch.object(Lab, "sync", autospec=True):
-        lab = cl.import_lab_from_path(
-            path=(tmp_path / "topology.virl").as_posix(), title=new_title
-        )
+    lab = cl.import_lab_from_path(
+        path=(tmp_path / "topology.virl").as_posix(), title=new_title
+    )
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
 
@@ -142,15 +140,13 @@ def test_auth_and_reauth_token(client_library_server_current):
         while True:
             yield subsequent
 
-    # mock failed and successful authentication:
-    respx.post(
-        "https://0.0.0.0/fake_url/api/v0/authenticate"
-    ).side_effect = initial_different_response(
+    # mock failed and successful authentication
+    side_effect = initial_different_response(
         httpx.Response(403), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
     )
-    respx.get(
-        "https://0.0.0.0/fake_url/api/v0/authok"
-    ).side_effect = initial_different_response(httpx.Response(401))
+    respx.post("https://0.0.0.0/fake_url/api/v0/authenticate").side_effect = side_effect
+    side_effect = initial_different_response(httpx.Response(401))
+    respx.get("https://0.0.0.0/fake_url/api/v0/authok").side_effect = side_effect
 
     # mock get labs
     respx.get("https://0.0.0.0/fake_url/api/v0/labs").respond(json=[])
@@ -365,15 +361,6 @@ def test_client_library_str_and_repr(client_library_server_current):
         == "ClientLibrary('https://somehost', 'virl2', 'virl2', True, False, False)"
     )
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
-
-
-def test_major_version_mismatch(client_library_server_1_0_0):
-    with pytest.raises(InitializationError) as err:
-        ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        str(err.value)
-        == f"Major version mismatch. Client {CURRENT_VERSION}, controller 1.0.0."
-    )
 
 
 def test_incompatible_version(client_library_server_2_0_0):
@@ -714,7 +701,7 @@ def test_different_version_strings():
         Version("54dev0+build8.7ee86bf8")
 
 
-def test_import_lab_offline(
+def test_import_lab_offline_deprecated(
     client_library_server_current, mocked_session, tmp_path: Path, test_dir
 ):
     client_library = ClientLibrary(

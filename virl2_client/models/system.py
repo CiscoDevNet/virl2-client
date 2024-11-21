@@ -24,9 +24,9 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from virl2_client.exceptions import ControllerNotFound, InvalidMacAddressBlock
+from virl2_client.exceptions import ControllerNotFound
 
-from ..utils import get_url_from_template
+from ..utils import _deprecated_argument, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -42,7 +42,6 @@ class SystemManagement:
         "external_connectors": "system/external_connectors",
         "external_connector": "system/external_connectors/{connector_id}",
         "web_session_timeout": "web_session_timeout/{timeout}",
-        "mac_address_block": "mac_address_block/{block}",
         "host_configuration": "system/compute_hosts/configuration",
     }
 
@@ -136,7 +135,7 @@ class SystemManagement:
         else:
             notice = self._system_notices.get(resolved["id"])
         if notice is not None and resolved is not None:
-            notice.update(resolved, push_to_server=False)
+            notice._update(resolved, push_to_server=False)
         self._maintenance_notice = notice
 
     def sync_compute_hosts_if_outdated(self) -> None:
@@ -167,7 +166,7 @@ class SystemManagement:
             compute_id = compute_host.pop("id")
             compute_host["compute_id"] = compute_id
             if compute_id in self._compute_hosts:
-                self._compute_hosts[compute_id].update(
+                self._compute_hosts[compute_id]._update(
                     compute_host, push_to_server=False
                 )
             else:
@@ -188,7 +187,7 @@ class SystemManagement:
         for system_notice in system_notices:
             notice_id = system_notice.get("id")
             if notice_id in self._system_notices:
-                self._system_notices[notice_id].update(
+                self._system_notices[notice_id]._update(
                     system_notice, push_to_server=False
                 )
             else:
@@ -246,7 +245,7 @@ class SystemManagement:
         :param connector_id: The ID of the connector to delete.
         """
         url = self._url_for("external_connector", connector_id=connector_id)
-        return self._session.delete(url)
+        self._session.delete(url)
 
     def get_web_session_timeout(self) -> int:
         """
@@ -265,32 +264,6 @@ class SystemManagement:
         :returns: 'OK'
         """
         url = self._url_for("web_session_timeout", timeout=timeout)
-        return self._session.patch(url).json()
-
-    def get_mac_address_block(self) -> int:
-        """
-        Get the MAC address block.
-
-        :returns: The MAC address block.
-        """
-        url = self._url_for("mac_address_block", block="")
-        return self._session.get(url).json()
-
-    def set_mac_address_block(self, block: int) -> str:
-        """
-        Set the MAC address block.
-
-        :param block: The MAC address block.
-        :returns: 'OK'
-        :raises InvalidMacAddressBlock: If the MAC address block is not in 0-7 range.
-        """
-        if block < 0 or block > 7:
-            raise InvalidMacAddressBlock
-        return self._set_mac_address_block(block=block)
-
-    def _set_mac_address_block(self, block: int) -> str:
-        """Helper method to set the MAC address block."""
-        url = self._url_for("mac_address_block", block=block)
         return self._session.patch(url).json()
 
     def get_new_compute_host_state(self) -> str:
@@ -512,13 +485,23 @@ class ComputeHost:
         url = self._url_for("compute_host")
         self._session.delete(url)
 
-    def update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
+    def update(self, host_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update the compute host with the given data.
+
+        :param host_data: The data to update the compute host.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(host_data, push_to_server=True)
+
+    def _update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
         """
         Update the compute host with the given data.
 
         :param host_data: The data to update the compute host.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_compute_host_properties(host_data)
@@ -545,7 +528,7 @@ class ComputeHost:
         """
         url = self._url_for("compute_host")
         new_data = self._session.patch(url, json=host_data).json()
-        self.update(new_data, push_to_server=False)
+        self._update(new_data, push_to_server=False)
 
 
 class SystemNotice:
@@ -642,13 +625,23 @@ class SystemNotice:
         url = self._url_for("notice")
         self._session.delete(url)
 
-    def update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:
+    def update(self, notice_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update the system notice with the given data.
+
+        :param notice_data: The data to update the system notice with.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(notice_data, push_to_server=True)
+
+    def _update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:
         """
         Update the system notice with the given data.
 
         :param notice_data: The data to update the system notice with.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_notice_properties(notice_data)
@@ -675,4 +668,4 @@ class SystemNotice:
         """
         url = self._url_for("notice")
         new_data = self._session.patch(url, json=notice_data).json()
-        self.update(new_data, push_to_server=False)
+        self._update(new_data, push_to_server=False)

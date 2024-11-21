@@ -22,9 +22,9 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from ..utils import check_stale, get_url_from_template
+from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -51,6 +51,7 @@ class Interface:
         label: str,
         slot: int | None,
         iface_type: str = "physical",
+        mac_address: str | None = None,
     ) -> None:
         """
         A CML 2 network interface, part of a node.
@@ -60,14 +61,16 @@ class Interface:
         :param label: The label of the interface.
         :param slot: The slot of the interface.
         :param iface_type: The type of the interface.
+        :param mac_address: The MAC address of the interface.
         """
         self._id = iid
         self._node = node
         self._type = iface_type
         self._label = label
         self._slot = slot
+        self._mac_address = mac_address
         self._state: str | None = None
-        self._session: httpx.Client = node.lab._session
+        self._session: httpx.Client = node._lab._session
         self._stale = False
         self.statistics = {
             "readbytes": 0,
@@ -80,6 +83,7 @@ class Interface:
             "ipv4": None,
             "ipv6": None,
         }
+        self._deployed_mac_address = None
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -110,7 +114,7 @@ class Interface:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self.node.lab._url_for("lab")
+        kwargs["lab"] = self.node._lab._url_for("lab")
         kwargs["id"] = self.id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
@@ -145,6 +149,20 @@ class Interface:
         return self.type == "physical"
 
     @property
+    def mac_address(self) -> str | None:
+        """Return the MAC address set to the interface.
+        This is the address that will be used when the device is started."""
+        self.node._lab.sync_topology_if_outdated()
+        return self._mac_address
+
+    @mac_address.setter
+    @locked
+    def mac_address(self, value: str | None) -> None:
+        """Set the MAC address of the node to the given value."""
+        self._set_interface_property("mac_address", value)
+        self._mac_address = value
+
+    @property
     def connected(self) -> bool:
         """Check if the interface is connected to a link."""
         return self.link is not None
@@ -152,7 +170,7 @@ class Interface:
     @property
     def state(self) -> str | None:
         """Return the state of the interface."""
-        self.node.lab.sync_states_if_outdated()
+        self.node._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("state")
             self._state = self._session.get(url).json()["state"]
@@ -161,8 +179,8 @@ class Interface:
     @property
     def link(self) -> Link | None:
         """Get the link if the interface is connected, otherwise None."""
-        self.node.lab.sync_topology_if_outdated()
-        for link in self.node.lab.links():
+        self.node._lab.sync_topology_if_outdated()
+        for link in self.node._lab.links():
             if self in link.interfaces:
                 return link
         return None
@@ -187,25 +205,25 @@ class Interface:
     @property
     def readbytes(self) -> int:
         """Return the number of bytes read by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["readbytes"])
 
     @property
     def readpackets(self) -> int:
         """Return the number of packets read by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["readpackets"])
 
     @property
     def writebytes(self) -> int:
         """Return the number of bytes written by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["writebytes"])
 
     @property
     def writepackets(self) -> int:
         """Return the number of packets written by the interface."""
-        self.node.lab.sync_statistics_if_outdated()
+        self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["writepackets"])
 
     @property
@@ -236,6 +254,12 @@ class Interface:
         return self._ip_snooped_info["ipv6"]
 
     @property
+    def deployed_mac_address(self) -> str | None:
+        """Return the deployed MAC address of the interface."""
+        self.node.sync_interface_operational()
+        return self._deployed_mac_address
+
+    @property
     def is_physical(self) -> bool:
         """
         DEPRECATED: Use `.physical` instead.
@@ -255,7 +279,7 @@ class Interface:
             "id": self.id,
             "node": self.node.id,
             "data": {
-                "lab_id": self.node.lab.id,
+                "lab_id": self.node._lab.id,
                 "label": self.label,
                 "slot": self.slot,
                 "type": self.type,
@@ -279,7 +303,7 @@ class Interface:
 
     def remove(self) -> None:
         """Remove the interface from the node."""
-        self.node.lab.remove_interface(self)
+        self.node._lab.remove_interface(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
@@ -385,3 +409,43 @@ class Interface:
             DeprecationWarning,
         )
         return self.connected
+
+    @check_stale
+    @locked
+    def _update(
+        self,
+        interface_data: dict[str, Any],
+        push_to_server: bool = True,
+    ) -> None:
+        """
+        Update the interface_data with the provided data.
+
+        :param interface_data: The data to update the interface with.
+        :param push_to_server: Whether to push the changes to the server.
+        """
+        if push_to_server:
+            self._set_interface_properties(interface_data)
+        if "data" in interface_data:
+            interface_data = interface_data["data"]
+        for key, value in interface_data.items():
+            setattr(self, f"_{key}", value)
+
+    def _set_interface_property(self, key: str, val: Any) -> None:
+        """
+        Set a property of the interface.
+
+        :param key: The key of the property to set.
+        :param val: The value to set.
+        """
+        _LOGGER.debug(f"Setting node property {self} {key}: {val}")
+        self._set_interface_properties({key: val})
+
+    @check_stale
+    def _set_interface_properties(self, interface_data: dict[str, Any]) -> None:
+        """
+        Set multiple properties of the interface.
+
+        :param node_data: A dictionary containing the properties to set.
+        """
+        url = self._url_for("interface")
+        self._session.patch(url, json=interface_data)

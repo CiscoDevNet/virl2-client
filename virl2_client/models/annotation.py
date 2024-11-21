@@ -24,7 +24,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Literal
 
 from ..exceptions import InvalidProperty
-from ..utils import check_stale, get_url_from_template, locked
+from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -43,11 +43,20 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+GREY = "#808080FF"
+WHITE = "#FFFFFFFF"
+TRANSPARENT = "#00000000"
 # map properties to the annotation types by using binary flags array
 # ---X: rectangle
 # --X-: ellipse
 # -X--: line
 # X---: text
+ANNOTATION_MAP = {
+    "text": 0b1000,
+    "line": 0b0100,
+    "ellipse": 0b0010,
+    "rectangle": 0b0001,
+}
 ANNOTATION_PROPERTY_MAP = {
     "border_color": 0b1111,
     "border_radius": 0b0001,
@@ -55,7 +64,7 @@ ANNOTATION_PROPERTY_MAP = {
     "color": 0b1111,
     "line_end": 0b0100,
     "line_start": 0b0100,
-    "rotation": 0b1000,
+    "rotation": 0b1011,
     "text_bold": 0b1000,
     "text_content": 0b1000,
     "text_font": 0b1000,
@@ -73,18 +82,18 @@ ANNOTATION_PROPERTY_MAP = {
 
 ANNOTATION_PROPERTIES_DEFAULTS = {
     "border_color": {
-        "rectangle": "#808080FF",
-        "ellipse": "#808080FF",
-        "line": "#808080FF",
-        "text": "#00000000",
+        "rectangle": GREY,
+        "ellipse": GREY,
+        "line": GREY,
+        "text": TRANSPARENT,
     },
     "border_radius": 0,
     "border_style": "",
     "color": {
-        "rectangle": "#FFFFFFFF",
-        "ellipse": "#FFFFFFFF",
-        "line": "#FFFFFFFF",
-        "text": "#808080FF",
+        "rectangle": WHITE,
+        "ellipse": WHITE,
+        "line": WHITE,
+        "text": GREY,
     },
     "line_end": None,
     "line_start": None,
@@ -128,7 +137,7 @@ class Annotation:
         self._id = annotation_id
         self._lab = lab
         self._session: httpx.Client = lab._session
-        # When the annotationis removed on the server, this annotation object is marked
+        # When the annotation is removed on the server, this annotation object is marked
         # stale and can no longer be interacted with - the user should discard it
         self._stale = False
 
@@ -164,6 +173,18 @@ class Annotation:
     def __hash__(self):
         return hash(self._id)
 
+    def _url_for(self, endpoint: str, **kwargs) -> str:
+        """
+        Generate the URL for a given API endpoint.
+
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
+        """
+        kwargs["lab_id"] = self._lab._id
+        kwargs["annotation_id"] = self._id
+        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
     @property
     def id(self) -> str:
         """Return ID of the annotation."""
@@ -184,6 +205,7 @@ class Annotation:
 
     @property
     def border_style(self) -> str:
+        """Border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed)."""
         self._lab.sync_topology_if_outdated()
         return self._border_style
 
@@ -266,18 +288,6 @@ class Annotation:
         self._set_annotation_property("z_index", value)
         self._z_index = value
 
-    def _url_for(self, endpoint: str, **kwargs) -> str:
-        """
-        Generate the URL for a given API endpoint.
-
-        :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
-        :returns: The formatted URL.
-        """
-        kwargs["lab_id"] = self._lab._id
-        kwargs["annotation_id"] = self._id
-        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
-
     @classmethod
     def get_default_property_values(cls, annotation_type: str) -> dict[str, Any]:
         """
@@ -285,16 +295,10 @@ class Annotation:
         annotation type.
         """
         default_values = {}
-        annotation_map = {
-            "text": 0b1000,
-            "line": 0b0100,
-            "ellipse": 0b0010,
-            "rectangle": 0b0001,
-        }
         for ppty in ANNOTATION_PROPERTY_MAP:
             if ppty == "type":
                 continue
-            if not annotation_map[annotation_type] & ANNOTATION_PROPERTY_MAP[ppty]:
+            if not ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[ppty]:
                 continue
             ppty_default = ANNOTATION_PROPERTIES_DEFAULTS[ppty]
             if isinstance(ppty_default, dict):
@@ -315,13 +319,7 @@ class Annotation:
             assert _property in ANNOTATION_PROPERTY_MAP
         except AssertionError:
             return False
-        annotation_map = {
-            "text": 0b1000,
-            "line": 0b0100,
-            "ellipse": 0b0010,
-            "rectangle": 0b0001,
-        }
-        return annotation_map[annotation_type] & ANNOTATION_PROPERTY_MAP[_property] > 0
+        return ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[_property] > 0
 
     @locked
     def as_dict(self) -> dict[str, Any]:
@@ -350,26 +348,33 @@ class Annotation:
         url = self._url_for("annotation")
         self._session.delete(url)
 
+    def update(self, annotation_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update annotation properties.
+
+        :param annotation_data: JSON dict with new annotation property:value pairs.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(annotation_data, push_to_server=True)
+
     @check_stale
     @locked
-    def update(
-        self, annotation_data: dict[str, Any], push_to_server: bool = True
-    ) -> None:
+    def _update(self, annotation_data: dict[str, Any], push_to_server: bool) -> None:
         """
         Update annotation properties.
 
         :param annotation_data: JSON dict with new annotation property:value pairs.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
-        if "type" not in annotation_data:
-            annotation_data["type"] = self._type
-        elif annotation_data["type"] != self._type:
-            raise ValueError("Can't update annotation type.")
+        if annotation_data.get("type") not in (None, self._type):
+            raise ValueError("Can't change annotation type.")
 
         # make sure all properties we want to update are valid
-        for key, value in annotation_data.items():
-            if key not in dir(self):
+        existing_keys = dir(self)
+        for key in annotation_data:
+            if key not in existing_keys:
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:
@@ -394,9 +399,9 @@ class Annotation:
     @check_stale
     def _set_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
         """Update annotation properties server-side."""
-        if "type" not in annotation_data:
-            annotation_data["type"] = self._type
-        self._session.patch(url=self._url_for("annotation"), json=annotation_data)
+        self._session.patch(
+            url=self._url_for("annotation"), json=annotation_data | {"type": self._type}
+        )
 
 
 # ~~~~~< Annotation subclasses >~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -416,13 +421,14 @@ class AnnotationRectangle(Annotation):
         super().__init__(lab, annotation_id, "rectangle")
 
         # default values
-        self._border_color = "#808080FF"
+        self._border_color = GREY
         self._border_radius = 0
-        self._color = "#FFFFFFFF"
+        self._color = WHITE
         self._x2 = 100
         self._y2 = 100
+        self._rotation = 0
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def border_radius(self) -> int:
@@ -463,6 +469,19 @@ class AnnotationRectangle(Annotation):
         self._set_annotation_property("y2", value)
         self._y2 = value
 
+    @property
+    def rotation(self) -> int:
+        """Rotation of an object, in degrees."""
+        self._lab.sync_topology_if_outdated()
+        return self._rotation
+
+    @rotation.setter
+    @locked
+    def rotation(self, value: int) -> None:
+        """Set rotation of an object, in degrees."""
+        self._set_annotation_property("rotation", value)
+        self._rotation = value
+
 
 class AnnotationEllipse(Annotation):
     """
@@ -478,12 +497,13 @@ class AnnotationEllipse(Annotation):
         super().__init__(lab, annotation_id, "ellipse")
 
         # default values
-        self._border_color = "#808080FF"
-        self._color = "#FFFFFFFF"
+        self._border_color = GREY
+        self._color = WHITE
         self._x2 = 100
         self._y2 = 100
+        self._rotation = 0
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def x2(self) -> int:
@@ -511,6 +531,19 @@ class AnnotationEllipse(Annotation):
         self._set_annotation_property("y2", value)
         self._y2 = value
 
+    @property
+    def rotation(self) -> int:
+        """Rotation of an object, in degrees."""
+        self._lab.sync_topology_if_outdated()
+        return self._rotation
+
+    @rotation.setter
+    @locked
+    def rotation(self, value: int) -> None:
+        """Set rotation of an object, in degrees."""
+        self._set_annotation_property("rotation", value)
+        self._rotation = value
+
 
 class AnnotationLine(Annotation):
     """
@@ -526,14 +559,14 @@ class AnnotationLine(Annotation):
         super().__init__(lab, annotation_id, "line")
 
         # default values
-        self._border_color = "#808080FF"
-        self._color = "#FFFFFFFF"
+        self._border_color = GREY
+        self._color = WHITE
         self._x2 = 100
         self._y2 = 100
         self._line_start = None
         self._line_end = None
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def x2(self) -> int:
@@ -602,8 +635,8 @@ class AnnotationText(Annotation):
         super().__init__(lab, annotation_id, "text")
 
         # default values
-        self._border_color = "#00000000"
-        self._color = "#808080FF"
+        self._border_color = TRANSPARENT
+        self._color = GREY
         self._x2 = 100
         self._y2 = 100
         self._rotation = 0
@@ -614,7 +647,7 @@ class AnnotationText(Annotation):
         self._text_size = 12
         self._text_unit = "pt"
         if annotation_data:
-            self.update(annotation_data, push_to_server=False)
+            self._update(annotation_data, push_to_server=False)
 
     @property
     def rotation(self) -> int:

@@ -70,7 +70,7 @@ class Link:
         self._interface_a = iface_a
         self._interface_b = iface_b
         self._label = label
-        self.lab = lab
+        self._lab = lab
         self._session: httpx.Client = lab._session
         self._state: str | None = None
         # When the link is removed on the server, this link object is marked stale
@@ -89,7 +89,7 @@ class Link:
     def __repr__(self):
         return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
             self.__class__.__name__,
-            str(self.lab),
+            str(self._lab),
             self._id,
             self._interface_a,
             self._interface_b,
@@ -112,9 +112,14 @@ class Link:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self.lab._url_for("lab")
+        kwargs["lab"] = self._lab._url_for("lab")
         kwargs["id"] = self.id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
+    @property
+    def lab(self) -> Lab:
+        """Return the lab of the link."""
+        return self._lab
 
     @property
     def id(self) -> str:
@@ -135,7 +140,7 @@ class Link:
     @locked
     def state(self) -> str | None:
         """Return the current state of the link."""
-        self.lab.sync_states_if_outdated()
+        self._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("link")
             self._state = self._session.get(url).json()["state"]
@@ -144,25 +149,25 @@ class Link:
     @property
     def readbytes(self) -> int:
         """Return the number of read bytes on the link."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return self.statistics["readbytes"]
 
     @property
     def readpackets(self) -> int:
         """Return the number of read packets on the link."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return self.statistics["readpackets"]
 
     @property
     def writebytes(self) -> int:
         """Return the number of written bytes on the link."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return self.statistics["writebytes"]
 
     @property
     def writepackets(self) -> int:
         """Return the number of written packets on the link."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return self.statistics["writepackets"]
 
     @property
@@ -207,7 +212,7 @@ class Link:
 
     def remove(self):
         """Remove the link from the lab."""
-        self.lab.remove_link(self)
+        self._lab.remove_link(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
@@ -241,9 +246,9 @@ class Link:
         """
         _LOGGER.info(f"Waiting for link {self.id} to converge")
         max_iter = (
-            self.lab.wait_max_iterations if max_iterations is None else max_iterations
+            self._lab.wait_max_iterations if max_iterations is None else max_iterations
         )
-        wait_time = self.lab.wait_time if wait_time is None else wait_time
+        wait_time = self._lab.wait_time if wait_time is None else wait_time
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
@@ -283,7 +288,7 @@ class Link:
         """
         url = self._url_for("start")
         self._session.put(url)
-        if self.lab.need_to_wait(wait):
+        if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 
     @check_stale
@@ -295,7 +300,7 @@ class Link:
         """
         url = self._url_for("stop")
         self._session.put(url)
-        if self.lab.need_to_wait(wait):
+        if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 
     @check_stale

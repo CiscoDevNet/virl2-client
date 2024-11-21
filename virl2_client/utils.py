@@ -20,9 +20,10 @@
 
 from __future__ import annotations
 
+import warnings
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, Union, cast
 
 import httpx
 
@@ -33,6 +34,7 @@ from .exceptions import (
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
+    SmartAnnotationNotFound,
     VirlException,
 )
 
@@ -75,6 +77,7 @@ def _make_not_found(instance: Element) -> ElementNotFound:
         "Interface": InterfaceNotFound,
         "Link": LinkNotFound,
         "Annotation": AnnotationNotFound,
+        "SmartAnnotation": SmartAnnotationNotFound,
     }[class_name]
     return error(error_text)
 
@@ -143,7 +146,7 @@ class property_s(property):
 def locked(func: TCallable) -> TCallable:
     """
     A decorator that makes a method threadsafe.
-    Parent class instance must have a `session.lock` property for locking to occur.
+    Parent class instance must have a `_session.lock` property for locking to occur.
     """
 
     @wraps(func)
@@ -178,3 +181,19 @@ def get_url_from_template(
         values = {}
     values["CONFIG_MODE"] = _CONFIG_MODE
     return endpoint_url_template.format(**values)
+
+
+_DEPRECATION_MESSAGES = {
+    "push_to_server": "meant to be used only by internal methods",
+    "offline": "offline mode has been removed",
+}
+
+
+def _deprecated_argument(func, argument: Any, argument_name: str):
+    if argument is not None:
+        reason = _DEPRECATION_MESSAGES[argument_name]
+        warnings.warn(
+            f"{type(func.__self__).__name__}.{func.__name__}: "
+            f"The argument '{argument_name}' is deprecated. Reason: {reason}",
+            DeprecationWarning,
+        )

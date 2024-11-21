@@ -21,6 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../virl2_client"))
 
+VIRL2_DOC = "virl2_client Documentation"
 
 # -- Project information -----------------------------------------------------
 
@@ -139,7 +140,7 @@ latex_documents = [
     (
         master_doc,
         "virl2_client.tex",
-        "virl2_client Documentation",
+        VIRL2_DOC,
         "VIRL2 team <virl@cisco.com>",
         "manual",
     ),
@@ -150,7 +151,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "virl2_client", "virl2_client Documentation", [author], 1)]
+man_pages = [(master_doc, "virl2_client", VIRL2_DOC, [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -162,7 +163,7 @@ texinfo_documents = [
     (
         master_doc,
         "virl2_client",
-        "virl2_client Documentation",
+        VIRL2_DOC,
         author,
         "virl2_client",
         "One line description of project.",

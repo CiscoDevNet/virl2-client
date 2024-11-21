@@ -27,8 +27,8 @@ import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
-from ..exceptions import InterfaceNotFound
-from ..utils import check_stale, get_url_from_template, locked
+from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
+from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .interface import Interface
     from .lab import Lab
     from .link import Link
+    from .smart_annotation import SmartAnnotation
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class Node:
         "vnc_key": "{lab}/nodes/{id}/keys/vnc",
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
         "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
+        "inteface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
     }
 
     def __init__(
@@ -105,7 +107,7 @@ class Node:
         :param pinned_compute_id: The ID of the compute this node is pinned to.
             The node will not run on any other compute.
         """
-        self.lab = lab
+        self._lab = lab
         self._id = nid
         self._label = label
         self._node_definition = node_definition
@@ -130,6 +132,7 @@ class Node:
         self._pinned_compute_id = pinned_compute_id
         self._stale = False
         self._last_sync_l3_address_time = 0.0
+        self._last_sync_interface_operational_time = 0.0
         self._parameters = parameters
 
         self.statistics: dict[str, int | float] = {
@@ -146,7 +149,7 @@ class Node:
             "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
             "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
                 self.__class__.__name__,
-                str(self.lab),
+                str(self._lab),
                 self._id,
                 self._label,
                 self._node_definition,
@@ -180,26 +183,42 @@ class Node:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self.lab._url_for("lab")
+        kwargs["lab"] = self._lab._url_for("lab")
         kwargs["id"] = self.id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
+    @property
+    def lab(self) -> Lab:
+        """Return the lab of the node."""
+        return self._lab
 
     @check_stale
     @locked
     def sync_l3_addresses_if_outdated(self) -> None:
         timestamp = time.time()
         if (
-            self.lab.auto_sync
+            self._lab.auto_sync
             and timestamp - self._last_sync_l3_address_time
-            > self.lab.auto_sync_interval
+            > self._lab.auto_sync_interval
         ):
             self.sync_layer3_addresses()
+
+    @check_stale
+    @locked
+    def sync_interface_operational_if_outdated(self) -> None:
+        timestamp = time.time()
+        if (
+            self._lab.auto_sync
+            and timestamp - self._last_sync_interface_operational_time
+            > self._lab.auto_sync_interval
+        ):
+            self.sync_interface_operational()
 
     @property
     @locked
     def state(self) -> str | None:
         """Return the state of the node."""
-        self.lab.sync_states_if_outdated()
+        self._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("state")
             self._state = self._session.get(url).json()["state"]
@@ -209,13 +228,13 @@ class Node:
     @locked
     def interfaces(self) -> list[Interface]:
         """Return a list of interfaces on the node."""
-        self.lab.sync_topology_if_outdated()
-        return [iface for iface in self.lab.interfaces() if iface.node is self]
+        self._lab.sync_topology_if_outdated()
+        return [iface for iface in self._lab.interfaces() if iface.node is self]
 
     @locked
     def physical_interfaces(self) -> list[Interface]:
         """Return a list of physical interfaces on the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return [iface for iface in self.interfaces() if iface.physical]
 
     @check_stale
@@ -231,7 +250,7 @@ class Node:
         :param wait: Wait for the creation to complete.
         :returns: The newly created interface.
         """
-        return self.lab.create_interface(self, slot, wait=wait)
+        return self._lab.create_interface(self, slot, wait=wait)
 
     @locked
     def next_available_interface(self) -> Interface | None:
@@ -275,7 +294,7 @@ class Node:
     @locked
     def degree(self) -> int:
         """Return the degree of the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return len(self.links())
 
     @property
@@ -286,7 +305,7 @@ class Node:
     @property
     def label(self) -> str:
         """Return the label of the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._label
 
     @label.setter
@@ -299,7 +318,7 @@ class Node:
     @property
     def x(self) -> int:
         """Return the X coordinate of the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._x
 
     @x.setter
@@ -312,7 +331,7 @@ class Node:
     @property
     def y(self) -> int:
         """Return the Y coordinate of the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._y
 
     @y.setter
@@ -325,7 +344,7 @@ class Node:
     @property
     def ram(self) -> int:
         """Return the RAM size of the node in bytes."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._ram
 
     @ram.setter
@@ -338,7 +357,7 @@ class Node:
     @property
     def cpus(self) -> int:
         """Return the number of CPUs assigned to the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._cpus
 
     @cpus.setter
@@ -351,7 +370,7 @@ class Node:
     @property
     def cpu_limit(self) -> int:
         """Return the CPU limit of the node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._cpu_limit
 
     @cpu_limit.setter
@@ -364,7 +383,7 @@ class Node:
     @property
     def data_volume(self) -> int:
         """Return the size (in GiB) of the second HDD."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._data_volume
 
     @data_volume.setter
@@ -380,7 +399,7 @@ class Node:
         Return a flag indicating whether the node's links should be hidden
         in UI visualization.
         """
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._hide_links
 
     @hide_links.setter
@@ -395,7 +414,7 @@ class Node:
     @property
     def boot_disk_size(self) -> int:
         """Return the size of the boot disk in GiB."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._boot_disk_size
 
     @boot_disk_size.setter
@@ -408,7 +427,7 @@ class Node:
     @property
     def configuration(self) -> str | None:
         """Return the contents of the main configuration file."""
-        self.lab.sync_topology_if_outdated(exclude_configurations=False)
+        self._lab.sync_topology_if_outdated(exclude_configurations=False)
         return self._configuration[0].get("content") if self._configuration else None
 
     @configuration.setter
@@ -455,7 +474,7 @@ class Node:
         Return all configuration files, in a list in the following format:
         `[{"name": "filename.txt", "content": "<file content>"}]`
         """
-        self.lab.sync_topology_if_outdated(exclude_configurations=False)
+        self._lab.sync_topology_if_outdated(exclude_configurations=False)
         return deepcopy(self._configuration)
 
     @property
@@ -490,7 +509,7 @@ class Node:
     @property
     def parameters(self) -> dict:
         """Return node parameters."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._parameters
 
     def update_parameters(self, new_params: dict) -> None:
@@ -508,7 +527,7 @@ class Node:
     @property
     def image_definition(self) -> str | None:
         """Return the definition of the image used by this node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._image_definition
 
     @image_definition.setter
@@ -521,25 +540,25 @@ class Node:
     @property
     def node_definition(self) -> str:
         """Return the definition of this node."""
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._node_definition
 
     @property
     def compute_id(self):
         """Return the ID of the compute this node is assigned to."""
-        self.lab.sync_operational_if_outdated()
+        self._lab.sync_operational_if_outdated()
         return self._compute_id
 
     @property
     def resource_pool(self) -> str:
         """Return the ID of the resource pool if the node is part of a resource pool."""
-        self.lab.sync_operational_if_outdated()
+        self._lab.sync_operational_if_outdated()
         return self._resource_pool
 
     @property
     def pinned_compute_id(self) -> str | None:
         """Return the ID of the compute this node is pinned to."""
-        self.lab.sync_operational_if_outdated()
+        self._lab.sync_operational_if_outdated()
         return self._pinned_compute_id
 
     @pinned_compute_id.setter
@@ -551,20 +570,26 @@ class Node:
     @property
     def cpu_usage(self) -> int | float:
         """Return the CPU usage of this node."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return min(self.statistics["cpu_usage"], 100)
 
     @property
     def disk_read(self) -> int:
         """Return the amount of disk read by this node."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_read"] / 1048576)
 
     @property
     def disk_write(self) -> int:
         """Return the amount of disk write by this node."""
-        self.lab.sync_statistics_if_outdated()
+        self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
+
+    @property
+    def smart_annotations(self) -> dict[str, SmartAnnotation]:
+        """Return the tags on this node and their corresponding smart annotations."""
+        self._lab.sync_topology_if_outdated()
+        return {tag: self._lab.get_smart_annotation_by_tag(tag) for tag in self._tags}
 
     @locked
     def get_interface_by_label(self, label: str) -> Interface:
@@ -633,9 +658,9 @@ class Node:
         """
         _LOGGER.info(f"Waiting for node {self.id} to converge.")
         max_iter = (
-            self.lab.wait_max_iterations if max_iterations is None else max_iterations
+            self._lab.wait_max_iterations if max_iterations is None else max_iterations
         )
-        wait_time = self.lab.wait_time if wait_time is None else wait_time
+        wait_time = self._lab.wait_time if wait_time is None else wait_time
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
@@ -675,7 +700,7 @@ class Node:
         """
         url = self._url_for("start")
         self._session.put(url)
-        if self.lab.need_to_wait(wait):
+        if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 
     @check_stale
@@ -687,7 +712,7 @@ class Node:
         """
         url = self._url_for("stop")
         self._session.put(url)
-        if self.lab.need_to_wait(wait):
+        if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 
     @check_stale
@@ -699,7 +724,7 @@ class Node:
         """
         url = self._url_for("wipe_disks")
         self._session.put(url)
-        if self.lab.need_to_wait(wait):
+        if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 
     @check_stale
@@ -745,7 +770,7 @@ class Node:
 
     def remove(self) -> None:
         """Remove the node from the system."""
-        self.lab.remove_node(self)
+        self._lab.remove_node(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
@@ -775,7 +800,7 @@ class Node:
 
         :returns: A list of tags.
         """
-        self.lab.sync_topology_if_outdated()
+        self._lab.sync_topology_if_outdated()
         return self._tags
 
     @locked
@@ -789,6 +814,12 @@ class Node:
         if tag not in current:
             current.append(tag)
             self._set_node_property("tags", current)
+        try:
+            self._lab.get_smart_annotation_by_tag(tag)
+        except SmartAnnotationNotFound:
+            # Smart annotations will be automatically created serverside for the new
+            # tags, so we force a sync to retrieve them
+            self._lab._sync_topology(exclude_configurations=True)
 
     @locked
     def remove_tag(self, tag: str) -> None:
@@ -797,6 +828,25 @@ class Node:
 
         :param tag: The tag to remove.
         """
+        self._remove_tag_on_server(tag)
+
+        for node in self._lab._nodes.values():
+            if tag in node._tags:
+                # Tag still exists, smart annotation was not removed
+                return
+
+        # Smart annotations for tags removed from all nodes will be automatically
+        # removed serverside, so we remove them locally as well
+        try:
+            annotation = self._lab.get_smart_annotation_by_tag(tag)
+        except SmartAnnotationNotFound:
+            # get_smart_annotation_by_tag probably happened to sync and removed the
+            # annotation already
+            return
+        self._lab._remove_smart_annotation_local(annotation)
+
+    def _remove_tag_on_server(self, tag) -> None:
+        """Helper function to remove the tag from the node on the server."""
         current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
@@ -809,7 +859,7 @@ class Node:
         :returns: The output from the device.
         """
         label = self.label
-        return self.lab.pyats.run_command(label, command)
+        return self._lab.pyats.run_command(label, command)
 
     def run_pyats_config_command(self, command: str) -> str:
         """
@@ -819,7 +869,7 @@ class Node:
         :returns: The output from the device.
         """
         label = self.label
-        return self.lab.pyats.run_config_command(label, command)
+        return self._lab.pyats.run_config_command(label, command)
 
     @check_stale
     @locked
@@ -834,22 +884,6 @@ class Node:
         result = self._session.get(url).json()
         interfaces = result.get("interfaces", {})
         self.map_l3_addresses_to_interfaces(interfaces)
-
-    @check_stale
-    @locked
-    def sync_operational(self, response: dict[str, Any] = None):
-        """
-        Synchronize the operational state of the node.
-
-        :param response: The response from the server.
-        """
-        if response is None:
-            url = self._url_for("operational")
-            response = self._session.get(url).json()
-        self._pinned_compute_id = response.get("pinned_compute_id")
-        operational = response.get("operational", {})
-        self._compute_id = operational.get("compute_id")
-        self._resource_pool = operational.get("resource_pool")
 
     @check_stale
     @locked
@@ -879,7 +913,55 @@ class Node:
 
     @check_stale
     @locked
+    def sync_operational(self, response: dict[str, Any] = None):
+        """
+        Synchronize the operational state of the node.
+
+        :param response: If the operational data was fetched from the server elsewhere,
+            it can be passed here to save an API call. Will be fetched automatically
+            otherwise.
+        """
+        if response is None:
+            url = self._url_for("operational")
+            response = self._session.get(url).json()
+        self._pinned_compute_id = response.get("pinned_compute_id")
+        operational = response.get("operational", {})
+        self._compute_id = operational.get("compute_id")
+        self._resource_pool = operational.get("resource_pool")
+
+    @check_stale
+    @locked
+    def sync_interface_operational(self):
+        """Synchronize the operational state of the node's interfaces."""
+        url = self._url_for("inteface_operational")
+        response = self._session.get(url).json()
+        self._lab.sync_topology_if_outdated()
+        for interface_data in response:
+            interface = self._lab._interfaces[interface_data["id"]]
+            operational = interface_data.get("operational", {})
+            interface._deployed_mac_address = operational.get("mac_address")
+        self._last_sync_interface_operational_time = time.time()
+
     def update(
+        self,
+        node_data: dict[str, Any],
+        exclude_configurations: bool,
+        push_to_server=None,
+    ) -> None:
+        """
+        Update the node with the provided data.
+
+        :param node_data: The data to update the node with.
+        :param exclude_configurations: Whether to exclude configuration updates.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(node_data, exclude_configurations, push_to_server=True)
+
+    @check_stale
+    @locked
+    def _update(
         self,
         node_data: dict[str, Any],
         exclude_configurations: bool,
@@ -891,7 +973,6 @@ class Node:
         :param node_data: The data to update the node with.
         :param exclude_configurations: Whether to exclude configuration updates.
         :param push_to_server: Whether to push the changes to the server.
-            Defaults to True; should only be False when used by internal methods.
         """
         if push_to_server:
             self._set_node_properties(node_data)

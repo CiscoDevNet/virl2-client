@@ -20,12 +20,10 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
 import time
-import warnings
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
@@ -48,7 +46,7 @@ from .models import (
 )
 from .models.authentication import make_session
 from .models.configuration import get_configuration
-from .utils import get_url_from_template, locked
+from .utils import _deprecated_argument, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -116,6 +114,9 @@ class Version:
     def major_differs(self, other: Version) -> bool:
         return self.major != other.major
 
+    def major_lt(self, other: Version) -> bool:
+        return self.major < other.major
+
     def minor_differs(self, other: Version) -> bool:
         return self.minor != other.minor
 
@@ -165,7 +166,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.7.1")
+    VERSION = Version("2.8.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -176,6 +177,12 @@ class ClientLibrary:
         Version("2.2.1"),
         Version("2.2.2"),
         Version("2.2.3"),
+        Version("2.3.0"),
+        Version("2.3.1"),
+        Version("2.4.0"),
+        Version("2.4.1"),
+        Version("2.5.0"),
+        Version("2.5.1"),
     ]
     _URL_TEMPLATES = {
         "auth_test": "authok",
@@ -429,14 +436,12 @@ class ClientLibrary:
                 f"List of versions marked explicitly as incompatible: "
                 f"{self.INCOMPATIBLE_CONTROLLER_VERSIONS}."
             )
-        if self.VERSION.major_differs(controller_version_obj):
+        if self.VERSION.major_lt(controller_version_obj):
             raise InitializationError(
                 f"Major version mismatch. Client {self.VERSION}, "
                 f"controller {controller_version_obj}."
             )
-        if self.VERSION.minor_differs(controller_version_obj) and self.VERSION.minor_lt(
-            controller_version_obj
-        ):
+        if self.VERSION.minor_lt(controller_version_obj):
             _LOGGER.warning(
                 f"Please ensure the client version is compatible with the controller "
                 f"version. Client {self.VERSION}, controller {controller_version_obj}."
@@ -530,41 +535,36 @@ class ClientLibrary:
 
         :param topology: The topology representation as a string.
         :param title: The title of the lab.
-        :param offline: Whether to import the lab locally.
-            DEPRECATED: The offline mode will be removed in the next version.
+        :param offline: DEPRECATED: Offline mode has been removed.
         :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
         :returns: The imported Lab instance.
         :raises ValueError: If no lab ID is returned in the API response.
         :raises httpx.HTTPError: If there was a transport error.
         """
-        if title is not None:
-            for lab_id in self._labs:
-                if (lab := self._labs[lab_id]).title == title:
-                    # Lab of this title already exists, sync and return it
-                    lab.sync()
-                    return lab
-        if offline:
-            warnings.warn(
-                "The offline mode will be removed in the next version.",
-                DeprecationWarning,
-            )
-            lab_id = "offline_lab"
-        else:
-            if virl_1x:
-                url = self._url_for("import_1x")
-            else:
-                url = self._url_for("import")
-            if title is not None:
-                result = self._session.post(
-                    url, params={"title": title}, content=topology
-                ).json()
-            else:
-                result = self._session.post(url, content=topology).json()
-            lab_id = result.get("id")
-            if lab_id is None:
-                raise ValueError("No lab ID returned!")
+        _deprecated_argument(self.import_lab, offline, "offline")
+        lab = self._create_imported_lab(topology, title, virl_1x)
+        lab.sync()
+        self._labs[lab.id] = lab
+        return lab
 
-        lab = Lab(
+    @locked
+    def _create_imported_lab(
+        self,
+        topology: str,
+        title: str | None = None,
+        virl_1x: bool = False,
+    ):
+        if virl_1x:
+            url = self._url_for("import_1x")
+        else:
+            url = self._url_for("import")
+        params = {"title": title} if title else None
+        result = self._session.post(url, params=params, content=topology).json()
+        lab_id = result.get("id")
+        if lab_id is None:
+            raise ValueError("No lab ID returned!")
+
+        return Lab(
             title,
             lab_id,
             self._session,
@@ -574,17 +574,6 @@ class ClientLibrary:
             auto_sync_interval=self.auto_sync_interval,
             resource_pool_manager=self.resource_pool_management,
         )
-
-        if offline:
-            topology_dict = json.loads(topology)
-            # ensure the lab owner is not properly set
-            # how does below get to offline? user_id is calling controller
-            topology_dict["lab"]["owner"] = self.user_management.user_id(self.username)
-            lab.import_lab(topology_dict)
-        else:
-            lab.sync()
-        self._labs[lab_id] = lab
-        return lab
 
     @locked
     def import_lab_from_path(self, path: str, title: str | None = None) -> Lab:
@@ -727,9 +716,7 @@ class ClientLibrary:
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
-        # This is just to skip a deprecation warning in _import_lab
-        result["_created"] = True
-        lab._import_lab(result)
+        lab._import_lab(result, created=True)
         self._labs[lab_id] = lab
         return lab
 
@@ -818,7 +805,8 @@ class ClientLibrary:
         if sync_lab:
             lab.import_lab(topology)
             lab._initialized = True
-
+        else:
+            lab._owner = None
         self._labs[lab_id] = lab
         return lab
 

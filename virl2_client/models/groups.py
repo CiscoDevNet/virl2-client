@@ -96,12 +96,11 @@ class GroupManagement:
         :param labs: The labs associated with the group.
         :returns: The created group object.
         """
-        data = {
-            "name": name,
-            "description": description,
-            "members": members or [],
-            "labs": labs or [],
-        }
+        data = {"name": name}
+        optional_data = {"description": description, "members": members, "labs": labs}
+        for key, value in optional_data.items():
+            if value:
+                data[key] = value
         url = self._url_for("groups")
         return self._session.post(url, json=data).json()
 

@@ -305,18 +305,16 @@ class EventHandler(EventHandlerBase):
 
     def _handle_element_modified(self, event: Event) -> None:
         if event.element_type == "node":
-            event.element.update(
+            event.element._update(
                 event.data, exclude_configurations=False, push_to_server=False
             )
 
         elif event.element_type == "interface":
-            # it seems only port change info arrives here,
-            # which the client doesn't use, so this message can be discarded
-            pass
+            event.element._update(event.data, push_to_server=False)
 
         elif event.element_type == "link":
-            # same as above, only sends link_capture_key which is not used
-            # by the client, so we discard the message
+            # only sends link_capture_key which is not used by the client,
+            # so we discard the message
             pass
 
         else:

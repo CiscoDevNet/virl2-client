@@ -53,7 +53,13 @@ def test_topology_creation_and_removal():
     lnk2 = lab._create_link_local(i3, i4, "1")
 
     assert set(lab.nodes()) == {node_a, node_b, node_c}
-    assert lab.statistics == {"annotations": 0, "nodes": 3, "links": 2, "interfaces": 4}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 3,
+        "links": 2,
+        "interfaces": 4,
+        "smart_annotations": 0,
+    }
     assert node_a.degree() == 1
     assert node_b.degree() == 2
     assert node_c.degree() == 1
@@ -82,22 +88,58 @@ def test_topology_creation_and_removal():
     assert lnk2.interfaces == (i3, i4)
 
     lab.remove_link(lnk2)
-    assert lab.statistics == {"annotations": 0, "nodes": 3, "links": 1, "interfaces": 4}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 3,
+        "links": 1,
+        "interfaces": 4,
+        "smart_annotations": 0,
+    }
 
     lab.remove_node(node_b)
-    assert lab.statistics == {"annotations": 0, "nodes": 2, "links": 0, "interfaces": 2}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 2,
+        "links": 0,
+        "interfaces": 2,
+        "smart_annotations": 0,
+    }
 
     lab.remove_interface(i4)
-    assert lab.statistics == {"annotations": 0, "nodes": 2, "links": 0, "interfaces": 1}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 2,
+        "links": 0,
+        "interfaces": 1,
+        "smart_annotations": 0,
+    }
 
     lab.remove_interface(i1)
-    assert lab.statistics == {"annotations": 0, "nodes": 2, "links": 0, "interfaces": 0}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 2,
+        "links": 0,
+        "interfaces": 0,
+        "smart_annotations": 0,
+    }
 
     lab.remove_node(node_a)
-    assert lab.statistics == {"annotations": 0, "nodes": 1, "links": 0, "interfaces": 0}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 1,
+        "links": 0,
+        "interfaces": 0,
+        "smart_annotations": 0,
+    }
 
     lab.remove_node(node_c)
-    assert lab.statistics == {"annotations": 0, "nodes": 0, "links": 0, "interfaces": 0}
+    assert lab.statistics == {
+        "annotations": 0,
+        "nodes": 0,
+        "links": 0,
+        "interfaces": 0,
+        "smart_annotations": 0,
+    }
 
 
 def test_need_to_wait1():
@@ -250,6 +292,7 @@ def test_tags():
         auto_sync=0,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
+    lab.get_smart_annotation_by_tag = MagicMock()
     node_a = lab._create_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
     node_b = lab._create_node_local("1", "node B", "nd", "im", "cfg", 0, 0)
     node_c = lab._create_node_local("2", "node C", "nd", "im", "cfg", 0, 0)
@@ -338,6 +381,7 @@ def test_join_existing_lab(client_library):
         "nodes": 7,
         "links": 8,
         "interfaces": 24,
+        "smart_annotations": 0,
     }
 
 

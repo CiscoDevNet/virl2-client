@@ -82,7 +82,7 @@ class EventListener:
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
-        elif type(ssl_verify) is str and Path(ssl_verify).is_file():
+        elif isinstance(ssl_verify, str) and Path(ssl_verify).is_file():
             ssl_context = ssl.create_default_context()
             ssl_context.load_verify_locations(ssl_verify)
         else:

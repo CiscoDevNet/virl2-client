@@ -166,7 +166,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.8.0")
+    VERSION = Version("2.9.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -183,6 +183,8 @@ class ClientLibrary:
         Version("2.4.1"),
         Version("2.5.0"),
         Version("2.5.1"),
+        Version("2.6.0"),
+        Version("2.6.1"),
     ]
     _URL_TEMPLATES = {
         "auth_test": "authok",

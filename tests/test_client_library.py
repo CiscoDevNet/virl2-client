@@ -385,17 +385,7 @@ def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     )
 
 
-def test_client_minor_version_lt_warn(client_library_server_2_9_0, caplog):
-    with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
-    assert (
-        f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.9.0." in caplog.text
-    )
-
-
-def test_client_minor_version_lt_warn_1(client_library_server_2_19_0, caplog):
+def test_client_minor_version_lt_warn(client_library_server_2_19_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None

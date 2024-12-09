@@ -50,6 +50,7 @@ class Node:
         "start": "{lab}/nodes/{id}/state/start",
         "stop": "{lab}/nodes/{id}/state/stop",
         "wipe_disks": "{lab}/nodes/{id}/wipe_disks",
+        "clone_image": "{lab}/nodes/{id}/clone_image",
         "extract_configuration": "{lab}/nodes/{id}/extract_configuration",
         "console_log": "{lab}/nodes/{id}/consoles/{console_id}/log",
         "console_log_lines": "{lab}/nodes/{id}/consoles/{console_id}/log?lines={lines}",
@@ -726,6 +727,14 @@ class Node:
         self._session.put(url)
         if self._lab.need_to_wait(wait):
             self.wait_until_converged()
+
+    @check_stale
+    def clone_image(self) -> dict:
+        """
+        Clone the node's disks into a new Image definition.
+        """
+        url = self._url_for("clone_image")
+        return self._session.put(url).json()
 
     @check_stale
     def extract_configuration(self) -> None:

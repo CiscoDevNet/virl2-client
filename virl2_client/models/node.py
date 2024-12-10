@@ -253,7 +253,7 @@ class Node:
         return self._lab.create_interface(self, slot, wait=wait)
 
     @locked
-    def next_available_interface(self) -> Interface | None:
+    def next_available_interface(self, index: int = 0) -> Interface | None:
         """
         Return the next available physical interface on this node.
 
@@ -261,10 +261,11 @@ class Node:
         as "do not use"... Only the third physical interface can be used
         to connect to other nodes!
 
+        :param index: An optional starting interface index (default: 0).
         :returns: An available physical interface or None if all existing
             ones are connected.
         """
-        for iface in self.interfaces():
+        for _, iface in enumerate(self.interfaces(), index):
             if not iface.connected and iface.physical:
                 return iface
         return None

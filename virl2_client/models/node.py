@@ -922,7 +922,7 @@ class Node:
 
     @check_stale
     @locked
-    def sync_operational(self, response: dict[str, Any] = None):
+    def sync_operational(self, response: dict[str, Any] = None) -> dict[str, Any]:
         """
         Synchronize the operational state of the node.
 
@@ -937,6 +937,7 @@ class Node:
         operational = response.get("operational", {})
         self._compute_id = operational.get("compute_id")
         self._resource_pool = operational.get("resource_pool")
+        return operational
 
     @check_stale
     @locked

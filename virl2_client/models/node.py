@@ -860,25 +860,27 @@ class Node:
         current.remove(tag)
         self._set_node_property("tags", current)
 
-    def run_pyats_command(self, command: str) -> str:
+    def run_pyats_command(self, command: str, **pyats_params: Any) -> str:
         """
         Run a pyATS command in exec mode on the node.
 
         :param command: The command to run (e.g. "show version").
+        :param pyats_params: Custom command dialog parameters for PyATS
         :returns: The output from the device.
         """
         label = self.label
-        return self._lab.pyats.run_command(label, command)
+        return self._lab.pyats.run_command(label, command, **pyats_params)
 
-    def run_pyats_config_command(self, command: str) -> str:
+    def run_pyats_config_command(self, command: str, **pyats_params: Any) -> str:
         """
         Run a pyATS command in config mode on the node.
 
         :param command: The command to run (e.g. "interface gi0").
+        :param pyats_params: Custom command dialog parameters for PyATS
         :returns: The output from the device.
         """
         label = self.label
-        return self._lab.pyats.run_config_command(label, command)
+        return self._lab.pyats.run_config_command(label, command, **pyats_params)
 
     @check_stale
     @locked

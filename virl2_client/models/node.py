@@ -924,7 +924,9 @@ class Node:
 
     @check_stale
     @locked
-    def sync_operational(self, response: dict[str, Any] = None) -> dict[str, Any]:
+    def sync_operational(
+        self, response: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Synchronize the operational state of the node.
 
@@ -934,7 +936,7 @@ class Node:
         """
         if response is None:
             url = self._url_for("operational")
-            response = self._session.get(url).json()
+            assert (response := self._session.get(url).json())
         self._pinned_compute_id = response.get("pinned_compute_id")
         operational = response.get("operational", {})
         self._compute_id = operational.get("compute_id")

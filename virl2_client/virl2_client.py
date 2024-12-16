@@ -425,7 +425,7 @@ class ClientLibrary:
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
         """
-        controller_version = self.system_info().get("version")
+        controller_version = self.system_info().get("version", "")
         try:
             controller_version_obj = Version(controller_version)
         except (TypeError, ValueError):
@@ -628,7 +628,7 @@ class ClientLibrary:
         :param show_all: Whether to get only labs owned by the admin or all user labs.
         :returns: A list of Lab objects.
         """
-        url = {"url": self._url_for("labs")}
+        url: dict[str, str | dict] = {"url": self._url_for("labs")}
         if show_all:
             url["params"] = {"show_all": True}
         lab_ids = self._session.get(**url).json()
@@ -740,7 +740,6 @@ class ClientLibrary:
         elif lab_id in self._labs:
             self._labs[lab_id].remove()
             self._remove_lab_local(self._labs[lab_id])
-
         else:
             self._remove_unjoined_lab(lab_id)
 
@@ -877,7 +876,7 @@ class ClientLibrary:
             owned by the admin (False).
         :returns: A list of lab IDs.
         """
-        url = {"url": self._url_for("labs")}
+        url: dict[str, str | dict] = {"url": self._url_for("labs")}
         if show_all:
             url["params"] = {"show_all": True}
         return self._session.get(**url).json()

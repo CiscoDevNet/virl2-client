@@ -181,7 +181,7 @@ class CustomClient(httpx.Client):
             raise api_error from None
 
 
-def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
+def make_session(base_url: str, ssl_verify: bool | str = True) -> httpx.Client:
     """
     Create an httpx Client object with the specified base URL
     and SSL verification setting.

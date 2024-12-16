@@ -26,6 +26,7 @@ from .annotation import Annotation
 from .auth_management import AuthManagement
 from .authentication import TokenAuth
 from .group import GroupManagement
+from .bulk import BulkManagement
 from .interface import Interface
 from .lab import Lab
 from .licensing import Licensing
@@ -52,4 +53,5 @@ __all__ = (
     "AuthManagement",
     "Annotation",
     "SmartAnnotation",
+    "BulkManagement",
 )

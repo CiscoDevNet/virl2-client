@@ -37,6 +37,7 @@ import httpx
 from .exceptions import InitializationError, LabNotFound
 from .models import (
     AuthManagement,
+    BulkManagement,
     GroupManagement,
     Lab,
     Licensing,
@@ -319,6 +320,7 @@ class ClientLibrary:
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
         )
+        self.bulk_management = BulkManagement(self._labs, self._session, self)
 
         try:
             self._make_test_auth_call()

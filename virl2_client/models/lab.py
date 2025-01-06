@@ -104,7 +104,7 @@ class Lab:
         auto_sync_interval: float = 1.0,
         wait: bool = True,
         wait_max_iterations: int = 500,
-        wait_time: int = 5,
+        wait_time: int | float = 5,
         hostname: str | None = None,
         resource_pool_manager: ResourcePoolManagement | None = None,
     ) -> None:
@@ -1218,7 +1218,7 @@ class Lab:
         max_iter = (
             self.wait_max_iterations if max_iterations is None else max_iterations
         )
-        wait_time = self.wait_time if wait_time is None else wait_time
+        local_wait_time = float(self.wait_time if wait_time is None else wait_time)
         _LOGGER.info(f"Waiting for lab {self._id} to converge.")
         for index in range(max_iter):
             converged = self.has_converged()
@@ -1230,7 +1230,7 @@ class Lab:
                 _LOGGER.info(
                     f"Lab has not converged, attempt {index}/{max_iter}, waiting..."
                 )
-            time.sleep(wait_time)
+            time.sleep(local_wait_time)
 
         msg = f"Lab {self.id} has not converged, maximum tries {max_iter} exceeded."
         _LOGGER.error(msg)

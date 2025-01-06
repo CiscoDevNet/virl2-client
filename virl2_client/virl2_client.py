@@ -801,6 +801,8 @@ class ClientLibrary:
             self.password,
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
+            wait_max_iterations=self.convergence_wait_max_iter,
+            wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
         if sync_lab:

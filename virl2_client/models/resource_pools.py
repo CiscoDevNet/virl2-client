@@ -263,12 +263,11 @@ class ResourcePool:
         return f"Resource pool: {self._label}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._id,
-            self._label,
-            self._description,
-            self._template,
+        return (
+            f"{self.__class__.__name__}("
+            f"{self._id!r}, "
+            f"{self._label!r}, "
+            f"{self._template!r})"
         )
 
     def _url_for(self, endpoint, **kwargs):

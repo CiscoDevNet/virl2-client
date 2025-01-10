@@ -356,10 +356,7 @@ def test_client_library_config(client_library_server_current, mocked_session, co
 
 def test_client_library_str_and_repr(client_library_server_current):
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        repr(client_library)
-        == "ClientLibrary('https://somehost', 'virl2', 'virl2', True, False, False)"
-    )
+    assert repr(client_library) == "ClientLibrary('https://somehost')"
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 

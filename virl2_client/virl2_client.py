@@ -321,15 +321,7 @@ class ClientLibrary:
             self.start_event_listening()
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self.url,
-            self.username,
-            self.password,
-            self._ssl_verify,
-            self.raise_for_auth_failure,
-            self.allow_http,
-        )
+        return f"{self.__class__.__name__}({self.url!r})"
 
     def __str__(self):
         return f"{self.__class__.__name__} URL: {self._session.base_url}"

@@ -94,13 +94,12 @@ class Interface:
         return f"Interface: {self._label}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._id,
-            self._node,
-            self._label,
-            self._slot,
-            self._type,
+        return (
+            f"{self.__class__.__name__}("
+            f"{self._node!r}, "
+            f"{self._id!r}, "
+            f"{self._label!r}, "
+            f"{self._slot!r})"
         )
 
     def __hash__(self):

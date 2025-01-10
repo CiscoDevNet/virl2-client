@@ -158,11 +158,11 @@ class Annotation:
         )
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self._lab),
-            self._id,
-            self._type,
+        return (
+            f"{self.__class__.__name__}("
+            f"{str(self._lab)!r}, "
+            f"{self._id!r}, "
+            f"{self._type!r})"
         )
 
     def __eq__(self, other: object):

@@ -35,13 +35,13 @@ if TYPE_CHECKING:
 
 class NodeImageDefinitions:
     _URL_TEMPLATES = {
-        "node_defs": "node_definitions/",
-        "image_defs": "image_definitions/",
+        "node_defs": "node_definitions",
+        "image_defs": "image_definitions",
         "node_def": "node_definitions/{definition_id}",
         "image_def": "image_definitions/{definition_id}",
         "node_image_defs": "node_definitions/{definition_id}/image_definitions",
         "upload": "images/upload",
-        "image_list": "list_image_definition_drop_folder/",
+        "image_list": "list_image_definition_drop_folder",
         "image_manage": "images/manage/{filename}",
     }
 

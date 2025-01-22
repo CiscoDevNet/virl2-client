@@ -86,7 +86,7 @@ class GroupManagement:
         description: str = "",
         members: list[str] | None = None,
         labs: list[dict[str, str]] | None = None,
-        permissions: str = "",
+        permissions: str | None = None,
     ) -> dict:
         """
         Create a group.

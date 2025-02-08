@@ -81,7 +81,7 @@ class Lab:
         "state": "labs/{lab_id}/state",
         "wipe": "labs/{lab_id}/wipe",
         "events": "labs/{lab_id}/events",
-        "build_configurations": "build_configurations?lab_id={lab_id}",
+        "bootstrap": "labs/{lab_id}/bootstrap",
         "topology": "labs/{lab_id}/topology",
         "pyats_testbed": "labs/{lab_id}/pyats_testbed",
         "layer3_addresses": "labs/{lab_id}/layer3_addresses",
@@ -1357,7 +1357,7 @@ class Lab:
         Build basic configurations for all nodes in the lab that do not
         already have a configuration and support configuration building.
         """
-        url = self._url_for("build_configurations")
+        url = self._url_for("bootstrap")
         self._session.get(url)
         # sync to get the updated configs
         self.sync_topology_if_outdated()

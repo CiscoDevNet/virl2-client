@@ -40,8 +40,8 @@ class SystemManagement:
         "compute_hosts": "system/compute_hosts",
         "notices": "system/notices",
         "external_connectors": "system/external_connectors",
-        "external_connector": "system/external_connectors/{connector_id}",
-        "web_session_timeout": "web_session_timeout/{timeout}",
+        "external_connector": "system/external_connectors",
+        "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
     }
 
@@ -235,7 +235,7 @@ class SystemManagement:
         :param data: The data to update.
         :returns: The updated data.
         """
-        url = self._url_for("external_connector", connector_id=connector_id)
+        url = f"{self._url_for('external_connector')}/{connector_id}"
         return self._session.patch(url, json=data).json()
 
     def delete_external_connector(self, connector_id: str) -> None:
@@ -244,7 +244,7 @@ class SystemManagement:
 
         :param connector_id: The ID of the connector to delete.
         """
-        url = self._url_for("external_connector", connector_id=connector_id)
+        url = f"{self._url_for('external_connector')}/{connector_id}"
         self._session.delete(url)
 
     def get_web_session_timeout(self) -> int:
@@ -253,7 +253,7 @@ class SystemManagement:
 
         :returns: The web session timeout.
         """
-        url = self._url_for("web_session_timeout", timeout="")
+        url = self._url_for("web_session_timeout")
         return self._session.get(url).json()
 
     def set_web_session_timeout(self, timeout: int) -> str:
@@ -263,7 +263,7 @@ class SystemManagement:
         :param timeout: The timeout value in seconds.
         :returns: 'OK'
         """
-        url = self._url_for("web_session_timeout", timeout=timeout)
+        url = f"{self._url_for('web_session_timeout')}/{timeout}"
         return self._session.patch(url).json()
 
     def get_new_compute_host_state(self) -> str:

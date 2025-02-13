@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import time
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
@@ -160,6 +161,18 @@ class ClientConfig(NamedTuple):
         client.auto_sync_interval = self.auto_sync
         client.auto_sync = self.auto_sync >= 0.0 and not self.events
         return client
+
+
+class Diagnostics(Enum):
+    COMPUTES = "computes"
+    LABS = "labs"
+    LAB_EVENTS = "lab_events"
+    NODE_LAUNCH_QUEUE = "node_launch_queue"
+    SERVICES = "services"
+    NODE_DEFINITIONS = "node_definitions"
+    USER_LIST = "user_list"
+    LICENSING = "licensing"
+    STARTUP_SCHEDULER = "startup_scheduler"
 
 
 class ClientLibrary:
@@ -810,14 +823,31 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def get_diagnostics(self) -> dict:
+    def get_diagnostics(self, types: list[Diagnostics] | None = None) -> dict:
         """
-        Return the controller diagnostic data as a JSON object.
+        Return selected diagnostic data as a JSON object.
 
+        :param types: List of diagnostic types to fetch. If None, fetch all.
         :returns: The diagnostic data.
         """
-        url = self._url_for("diagnostics")
-        return self._session.get(url).json()
+        if types is None:
+            types = list(Diagnostics)
+
+        diagnostics_data = {}
+        for diag_type in types:
+            # Construct the endpoint path using given diagnostics value
+            endpoint = f"diagnostics/{diag_type.value}"
+            url = self._url_for(endpoint)
+            response = self._session.get(url)
+
+            if response.status_code == 200:
+                diagnostics_data[diag_type.value] = response.json()
+            else:
+                diagnostics_data[diag_type.value] = {
+                    "error": f"Failed to fetch {diag_type.value} diagnostics"
+                }
+
+        return diagnostics_data
 
     def get_system_health(self) -> dict:
         """

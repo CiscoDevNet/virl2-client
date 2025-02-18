@@ -330,8 +330,6 @@ class Lab:
         """Set the description of the lab."""
         self._set_property("description", value)
 
-    @check_stale
-    @locked
     def _set_property(self, prop: str, value: Any):
         """
         Set the value of a lab property both locally and on the server.
@@ -339,9 +337,20 @@ class Lab:
         :param prop: The name of the property.
         :param value: The new value of the property.
         """
+        self._set_properties({prop: value})
+
+    @locked
+    @check_stale
+    def _set_properties(self, lab_data: dict[str, Any]) -> None:
+        """
+        Set multiple properties of the lab.
+
+        :param node_data: A dictionary containing the properties to set.
+        """
         url = self._url_for("lab")
-        self._session.patch(url, json={prop: value})
-        setattr(self, f"_{prop}", value)
+        self._session.patch(url, json=lab_data)
+        for prop, value in lab_data.items():
+            setattr(self, f"_{prop}", value)
 
     @property
     def owner(self) -> str:

@@ -175,15 +175,15 @@ class ClPyats:
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
+        params = self._prepare_params(
+            init_exec_commands, init_config_commands, **pyats_params
+        )
         if pyats_device not in self._connections or not pyats_device.is_connected():
             if pyats_device in self._connections:
                 pyats_device.destroy()
 
-            pyats_device.connect(log_stdout=False, learn_hostname=True)
+            pyats_device.connect(log_stdout=False, learn_hostname=True, **params)
             self._connections.add(pyats_device)
-        params = self._prepare_params(
-            init_exec_commands, init_config_commands, **pyats_params
-        )
         if configure_mode:
             return pyats_device.configure(command, log_stdout=False, **params)
         else:

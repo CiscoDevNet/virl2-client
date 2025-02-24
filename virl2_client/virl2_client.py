@@ -163,7 +163,7 @@ class ClientConfig(NamedTuple):
         return client
 
 
-class DiagnosticCategory(Enum):
+class Diagnostics(Enum):
     COMPUTES = "computes"
     LABS = "labs"
     LAB_EVENTS = "lab_events"
@@ -207,7 +207,7 @@ class ClientLibrary:
         "labs": "labs",
         "lab": "labs/{lab_id}",
         "lab_topology": "labs/{lab_id}/topology",
-        "diagnostics": "diagnostics/{category}",
+        "diagnostics": "diagnostics",
         "system_health": "system_health",
         "system_stats": "system_stats",
         "populate_lab_tiles": "populate_lab_tiles",
@@ -639,11 +639,16 @@ class ClientLibrary:
         :param show_all: Whether to get only labs owned by the admin or all user labs.
         :returns: A list of Lab objects.
         """
-        lab_ids = self.get_lab_list(show_all=show_all)
+        url = {"url": self._url_for("labs")}
+        if show_all:
+            url["params"] = {"show_all": True}
+        lab_ids = self._session.get(**url).json()
+
         result = []
         for lab_id in lab_ids:
             lab = self.join_existing_lab(lab_id)
             result.append(lab)
+
         return result
 
     @locked
@@ -818,30 +823,30 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def get_diagnostics(
-        self, categories: list[DiagnosticCategory] | None = None
-    ) -> dict:
+    def get_diagnostics(self, types: list[Diagnostics] | None = None) -> dict:
         """
         Return selected diagnostic data as a JSON object.
 
-        :param categories: List of diagnostic categories to fetch. If None, fetch all.
+        :param types: List of diagnostic types to fetch. If None, fetch all.
         :returns: The diagnostic data.
         """
-        if categories is None:
-            categories = list(DiagnosticCategory)
+        if types is None:
+            types = list(Diagnostics)
 
         diagnostics_data = {}
-        for category in categories:
-            value = category.value
-            url = self._url_for("diagnostics", category=value)
-            try:
-                response = self._session.get(url)
-                response.raise_for_status()
-                diagnostics_data[value] = response.json()
-            except httpx.HTTPStatusError:
-                diagnostics_data[value] = {
-                    "error": f"Failed to fetch {value} diagnostics"
+        for diag_type in types:
+            # Construct the endpoint path using given diagnostics value
+            endpoint = f"diagnostics/{diag_type.value}"
+            url = self._url_for(endpoint)
+            response = self._session.get(url)
+
+            if response.status_code == 200:
+                diagnostics_data[diag_type.value] = response.json()
+            else:
+                diagnostics_data[diag_type.value] = {
+                    "error": f"Failed to fetch {diag_type.value} diagnostics"
                 }
+
         return diagnostics_data
 
     def get_system_health(self) -> dict:

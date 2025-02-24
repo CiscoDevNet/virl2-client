@@ -20,8 +20,9 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9.0"
-httpx = "^0.28.0"
+# cryptography requires python>=3.9.2
+python = "^3.9.2"
+httpx = "^0.28.1"
 
 # https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
 # optional package for events
@@ -30,7 +31,7 @@ aiohttp = {version = "^3.11", optional = true}
 # optional pyATS package
 # (this pulls in a lot more dependencies)
 # it does not pull in genie, need to specify extras=["full"] for pyATS.
-pyats = {version = "^24", optional = true}
+pyats = {version = "^25", optional = true}
 
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
@@ -42,6 +43,7 @@ flake8 = "^7"
 pre-commit = "^4"
 pytest = "*"
 respx = "^0.22.0"
+poetry-plugin-export = "*"
 
 [tool.poetry.extras]
 events = ["aiohttp"]

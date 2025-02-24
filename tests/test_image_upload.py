@@ -61,6 +61,7 @@ EXPECTED_PASS_LIST = [
     ".file.qcow",
     "file.iol",
     "qcow.iol",
+    "file.tar",
 ]
 
 

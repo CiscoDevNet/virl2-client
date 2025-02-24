@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -263,12 +263,11 @@ class ResourcePool:
         return f"Resource pool: {self._label}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._id,
-            self._label,
-            self._description,
-            self._template,
+        return (
+            f"{self.__class__.__name__}("
+            f"{self._id!r}, "
+            f"{self._label!r}, "
+            f"{self._template!r})"
         )
 
     def _url_for(self, endpoint, **kwargs):

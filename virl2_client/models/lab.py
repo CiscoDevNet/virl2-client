@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -81,7 +81,7 @@ class Lab:
         "state": "labs/{lab_id}/state",
         "wipe": "labs/{lab_id}/wipe",
         "events": "labs/{lab_id}/events",
-        "build_configurations": "build_configurations?lab_id={lab_id}",
+        "bootstrap": "labs/{lab_id}/bootstrap",
         "topology": "labs/{lab_id}/topology",
         "pyats_testbed": "labs/{lab_id}/pyats_testbed",
         "layer3_addresses": "labs/{lab_id}/layer3_addresses",
@@ -104,7 +104,7 @@ class Lab:
         auto_sync_interval: float = 1.0,
         wait: bool = True,
         wait_max_iterations: int = 500,
-        wait_time: int = 5,
+        wait_time: int | float = 5,
         hostname: str | None = None,
         resource_pool_manager: ResourcePoolManagement | None = None,
     ) -> None:
@@ -117,17 +117,17 @@ class Lab:
         :param username: Username of the user to authenticate.
         :param password: Password of the user to authenticate.
         :param auto_sync: A flag indicating whether local changes should be
-            automatically synced to the server.
+                automatically synced to the server.
         :param auto_sync_interval: Interval in seconds for automatic syncing.
         :param wait: A flag indicating whether to wait for convergence on the backend.
         :param wait_max_iterations: Maximum number of iterations for convergence.
         :param wait_time: Time in seconds to sleep between convergence calls
-            on the backend.
+                on the backend.
         :param hostname: Hostname/IP and port for pyATS console terminal server.
         :param resource_pool_manager: ResourcePoolManagement object shared
-            with parent ClientLibrary.
+                with parent ClientLibrary.
         :raises VirlException: If the lab object is created without
-            a resource pool manager.
+                a resource pool manager.
         """
 
         self.username = username
@@ -199,14 +199,11 @@ class Lab:
         return f"Lab: {self._title}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._title,
-            self._id,
-            self._session.base_url.path,
-            self.auto_sync,
-            self.auto_sync_interval,
-            self.wait_for_convergence,
+        return (
+            f"{self.__class__.__name__}("
+            f"{self._id!r}, "
+            f"{self._title!r}, "
+            f"{self._session.base_url.path!r})"
         )
 
     def _url_for(self, endpoint, **kwargs):
@@ -333,8 +330,6 @@ class Lab:
         """Set the description of the lab."""
         self._set_property("description", value)
 
-    @check_stale
-    @locked
     def _set_property(self, prop: str, value: Any):
         """
         Set the value of a lab property both locally and on the server.
@@ -342,9 +337,20 @@ class Lab:
         :param prop: The name of the property.
         :param value: The new value of the property.
         """
+        self._set_properties({prop: value})
+
+    @locked
+    @check_stale
+    def _set_properties(self, lab_data: dict[str, Any]) -> None:
+        """
+        Set multiple properties of the lab.
+
+        :param node_data: A dictionary containing the properties to set.
+        """
         url = self._url_for("lab")
-        self._session.patch(url, json={prop: value})
-        setattr(self, f"_{prop}", value)
+        self._session.patch(url, json=lab_data)
+        for prop, value in lab_data.items():
+            setattr(self, f"_{prop}", value)
 
     @property
     def owner(self) -> str:
@@ -592,9 +598,9 @@ class Lab:
         :param x: The X coordinate.
         :param y: The Y coordinate.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         :param populate_interfaces: Automatically create a pre-defined number
-            of interfaces on node creation.
+                of interfaces on node creation.
         :returns: A Node object.
         """
         try:
@@ -608,10 +614,15 @@ class Lab:
         else:
             url = self._url_for("nodes")
 
-        kwargs["label"] = label
-        kwargs["node_definition"] = node_definition
-        kwargs["x"] = x
-        kwargs["y"] = y
+        kwargs.update(
+            {
+                "label": label,
+                "node_definition": node_definition,
+                "x": x,
+                "y": y,
+            }
+        )
+
         result: dict[str, str] = self._session.post(url, json=kwargs).json()
         node_id: str = result["id"]
 
@@ -648,53 +659,15 @@ class Lab:
 
     @locked
     def _create_node_local(
-        self,
-        node_id: str,
-        label: str,
-        node_definition: str,
-        image_definition: str | None,
-        configuration: list[dict[str, str]] | str | None,
-        x: int,
-        y: int,
-        ram: int | None = None,
-        cpus: int | None = None,
-        cpu_limit: int | None = None,
-        data_volume: int | None = None,
-        boot_disk_size: int | None = None,
-        hide_links: bool = False,
-        tags: list | None = None,
-        compute_id: str | None = None,
-        resource_pool: ResourcePool | None = None,
-        parameters: dict = {},
-        pinned_compute_id: str | None = None,
+        self, node_id: str, label: str, node_definition: str, **kwargs
     ) -> Node:
         """Helper function to add a node to the client library."""
-        if tags is None:
-            tags = []
+        if "tags" not in kwargs:
+            kwargs["tags"] = []
 
-        node = Node(
-            self,
-            node_id,
-            label,
-            node_definition,
-            image_definition,
-            configuration,
-            x,
-            y,
-            ram,
-            cpus,
-            cpu_limit,
-            data_volume,
-            boot_disk_size,
-            hide_links,
-            tags,
-            resource_pool,
-            parameters,
-            pinned_compute_id,
-        )
-        if compute_id is not None:
-            node._compute_id = compute_id
-        self._nodes[node.id] = node
+        node = Node(self, node_id, label, node_definition, **kwargs)
+
+        self._nodes[node_id] = node
         return node
 
     @check_stale
@@ -705,12 +678,12 @@ class Lab:
 
         If you have a node object, you can also simply do::
 
-            node.remove()
+                node.remove()
 
 
         :param node: The node object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(node, str):
             node = self.get_node_by_id(node)
@@ -741,7 +714,7 @@ class Lab:
         Remove all nodes from the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         # Use case - user was assigned one lab, wants to reset work;
         # can't delete lab, so removing all nodes is the only option
@@ -760,11 +733,11 @@ class Lab:
 
         If you have a link object, you can also simply do::
 
-            link.remove()
+                link.remove()
 
         :param link: The link object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(link, str):
             link = self.get_link_by_id(link)
@@ -796,11 +769,11 @@ class Lab:
 
         If you have an interface object, you can also simply do::
 
-            interface.remove()
+                interface.remove()
 
         :param iface: The interface object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(iface, str):
             iface = self.get_interface_by_id(iface)
@@ -838,7 +811,7 @@ class Lab:
 
         If you have an annotation object, you can also simply do::
 
-            annotation.remove()
+                annotation.remove()
 
         :param annotation: The annotation object or ID.
         """
@@ -871,7 +844,7 @@ class Lab:
 
         If you have a smart annotation object, you can also simply do::
 
-            smart_annotation.remove()
+                smart_annotation.remove()
 
         :param annotation: The annotation object or ID.
         """
@@ -920,7 +893,7 @@ class Lab:
         :param i1: The first interface object or ID.
         :param i2: The second interface object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         :returns: The created link.
         """
         if isinstance(i1, str):
@@ -980,7 +953,7 @@ class Lab:
         :param node: The node on which the interface is created.
         :param slot: The slot number to create the interface in.
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         :returns: The newly created interface.
         """
         if isinstance(node, str):
@@ -1046,7 +1019,7 @@ class Lab:
         Create a lab annotation.
 
         :param annotation_type: Type of the annotation (rectangle, ellipse, line or
-            text).
+                text).
         :param kwargs: Keyword arguments with annotation property values.
         :returns: The created annotation.
         """
@@ -1107,7 +1080,7 @@ class Lab:
         :param tag: Tag which the smart annotation will be bound to.
         :param nodes: Nodes to which to add the tag and smart annotation.
         :param kwargs: Keyword arguments with annotation property values.
-            See `models.SmartAnnotation` for available properties.
+                See `models.SmartAnnotation` for available properties.
         :returns: The created annotation.
         """
         assert nodes
@@ -1219,7 +1192,7 @@ class Lab:
         max_iter = (
             self.wait_max_iterations if max_iterations is None else max_iterations
         )
-        wait_time = self.wait_time if wait_time is None else wait_time
+        local_wait_time = float(self.wait_time if wait_time is None else wait_time)
         _LOGGER.info(f"Waiting for lab {self._id} to converge.")
         for index in range(max_iter):
             converged = self.has_converged()
@@ -1231,7 +1204,7 @@ class Lab:
                 _LOGGER.info(
                     f"Lab has not converged, attempt {index}/{max_iter}, waiting..."
                 )
-            time.sleep(wait_time)
+            time.sleep(local_wait_time)
 
         msg = f"Lab {self.id} has not converged, maximum tries {max_iter} exceeded."
         _LOGGER.error(msg)
@@ -1258,7 +1231,7 @@ class Lab:
         Start all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("start")
         self._session.put(url)
@@ -1272,7 +1245,7 @@ class Lab:
         Stop all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("stop")
         self._session.put(url)
@@ -1322,7 +1295,7 @@ class Lab:
         Wipe all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-            If left at the default value, the lab's wait property is used instead.
+                If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("wipe")
         self._session.put(url)
@@ -1357,7 +1330,7 @@ class Lab:
         Build basic configurations for all nodes in the lab that do not
         already have a configuration and support configuration building.
         """
-        url = self._url_for("build_configurations")
+        url = self._url_for("bootstrap")
         self._session.get(url)
         # sync to get the updated configs
         self.sync_topology_if_outdated()
@@ -1374,11 +1347,11 @@ class Lab:
         Synchronize the current lab, locally applying changes made to the server.
 
         :param topology_only: Only sync the topology without statistics and IP
-            addresses.
+                addresses.
         :param with_node_configurations: DEPRECATED: does the opposite of what
-            is expected. Use exclude_configurations instead.
+                is expected. Use exclude_configurations instead.
         :param exclude_configurations: Whether to exclude configurations
-            from synchronization.
+                from synchronization.
         """
         if with_node_configurations is not None:
             warnings.warn(
@@ -1449,9 +1422,9 @@ class Lab:
 
         :param topology: The topology to import.
         :param created: The node create API endpoint returns data in the old format,
-            which would print an unnecessary old schema warning;
-            setting this flag to True skips that warning. Also decides whether default
-            username is to be the current user or None.
+                which would print an unnecessary old schema warning;
+                setting this flag to True skips that warning. Also decides whether default
+                username is to be the current user or None.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
@@ -1949,7 +1922,7 @@ class Lab:
 
 
          :param exclude_configurations: Boolean indicating whether to exclude
-            configurations during update.
+                configurations during update.
         """
         if kept_nodes:
             for node_id in kept_nodes:
@@ -2093,17 +2066,17 @@ class Lab:
         """
         Return lab's pyATS YAML testbed. Example usage::
 
-            from pyats.topology import loader
+                from pyats.topology import loader
 
-            lab = client_library.join_existing_lab("lab_1")
-            testbed_yaml = lab.get_pyats_testbed()
+                lab = client_library.join_existing_lab("lab_1")
+                testbed_yaml = lab.get_pyats_testbed()
 
-            testbed = loader.load(io.StringIO(testbed_yaml))
+                testbed = loader.load(io.StringIO(testbed_yaml))
 
-            # wait for lab to be ready
-            lab.wait_until_lab_converged()
+                # wait for lab to be ready
+                lab.wait_until_lab_converged()
 
-            aetest.main(testbed=testbed)
+                aetest.main(testbed=testbed)
 
         :param hostname: Force hostname/ip and port for console terminal server.
         :returns: The pyATS testbed for the lab in YAML format.

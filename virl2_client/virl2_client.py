@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -179,7 +179,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.8.0")
+    VERSION = Version("2.9.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -196,6 +196,8 @@ class ClientLibrary:
         Version("2.4.1"),
         Version("2.5.0"),
         Version("2.5.1"),
+        Version("2.6.0"),
+        Version("2.6.1"),
     ]
     _URL_TEMPLATES = {
         "auth_test": "authok",
@@ -332,15 +334,7 @@ class ClientLibrary:
             self.start_event_listening()
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self.url,
-            self.username,
-            self.password,
-            self._ssl_verify,
-            self.raise_for_auth_failure,
-            self.allow_http,
-        )
+        return f"{self.__class__.__name__}({self.url!r})"
 
     def __str__(self):
         return f"{self.__class__.__name__} URL: {self._session.base_url}"
@@ -436,7 +430,7 @@ class ClientLibrary:
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
         """
-        controller_version = self.system_info().get("version")
+        controller_version = self.system_info().get("version", "")
         try:
             controller_version_obj = Version(controller_version)
         except (TypeError, ValueError):
@@ -746,7 +740,6 @@ class ClientLibrary:
         elif lab_id in self._labs:
             self._labs[lab_id].remove()
             self._remove_lab_local(self._labs[lab_id])
-
         else:
             self._remove_unjoined_lab(lab_id)
 
@@ -808,6 +801,8 @@ class ClientLibrary:
             self.password,
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
+            wait_max_iterations=self.convergence_wait_max_iter,
+            wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
         if sync_lab:
@@ -900,7 +895,7 @@ class ClientLibrary:
             owned by the admin (False).
         :returns: A list of lab IDs.
         """
-        url = {"url": self._url_for("labs")}
+        url: dict[str, str | dict] = {"url": self._url_for("labs")}
         if show_all:
             url["params"] = {"show_all": True}
         return self._session.get(**url).json()

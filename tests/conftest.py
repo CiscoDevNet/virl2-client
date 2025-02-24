@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -47,11 +47,6 @@ def client_library_server_current():
 @pytest.fixture
 def client_library_server_2_0_0():
     yield from client_library_patched_system_info(version="2.0.0")
-
-
-@pytest.fixture
-def client_library_server_2_9_0():
-    yield from client_library_patched_system_info(version="2.9.0")
 
 
 @pytest.fixture

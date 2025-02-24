@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -86,6 +86,7 @@ class GroupManagement:
         description: str = "",
         members: list[str] | None = None,
         labs: list[dict[str, str]] | None = None,
+        permissions: str | None = None,
     ) -> dict:
         """
         Create a group.
@@ -94,10 +95,16 @@ class GroupManagement:
         :param description: The description of the group.
         :param members: The members of the group.
         :param labs: The labs associated with the group.
+        :param permissions: Group permissions.
         :returns: The created group object.
         """
         data = {"name": name}
-        optional_data = {"description": description, "members": members, "labs": labs}
+        optional_data = {
+            "description": description,
+            "members": members,
+            "labs": labs,
+            "permissions": permissions,
+        }
         for key, value in optional_data.items():
             if value:
                 data[key] = value
@@ -111,6 +118,7 @@ class GroupManagement:
         description: str | None = None,
         members: list[str] | None = None,
         labs: list[dict[str, str]] | None = None,
+        permissions: str | None = None,
     ) -> dict:
         """
         Update a group.
@@ -120,6 +128,7 @@ class GroupManagement:
         :param description: The description of the group.
         :param members: The members of the group.
         :param labs: The labs associated with the group.
+        :param permissions: Group permissions.
         :returns: The updated group object.
         """
         data: dict[str, str | list] = {}
@@ -131,6 +140,8 @@ class GroupManagement:
             data["members"] = members
         if labs is not None:
             data["labs"] = labs
+        if permissions is not None:
+            data["permissions"] = permissions
         url = self._url_for("group", group_id=group_id)
         return self._session.patch(url, json=data).json()
 

@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -61,6 +61,7 @@ EXPECTED_PASS_LIST = [
     ".file.qcow",
     "file.iol",
     "qcow.iol",
+    "file.tar",
 ]
 
 

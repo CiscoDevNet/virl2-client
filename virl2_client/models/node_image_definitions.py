@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -35,13 +35,13 @@ if TYPE_CHECKING:
 
 class NodeImageDefinitions:
     _URL_TEMPLATES = {
-        "node_defs": "node_definitions/",
-        "image_defs": "image_definitions/",
+        "node_defs": "node_definitions",
+        "image_defs": "image_definitions",
         "node_def": "node_definitions/{definition_id}",
         "image_def": "image_definitions/{definition_id}",
         "node_image_defs": "node_definitions/{definition_id}/image_definitions",
         "upload": "images/upload",
-        "image_list": "list_image_definition_drop_folder/",
+        "image_list": "list_image_definition_drop_folder",
         "image_manage": "images/manage/{filename}",
     }
 
@@ -216,7 +216,7 @@ class NodeImageDefinitions:
         :param filename: The path of the image to upload.
         :param rename: Optional filename to rename to.
         """
-        extension_list = [".qcow", ".qcow2", ".iol"]
+        extension_list = [".qcow", ".qcow2", ".iol", ".tar"]
         url = self._url_for("upload")
 
         path = pathlib.Path(filename)

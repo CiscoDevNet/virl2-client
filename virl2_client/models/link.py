@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -87,13 +87,11 @@ class Link:
         return f"Link: {self._label}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self._lab),
-            self._id,
-            self._interface_a,
-            self._interface_b,
-            self._label,
+        return (
+            f"{self.__class__.__name__}("
+            f"{str(self._lab)!r}, "
+            f"{self._id!r}, "
+            f"{self._label!r})"
         )
 
     def __eq__(self, other: object):

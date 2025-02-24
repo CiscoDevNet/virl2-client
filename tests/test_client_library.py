@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -357,10 +357,7 @@ def test_client_library_config(client_library_server_current, mocked_session, co
 
 def test_client_library_str_and_repr(client_library_server_current):
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        repr(client_library)
-        == "ClientLibrary('https://somehost', 'virl2', 'virl2', True, False, False)"
-    )
+    assert repr(client_library) == "ClientLibrary('https://somehost')"
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 
@@ -386,17 +383,7 @@ def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     )
 
 
-def test_client_minor_version_lt_warn(client_library_server_2_9_0, caplog):
-    with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
-    assert (
-        f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.9.0." in caplog.text
-    )
-
-
-def test_client_minor_version_lt_warn_1(client_library_server_2_19_0, caplog):
+def test_client_minor_version_lt_warn(client_library_server_2_19_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None

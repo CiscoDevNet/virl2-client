@@ -33,7 +33,6 @@ from virl2_client.models import Lab
 from virl2_client.virl2_client import (
     ClientConfig,
     ClientLibrary,
-    DiagnosticCategory,
     InitializationError,
     Version,
 )
@@ -740,41 +739,3 @@ def test_convergence_parametrization(client_library_server_current, mocked_sessi
         with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged(max_iterations=1)
         assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
-
-
-@pytest.mark.parametrize(
-    "categories, expected_paths",
-    [
-        (None, [diag.value for diag in DiagnosticCategory]),
-        ([DiagnosticCategory.COMPUTES], [DiagnosticCategory.COMPUTES.value]),
-        (
-            [DiagnosticCategory.LABS, DiagnosticCategory.SERVICES],
-            [DiagnosticCategory.LABS.value, DiagnosticCategory.SERVICES.value],
-        ),
-    ],
-)
-def test_get_diagnostics_paths(client_library, categories, expected_paths):
-    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
-        for path in expected_paths:
-            respx_mock.get(f"diagnostics/{path}").mock(
-                return_value=httpx.Response(200, json={"data": "sample"})
-            )
-        diagnostics_data = client_library.get_diagnostics(categories=categories)
-    for path in expected_paths:
-        assert path in diagnostics_data
-        assert diagnostics_data[path] == {"data": "sample"}
-
-
-def test_get_diagnostics_error_handling(client_library):
-    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
-        for diag_type in DiagnosticCategory:
-            respx_mock.get(f"diagnostics/{diag_type.value}").mock(
-                return_value=httpx.Response(404)
-            )
-
-        diagnostics_data = client_library.get_diagnostics()
-
-    for diag_type in DiagnosticCategory:
-        assert diagnostics_data[diag_type.value] == {
-            "error": f"Failed to fetch {diag_type.value} diagnostics"
-        }

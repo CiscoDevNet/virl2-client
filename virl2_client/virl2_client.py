@@ -24,7 +24,6 @@ import logging
 import os
 import re
 import time
-from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
@@ -163,18 +162,6 @@ class ClientConfig(NamedTuple):
         return client
 
 
-class DiagnosticCategory(Enum):
-    COMPUTES = "computes"
-    LABS = "labs"
-    LAB_EVENTS = "lab_events"
-    NODE_LAUNCH_QUEUE = "node_launch_queue"
-    SERVICES = "services"
-    NODE_DEFINITIONS = "node_definitions"
-    USER_LIST = "user_list"
-    LICENSING = "licensing"
-    STARTUP_SCHEDULER = "startup_scheduler"
-
-
 class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
@@ -207,7 +194,7 @@ class ClientLibrary:
         "labs": "labs",
         "lab": "labs/{lab_id}",
         "lab_topology": "labs/{lab_id}/topology",
-        "diagnostics": "diagnostics/{category}",
+        "diagnostics": "diagnostics",
         "system_health": "system_health",
         "system_stats": "system_stats",
         "populate_lab_tiles": "populate_lab_tiles",
@@ -639,11 +626,16 @@ class ClientLibrary:
         :param show_all: Whether to get only labs owned by the admin or all user labs.
         :returns: A list of Lab objects.
         """
-        lab_ids = self.get_lab_list(show_all=show_all)
+        url = {"url": self._url_for("labs")}
+        if show_all:
+            url["params"] = {"show_all": True}
+        lab_ids = self._session.get(**url).json()
+
         result = []
         for lab_id in lab_ids:
             lab = self.join_existing_lab(lab_id)
             result.append(lab)
+
         return result
 
     @locked
@@ -818,31 +810,14 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def get_diagnostics(
-        self, categories: list[DiagnosticCategory] | None = None
-    ) -> dict:
+    def get_diagnostics(self) -> dict:
         """
-        Return selected diagnostic data as a JSON object.
+        Return the controller diagnostic data as a JSON object.
 
-        :param categories: List of diagnostic categories to fetch. If None, fetch all.
         :returns: The diagnostic data.
         """
-        if categories is None:
-            categories = list(DiagnosticCategory)
-
-        diagnostics_data = {}
-        for category in categories:
-            value = category.value
-            url = self._url_for("diagnostics", category=value)
-            try:
-                response = self._session.get(url)
-                response.raise_for_status()
-                diagnostics_data[value] = response.json()
-            except httpx.HTTPStatusError:
-                diagnostics_data[value] = {
-                    "error": f"Failed to fetch {value} diagnostics"
-                }
-        return diagnostics_data
+        url = self._url_for("diagnostics")
+        return self._session.get(url).json()
 
     def get_system_health(self) -> dict:
         """

@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import time
+import warnings
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -163,7 +164,8 @@ class ClientConfig(NamedTuple):
         return client
 
 
-class DiagnosticCategory(Enum):
+class DiagnosticsCategory(Enum):
+    ALL = "all"
     COMPUTES = "computes"
     LABS = "labs"
     LAB_EVENTS = "lab_events"
@@ -813,17 +815,26 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def get_diagnostics(
-        self, categories: list[DiagnosticCategory] | None = None
-    ) -> dict:
+    def get_diagnostics(self, *categories: DiagnosticsCategory) -> dict:
         """
-        Return selected diagnostic data as a JSON object.
+        Return selected diagnostics data as a JSON object.
 
-        :param categories: List of diagnostic categories to fetch. If None, fetch all.
-        :returns: The diagnostic data.
+        :param categories: List of diagnostics categories to fetch.
+            DEPRECATED: If not provided, provide DiagnosticsCategory.ALL to fetch all
+            diagnostics data.
+        :returns: The diagnostics data.
         """
-        if categories is None:
-            categories = list(DiagnosticCategory)
+        if not categories:
+            warnings.warn(
+                "'ClientLibrary.get_diagnostics()' without arguments is deprecated. "
+                "Use 'ClientLibrary.get_diagnostics(DiagnosticsCategory.ALL)' or "
+                "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES, "
+                "DiagnosticsCategory.LABS, ...)' with specific categories instead.",
+                DeprecationWarning,
+            )
+            categories = [DiagnosticsCategory.ALL]
+        if DiagnosticsCategory.ALL in categories:
+            categories = list(DiagnosticsCategory)[1:]
 
         diagnostics_data = {}
         for category in categories:

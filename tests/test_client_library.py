@@ -33,7 +33,7 @@ from virl2_client.models import Lab
 from virl2_client.virl2_client import (
     ClientConfig,
     ClientLibrary,
-    DiagnosticCategory,
+    DiagnosticsCategory,
     InitializationError,
     Version,
 )
@@ -730,38 +730,41 @@ def test_convergence_parametrization(client_library_server_current, mocked_sessi
 
 
 @pytest.mark.parametrize(
-    "categories, expected_paths",
+    "categories",
     [
-        (None, [diag.value for diag in DiagnosticCategory]),
-        ([DiagnosticCategory.COMPUTES], [DiagnosticCategory.COMPUTES.value]),
-        (
-            [DiagnosticCategory.LABS, DiagnosticCategory.SERVICES],
-            [DiagnosticCategory.LABS.value, DiagnosticCategory.SERVICES.value],
-        ),
+        (),
+        [DiagnosticsCategory.ALL],
+        [DiagnosticsCategory.COMPUTES],
+        [DiagnosticsCategory.LABS, DiagnosticsCategory.SERVICES],
+        [DiagnosticsCategory.ALL, DiagnosticsCategory.COMPUTES],
     ],
 )
-def test_get_diagnostics_paths(client_library, categories, expected_paths):
+@pytest.mark.parametrize("valid", [True, False])
+def test_get_diagnostics_paths(
+    client_library: ClientLibrary, categories: list[DiagnosticsCategory], valid: bool
+):
+    data = {"data": "sample"}
+    if valid:
+        return_value = httpx.Response(200, json=data)
+    else:
+        return_value = httpx.Response(404)
+
+    expected_categories = categories
+    if not categories or DiagnosticsCategory.ALL in categories:
+        expected_categories = list(DiagnosticsCategory)[1:]
+
     with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
-        for path in expected_paths:
-            respx_mock.get(f"diagnostics/{path}").mock(
-                return_value=httpx.Response(200, json={"data": "sample"})
+        for category in expected_categories:
+            respx_mock.get(f"diagnostics/{category.value}").mock(
+                return_value=return_value
             )
-        diagnostics_data = client_library.get_diagnostics(categories=categories)
-    for path in expected_paths:
-        assert path in diagnostics_data
-        assert diagnostics_data[path] == {"data": "sample"}
+        if categories:
+            diagnostics_data = client_library.get_diagnostics(*categories)
+        else:
+            with pytest.deprecated_call():
+                diagnostics_data = client_library.get_diagnostics(*categories)
 
-
-def test_get_diagnostics_error_handling(client_library):
-    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
-        for diag_type in DiagnosticCategory:
-            respx_mock.get(f"diagnostics/{diag_type.value}").mock(
-                return_value=httpx.Response(404)
-            )
-
-        diagnostics_data = client_library.get_diagnostics()
-
-    for diag_type in DiagnosticCategory:
-        assert diagnostics_data[diag_type.value] == {
-            "error": f"Failed to fetch {diag_type.value} diagnostics"
-        }
+    for category in expected_categories:
+        if not valid:
+            data = {"error": f"Failed to fetch {category.value} diagnostics"}
+        assert diagnostics_data[category.value] == data

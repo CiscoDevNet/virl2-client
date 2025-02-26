@@ -128,7 +128,7 @@ class Licensing:
         """
         if self._is_cert_deprecated:
             warnings.warn(
-                "'Licensing.get_certificate' is deprecated.", DeprecationWarning
+                "'Licensing.get_certificate()' is deprecated.", DeprecationWarning
             )
             return None
         url = self._url_for("certificate")
@@ -148,7 +148,7 @@ class Licensing:
         """
         if self._is_cert_deprecated:
             warnings.warn(
-                "'Licensing.install_certificate' is deprecated.", DeprecationWarning
+                "'Licensing.install_certificate()' is deprecated.", DeprecationWarning
             )
             return False
         url = self._url_for("certificate")
@@ -166,7 +166,7 @@ class Licensing:
         """
         if self._is_cert_deprecated:
             warnings.warn(
-                "'Licensing.remove_certificate' is deprecated.", DeprecationWarning
+                "'Licensing.remove_certificate()' is deprecated.", DeprecationWarning
             )
             return False
         url = self._url_for("certificate")

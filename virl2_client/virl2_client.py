@@ -837,7 +837,7 @@ class ClientLibrary:
             categories = list(DiagnosticsCategory)[1:]
 
         diagnostics_data = {}
-        for category in categories:
+        for category in set(categories):
             value = category.value
             url = self._url_for("diagnostics", category=value)
             try:

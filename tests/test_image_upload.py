@@ -27,7 +27,7 @@ from unittest.mock import ANY, MagicMock
 import pytest
 
 from virl2_client.exceptions import InvalidImageFile
-from virl2_client.models.node_image_definition import NodeImageDefinitions
+from virl2_client.models import NodeImageDefinitions
 
 WRONG_FORMAT_LIST = [
     "",

@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..exceptions import MethodNotActive
 from ..utils import get_url_from_template
-from .resource_pools import ResourcePool
+from .resource_pool import ResourcePool
 
 if TYPE_CHECKING:
     from httpx import Client

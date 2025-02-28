@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     import httpx
 
     from .annotation import AnnotationType
-    from .resource_pools import ResourcePool, ResourcePoolManagement
+    from .resource_pool import ResourcePool, ResourcePoolManagement
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -117,17 +117,17 @@ class Lab:
         :param username: Username of the user to authenticate.
         :param password: Password of the user to authenticate.
         :param auto_sync: A flag indicating whether local changes should be
-                automatically synced to the server.
+            automatically synced to the server.
         :param auto_sync_interval: Interval in seconds for automatic syncing.
         :param wait: A flag indicating whether to wait for convergence on the backend.
         :param wait_max_iterations: Maximum number of iterations for convergence.
         :param wait_time: Time in seconds to sleep between convergence calls
-                on the backend.
+            on the backend.
         :param hostname: Hostname/IP and port for pyATS console terminal server.
         :param resource_pool_manager: ResourcePoolManagement object shared
-                with parent ClientLibrary.
+            with parent ClientLibrary.
         :raises VirlException: If the lab object is created without
-                a resource pool manager.
+            a resource pool manager.
         """
 
         self.username = username
@@ -598,9 +598,9 @@ class Lab:
         :param x: The X coordinate.
         :param y: The Y coordinate.
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         :param populate_interfaces: Automatically create a pre-defined number
-                of interfaces on node creation.
+            of interfaces on node creation.
         :returns: A Node object.
         """
         try:
@@ -650,7 +650,7 @@ class Lab:
         Creates a node in the client, but not on the server.
         """
         warnings.warn(
-            "'Lab.add_node_local' is deprecated. You probably want .create_node "
+            "'Lab.add_node_local()' is deprecated. You probably want Lab.create_node() "
             "instead. (If you really want to create a node locally only, "
             "use '._create_node_local()'.)",
             DeprecationWarning,
@@ -662,11 +662,7 @@ class Lab:
         self, node_id: str, label: str, node_definition: str, **kwargs
     ) -> Node:
         """Helper function to add a node to the client library."""
-        if "tags" not in kwargs:
-            kwargs["tags"] = []
-
         node = Node(self, node_id, label, node_definition, **kwargs)
-
         self._nodes[node_id] = node
         return node
 
@@ -678,12 +674,11 @@ class Lab:
 
         If you have a node object, you can also simply do::
 
-                node.remove()
-
+            node.remove()
 
         :param node: The node object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(node, str):
             node = self.get_node_by_id(node)
@@ -714,7 +709,7 @@ class Lab:
         Remove all nodes from the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         # Use case - user was assigned one lab, wants to reset work;
         # can't delete lab, so removing all nodes is the only option
@@ -733,11 +728,11 @@ class Lab:
 
         If you have a link object, you can also simply do::
 
-                link.remove()
+            link.remove()
 
         :param link: The link object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(link, str):
             link = self.get_link_by_id(link)
@@ -769,11 +764,11 @@ class Lab:
 
         If you have an interface object, you can also simply do::
 
-                interface.remove()
+            interface.remove()
 
         :param iface: The interface object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         if isinstance(iface, str):
             iface = self.get_interface_by_id(iface)
@@ -811,7 +806,7 @@ class Lab:
 
         If you have an annotation object, you can also simply do::
 
-                annotation.remove()
+            annotation.remove()
 
         :param annotation: The annotation object or ID.
         """
@@ -844,7 +839,7 @@ class Lab:
 
         If you have a smart annotation object, you can also simply do::
 
-                smart_annotation.remove()
+            smart_annotation.remove()
 
         :param annotation: The annotation object or ID.
         """
@@ -893,7 +888,7 @@ class Lab:
         :param i1: The first interface object or ID.
         :param i2: The second interface object or ID.
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         :returns: The created link.
         """
         if isinstance(i1, str):
@@ -953,7 +948,7 @@ class Lab:
         :param node: The node on which the interface is created.
         :param slot: The slot number to create the interface in.
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         :returns: The newly created interface.
         """
         if isinstance(node, str):
@@ -1019,7 +1014,7 @@ class Lab:
         Create a lab annotation.
 
         :param annotation_type: Type of the annotation (rectangle, ellipse, line or
-                text).
+            text).
         :param kwargs: Keyword arguments with annotation property values.
         :returns: The created annotation.
         """
@@ -1080,7 +1075,7 @@ class Lab:
         :param tag: Tag which the smart annotation will be bound to.
         :param nodes: Nodes to which to add the tag and smart annotation.
         :param kwargs: Keyword arguments with annotation property values.
-                See `models.SmartAnnotation` for available properties.
+            See `models.SmartAnnotation` for available properties.
         :returns: The created annotation.
         """
         assert nodes
@@ -1231,7 +1226,7 @@ class Lab:
         Start all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("start")
         self._session.put(url)
@@ -1245,7 +1240,7 @@ class Lab:
         Stop all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("stop")
         self._session.put(url)
@@ -1273,7 +1268,7 @@ class Lab:
         """
         Check if the lab is active.
 
-        :return: True if the lab is active, False otherwise
+        :returns: True if the lab is active, False otherwise
         """
         return self.state() == "STARTED"
 
@@ -1282,7 +1277,7 @@ class Lab:
         """
         Retrieve the details of the lab, including its state.
 
-        :return: A dictionary containing the detailed lab state
+        :returns: A dictionary containing the detailed lab state
         """
         url = self._url_for("lab")
         response = self._session.get(url)
@@ -1295,7 +1290,7 @@ class Lab:
         Wipe all the nodes and links in the lab.
 
         :param wait: A flag indicating whether to wait for convergence.
-                If left at the default value, the lab's wait property is used instead.
+            If left at the default value, the lab's wait property is used instead.
         """
         url = self._url_for("wipe")
         self._session.put(url)
@@ -1347,11 +1342,11 @@ class Lab:
         Synchronize the current lab, locally applying changes made to the server.
 
         :param topology_only: Only sync the topology without statistics and IP
-                addresses.
+            addresses.
         :param with_node_configurations: DEPRECATED: does the opposite of what
-                is expected. Use exclude_configurations instead.
+            is expected. Use exclude_configurations instead.
         :param exclude_configurations: Whether to exclude configurations
-                from synchronization.
+            from synchronization.
         """
         if with_node_configurations is not None:
             warnings.warn(
@@ -1422,9 +1417,9 @@ class Lab:
 
         :param topology: The topology to import.
         :param created: The node create API endpoint returns data in the old format,
-                which would print an unnecessary old schema warning;
-                setting this flag to True skips that warning. Also decides whether default
-                username is to be the current user or None.
+            which would print an unnecessary old schema warning;
+            setting this flag to True skips that warning. Also decides whether default
+            username is to be the current user or None.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
@@ -1732,7 +1727,6 @@ class Lab:
 
         # kept elements
         kept_nodes = update_node_ids.intersection(existing_node_ids)
-        # kept_links = update_link_ids.intersection(existing_link_ids)
         kept_interfaces = update_interface_ids.intersection(existing_interface_ids)
         kept_annotations = update_annotation_ids.intersection(existing_annotation_ids)
         kept_smart_annotations = update_smart_annotation_ids.intersection(
@@ -1914,15 +1908,13 @@ class Lab:
         """
         Update elements in the lab.
 
-         :param topology: Dictionary containing the lab topology.
-         :param kept_nodes: Iterable of node IDs to be updated.
-         :param kept_interfaces: Iterable of interface IDs to be updated.
-         :param kept_annotations: Iterable of annotation IDs to be updated.
-         :param kept_smart_annotations: Iterable of smart annotation IDs to be updated.
-
-
-         :param exclude_configurations: Boolean indicating whether to exclude
-                configurations during update.
+        :param topology: Dictionary containing the lab topology.
+        :param kept_nodes: Iterable of node IDs to be updated.
+        :param kept_interfaces: Iterable of interface IDs to be updated.
+        :param kept_annotations: Iterable of annotation IDs to be updated.
+        :param kept_smart_annotations: Iterable of smart annotation IDs to be updated.
+        :param exclude_configurations: Boolean indicating whether to exclude
+            configurations during update.
         """
         if kept_nodes:
             for node_id in kept_nodes:
@@ -1937,13 +1929,6 @@ class Lab:
                 )
                 interface = self._interfaces[interface_id]
                 interface._update(interface_data, push_to_server=False)
-
-        # For now, can't update link data server-side, this will change with tags
-        # if kept_links:
-        #     for link_id in kept_links:
-        #         link_data = self._find_link_in_topology(link_id, topology)
-        #         link = self._links[link_id]
-        #         link._update(link_data, push_to_server=False)
 
         if kept_annotations:
             for ann_id in kept_annotations:
@@ -1980,7 +1965,6 @@ class Lab:
         :returns: The link with the specified ID.
         :raises LinkNotFound: If the link cannot be found in the topology.
         """
-
         for link in topology["links"]:
             if link["id"] == link_id:
                 return link
@@ -2066,17 +2050,17 @@ class Lab:
         """
         Return lab's pyATS YAML testbed. Example usage::
 
-                from pyats.topology import loader
+            from pyats.topology import loader
 
-                lab = client_library.join_existing_lab("lab_1")
-                testbed_yaml = lab.get_pyats_testbed()
+            lab = client_library.join_existing_lab("lab_1")
+            testbed_yaml = lab.get_pyats_testbed()
 
-                testbed = loader.load(io.StringIO(testbed_yaml))
+            testbed = loader.load(io.StringIO(testbed_yaml))
 
-                # wait for lab to be ready
-                lab.wait_until_lab_converged()
+            # wait for lab to be ready
+            lab.wait_until_lab_converged()
 
-                aetest.main(testbed=testbed)
+            aetest.main(testbed=testbed)
 
         :param hostname: Force hostname/ip and port for console terminal server.
         :returns: The pyATS testbed for the lab in YAML format.
@@ -2121,7 +2105,11 @@ class Lab:
 
     @property
     def groups(self) -> list[dict[str, str]]:
-        """Return the groups this lab is associated with."""
+        """
+        Return the groups this lab is associated with.
+
+        :returns: List of objects consisting of group ID and permissions.
+        """
         url = self._url_for("groups")
         return self._session.get(url).json()
 
@@ -2132,8 +2120,8 @@ class Lab:
         """
         Modify lab/group association.
 
-        :param group_list: List of objects consisting of group ID and permission.
-        :returns: Updated objects consisting of group ID and permission.
+        :param group_list: List of objects consisting of group ID and permissions.
+        :returns: Updated objects consisting of group ID and permissions.
         """
         url = self._url_for("groups")
         return self._session.put(url, json=group_list).json()
@@ -2202,10 +2190,17 @@ class Lab:
                 return user["username"]
         return None
 
-    def _set_owner(self, user_id: str | None = None, user_name: str | None = None):
-        """Sets the owner to the name of the user specified by the provided user_id.
+    def _set_owner(
+        self, user_id: str | None = None, user_name: str | None = None
+    ) -> None:
+        """
+        Sets the owner to the name of the user specified by the provided user_id.
         If given ID is None/doesn't exist, we fall back to the given user_name,
-        which will usually be the name of the current user or None."""
+        which will usually be the name of the current user or None.
+
+        :param user_id: User unique identifier.
+        :param user_name: Username.
+        """
         if user_id:
             user_name = self._user_name(user_id) or user_name
         self._owner = user_name

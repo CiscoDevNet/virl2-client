@@ -5,6 +5,7 @@
 venv*
 .vscode
 dist
+.built
 */__pycache__
 .pytest_cache
 docs/build

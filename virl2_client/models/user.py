@@ -32,7 +32,6 @@ class UserManagement:
     _URL_TEMPLATES = {
         "users": "users",
         "user": "users/{user_id}",
-        "user_groups": "users/{user_id}/groups",
         "user_id": "users/{username}/id",
     }
 
@@ -77,101 +76,92 @@ class UserManagement:
         url = self._url_for("user", user_id=user_id)
         self._session.delete(url)
 
-    def create_user(
-        self,
-        username: str,
-        pwd: str,
-        fullname: str = "",
-        description: str = "",
-        email: str = "",
-        admin: bool = False,
-        groups: list[str] | None = None,
-        resource_pool: str | None = None,
-        opt_in: bool | None = None,
-        tour_version: str = "",
-    ) -> dict:
+    def create_user(self, username: str, pwd: str, **kwargs: Any) -> dict:
         """
         Create a new user.
 
         :param username: Username.
         :param pwd: Desired password.
-        :param fullname: Full name.
-        :param description: Description.
-        :param email: Email address.
-        :param admin: Whether to create an admin user.
-        :param groups: List of groups to which the user should be added.
-        :param resource_pool: Resource pool to which the user should be added.
-        :param opt_in: Whether the user has seen the initial contact dialog.
-        :param tour_version: The version of the Workbench tour the user has completed.
+        :param kwargs: Optional parameters. See below.
+
+        :Keyword Arguments:
+            - fullname: Full name.
+            - description: Description.
+            - email: Email address.
+            - admin: Whether to create an admin user.
+            - groups: List of groups to which the user should be added.
+            - associations: List of lab associations for the user.
+            - resource_pool: Resource pool to which the user should be added.
+            - opt_in: Whether the user has seen the initial contact dialog.
+            - tour_version: The version of the Workbench tour the user has completed.
+
         :returns: User object.
         """
-        data = {"username": username, "password": pwd}
+        data: dict[str, Any] = {"username": username, "password": pwd}
+        self._prepare_body(data, **kwargs)
+        url = self._url_for("users")
+        return self._session.post(url, json=data).json()
+
+    def update_user(self, user_id: str, **kwargs: Any) -> dict:
+        """
+        Update an existing user.
+
+        :param user_id: User UUID4.
+        :param kwargs: Optional parameters. See below.
+
+        :Keyword Arguments:
+            - fullname: Full name.
+            - description: Description.
+            - email: Email address.
+            - admin: Whether to create an admin user.
+            - groups: List of groups to which the user should be added.
+            - associations: List of lab associations for the user.
+            - password_dict: Dictionary containing old and new passwords.
+            - resource_pool: Resource pool to which the user should be added.
+            - opt_in: Whether the user has seen the initial contact dialog.
+            - tour_version: The version of the Workbench tour the user has completed.
+
+        :returns: User object.
+        """
+        data: dict[str, Any] = {}
+        self._prepare_body(data, **kwargs)
+        url = self._url_for("user", user_id=user_id)
+        return self._session.patch(url, json=data).json()
+
+    def _prepare_body(
+        self,
+        data: dict[str, Any],
+        fullname: str | None = None,
+        description: str | None = None,
+        email: str | None = None,
+        groups: list[str] | None = None,
+        associations: list[dict[str, list[str]]] | None = None,
+        admin: bool | None = None,
+        password_dict: dict[str, str] | None = None,
+        resource_pool: str | None | _Sentinel = UNCHANGED,
+        opt_in: bool | None | _Sentinel = UNCHANGED,
+        tour_version: str | None = None,
+    ) -> dict[str, Any]:
         optional_data = {
             "fullname": fullname,
             "description": description,
             "email": email,
             "admin": admin,
             "groups": groups,
-            "resource_pool": resource_pool,
-            "opt_in": opt_in,
+            "associations": associations,
+            "password": password_dict,
             "tour_version": tour_version,
         }
+        sentinel_data = {
+            "resource_pool": resource_pool,
+            "opt_in": opt_in,
+        }
         for key, value in optional_data.items():
-            if value:
+            if value is not None:
                 data[key] = value
-        url = self._url_for("users")
-        return self._session.post(url, json=data).json()
-
-    def update_user(
-        self,
-        user_id: str,
-        fullname: str | None = None,
-        description: str | None = None,
-        email: str | None = None,
-        groups: list[str] | None = None,
-        admin: bool | None = None,
-        password_dict: dict[str, str] | None = None,
-        resource_pool: str | None | _Sentinel = UNCHANGED,
-        opt_in: bool | None | _Sentinel = UNCHANGED,
-        tour_version: str | None = None,
-    ) -> dict:
-        """
-        Update an existing user.
-
-        :param user_id: User UUID4.
-        :param fullname: Full name.
-        :param description: Description.
-        :param email: Email address.
-        :param admin: Whether to create an admin user.
-        :param groups: List of groups to which the user should be added.
-        :param password_dict: Dictionary containing old and new passwords.
-        :param resource_pool: Resource pool to which the user should be added.
-        :param opt_in: Whether the user has seen the initial contact dialog.
-        :param tour_version: The version of the Workbench tour the user has completed.
-        :returns: User object.
-        """
-        data: dict[str, Any] = {}
-        if fullname is not None:
-            data["fullname"] = fullname
-        if description is not None:
-            data["description"] = description
-        if email is not None:
-            data["email"] = email
-        if admin is not None:
-            data["admin"] = admin
-        if groups is not None:
-            data["groups"] = groups
-        if password_dict is not None:
-            data["password"] = password_dict
-        if resource_pool is not UNCHANGED:
-            data["resource_pool"] = resource_pool
-        if opt_in is not UNCHANGED:
-            data["opt_in"] = opt_in
-        if tour_version is not None:
-            data["tour_version"] = tour_version
-
-        url = self._url_for("user", user_id=user_id)
-        return self._session.patch(url, json=data).json()
+        for key, value in sentinel_data.items():
+            if value != UNCHANGED:
+                data[key] = value
 
     def user_groups(self, user_id: str) -> list[str]:
         """
@@ -180,8 +170,30 @@ class UserManagement:
         :param user_id: User UUID4.
         :returns: List of group names.
         """
-        url = self._url_for("user_groups", user_id=user_id)
-        return self._session.get(url).json()
+        return self.get_user(user_id)["groups"]
+
+    def associations(self, user_id: str) -> list[dict[str, list[str]]]:
+        """
+        Get a list of lab associations for a user.
+
+        :param user_id: The UUID4 of the user.
+        :returns: A list of lab associations for this user.
+        """
+        return self.get_user(user_id)["associations"]
+
+    def update_associations(
+        self, user_id: str, associations: list[dict[str, list[str]]]
+    ) -> dict:
+        """
+        Update the lab associations for a user.
+
+        :param user_id: The UUID4 of the user.
+        :param associations: The new list of lab associations.
+        :returns: The updated user object.
+        """
+        data = {"associations": associations}
+        url = self._url_for("user", user_id=user_id)
+        return self._session.patch(url, json=data).json()
 
     def user_id(self, username: str) -> str:
         """

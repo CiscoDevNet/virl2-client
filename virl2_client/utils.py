@@ -186,6 +186,7 @@ def get_url_from_template(
 _DEPRECATION_MESSAGES = {
     "push_to_server": "meant to be used only by internal methods",
     "offline": "offline mode has been removed",
+    "labs": "use the `.associations` attribute instead",
 }
 
 

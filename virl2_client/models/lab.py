@@ -566,7 +566,7 @@ class Lab:
         for annotation in self._smart_annotations.values():
             if tag == annotation.tag:
                 return annotation
-        raise SmartAnnotationNotFound
+        raise SmartAnnotationNotFound(tag)
 
     def find_nodes_by_tag(self, tag: str) -> list[Node]:
         """
@@ -979,7 +979,7 @@ class Lab:
         if desired_interface is None:
             # Shouldn't happen, but type checkers complain about desired_interface
             # possibly being None otherwise
-            raise InterfaceNotFound
+            raise InterfaceNotFound(node)
 
         return desired_interface
 
@@ -1970,7 +1970,7 @@ class Lab:
             if link["id"] == link_id:
                 return link
         # if it cannot be found, it is an internal structure error
-        raise LinkNotFound
+        raise LinkNotFound(link_id)
 
     @staticmethod
     def _find_interface_in_topology(interface_id: str, topology: dict) -> dict:
@@ -1990,7 +1990,7 @@ class Lab:
                 if interface["id"] == interface_id:
                     return interface
         # if it cannot be found, it is an internal structure error
-        raise InterfaceNotFound
+        raise InterfaceNotFound(interface_id)
 
     @staticmethod
     def _find_node_in_topology(node_id: str, topology: dict) -> dict:
@@ -2006,7 +2006,7 @@ class Lab:
             if node["id"] == node_id:
                 return node
         # if it cannot be found, it is an internal structure error
-        raise NodeNotFound
+        raise NodeNotFound(node_id)
 
     @staticmethod
     def _find_annotation_in_topology(
@@ -2025,7 +2025,7 @@ class Lab:
             if annotation["id"] == annotation_id:
                 return annotation
         # if it cannot be found, it is an internal structure error
-        raise AnnotationNotFound
+        raise AnnotationNotFound(annotation_id)
 
     @staticmethod
     def _find_smart_annotation_in_topology(
@@ -2044,7 +2044,7 @@ class Lab:
             if annotation["id"] == annotation_id:
                 return annotation
         # if it cannot be found, it is an internal structure error
-        raise SmartAnnotationNotFound
+        raise SmartAnnotationNotFound(annotation_id)
 
     @check_stale
     def get_pyats_testbed(self, hostname: str | None = None) -> str:

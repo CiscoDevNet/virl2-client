@@ -112,7 +112,7 @@ class ResourcePoolManagement:
         :param resource_pool_ids: A resource pool ID or an iterable of IDs.
         :returns: A ResourcePool object when one ID is passed, or a dictionary of IDs to
             either ResourcePools when a resource pool exists or None when it doesn't.
-        :raises KeyError: When one ID is passed and it doesn't exist.
+        :raises KeyError: When one ID is passed, and it doesn't exist.
         """
         self.sync_resource_pools_if_outdated()
         if isinstance(resource_pool_ids, str):
@@ -154,7 +154,7 @@ class ResourcePoolManagement:
         Create a list of resource pools with the given parameters.
         If no template is supplied, a new template pool is created with the specified
         parameters, and each user is assigned a new pool with no additional limits.
-        If a template pool is supplied, then parameters are applied to each user pool.
+        If a template pool is supplied, then parameters, are applied to each user pool.
 
         :param label: The label for the resource pools.
         :param users: The list of user IDs for which to create resource pools.

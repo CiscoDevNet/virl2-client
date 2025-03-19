@@ -578,7 +578,7 @@ class Node:
         for iface in self.interfaces():
             if iface.label == label:
                 return iface
-        raise InterfaceNotFound(f"{label}:{self}")
+        raise InterfaceNotFound(self)
 
     @locked
     def get_interface_by_slot(self, slot: int) -> Interface:
@@ -592,7 +592,7 @@ class Node:
         for iface in self.interfaces():
             if iface.slot == slot:
                 return iface
-        raise InterfaceNotFound(f"{slot}:{self}")
+        raise InterfaceNotFound(slot)
 
     def get_links_to(self, other_node: Node) -> list[Link]:
         """

@@ -86,7 +86,7 @@ class Lab:
         "pyats_testbed": "labs/{lab_id}/pyats_testbed",
         "layer3_addresses": "labs/{lab_id}/layer3_addresses",
         "download": "labs/{lab_id}/download",
-        "groups": "labs/{lab_id}/groups",
+        "associations": "labs/{lab_id}/associations",
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
         "annotations": "labs/{lab_id}/annotations",
@@ -2107,25 +2107,66 @@ class Lab:
     @property
     def groups(self) -> list[dict[str, str]]:
         """
+        DEPRECATED: Use `.associations` instead.
+        (Reason: adapted to new format of lab associations)
+
         Return the groups this lab is associated with.
 
         :returns: List of objects consisting of group ID and permissions.
         """
-        url = self._url_for("groups")
-        return self._session.get(url).json()
+        warnings.warn(
+            "'Lab.groups' is deprecated. Use '.associations' instead.",
+            DeprecationWarning,
+        )
+        url = self._url_for("lab")
+        return self._session.get(url).json()["groups"]
 
     @check_stale
     def update_lab_groups(
         self, group_list: list[dict[str, str]]
     ) -> list[dict[str, str]]:
         """
+        DEPRECATED: Use `.update_associations()` instead.
+        (Reason: adapted to new format of lab associations)
+
         Modify lab/group association.
 
         :param group_list: List of objects consisting of group ID and permissions.
         :returns: Updated objects consisting of group ID and permissions.
         """
-        url = self._url_for("groups")
-        return self._session.put(url, json=group_list).json()
+        warnings.warn(
+            "'Lab.update_lab_groups()' is deprecated. Use '.update_associations()' instead.",
+            DeprecationWarning,
+        )
+        url = self._url_for("lab")
+        data = {"groups": group_list}
+        return self._session.patch(url, json=data).json()
+
+    @property
+    def associations(self) -> dict[list[dict[str, str]]]:
+        """
+        Return the group and user associations for this lab.
+
+        :returns: An object containing group and user list of objects consisting of ID
+            and permissions.
+        """
+        url = self._url_for("associations")
+        return self._session.get(url).json()
+
+    @check_stale
+    def update_associations(
+        self, associations: dict[list[dict[str, str]]]
+    ) -> dict[list[dict[str, str]]]:
+        """
+        Modify lab/group/user associations.
+
+        :param associations: An object containing group and user list of objects
+            consisting of ID and permissions.
+        :returns: Updated object containing group and user list of objects consisting
+            of ID and permissions.
+        """
+        url = self._url_for("associations")
+        return self._session.patch(url, json=associations).json()
 
     @property
     def connector_mappings(self) -> list[dict[str, Any]]:

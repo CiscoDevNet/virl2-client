@@ -189,7 +189,7 @@ class NodeImageDefinitions:
         :returns: The node definition as YAML.
         """
         url = self._url_for("node_def", definition_id=definition_id)
-        return self._session.get(url).json()
+        return self._session.get(url).text
 
     def download_image_definition(self, definition_id: str) -> str:
         """

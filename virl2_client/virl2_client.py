@@ -596,8 +596,7 @@ class ClientLibrary:
         """
         topology_path = Path(path)
         if not topology_path.exists():
-            message = f"{path} can not be found"
-            raise FileNotFoundError(message)
+            raise FileNotFoundError(path)
 
         topology = topology_path.read_text()
         return self.import_lab(

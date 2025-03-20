@@ -1385,7 +1385,7 @@ class Lab:
                 and f"Lab not found: {self._id}" in exc.response.text
             ):
                 self._stale = True
-                raise LabNotFound(f"Error syncing lab: {error_msg}")
+                raise LabNotFound(self._id)
             raise
 
         topology = result.json()

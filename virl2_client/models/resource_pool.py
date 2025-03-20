@@ -154,7 +154,7 @@ class ResourcePoolManagement:
         Create a list of resource pools with the given parameters.
         If no template is supplied, a new template pool is created with the specified
         parameters, and each user is assigned a new pool with no additional limits.
-        If a template pool is supplied, then parameters, are applied to each user pool.
+        If a template pool is supplied, then parameters are applied to each user pool.
 
         :param label: The label for the resource pools.
         :param users: The list of user IDs for which to create resource pools.

@@ -979,7 +979,7 @@ class Lab:
         if desired_interface is None:
             # Shouldn't happen, but type checkers complain about desired_interface
             # possibly being None otherwise
-            raise InterfaceNotFound(node)
+            raise InterfaceNotFound(node.id)
 
         return desired_interface
 
@@ -1456,7 +1456,7 @@ class Lab:
             node_id = node["id"]
 
             if node_id in self._nodes:
-                raise ElementAlreadyExists("Node already exists")
+                raise ElementAlreadyExists(node_id)
 
             self._import_node(node_id, node)
 
@@ -1468,7 +1468,7 @@ class Lab:
                 iface_id = iface["id"]
 
                 if iface_id in self._interfaces:
-                    raise ElementAlreadyExists("Interface already exists")
+                    raise ElementAlreadyExists(iface_id)
 
                 self._import_interface(iface_id, node_id, iface)
 
@@ -1487,7 +1487,7 @@ class Lab:
             node_id = iface["node"]
 
             if iface_id in self._interfaces:
-                raise ElementAlreadyExists("Interface already exists")
+                raise ElementAlreadyExists(iface_id)
 
             self._import_interface(iface_id, node_id, iface)
 
@@ -1502,7 +1502,7 @@ class Lab:
             link_id = link["id"]
 
             if link_id in self._links:
-                raise ElementAlreadyExists("Link already exists")
+                raise ElementAlreadyExists(link_id)
 
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
@@ -1524,7 +1524,7 @@ class Lab:
             annotation_id = annotation["id"]
 
             if annotation_id in self._annotations:
-                raise ElementAlreadyExists("Annotation already exists")
+                raise ElementAlreadyExists(annotation_id)
 
             self._import_annotation(annotation_id, annotation)
 
@@ -1535,7 +1535,7 @@ class Lab:
             smart_annotation_id = smart_annotation["id"]
 
             if smart_annotation_id in self._smart_annotations:
-                raise ElementAlreadyExists("Smart annotation already exists")
+                raise ElementAlreadyExists(smart_annotation_id)
 
             self._import_smart_annotation(smart_annotation_id, smart_annotation)
 

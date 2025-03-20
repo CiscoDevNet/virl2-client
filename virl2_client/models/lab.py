@@ -566,7 +566,7 @@ class Lab:
         for annotation in self._smart_annotations.values():
             if tag == annotation.tag:
                 return annotation
-        raise SmartAnnotationNotFound
+        raise SmartAnnotationNotFound(tag)
 
     def find_nodes_by_tag(self, tag: str) -> list[Node]:
         """
@@ -979,7 +979,7 @@ class Lab:
         if desired_interface is None:
             # Shouldn't happen, but type checkers complain about desired_interface
             # possibly being None otherwise
-            raise InterfaceNotFound
+            raise InterfaceNotFound(node.id)
 
         return desired_interface
 
@@ -1385,7 +1385,7 @@ class Lab:
                 and f"Lab not found: {self._id}" in exc.response.text
             ):
                 self._stale = True
-                raise LabNotFound(f"Error syncing lab: {error_msg}")
+                raise LabNotFound(self._id)
             raise
 
         topology = result.json()
@@ -1456,7 +1456,7 @@ class Lab:
             node_id = node["id"]
 
             if node_id in self._nodes:
-                raise ElementAlreadyExists("Node already exists")
+                raise ElementAlreadyExists(node_id)
 
             self._import_node(node_id, node)
 
@@ -1468,7 +1468,7 @@ class Lab:
                 iface_id = iface["id"]
 
                 if iface_id in self._interfaces:
-                    raise ElementAlreadyExists("Interface already exists")
+                    raise ElementAlreadyExists(iface_id)
 
                 self._import_interface(iface_id, node_id, iface)
 
@@ -1487,7 +1487,7 @@ class Lab:
             node_id = iface["node"]
 
             if iface_id in self._interfaces:
-                raise ElementAlreadyExists("Interface already exists")
+                raise ElementAlreadyExists(iface_id)
 
             self._import_interface(iface_id, node_id, iface)
 
@@ -1502,7 +1502,7 @@ class Lab:
             link_id = link["id"]
 
             if link_id in self._links:
-                raise ElementAlreadyExists("Link already exists")
+                raise ElementAlreadyExists(link_id)
 
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
@@ -1524,7 +1524,7 @@ class Lab:
             annotation_id = annotation["id"]
 
             if annotation_id in self._annotations:
-                raise ElementAlreadyExists("Annotation already exists")
+                raise ElementAlreadyExists(annotation_id)
 
             self._import_annotation(annotation_id, annotation)
 
@@ -1535,7 +1535,7 @@ class Lab:
             smart_annotation_id = smart_annotation["id"]
 
             if smart_annotation_id in self._smart_annotations:
-                raise ElementAlreadyExists("Smart annotation already exists")
+                raise ElementAlreadyExists(smart_annotation_id)
 
             self._import_smart_annotation(smart_annotation_id, smart_annotation)
 
@@ -1970,7 +1970,7 @@ class Lab:
             if link["id"] == link_id:
                 return link
         # if it cannot be found, it is an internal structure error
-        raise LinkNotFound
+        raise LinkNotFound(link_id)
 
     @staticmethod
     def _find_interface_in_topology(interface_id: str, topology: dict) -> dict:
@@ -1990,7 +1990,7 @@ class Lab:
                 if interface["id"] == interface_id:
                     return interface
         # if it cannot be found, it is an internal structure error
-        raise InterfaceNotFound
+        raise InterfaceNotFound(interface_id)
 
     @staticmethod
     def _find_node_in_topology(node_id: str, topology: dict) -> dict:
@@ -2006,7 +2006,7 @@ class Lab:
             if node["id"] == node_id:
                 return node
         # if it cannot be found, it is an internal structure error
-        raise NodeNotFound
+        raise NodeNotFound(node_id)
 
     @staticmethod
     def _find_annotation_in_topology(
@@ -2025,7 +2025,7 @@ class Lab:
             if annotation["id"] == annotation_id:
                 return annotation
         # if it cannot be found, it is an internal structure error
-        raise AnnotationNotFound
+        raise AnnotationNotFound(annotation_id)
 
     @staticmethod
     def _find_smart_annotation_in_topology(
@@ -2044,7 +2044,7 @@ class Lab:
             if annotation["id"] == annotation_id:
                 return annotation
         # if it cannot be found, it is an internal structure error
-        raise SmartAnnotationNotFound
+        raise SmartAnnotationNotFound(annotation_id)
 
     @check_stale
     def get_pyats_testbed(self, hostname: str | None = None) -> str:

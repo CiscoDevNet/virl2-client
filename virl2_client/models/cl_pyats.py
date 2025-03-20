@@ -91,7 +91,7 @@ class ClPyats:
         Load a PyATS testbed instance from YAML representation.
 
         Disable all templating features of PyATS markup processor.
-        Also disable extensions loading (which still uses all of the templating)
+        Also disable extensions loading (which still uses all the templating)
         https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
         """
         processor = _PyatsTMProcessor(

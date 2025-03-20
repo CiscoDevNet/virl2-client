@@ -91,36 +91,26 @@ def windows_path(path: str):
 
 @pytest.mark.parametrize(
     "test_path",
-    [
-        pytest.param(""),
-        pytest.param("/"),
-        pytest.param("./"),
-        pytest.param("./../"),
-        pytest.param("test/test/"),
-        pytest.param("/test/test/"),
-        pytest.param("\\"),
-        pytest.param("..\\..\\"),
-        pytest.param("\\test\\"),
-    ],
+    ["", "/", "./", "./../", "test/test/", "/test/test/", "\\", "..\\..\\", "\\test\\"],
 )
-@pytest.mark.parametrize("usage", [pytest.param("name"), pytest.param("rename")])
+@pytest.mark.parametrize("rename", [None, "rename"])
 @pytest.mark.parametrize(
-    "test_string, message",
-    [pytest.param(test_str, "wrong format") for test_str in WRONG_FORMAT_LIST]
-    + [pytest.param(test_str, "not supported") for test_str in NOT_SUPPORTED_LIST]
-    + [pytest.param(test_str, "") for test_str in EXPECTED_PASS_LIST],
+    "test_string",
+    WRONG_FORMAT_LIST + NOT_SUPPORTED_LIST + EXPECTED_PASS_LIST,
 )
-def test_image_upload_file(usage: str, test_string: str, message: str, test_path: str):
+def test_image_upload_file(rename: str, test_string: str, test_path: str):
     session = MagicMock()
     nid = NodeImageDefinitions(session)
-    rename = None
     filename = test_path + test_string
 
-    if message in ("wrong format", "not supported"):
-        with pytest.raises(InvalidImageFile, match=message):
+    if test_string in WRONG_FORMAT_LIST:
+        with pytest.raises(InvalidImageFile, match="wrong format"):
             with windows_path(filename):
                 nid.upload_image_file(filename, rename)
-
+    elif test_string in NOT_SUPPORTED_LIST:
+        with pytest.raises(InvalidImageFile, match="unsupported extension"):
+            with windows_path(filename):
+                nid.upload_image_file(filename, rename)
     elif test_path == "test_data/":
         with windows_path(filename):
             nid.upload_image_file(filename, rename)
@@ -132,7 +122,6 @@ def test_image_upload_file(usage: str, test_string: str, message: str, test_path
         assert isinstance(file, BufferedReader)
         assert pathlib.Path(file.name).resolve() == pathlib.Path(filename).resolve()
         file.close()
-
     else:
         with pytest.raises(FileNotFoundError):
             with windows_path(filename):

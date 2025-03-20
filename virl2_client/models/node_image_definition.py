@@ -226,21 +226,20 @@ class NodeImageDefinitions:
 
         if extension == "" or name == "":
             message = (
-                f"Name specified ({name}) is in wrong format "
-                f"(correct: filename.({'|'.join(extension_list)}) )."
+                f"Specified filename ({name}) has wrong format "
+                f"(correct format is filename.({'|'.join(extension_list)}) )."
             )
             raise InvalidImageFile(message)
 
         if extension not in extension_list and last_ext not in extension_list:
             message = (
-                f"Extension in {name} not supported. "
+                f"Specified filename ({name}) has unsupported extension ({extension}) "
                 f"(supported extensions are {', '.join(extension_list)})."
             )
             raise InvalidImageFile(message)
 
         if not os.path.exists(filename):
-            message = f"File with specified name ({filename}) does not exist."
-            raise FileNotFoundError(message)
+            raise FileNotFoundError(filename)
 
         print(f"Uploading {name}")
         headers = {"X-Original-File-Name": name}

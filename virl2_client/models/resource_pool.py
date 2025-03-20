@@ -112,7 +112,7 @@ class ResourcePoolManagement:
         :param resource_pool_ids: A resource pool ID or an iterable of IDs.
         :returns: A ResourcePool object when one ID is passed, or a dictionary of IDs to
             either ResourcePools when a resource pool exists or None when it doesn't.
-        :raises KeyError: When one ID is passed and it doesn't exist.
+        :raises KeyError: When one ID is passed, and it doesn't exist.
         """
         self.sync_resource_pools_if_outdated()
         if isinstance(resource_pool_ids, str):

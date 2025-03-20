@@ -60,17 +60,6 @@ def _make_not_found(instance: Element) -> ElementNotFound:
     class_name = type(instance).__name__
     if class_name.startswith("Annotation"):
         class_name = "Annotation"
-    instance_id = instance._id
-    if class_name == "Lab":
-        instance_label = instance._title
-    elif class_name.startswith("Annotation"):
-        instance_label = instance._type
-    else:
-        instance_label = instance._label
-
-    error_text = (
-        f"{class_name} {instance_label} ({instance_id}) no longer exists on the server."
-    )
     error: Type[ElementNotFound] = {
         "Lab": LabNotFound,
         "Node": NodeNotFound,
@@ -79,15 +68,10 @@ def _make_not_found(instance: Element) -> ElementNotFound:
         "Annotation": AnnotationNotFound,
         "SmartAnnotation": SmartAnnotationNotFound,
     }[class_name]
-    return error(error_text)
+    return error(instance._id)
 
 
-def _check_and_mark_stale(
-    func: Callable,
-    instance: Element,
-    *args,
-    **kwargs,
-):
+def _check_and_mark_stale(func: Callable, instance: Element, *args, **kwargs):
     """
     Check staleness before and after calling `func`
     and updates staleness if a 404 is raised.
@@ -107,7 +91,6 @@ def _check_and_mark_stale(
         if instance._stale:
             raise _make_not_found(instance)
         return ret
-
     except httpx.HTTPStatusError as exc:
         resp = exc.response
         class_name = type(instance).__name__

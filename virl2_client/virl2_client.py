@@ -596,8 +596,7 @@ class ClientLibrary:
         """
         topology_path = Path(path)
         if not topology_path.exists():
-            message = f"{path} can not be found"
-            raise FileNotFoundError(message)
+            raise FileNotFoundError(path)
 
         topology = topology_path.read_text()
         return self.import_lab(
@@ -789,7 +788,7 @@ class ClientLibrary:
                 topology = self._session.get(url).json()
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
-                    raise LabNotFound("No lab with the given ID exists on the host.")
+                    raise LabNotFound(lab_id)
                 raise
             title = topology.get("lab", {}).get("title")
         else:

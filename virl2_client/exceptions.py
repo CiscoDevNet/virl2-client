@@ -60,10 +60,6 @@ class LabNotFound(ElementNotFound):
     pass
 
 
-class DesynchronizedError(VirlException):
-    pass
-
-
 class InvalidContentType(VirlException):
     pass
 

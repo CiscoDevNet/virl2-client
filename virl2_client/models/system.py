@@ -297,6 +297,7 @@ class SystemManagement:
         is_connected: bool,
         is_synced: bool,
         admission_state: str,
+        nodes_count: dict[str, int],
         nodes: list[str] | None = None,
     ) -> ComputeHost:
         """
@@ -310,6 +311,7 @@ class SystemManagement:
         :param is_connected: A boolean indicating if the compute host is connected.
         :param is_synced: A boolean indicating if the compute host is synced.
         :param admission_state: The admission state of the compute host.
+        :param nodes_count: Count of deployed and running nodes and orphans.
         :param nodes: A list of node IDs associated with the compute host.
         :returns: The added compute host.
         """
@@ -323,6 +325,7 @@ class SystemManagement:
             is_connected,
             is_synced,
             admission_state,
+            nodes_count,
             nodes,
         )
         self._compute_hosts[compute_id] = new_compute_host
@@ -380,6 +383,7 @@ class ComputeHost:
         is_connected: bool,
         is_synced: bool,
         admission_state: str,
+        nodes_count: dict[str, int],
         nodes: list[str] | None = None,
     ):
         """
@@ -406,6 +410,7 @@ class ComputeHost:
         self._is_connected = is_connected
         self._is_synced = is_synced
         self._admission_state = admission_state
+        self._nodes_count = nodes_count
         self._nodes = nodes if nodes is not None else []
 
     def __str__(self):
@@ -460,6 +465,12 @@ class ComputeHost:
         """Return whether the compute host is synced."""
         self._system.sync_compute_hosts_if_outdated()
         return self._is_synced
+
+    @property
+    def nodes_count(self) -> dict[str, int]:
+        """Return the count of deployed and running nodes and orphans."""
+        self._system.sync_compute_hosts_if_outdated()
+        return self._nodes_count
 
     @property
     def nodes(self) -> list[str]:

@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import TYPE_CHECKING, Any
+import warnings
 
 from virl2_client.exceptions import ControllerNotFound
 
@@ -398,7 +399,9 @@ class ComputeHost:
         :param is_connected: Whether the compute host is connected.
         :param is_synced: Whether the compute host is synced.
         :param admission_state: The admission state of the compute host.
-        :param nodes: The list of nodes associated with the compute host.
+        :param node_counts: The counts of deployed and running nodes and orphans.
+        :param nodes: DEPRECATED: replaced by node_counts.
+            The list of node IDs associated with the compute host.
         """
         self._system = system
         self._session: httpx.Client = system._session
@@ -468,13 +471,18 @@ class ComputeHost:
 
     @property
     def node_counts(self) -> dict[str, int]:
-        """Return the count of deployed and running nodes and orphans."""
+        """Return the counts of deployed and running nodes and orphans."""
         self._system.sync_compute_hosts_if_outdated()
         return self._node_counts
 
     @property
     def nodes(self) -> list[str]:
         """Return the list of nodes associated with the compute host."""
+        warnings.warn(
+            "'ComputeHost.nodes' is deprecated. Use 'ComputeHost.node_counts' or "
+            "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES)' instead.",
+            DeprecationWarning,
+        )
         self._system.sync_compute_hosts_if_outdated()
         return self._nodes
 

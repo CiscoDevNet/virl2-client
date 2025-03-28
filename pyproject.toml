@@ -40,10 +40,10 @@ sphinx =  {version="^7", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7"
+poetry-plugin-export = "*"
 pre-commit = "^4"
 pytest = "*"
 respx = "^0.22.0"
-poetry-plugin-export = "*"
 
 [tool.poetry.extras]
 events = ["aiohttp"]

@@ -171,6 +171,7 @@ class SystemManagement:
                     compute_host, push_to_server=False
                 )
             else:
+                compute_host["node_counts"] = compute_host.get("node_counts", {})
                 self.add_compute_host_local(**compute_host)
             compute_host_ids.append(compute_id)
 

@@ -33,6 +33,10 @@ if TYPE_CHECKING:
     import httpx
 
 
+TARGZ = ".tar.gz"
+EXTENSION_LIST = [".qcow", ".qcow2", ".iol", ".tar", TARGZ]
+
+
 class NodeImageDefinitions:
     _URL_TEMPLATES = {
         "node_defs": "node_definitions",
@@ -216,31 +220,37 @@ class NodeImageDefinitions:
         :param filename: The path of the image to upload.
         :param rename: Optional filename to rename to.
         """
-        extension_list = [".qcow", ".qcow2", ".iol", ".tar"]
         url = self._url_for("upload")
 
         path = pathlib.Path(filename)
-        extension = "".join(path.suffixes)
-        last_ext = path.suffix
+
+        extension = TARGZ if filename.endswith(TARGZ) else path.suffix
         name = rename or path.name
+
+        if not name.endswith(extension):
+            message = (
+                f"Specified filename ({name}) does not match source file's "
+                f"extension ({extension}), possibly using a different file format."
+            )
+            raise InvalidImageFile(message)
 
         if extension == "" or name == "":
             message = (
                 f"Specified filename ({name}) has wrong format "
-                f"(correct format is filename.({'|'.join(extension_list)}) )."
+                f"(correct format is filename.({'|'.join(EXTENSION_LIST)}) )."
             )
             raise InvalidImageFile(message)
 
-        if extension not in extension_list and last_ext not in extension_list:
+        if extension not in EXTENSION_LIST:
             message = (
                 f"Specified filename ({name}) has unsupported extension ({extension}) "
-                f"(supported extensions are {', '.join(extension_list)})."
+                f"(supported extensions are {', '.join(EXTENSION_LIST)})."
             )
             raise InvalidImageFile(message)
 
-        if not os.path.exists(filename):
+        if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
-
+        # TODO: a library should not be printing to stdout unless interactive
         print(f"Uploading {name}")
         headers = {"X-Original-File-Name": name}
 

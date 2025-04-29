@@ -585,7 +585,7 @@ class ClientLibrary:
         )
 
     @locked
-    def import_lab_from_path(self, path: str, title: str | None = None) -> Lab:
+    def import_lab_from_path(self, path: Path | str, title: str | None = None) -> Lab:
         """
         Import an existing topology from a file or path.
 

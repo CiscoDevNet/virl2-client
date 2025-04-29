@@ -22,6 +22,7 @@ from __future__ import annotations
 import contextlib
 import pathlib
 from io import BufferedReader
+from typing import Iterator
 from unittest.mock import ANY, MagicMock
 
 import pytest
@@ -51,7 +52,8 @@ NOT_SUPPORTED_LIST = [
     "file. qcow",
     "file.qcow2 2",
     "file.qcow ",
-    "file.qcow.tar.gz",
+    "file.qcow.gz",
+    "file.tgz",
 ]
 EXPECTED_PASS_LIST = [
     "file.qcow",
@@ -62,6 +64,7 @@ EXPECTED_PASS_LIST = [
     "file.iol",
     "qcow.iol",
     "file.tar",
+    "file.tar.gz",
 ]
 
 
@@ -77,7 +80,7 @@ def create_test_files(change_test_dir):
 
 
 @contextlib.contextmanager
-def windows_path(path: str):
+def windows_path(path: str) -> Iterator[None]:
     if "\\" in path:
         orig = pathlib.Path
         pathlib.Path = pathlib.PureWindowsPath
@@ -86,7 +89,7 @@ def windows_path(path: str):
         finally:
             pathlib.Path = orig
     else:
-        yield path
+        yield
 
 
 @pytest.mark.parametrize(
@@ -98,10 +101,12 @@ def windows_path(path: str):
     "test_string",
     WRONG_FORMAT_LIST + NOT_SUPPORTED_LIST + EXPECTED_PASS_LIST,
 )
-def test_image_upload_file(rename: str, test_string: str, test_path: str):
+def test_image_upload_file(rename: str | None, test_string: str, test_path: str):
     session = MagicMock()
     nid = NodeImageDefinitions(session)
     filename = test_path + test_string
+    if rename is not None:
+        rename += test_string
 
     if test_string in WRONG_FORMAT_LIST:
         with pytest.raises(InvalidImageFile, match="wrong format"):
@@ -123,6 +128,10 @@ def test_image_upload_file(rename: str, test_string: str, test_path: str):
         assert pathlib.Path(file.name).resolve() == pathlib.Path(filename).resolve()
         file.close()
     else:
+        if rename is not None:
+            with pytest.raises(InvalidImageFile, match="does not match source"):
+                with windows_path(filename):
+                    nid.upload_image_file(filename, rename[:-3])
         with pytest.raises(FileNotFoundError):
             with windows_path(filename):
                 nid.upload_image_file(filename, rename)

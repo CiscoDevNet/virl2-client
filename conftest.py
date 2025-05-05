@@ -44,8 +44,3 @@ def pytest_addoption(
     # pytest-asycnio
     if pluginmanager.get_plugin("asyncio") is None:
         parser.addini("asyncio_mode", "suppress the warning")
-
-
-@pytest.fixture
-def test_dir(request: pytest.FixtureRequest) -> Path:
-    return request.path.parent

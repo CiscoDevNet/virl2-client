@@ -210,9 +210,7 @@ class NodeImageDefinitions:
         return self._session.get(url).text
 
     def upload_image_file(
-        self,
-        filename: str,
-        rename: str | None = None,
+        self, filename: Path | str, rename: str | None = None,
     ) -> None:
         """
         Upload an image file.
@@ -224,8 +222,8 @@ class NodeImageDefinitions:
 
         path = pathlib.Path(filename)
 
-        extension = TARGZ if filename.endswith(TARGZ) else path.suffix
         name = rename or path.name
+        extension = TARGZ if path.name.endswith(TARGZ) else path.suffix
 
         if not name.endswith(extension):
             message = (
@@ -248,6 +246,7 @@ class NodeImageDefinitions:
             )
             raise InvalidImageFile(message)
 
+        # path may be a PureWindowsPath, cannot use path.is_file
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
         # TODO: a library should not be printing to stdout unless interactive
@@ -270,10 +269,13 @@ class NodeImageDefinitions:
             return callback_read
 
         _file = open(filename, "rb")
-        _file.read = callback_read_factory(_file, print_progress_bar)
-        files = {"field0": (name, _file)}
+        try:
+            _file.read = callback_read_factory(_file, print_progress_bar)
+            files = {"field0": (name, _file)}
 
-        self._session.post(url, files=files, headers=headers)
+            self._session.post(url, files=files, headers=headers)
+        finally:
+            _file.close()
         print("Upload completed")
 
     def download_image_file_list(self) -> list[str]:

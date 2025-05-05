@@ -18,6 +18,7 @@
 # limitations under the License.
 #
 
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
@@ -60,7 +61,12 @@ def mocked_session():
         yield session
 
 
-def resp_body_from_file(request: httpx.Request) -> httpx.Response:
+@pytest.fixture(scope="session")
+def test_data_dir() -> Path:
+    return Path(__file__).parent / "test_data"
+
+
+def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Response:
     """
     A callback that returns the contents of a file based on the request.
 
@@ -75,13 +81,12 @@ def resp_body_from_file(request: httpx.Request) -> httpx.Response:
     elif endpoint_parts[0] == "labs":
         lab_id = endpoint_parts[1]
         filename = "_".join(endpoint_parts[2:]) + "-" + lab_id + ".json"
-    test_dir = Path(__file__).parent.resolve()
-    file_path = test_dir / "test_data" / filename
+    file_path = test_data_dir / filename
     return httpx.Response(200, text=file_path.read_text())
 
 
 @pytest.fixture
-def respx_mock_with_labs(respx_mock):
+def respx_mock_with_labs(respx_mock, test_data_dir: Path):
     """
     A test fixture that provides basic lab data with respx_mock so that unit tests can
     call ``client.all_labs`` or ``client.join_existing_lab``.  The sample data includes
@@ -143,8 +148,9 @@ def respx_mock_with_labs(respx_mock):
         "labs/863799a0-3d09-4af4-be26-cad997b6ab27/simulation_stats",
         "labs/863799a0-3d09-4af4-be26-cad997b6ab27/layer3_addresses",
     )
+    side_effect = partial(resp_body_from_file, test_data_dir)
     for api in resp_from_files:
-        respx_mock.get(FAKE_HOST_API + api).mock(side_effect=resp_body_from_file)
+        respx_mock.get(FAKE_HOST_API + api).mock(side_effect=side_effect)
 
 
 @pytest.fixture

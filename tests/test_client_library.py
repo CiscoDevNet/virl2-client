@@ -690,12 +690,12 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline_deprecated(
-    client_library_server_current, mocked_session, tmp_path: Path, test_dir
+    client_library_server_current, mocked_session, tmp_path: Path, test_data_dir: Path
 ):
     client_library = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
-    topology_file_path = test_dir / "test_data/sample_topology.json"
+    topology_file_path = test_data_dir / "sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
         with pytest.deprecated_call():

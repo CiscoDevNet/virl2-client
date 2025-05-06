@@ -210,7 +210,9 @@ class NodeImageDefinitions:
         return self._session.get(url).text
 
     def upload_image_file(
-        self, filename: Path | str, rename: str | None = None,
+        self,
+        filename: pathlib.Path | str,
+        rename: str | None = None,
     ) -> None:
         """
         Upload an image file.

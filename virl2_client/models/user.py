@@ -94,6 +94,7 @@ class UserManagement:
             - resource_pool: Resource pool to which the user should be added.
             - opt_in: Whether the user has seen the initial contact dialog.
             - tour_version: The version of the Workbench tour the user has completed.
+            - pubkey: An SSH public key for terminal server. Empty string to clear.
 
         :returns: User object.
         """
@@ -120,6 +121,7 @@ class UserManagement:
             - resource_pool: Resource pool to which the user should be added.
             - opt_in: Whether the user has seen the initial contact dialog.
             - tour_version: The version of the Workbench tour the user has completed.
+            - pubkey: An SSH public key for terminal server. Empty string to clear.
 
         :returns: User object.
         """
@@ -138,6 +140,7 @@ class UserManagement:
         associations: list[dict[str, list[str]]] | None = None,
         admin: bool | None = None,
         password_dict: dict[str, str] | None = None,
+        pubkey: str | None = None,
         resource_pool: str | None | _Sentinel = UNCHANGED,
         opt_in: bool | None | _Sentinel = UNCHANGED,
         tour_version: str | None = None,
@@ -150,6 +153,7 @@ class UserManagement:
             "groups": groups,
             "associations": associations,
             "password": password_dict,
+            "pubkey": pubkey,
             "tour_version": tour_version,
         }
         sentinel_data = {

@@ -107,7 +107,9 @@ class ClPyats:
         loader = _PyatsTFLoader(markupprocessor=processor, enable_extensions=False)
         return loader.load(io.StringIO(testbed_yaml))
 
-    def sync_testbed(self, username: str, password: str) -> None:
+    def sync_testbed(
+        self, username: str, password: str, key_path: Path | str | None = None
+    ) -> None:
         """
         Sync the testbed (the latest topology data) from the server.
 
@@ -116,10 +118,20 @@ class ClPyats:
         """
         self._check_pyats_installed()
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
-        testbed = self._load_pyats_testbed(testbed_yaml)
-        testbed.devices.terminal_server.credentials.default.username = username
-        testbed.devices.terminal_server.credentials.default.password = password
-        self._testbed = testbed
+        self._testbed = self._load_pyats_testbed(testbed_yaml)
+        self.set_termserv_credentials(username, password)
+
+    def set_termserv_credentials(
+        self, username: str = None, password: str = None, key_path: Path | str = None
+    ) -> None:
+        terminal = self._testbed.devices.terminal_server
+        if username is not None:
+            terminal.credentials.default.username = username
+        if password is not None:
+            terminal.credentials.default.password = password
+        if key_path is not None:
+            ssh_options = f"-o IdentitiesOnly=yes -o IdentityFile={key_path}"
+            terminal.connections.cli.ssh_options = ssh_options
 
     def _prepare_params(
         self,

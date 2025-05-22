@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import io
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -107,9 +108,7 @@ class ClPyats:
         loader = _PyatsTFLoader(markupprocessor=processor, enable_extensions=False)
         return loader.load(io.StringIO(testbed_yaml))
 
-    def sync_testbed(
-        self, username: str, password: str, key_path: Path | str | None = None
-    ) -> None:
+    def sync_testbed(self, username: str, password: str) -> None:
         """
         Sync the testbed (the latest topology data) from the server.
 

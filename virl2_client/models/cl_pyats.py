@@ -121,7 +121,10 @@ class ClPyats:
         self.set_termserv_credentials(username, password)
 
     def set_termserv_credentials(
-        self, username: str = None, password: str = None, key_path: Path | str = None
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        key_path: Path | str | None = None,
     ) -> None:
         terminal = self._testbed.devices.terminal_server
         if username is not None:

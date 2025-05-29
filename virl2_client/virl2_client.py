@@ -228,6 +228,7 @@ class ClientLibrary:
         convergence_wait_max_iter: int = 500,
         convergence_wait_time: int | float = 5,
         events: bool = False,
+        client_type: str = None,
     ) -> None:
         """
         Initialize a ClientLibrary instance. Note that ssl_verify can
@@ -271,7 +272,7 @@ class ClientLibrary:
 
         self._ssl_verify = ssl_verify
         try:
-            self._session = make_session(base_url, ssl_verify)
+            self._session = make_session(base_url, ssl_verify, client_type)
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION

@@ -26,7 +26,7 @@ httpx = "^0.28.1"
 
 # https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
 # optional package for events
-aiohttp = {version = "^3.11", optional = true}
+aiohttp = {version = "~3.11.18", optional = true}
 
 # optional pyATS package
 # (this pulls in a lot more dependencies)

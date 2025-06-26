@@ -462,7 +462,6 @@ class Node:
         """
         warnings.warn(
             "'Node.config' is deprecated. Use '.configuration' instead.",
-            DeprecationWarning,
         )
         return self.configuration
 
@@ -477,7 +476,6 @@ class Node:
         """
         warnings.warn(
             "'Node.config' is deprecated. Use '.configuration' instead.",
-            DeprecationWarning,
         )
         self.configuration = value
 
@@ -771,7 +769,6 @@ class Node:
         """
         warnings.warn(
             "'Node.remove_on_server()' is deprecated. Use '.remove()' instead.",
-            DeprecationWarning,
         )
         # To not change behavior of scripts, this will still remove on server only.
         self._remove_on_server()

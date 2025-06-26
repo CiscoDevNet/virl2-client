@@ -20,8 +20,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
 import warnings
+from typing import TYPE_CHECKING, Any
 
 from ..utils import _deprecated_argument, get_url_from_template
 
@@ -165,9 +165,7 @@ class GroupManagement:
         :returns: A list of labs associated with this group.
         """
         warnings.warn(
-            "'GroupManagement.group_labs()' is deprecated."
-            "Use '.associations' instead.",
-            DeprecationWarning,
+            "'GroupManagement.group_labs()' is deprecated.Use '.associations' instead.",
         )
         return [lab["id"] for lab in self.get_group(group_id)["labs"]]
 

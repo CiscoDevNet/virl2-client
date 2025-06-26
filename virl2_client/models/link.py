@@ -227,7 +227,6 @@ class Link:
         """
         warnings.warn(
             "'Link.remove_on_server()' is deprecated. Use '.remove()' instead.",
-            DeprecationWarning,
         )
         self._remove_on_server()
 

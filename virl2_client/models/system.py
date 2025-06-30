@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
 import warnings
+from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
 
@@ -482,7 +482,6 @@ class ComputeHost:
         warnings.warn(
             "'ComputeHost.nodes' is deprecated. Use 'ComputeHost.node_counts' or "
             "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES)' instead.",
-            DeprecationWarning,
         )
         self._system.sync_compute_hosts_if_outdated()
         return self._nodes

@@ -142,7 +142,6 @@ class NodeImageDefinitions:
                 "'NodeImageDefinitions.upload_node_definition()': "
                 "The argument 'json' is deprecated as the content type "
                 "is determined from the provided 'body'.",
-                DeprecationWarning,
             )
             is_json = True
         url = self._url_for("node_defs")
@@ -170,7 +169,6 @@ class NodeImageDefinitions:
                 "'NodeImageDefinitions.upload_image_definition()': "
                 "The argument 'json' is deprecated as the content type "
                 "is determined from the provided 'body'.",
-                DeprecationWarning,
             )
             is_json = True
         url = self._url_for("image_defs")

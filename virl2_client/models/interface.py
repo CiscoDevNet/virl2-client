@@ -268,7 +268,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.is_physical' is deprecated. Use '.physical' instead.",
-            DeprecationWarning,
         )
         return self.physical
 
@@ -324,7 +323,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.remove_on_server()' is deprecated. Use '.remove()' instead.",
-            DeprecationWarning,
         )
         self._remove_on_server()
 
@@ -350,7 +348,6 @@ class Interface:
         warnings.warn(
             "'Interface.peer_interfaces()' is deprecated, "
             "use '.peer_interface' instead.",
-            DeprecationWarning,
         )
         return {self.peer_interface}
 
@@ -363,7 +360,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.peer_nodes() is deprecated. Use '.peer_node' instead.",
-            DeprecationWarning,
         )
         return {self.peer_node}
 
@@ -376,7 +372,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.links()' is deprecated. Use '.link' instead.",
-            DeprecationWarning,
         )
         link = self.link
         if link is None:
@@ -392,7 +387,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.degree()' is deprecated. Use '.connected' instead.",
-            DeprecationWarning,
         )
         return int(self.connected)
 
@@ -405,7 +399,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.is_connected()' is deprecated. Use '.connected' instead.",
-            DeprecationWarning,
         )
         return self.connected
 

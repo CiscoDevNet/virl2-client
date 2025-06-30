@@ -498,7 +498,6 @@ class Lab:
         warnings.warn(
             "'Lab.get_link_by_nodes()' is deprecated. "
             "Use 'Node.get_link_to()' or 'Node.get_links_to()' instead.",
-            DeprecationWarning,
         )
         if not (links := node1.get_links_to(node2)):
             raise LinkNotFound
@@ -520,7 +519,6 @@ class Lab:
         warnings.warn(
             "'Lab.get_link_by_interfaces()' is deprecated. "
             "Use 'Interface.get_link_to()' instead.",
-            DeprecationWarning,
         )
         if (link := iface1.link) is not None and iface2 in link.interfaces:
             return link
@@ -653,7 +651,6 @@ class Lab:
             "'Lab.add_node_local()' is deprecated. You probably want Lab.create_node() "
             "instead. (If you really want to create a node locally only, "
             "use '._create_node_local()'.)",
-            DeprecationWarning,
         )
         return self._create_node_local(*args, **kwargs)
 
@@ -1353,7 +1350,6 @@ class Lab:
                 "Lab.sync(): The argument 'with_node_configurations' is deprecated, "
                 "as it does the opposite of what is expected. "
                 "Use exclude_configurations instead.",
-                DeprecationWarning,
             )
             exclude_configurations = with_node_configurations
 
@@ -1433,7 +1429,6 @@ class Lab:
                 warnings.warn(
                     "Labs created in older CML releases (schema version 0.0.5 or lower)"
                     " are deprecated. Use labs with schema version 0.1.0 or higher.",
-                    DeprecationWarning,
                 )
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
@@ -2116,7 +2111,6 @@ class Lab:
         """
         warnings.warn(
             "'Lab.groups' is deprecated. Use '.associations' instead.",
-            DeprecationWarning,
         )
         url = self._url_for("lab")
         return self._session.get(url).json()["groups"]
@@ -2137,7 +2131,6 @@ class Lab:
         warnings.warn(
             "'Lab.update_lab_groups()' is deprecated. Use '.update_associations()'"
             " instead.",
-            DeprecationWarning,
         )
         url = self._url_for("lab")
         data = {"groups": group_list}

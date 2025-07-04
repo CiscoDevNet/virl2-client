@@ -21,9 +21,10 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Type, cast
 
 import httpx
 
@@ -39,11 +40,9 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .models import Annotation, Interface, Lab, Link, Node
+    from .models import Annotation, Interface, Lab, Link, Node, SmartAnnotation
 
-    Element = Union[Lab, Node, Interface, Link, Annotation]
-
-TCallable = TypeVar("TCallable", bound=Callable)
+    Element = Lab | Node | Interface | Link | Annotation | SmartAnnotation
 
 
 class _Sentinel:
@@ -104,14 +103,14 @@ def _check_and_mark_stale(func: Callable, instance: Element, *args, **kwargs):
         raise
 
 
-def check_stale(func: TCallable) -> TCallable:
+def check_stale(func: callable) -> callable:
     """A decorator that will make the wrapped function check staleness."""
 
     @wraps(func)
     def wrapper_stale(*args, **kwargs):
         return _check_and_mark_stale(func, args[0], *args, **kwargs)
 
-    return cast(TCallable, wrapper_stale)
+    return cast(callable, wrapper_stale)
 
 
 class property_s(property):
@@ -126,7 +125,7 @@ class property_s(property):
         return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 
-def locked(func: TCallable) -> TCallable:
+def locked(func: Callable) -> Callable:
     """
     A decorator that makes a method threadsafe.
     Parent class instance must have a `_session.lock` property for locking to occur.
@@ -143,7 +142,7 @@ def locked(func: TCallable) -> TCallable:
         with ctx:
             return func(*args, **kwargs)
 
-    return cast(TCallable, wrapper_locked)
+    return cast(Callable, wrapper_locked)
 
 
 def get_url_from_template(

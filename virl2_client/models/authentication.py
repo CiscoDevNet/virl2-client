@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Generator
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import httpx

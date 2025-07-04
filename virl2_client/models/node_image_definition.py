@@ -24,7 +24,8 @@ import os
 import pathlib
 import time
 import warnings
-from typing import TYPE_CHECKING, BinaryIO, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, BinaryIO
 
 from ..exceptions import InvalidContentType, InvalidImageFile
 from ..utils import get_url_from_template

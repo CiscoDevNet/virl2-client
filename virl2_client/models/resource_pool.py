@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterable
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import InvalidProperty
 from ..utils import _deprecated_argument, get_url_from_template
@@ -457,7 +458,7 @@ class ResourcePool:
         self._session.patch(url, json=resource_pool_data_post)
 
 
-ResourcePools = Dict[str, ResourcePool]
+ResourcePools = dict[str, ResourcePool]
 
 
 @dataclass

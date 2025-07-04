@@ -21,8 +21,8 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
+from collections.abc import Iterator
 from io import BufferedReader
-from typing import Iterator
 from unittest.mock import ANY, MagicMock
 
 import pytest

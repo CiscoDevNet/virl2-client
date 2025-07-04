@@ -24,7 +24,8 @@ import json
 import logging
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 from httpx import HTTPStatusError
 

@@ -24,7 +24,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from os import name as os_name
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 from .exceptions import ElementNotFound, LabNotFound
 
@@ -56,7 +56,7 @@ class Event:
         self.element_id: str = event_dict.get("element_id", "")
         self.data: dict | None = event_dict.get("data")
         self.lab: Lab | None = None
-        self.element: Union[Node, Interface, Link, None] = None
+        self.element: Node | Interface | Link | None = None
 
     def __str__(self):
         return (

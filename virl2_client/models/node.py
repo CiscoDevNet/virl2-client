@@ -923,7 +923,7 @@ class Node:
             it can be passed here to save an API call. Will be fetched automatically
             otherwise.
         """
-        if not response:
+        if response is None:
             url = self._url_for("operational")
             response = self._session.get(url).json()
         if response is None:

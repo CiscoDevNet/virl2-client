@@ -1,7 +1,7 @@
 #
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -50,6 +50,7 @@ class Node:
         "start": "{lab}/nodes/{id}/state/start",
         "stop": "{lab}/nodes/{id}/state/stop",
         "wipe_disks": "{lab}/nodes/{id}/wipe_disks",
+        "clone_image": "{lab}/nodes/{id}/clone_image",
         "extract_configuration": "{lab}/nodes/{id}/extract_configuration",
         "console_log": "{lab}/nodes/{id}/consoles/{console_id}/log",
         "console_log_lines": "{lab}/nodes/{id}/consoles/{console_id}/log?lines={lines}",
@@ -61,25 +62,7 @@ class Node:
     }
 
     def __init__(
-        self,
-        lab: Lab,
-        nid: str,
-        label: str,
-        node_definition: str,
-        image_definition: str | None,
-        configuration: list[dict[str, str]] | str | None,
-        x: int,
-        y: int,
-        ram: int | None,
-        cpus: int | None,
-        cpu_limit: int | None,
-        data_volume: int | None,
-        boot_disk_size: int | None,
-        hide_links: bool,
-        tags: list[str],
-        resource_pool: str | None,
-        parameters: dict,
-        pinned_compute_id: str | None,
+        self, lab: Lab, nid: str, label: str, node_definition: str, **kwargs
     ) -> None:
         """
         A VIRL2 node object representing a virtual machine that serves
@@ -89,51 +72,56 @@ class Node:
         :param nid: The ID of the node.
         :param label: The label of the node.
         :param node_definition: The definition of this node.
-        :param image_definition: The definition of the image used by this node.
-        :param configuration: The initial configuration of this node.
-        :param x: The X coordinate of the node on the topology canvas.
-        :param y: The Y coordinate of the node on the topology canvas.
-        :param ram: The memory of the node in MiB (if applicable).
-        :param cpus: The number of CPUs in this node (if applicable).
-        :param cpu_limit: The CPU limit of the node (default is 100%).
-        :param data_volume: The size in GiB of the second HDD (if > 0).
-        :param boot_disk_size: The size in GiB of the boot disk
-            (will expand to this size).
-        :param hide_links: A flag indicating whether the node's links should be hidden
-            in UI visualization.
-        :param tags: A list of tags associated with the node.
-        :param resource_pool: The ID of the resource pool if the node is part
-            of a resource pool.
-        :param pinned_compute_id: The ID of the compute this node is pinned to.
-            The node will not run on any other compute.
+        :param kwargs: Optional parameters. See below.
+
+        :Keyword Arguments:
+            - image_definition: The definition of the image used by this node.
+            - configuration: The initial configuration of this node.
+            - x: The X coordinate of the node on the topology canvas.
+            - y: The Y coordinate of the node on the topology canvas.
+            - ram: The memory of the node in MiB (if applicable).
+            - cpus: The number of CPUs in this node (if applicable).
+            - cpu_limit: The CPU limit of the node (default is 100%).
+            - data_volume: The size in GiB of the second HDD (if > 0).
+            - boot_disk_size: The size in GiB of the boot disk
+                (will expand to this size).
+            - hide_links: A flag indicating whether the node's links should be hidden
+                in UI visualization.
+            - tags: A list of tags associated with the node.
+            - resource_pool: The ID of the resource pool if the node is part
+                of a resource pool.
+            - pinned_compute_id: The ID of the compute this node is pinned to.
+                The node will not run on any other compute.
         """
-        self._lab = lab
-        self._id = nid
-        self._label = label
-        self._node_definition = node_definition
-        self._x = x
-        self._y = y
+        self._lab: Lab = lab
+        self._id: str = nid
+        self._label: str = label
+        self._node_definition: str = node_definition
+
+        self._image_definition: str | None = kwargs.get("image_definition")
+        configuration: list[dict[str, str]] | str | None = kwargs.get("configuration")
+        if isinstance(configuration, str):
+            configuration = [{"name": "Main", "content": configuration}]
+        self._configuration: list[dict[str, str]] | None = configuration
+        self._x: int = kwargs.get("x", 0)
+        self._y: int = kwargs.get("y", 0)
+        self._ram: int | None = kwargs.get("ram")
+        self._cpus: int | None = kwargs.get("cpus")
+        self._cpu_limit: int | None = kwargs.get("cpu_limit")
+        self._data_volume: int | None = kwargs.get("data_volume")
+        self._boot_disk_size: int | None = kwargs.get("boot_disk_size")
+        self._hide_links: bool = kwargs.get("hide_links", False)
+        self._tags: list[str] = kwargs.get("tags", [])
+        self._resource_pool: str | None = kwargs.get("resource_pool")
+        self._parameters: dict = kwargs.get("parameters", {})
+        self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
+
         self._state: str | None = None
         self._session: httpx.Client = lab._session
-        self._image_definition = image_definition
-        self._ram = ram
-        if isinstance(configuration, str):
-            self._configuration = [{"name": "Main", "content": configuration}]
-        else:
-            self._configuration = configuration
-        self._cpus = cpus
-        self._cpu_limit = cpu_limit
-        self._data_volume = data_volume
-        self._boot_disk_size = boot_disk_size
-        self._hide_links = hide_links
-        self._tags = tags
-        self._compute_id: str | None = None
-        self._resource_pool = resource_pool
-        self._pinned_compute_id = pinned_compute_id
+        self._compute_id: str | None = kwargs.get("compute_id")
         self._stale = False
         self._last_sync_l3_address_time = 0.0
         self._last_sync_interface_operational_time = 0.0
-        self._parameters = parameters
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -146,25 +134,11 @@ class Node:
 
     def __repr__(self):
         return (
-            "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, "
-            "{!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-                self.__class__.__name__,
-                str(self._lab),
-                self._id,
-                self._label,
-                self._node_definition,
-                self._image_definition,
-                self._configuration,
-                self._x,
-                self._y,
-                self._ram,
-                self._cpus,
-                self._cpu_limit,
-                self._data_volume,
-                self._boot_disk_size,
-                self._hide_links,
-                self._tags,
-            )
+            f"{self.__class__.__name__}("
+            f"{str(self._lab)!r}, "
+            f"{self._id!r}, "
+            f"{self._label!r}, "
+            f"{self._node_definition!r})"
         )
 
     def __eq__(self, other):
@@ -488,7 +462,6 @@ class Node:
         """
         warnings.warn(
             "'Node.config' is deprecated. Use '.configuration' instead.",
-            DeprecationWarning,
         )
         return self.configuration
 
@@ -503,7 +476,6 @@ class Node:
         """
         warnings.warn(
             "'Node.config' is deprecated. Use '.configuration' instead.",
-            DeprecationWarning,
         )
         self.configuration = value
 
@@ -604,7 +576,7 @@ class Node:
         for iface in self.interfaces():
             if iface.label == label:
                 return iface
-        raise InterfaceNotFound(f"{label}:{self}")
+        raise InterfaceNotFound(label)
 
     @locked
     def get_interface_by_slot(self, slot: int) -> Interface:
@@ -618,7 +590,7 @@ class Node:
         for iface in self.interfaces():
             if iface.slot == slot:
                 return iface
-        raise InterfaceNotFound(f"{slot}:{self}")
+        raise InterfaceNotFound(slot)
 
     def get_links_to(self, other_node: Node) -> list[Link]:
         """
@@ -729,6 +701,14 @@ class Node:
             self.wait_until_converged()
 
     @check_stale
+    def clone_image(self) -> dict:
+        """
+        Clone the node's disks into a new Image definition.
+        """
+        url = self._url_for("clone_image")
+        return self._session.put(url).json()
+
+    @check_stale
     def extract_configuration(self) -> None:
         """Update the configuration from the running node."""
         url = self._url_for("extract_configuration")
@@ -789,7 +769,6 @@ class Node:
         """
         warnings.warn(
             "'Node.remove_on_server()' is deprecated. Use '.remove()' instead.",
-            DeprecationWarning,
         )
         # To not change behavior of scripts, this will still remove on server only.
         self._remove_on_server()
@@ -852,25 +831,27 @@ class Node:
         current.remove(tag)
         self._set_node_property("tags", current)
 
-    def run_pyats_command(self, command: str) -> str:
+    def run_pyats_command(self, command: str, **pyats_params: Any) -> str:
         """
         Run a pyATS command in exec mode on the node.
 
         :param command: The command to run (e.g. "show version").
+        :param pyats_params: Custom command dialog parameters for PyATS
         :returns: The output from the device.
         """
         label = self.label
-        return self._lab.pyats.run_command(label, command)
+        return self._lab.pyats.run_command(label, command, **pyats_params)
 
-    def run_pyats_config_command(self, command: str) -> str:
+    def run_pyats_config_command(self, command: str, **pyats_params: Any) -> str:
         """
         Run a pyATS command in config mode on the node.
 
         :param command: The command to run (e.g. "interface gi0").
+        :param pyats_params: Custom command dialog parameters for PyATS
         :returns: The output from the device.
         """
         label = self.label
-        return self._lab.pyats.run_config_command(label, command)
+        return self._lab.pyats.run_config_command(label, command, **pyats_params)
 
     @check_stale
     @locked
@@ -914,7 +895,9 @@ class Node:
 
     @check_stale
     @locked
-    def sync_operational(self, response: dict[str, Any] = None):
+    def sync_operational(
+        self, response: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Synchronize the operational state of the node.
 
@@ -925,10 +908,13 @@ class Node:
         if response is None:
             url = self._url_for("operational")
             response = self._session.get(url).json()
+        if response is None:
+            return {}
         self._pinned_compute_id = response.get("pinned_compute_id")
         operational = response.get("operational", {})
         self._compute_id = operational.get("compute_id")
         self._resource_pool = operational.get("resource_pool")
+        return operational
 
     @check_stale
     @locked

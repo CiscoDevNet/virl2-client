@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -41,9 +41,9 @@ def test_topology_creation_and_removal():
         auto_sync=0,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
-    node_a = lab._create_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
-    node_b = lab._create_node_local("1", "node B", "nd", "im", "cfg", 1, 1)
-    node_c = lab._create_node_local("2", "node C", "nd", "im", "cfg", 2, 2)
+    node_a = lab._create_node_local("0", "node A", "nd")
+    node_b = lab._create_node_local("1", "node B", "nd")
+    node_c = lab._create_node_local("2", "node C", "nd")
     i1 = lab._create_interface_local("0", "iface A", node_a, 0)
     i2 = lab._create_interface_local("1", "iface B1", node_b, 1)
     i3 = lab._create_interface_local("2", "iface B2", node_b, 2)
@@ -192,7 +192,7 @@ def test_str_and_repr():
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
     assert str(lab) == "Lab: laboratory"
-    assert repr(lab) == "Lab('laboratory', '1', '/', 0, 1.0, False)"
+    assert repr(lab) == "Lab('1', 'laboratory', '/')"
 
 
 def test_create_node():
@@ -293,10 +293,10 @@ def test_tags():
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
     lab.get_smart_annotation_by_tag = MagicMock()
-    node_a = lab._create_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
-    node_b = lab._create_node_local("1", "node B", "nd", "im", "cfg", 0, 0)
-    node_c = lab._create_node_local("2", "node C", "nd", "im", "cfg", 0, 0)
-    node_d = lab._create_node_local("3", "node D", "nd", "im", "cfg", 0, 0)
+    node_a = lab._create_node_local("0", "node A", "nd")
+    node_b = lab._create_node_local("1", "node B", "nd")
+    node_c = lab._create_node_local("2", "node C", "nd")
+    node_d = lab._create_node_local("3", "node D", "nd")
     assert len(node_a.tags()) == 0
     node_a.add_tag("Core")
     node_a.add_tag("Europe")
@@ -331,10 +331,10 @@ def test_find_by_label():
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
 
-    lab._create_node_local("n0", "server-a", "nd", "im", "cfg", 0, 0)
-    lab._create_node_local("n1", "server-b", "nd", "im", "cfg", 0, 0)
-    lab._create_node_local("n2", "server-c", "nd", "im", "cfg", 0, 0)
-    lab._create_node_local("n3", "server-d", "nd", "im", "cfg", 0, 0)
+    lab._create_node_local("n0", "server-a", "nd")
+    lab._create_node_local("n1", "server-b", "nd")
+    lab._create_node_local("n2", "server-c", "nd")
+    lab._create_node_local("n3", "server-d", "nd")
 
     node = lab.get_node_by_label("server-a")
     assert node.id == "n0"
@@ -356,8 +356,8 @@ def test_next_free_interface():
         auto_sync=0,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
-    node_a = lab._create_node_local("0", "node A", "nd", "im", "cfg", 0, 0)
-    node_b = lab._create_node_local("1", "node B", "nd", "im", "cfg", 1, 1)
+    node_a = lab._create_node_local("0", "node A", "nd")
+    node_b = lab._create_node_local("1", "node B", "nd")
 
     nf = node_a.next_available_interface()
     assert nf is None

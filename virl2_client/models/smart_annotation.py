@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -96,11 +96,7 @@ class SmartAnnotation:
         )
 
     def __repr__(self):
-        return "{}({!r}, {!r})".format(
-            self.__class__.__name__,
-            str(self._lab),
-            self._id,
-        )
+        return f"{self.__class__.__name__}({str(self._lab)!r}, {self._id!r})"
 
     def __eq__(self, other: object):
         if not isinstance(other, SmartAnnotation):

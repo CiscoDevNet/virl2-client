@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -181,7 +181,9 @@ class CustomClient(httpx.Client):
             raise api_error from None
 
 
-def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
+def make_session(
+    base_url: str, ssl_verify: bool | str = True, client_type: str = None
+) -> httpx.Client:
     """
     Create an httpx Client object with the specified base URL
     and SSL verification setting.
@@ -191,6 +193,7 @@ def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
 
     :param base_url: The base URL for the client.
     :param ssl_verify: Whether to perform SSL verification.
+    :param client_type: The client type identifier.
     :returns: The created httpx Client object.
     """
     return CustomClient(
@@ -199,5 +202,8 @@ def make_session(base_url: str, ssl_verify: bool = True) -> httpx.Client:
         auth=BlankAuth(),
         follow_redirects=True,
         timeout=None,
-        headers={"X-Client-UUID": str(uuid4())},
+        headers={
+            "X-Client-UUID": str(uuid4()),
+            "X-CML-CLIENT": "PCL" if client_type is None else client_type,
+        },
     )

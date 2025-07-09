@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -33,6 +33,7 @@ from virl2_client.models import Lab
 from virl2_client.virl2_client import (
     ClientConfig,
     ClientLibrary,
+    DiagnosticsCategory,
     InitializationError,
     Version,
 )
@@ -356,10 +357,7 @@ def test_client_library_config(client_library_server_current, mocked_session, co
 
 def test_client_library_str_and_repr(client_library_server_current):
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        repr(client_library)
-        == "ClientLibrary('https://somehost', 'virl2', 'virl2', True, False, False)"
-    )
+    assert repr(client_library) == "ClientLibrary('https://somehost')"
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 
@@ -385,17 +383,7 @@ def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     )
 
 
-def test_client_minor_version_lt_warn(client_library_server_2_9_0, caplog):
-    with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
-    assert (
-        f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.9.0." in caplog.text
-    )
-
-
-def test_client_minor_version_lt_warn_1(client_library_server_2_19_0, caplog):
+def test_client_minor_version_lt_warn(client_library_server_2_19_0, caplog):
     with caplog.at_level(logging.WARNING):
         client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert client_library is not None
@@ -702,12 +690,12 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline_deprecated(
-    client_library_server_current, mocked_session, tmp_path: Path, test_dir
+    client_library_server_current, mocked_session, tmp_path: Path, test_data_dir: Path
 ):
     client_library = ClientLibrary(
         url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
     )
-    topology_file_path = test_dir / "test_data/sample_topology.json"
+    topology_file_path = test_data_dir / "sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
         with pytest.deprecated_call():
@@ -739,3 +727,44 @@ def test_convergence_parametrization(client_library_server_current, mocked_sessi
         with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged(max_iterations=1)
         assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
+
+
+@pytest.mark.parametrize(
+    "categories",
+    [
+        (),
+        [DiagnosticsCategory.ALL],
+        [DiagnosticsCategory.COMPUTES],
+        [DiagnosticsCategory.LABS, DiagnosticsCategory.SERVICES],
+        [DiagnosticsCategory.ALL, DiagnosticsCategory.COMPUTES],
+    ],
+)
+@pytest.mark.parametrize("valid", [True, False])
+def test_get_diagnostics_paths(
+    client_library: ClientLibrary, categories: list[DiagnosticsCategory], valid: bool
+):
+    data = {"data": "sample"}
+    if valid:
+        return_value = httpx.Response(200, json=data)
+    else:
+        return_value = httpx.Response(404)
+
+    expected_categories = categories
+    if not categories or DiagnosticsCategory.ALL in categories:
+        expected_categories = list(DiagnosticsCategory)[1:]
+
+    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
+        for category in expected_categories:
+            respx_mock.get(f"diagnostics/{category.value}").mock(
+                return_value=return_value
+            )
+        if categories:
+            diagnostics_data = client_library.get_diagnostics(*categories)
+        else:
+            with pytest.deprecated_call():
+                diagnostics_data = client_library.get_diagnostics(*categories)
+
+    for category in expected_categories:
+        if not valid:
+            data = {"error": f"Failed to fetch {category.value} diagnostics"}
+        assert diagnostics_data[category.value] == data

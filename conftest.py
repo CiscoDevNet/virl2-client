@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 #
@@ -44,8 +44,3 @@ def pytest_addoption(
     # pytest-asycnio
     if pluginmanager.get_plugin("asyncio") is None:
         parser.addini("asyncio_mode", "suppress the warning")
-
-
-@pytest.fixture
-def test_dir(request: pytest.FixtureRequest) -> Path:
-    return request.path.parent

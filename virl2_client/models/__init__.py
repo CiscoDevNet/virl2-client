@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -25,17 +25,17 @@ and authentication."""
 from .annotation import Annotation
 from .auth_management import AuthManagement
 from .authentication import TokenAuth
-from .groups import GroupManagement
+from .group import GroupManagement
 from .interface import Interface
 from .lab import Lab
 from .licensing import Licensing
 from .link import Link
 from .node import Node
-from .node_image_definitions import NodeImageDefinitions
-from .resource_pools import ResourcePoolManagement
+from .node_image_definition import NodeImageDefinitions
+from .resource_pool import ResourcePoolManagement
 from .smart_annotation import SmartAnnotation
 from .system import SystemManagement
-from .users import UserManagement
+from .user import UserManagement
 
 __all__ = (
     "Interface",

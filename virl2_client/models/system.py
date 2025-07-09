@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
@@ -40,8 +41,8 @@ class SystemManagement:
         "compute_hosts": "system/compute_hosts",
         "notices": "system/notices",
         "external_connectors": "system/external_connectors",
-        "external_connector": "system/external_connectors/{connector_id}",
-        "web_session_timeout": "web_session_timeout/{timeout}",
+        "external_connector": "system/external_connectors",
+        "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
     }
 
@@ -170,6 +171,7 @@ class SystemManagement:
                     compute_host, push_to_server=False
                 )
             else:
+                compute_host["node_counts"] = compute_host.get("node_counts", {})
                 self.add_compute_host_local(**compute_host)
             compute_host_ids.append(compute_id)
 
@@ -235,7 +237,7 @@ class SystemManagement:
         :param data: The data to update.
         :returns: The updated data.
         """
-        url = self._url_for("external_connector", connector_id=connector_id)
+        url = f"{self._url_for('external_connector')}/{connector_id}"
         return self._session.patch(url, json=data).json()
 
     def delete_external_connector(self, connector_id: str) -> None:
@@ -244,7 +246,7 @@ class SystemManagement:
 
         :param connector_id: The ID of the connector to delete.
         """
-        url = self._url_for("external_connector", connector_id=connector_id)
+        url = f"{self._url_for('external_connector')}/{connector_id}"
         self._session.delete(url)
 
     def get_web_session_timeout(self) -> int:
@@ -253,7 +255,7 @@ class SystemManagement:
 
         :returns: The web session timeout.
         """
-        url = self._url_for("web_session_timeout", timeout="")
+        url = self._url_for("web_session_timeout")
         return self._session.get(url).json()
 
     def set_web_session_timeout(self, timeout: int) -> str:
@@ -263,7 +265,7 @@ class SystemManagement:
         :param timeout: The timeout value in seconds.
         :returns: 'OK'
         """
-        url = self._url_for("web_session_timeout", timeout=timeout)
+        url = f"{self._url_for('web_session_timeout')}/{timeout}"
         return self._session.patch(url).json()
 
     def get_new_compute_host_state(self) -> str:
@@ -297,6 +299,7 @@ class SystemManagement:
         is_connected: bool,
         is_synced: bool,
         admission_state: str,
+        node_counts: dict[str, int],
         nodes: list[str] | None = None,
     ) -> ComputeHost:
         """
@@ -310,6 +313,7 @@ class SystemManagement:
         :param is_connected: A boolean indicating if the compute host is connected.
         :param is_synced: A boolean indicating if the compute host is synced.
         :param admission_state: The admission state of the compute host.
+        :param node_counts: Count of deployed and running nodes and orphans.
         :param nodes: A list of node IDs associated with the compute host.
         :returns: The added compute host.
         """
@@ -323,6 +327,7 @@ class SystemManagement:
             is_connected,
             is_synced,
             admission_state,
+            node_counts,
             nodes,
         )
         self._compute_hosts[compute_id] = new_compute_host
@@ -380,6 +385,7 @@ class ComputeHost:
         is_connected: bool,
         is_synced: bool,
         admission_state: str,
+        node_counts: dict[str, int],
         nodes: list[str] | None = None,
     ):
         """
@@ -394,7 +400,9 @@ class ComputeHost:
         :param is_connected: Whether the compute host is connected.
         :param is_synced: Whether the compute host is synced.
         :param admission_state: The admission state of the compute host.
-        :param nodes: The list of nodes associated with the compute host.
+        :param node_counts: The counts of deployed and running nodes and orphans.
+        :param nodes: DEPRECATED: replaced by node_counts.
+            The list of node IDs associated with the compute host.
         """
         self._system = system
         self._session: httpx.Client = system._session
@@ -406,6 +414,7 @@ class ComputeHost:
         self._is_connected = is_connected
         self._is_synced = is_synced
         self._admission_state = admission_state
+        self._node_counts = node_counts
         self._nodes = nodes if nodes is not None else []
 
     def __str__(self):
@@ -462,8 +471,18 @@ class ComputeHost:
         return self._is_synced
 
     @property
+    def node_counts(self) -> dict[str, int]:
+        """Return the counts of deployed and running nodes and orphans."""
+        self._system.sync_compute_hosts_if_outdated()
+        return self._node_counts
+
+    @property
     def nodes(self) -> list[str]:
         """Return the list of nodes associated with the compute host."""
+        warnings.warn(
+            "'ComputeHost.nodes' is deprecated. Use 'ComputeHost.node_counts' or "
+            "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES)' instead.",
+        )
         self._system.sync_compute_hosts_if_outdated()
         return self._nodes
 

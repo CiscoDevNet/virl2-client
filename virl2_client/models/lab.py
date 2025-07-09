@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     import httpx
 
     from .annotation import AnnotationType
-    from .resource_pools import ResourcePool, ResourcePoolManagement
+    from .resource_pool import ResourcePool, ResourcePoolManagement
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -81,12 +81,12 @@ class Lab:
         "state": "labs/{lab_id}/state",
         "wipe": "labs/{lab_id}/wipe",
         "events": "labs/{lab_id}/events",
-        "build_configurations": "build_configurations?lab_id={lab_id}",
+        "bootstrap": "labs/{lab_id}/bootstrap",
         "topology": "labs/{lab_id}/topology",
         "pyats_testbed": "labs/{lab_id}/pyats_testbed",
         "layer3_addresses": "labs/{lab_id}/layer3_addresses",
         "download": "labs/{lab_id}/download",
-        "groups": "labs/{lab_id}/groups",
+        "associations": "labs/{lab_id}/associations",
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
         "annotations": "labs/{lab_id}/annotations",
@@ -104,7 +104,7 @@ class Lab:
         auto_sync_interval: float = 1.0,
         wait: bool = True,
         wait_max_iterations: int = 500,
-        wait_time: int = 5,
+        wait_time: int | float = 5,
         hostname: str | None = None,
         resource_pool_manager: ResourcePoolManagement | None = None,
     ) -> None:
@@ -199,14 +199,11 @@ class Lab:
         return f"Lab: {self._title}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._title,
-            self._id,
-            self._session.base_url.path,
-            self.auto_sync,
-            self.auto_sync_interval,
-            self.wait_for_convergence,
+        return (
+            f"{self.__class__.__name__}("
+            f"{self._id!r}, "
+            f"{self._title!r}, "
+            f"{self._session.base_url.path!r})"
         )
 
     def _url_for(self, endpoint, **kwargs):
@@ -333,8 +330,6 @@ class Lab:
         """Set the description of the lab."""
         self._set_property("description", value)
 
-    @check_stale
-    @locked
     def _set_property(self, prop: str, value: Any):
         """
         Set the value of a lab property both locally and on the server.
@@ -342,9 +337,20 @@ class Lab:
         :param prop: The name of the property.
         :param value: The new value of the property.
         """
+        self._set_properties({prop: value})
+
+    @locked
+    @check_stale
+    def _set_properties(self, lab_data: dict[str, Any]) -> None:
+        """
+        Set multiple properties of the lab.
+
+        :param node_data: A dictionary containing the properties to set.
+        """
         url = self._url_for("lab")
-        self._session.patch(url, json={prop: value})
-        setattr(self, f"_{prop}", value)
+        self._session.patch(url, json=lab_data)
+        for prop, value in lab_data.items():
+            setattr(self, f"_{prop}", value)
 
     @property
     def owner(self) -> str:
@@ -492,7 +498,6 @@ class Lab:
         warnings.warn(
             "'Lab.get_link_by_nodes()' is deprecated. "
             "Use 'Node.get_link_to()' or 'Node.get_links_to()' instead.",
-            DeprecationWarning,
         )
         if not (links := node1.get_links_to(node2)):
             raise LinkNotFound
@@ -514,7 +519,6 @@ class Lab:
         warnings.warn(
             "'Lab.get_link_by_interfaces()' is deprecated. "
             "Use 'Interface.get_link_to()' instead.",
-            DeprecationWarning,
         )
         if (link := iface1.link) is not None and iface2 in link.interfaces:
             return link
@@ -560,7 +564,7 @@ class Lab:
         for annotation in self._smart_annotations.values():
             if tag == annotation.tag:
                 return annotation
-        raise SmartAnnotationNotFound
+        raise SmartAnnotationNotFound(tag)
 
     def find_nodes_by_tag(self, tag: str) -> list[Node]:
         """
@@ -608,10 +612,15 @@ class Lab:
         else:
             url = self._url_for("nodes")
 
-        kwargs["label"] = label
-        kwargs["node_definition"] = node_definition
-        kwargs["x"] = x
-        kwargs["y"] = y
+        kwargs.update(
+            {
+                "label": label,
+                "node_definition": node_definition,
+                "x": x,
+                "y": y,
+            }
+        )
+
         result: dict[str, str] = self._session.post(url, json=kwargs).json()
         node_id: str = result["id"]
 
@@ -639,62 +648,19 @@ class Lab:
         Creates a node in the client, but not on the server.
         """
         warnings.warn(
-            "'Lab.add_node_local' is deprecated. You probably want .create_node "
+            "'Lab.add_node_local()' is deprecated. You probably want Lab.create_node() "
             "instead. (If you really want to create a node locally only, "
             "use '._create_node_local()'.)",
-            DeprecationWarning,
         )
         return self._create_node_local(*args, **kwargs)
 
     @locked
     def _create_node_local(
-        self,
-        node_id: str,
-        label: str,
-        node_definition: str,
-        image_definition: str | None,
-        configuration: list[dict[str, str]] | str | None,
-        x: int,
-        y: int,
-        ram: int | None = None,
-        cpus: int | None = None,
-        cpu_limit: int | None = None,
-        data_volume: int | None = None,
-        boot_disk_size: int | None = None,
-        hide_links: bool = False,
-        tags: list | None = None,
-        compute_id: str | None = None,
-        resource_pool: ResourcePool | None = None,
-        parameters: dict = {},
-        pinned_compute_id: str | None = None,
+        self, node_id: str, label: str, node_definition: str, **kwargs
     ) -> Node:
         """Helper function to add a node to the client library."""
-        if tags is None:
-            tags = []
-
-        node = Node(
-            self,
-            node_id,
-            label,
-            node_definition,
-            image_definition,
-            configuration,
-            x,
-            y,
-            ram,
-            cpus,
-            cpu_limit,
-            data_volume,
-            boot_disk_size,
-            hide_links,
-            tags,
-            resource_pool,
-            parameters,
-            pinned_compute_id,
-        )
-        if compute_id is not None:
-            node._compute_id = compute_id
-        self._nodes[node.id] = node
+        node = Node(self, node_id, label, node_definition, **kwargs)
+        self._nodes[node_id] = node
         return node
 
     @check_stale
@@ -706,7 +672,6 @@ class Lab:
         If you have a node object, you can also simply do::
 
             node.remove()
-
 
         :param node: The node object or ID.
         :param wait: A flag indicating whether to wait for convergence.
@@ -1011,7 +976,7 @@ class Lab:
         if desired_interface is None:
             # Shouldn't happen, but type checkers complain about desired_interface
             # possibly being None otherwise
-            raise InterfaceNotFound
+            raise InterfaceNotFound(node.id)
 
         return desired_interface
 
@@ -1219,7 +1184,7 @@ class Lab:
         max_iter = (
             self.wait_max_iterations if max_iterations is None else max_iterations
         )
-        wait_time = self.wait_time if wait_time is None else wait_time
+        local_wait_time = float(self.wait_time if wait_time is None else wait_time)
         _LOGGER.info(f"Waiting for lab {self._id} to converge.")
         for index in range(max_iter):
             converged = self.has_converged()
@@ -1231,7 +1196,7 @@ class Lab:
                 _LOGGER.info(
                     f"Lab has not converged, attempt {index}/{max_iter}, waiting..."
                 )
-            time.sleep(wait_time)
+            time.sleep(local_wait_time)
 
         msg = f"Lab {self.id} has not converged, maximum tries {max_iter} exceeded."
         _LOGGER.error(msg)
@@ -1300,7 +1265,7 @@ class Lab:
         """
         Check if the lab is active.
 
-        :return: True if the lab is active, False otherwise
+        :returns: True if the lab is active, False otherwise
         """
         return self.state() == "STARTED"
 
@@ -1309,7 +1274,7 @@ class Lab:
         """
         Retrieve the details of the lab, including its state.
 
-        :return: A dictionary containing the detailed lab state
+        :returns: A dictionary containing the detailed lab state
         """
         url = self._url_for("lab")
         response = self._session.get(url)
@@ -1357,7 +1322,7 @@ class Lab:
         Build basic configurations for all nodes in the lab that do not
         already have a configuration and support configuration building.
         """
-        url = self._url_for("build_configurations")
+        url = self._url_for("bootstrap")
         self._session.get(url)
         # sync to get the updated configs
         self.sync_topology_if_outdated()
@@ -1385,7 +1350,6 @@ class Lab:
                 "Lab.sync(): The argument 'with_node_configurations' is deprecated, "
                 "as it does the opposite of what is expected. "
                 "Use exclude_configurations instead.",
-                DeprecationWarning,
             )
             exclude_configurations = with_node_configurations
 
@@ -1417,7 +1381,8 @@ class Lab:
                 and f"Lab not found: {self._id}" in exc.response.text
             ):
                 self._stale = True
-            raise LabNotFound(f"Error syncing lab: {error_msg}")
+                raise LabNotFound(self._id)
+            raise
 
         topology = result.json()
 
@@ -1464,7 +1429,6 @@ class Lab:
                 warnings.warn(
                     "Labs created in older CML releases (schema version 0.0.5 or lower)"
                     " are deprecated. Use labs with schema version 0.1.0 or higher.",
-                    DeprecationWarning,
                 )
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
@@ -1487,7 +1451,7 @@ class Lab:
             node_id = node["id"]
 
             if node_id in self._nodes:
-                raise ElementAlreadyExists("Node already exists")
+                raise ElementAlreadyExists(node_id)
 
             self._import_node(node_id, node)
 
@@ -1499,7 +1463,7 @@ class Lab:
                 iface_id = iface["id"]
 
                 if iface_id in self._interfaces:
-                    raise ElementAlreadyExists("Interface already exists")
+                    raise ElementAlreadyExists(iface_id)
 
                 self._import_interface(iface_id, node_id, iface)
 
@@ -1518,7 +1482,7 @@ class Lab:
             node_id = iface["node"]
 
             if iface_id in self._interfaces:
-                raise ElementAlreadyExists("Interface already exists")
+                raise ElementAlreadyExists(iface_id)
 
             self._import_interface(iface_id, node_id, iface)
 
@@ -1533,7 +1497,7 @@ class Lab:
             link_id = link["id"]
 
             if link_id in self._links:
-                raise ElementAlreadyExists("Link already exists")
+                raise ElementAlreadyExists(link_id)
 
             iface_a_id = link["interface_a"]
             iface_b_id = link["interface_b"]
@@ -1555,7 +1519,7 @@ class Lab:
             annotation_id = annotation["id"]
 
             if annotation_id in self._annotations:
-                raise ElementAlreadyExists("Annotation already exists")
+                raise ElementAlreadyExists(annotation_id)
 
             self._import_annotation(annotation_id, annotation)
 
@@ -1566,7 +1530,7 @@ class Lab:
             smart_annotation_id = smart_annotation["id"]
 
             if smart_annotation_id in self._smart_annotations:
-                raise ElementAlreadyExists("Smart annotation already exists")
+                raise ElementAlreadyExists(smart_annotation_id)
 
             self._import_smart_annotation(smart_annotation_id, smart_annotation)
 
@@ -1759,7 +1723,6 @@ class Lab:
 
         # kept elements
         kept_nodes = update_node_ids.intersection(existing_node_ids)
-        # kept_links = update_link_ids.intersection(existing_link_ids)
         kept_interfaces = update_interface_ids.intersection(existing_interface_ids)
         kept_annotations = update_annotation_ids.intersection(existing_annotation_ids)
         kept_smart_annotations = update_smart_annotation_ids.intersection(
@@ -1941,14 +1904,12 @@ class Lab:
         """
         Update elements in the lab.
 
-         :param topology: Dictionary containing the lab topology.
-         :param kept_nodes: Iterable of node IDs to be updated.
-         :param kept_interfaces: Iterable of interface IDs to be updated.
-         :param kept_annotations: Iterable of annotation IDs to be updated.
-         :param kept_smart_annotations: Iterable of smart annotation IDs to be updated.
-
-
-         :param exclude_configurations: Boolean indicating whether to exclude
+        :param topology: Dictionary containing the lab topology.
+        :param kept_nodes: Iterable of node IDs to be updated.
+        :param kept_interfaces: Iterable of interface IDs to be updated.
+        :param kept_annotations: Iterable of annotation IDs to be updated.
+        :param kept_smart_annotations: Iterable of smart annotation IDs to be updated.
+        :param exclude_configurations: Boolean indicating whether to exclude
             configurations during update.
         """
         if kept_nodes:
@@ -1964,13 +1925,6 @@ class Lab:
                 )
                 interface = self._interfaces[interface_id]
                 interface._update(interface_data, push_to_server=False)
-
-        # For now, can't update link data server-side, this will change with tags
-        # if kept_links:
-        #     for link_id in kept_links:
-        #         link_data = self._find_link_in_topology(link_id, topology)
-        #         link = self._links[link_id]
-        #         link._update(link_data, push_to_server=False)
 
         if kept_annotations:
             for ann_id in kept_annotations:
@@ -2007,12 +1961,11 @@ class Lab:
         :returns: The link with the specified ID.
         :raises LinkNotFound: If the link cannot be found in the topology.
         """
-
         for link in topology["links"]:
             if link["id"] == link_id:
                 return link
         # if it cannot be found, it is an internal structure error
-        raise LinkNotFound
+        raise LinkNotFound(link_id)
 
     @staticmethod
     def _find_interface_in_topology(interface_id: str, topology: dict) -> dict:
@@ -2032,7 +1985,7 @@ class Lab:
                 if interface["id"] == interface_id:
                     return interface
         # if it cannot be found, it is an internal structure error
-        raise InterfaceNotFound
+        raise InterfaceNotFound(interface_id)
 
     @staticmethod
     def _find_node_in_topology(node_id: str, topology: dict) -> dict:
@@ -2048,7 +2001,7 @@ class Lab:
             if node["id"] == node_id:
                 return node
         # if it cannot be found, it is an internal structure error
-        raise NodeNotFound
+        raise NodeNotFound(node_id)
 
     @staticmethod
     def _find_annotation_in_topology(
@@ -2067,7 +2020,7 @@ class Lab:
             if annotation["id"] == annotation_id:
                 return annotation
         # if it cannot be found, it is an internal structure error
-        raise AnnotationNotFound
+        raise AnnotationNotFound(annotation_id)
 
     @staticmethod
     def _find_smart_annotation_in_topology(
@@ -2086,7 +2039,7 @@ class Lab:
             if annotation["id"] == annotation_id:
                 return annotation
         # if it cannot be found, it is an internal structure error
-        raise SmartAnnotationNotFound
+        raise SmartAnnotationNotFound(annotation_id)
 
     @check_stale
     def get_pyats_testbed(self, hostname: str | None = None) -> str:
@@ -2148,22 +2101,66 @@ class Lab:
 
     @property
     def groups(self) -> list[dict[str, str]]:
-        """Return the groups this lab is associated with."""
-        url = self._url_for("groups")
-        return self._session.get(url).json()
+        """
+        DEPRECATED: Use `.associations` instead.
+        (Reason: adapted to new format of lab associations)
+
+        Return the groups this lab is associated with.
+
+        :returns: List of objects consisting of group ID and permissions.
+        """
+        warnings.warn(
+            "'Lab.groups' is deprecated. Use '.associations' instead.",
+        )
+        url = self._url_for("lab")
+        return self._session.get(url).json()["groups"]
 
     @check_stale
     def update_lab_groups(
         self, group_list: list[dict[str, str]]
     ) -> list[dict[str, str]]:
         """
+        DEPRECATED: Use `.update_associations()` instead.
+        (Reason: adapted to new format of lab associations)
+
         Modify lab/group association.
 
-        :param group_list: List of objects consisting of group ID and permission.
-        :returns: Updated objects consisting of group ID and permission.
+        :param group_list: List of objects consisting of group ID and permissions.
+        :returns: Updated objects consisting of group ID and permissions.
         """
-        url = self._url_for("groups")
-        return self._session.put(url, json=group_list).json()
+        warnings.warn(
+            "'Lab.update_lab_groups()' is deprecated. Use '.update_associations()'"
+            " instead.",
+        )
+        url = self._url_for("lab")
+        data = {"groups": group_list}
+        return self._session.patch(url, json=data).json()
+
+    @property
+    def associations(self) -> dict[list[dict[str, str]]]:
+        """
+        Return the group and user associations for this lab.
+
+        :returns: An object containing group and user list of objects consisting of ID
+            and permissions.
+        """
+        url = self._url_for("associations")
+        return self._session.get(url).json()
+
+    @check_stale
+    def update_associations(
+        self, associations: dict[list[dict[str, str]]]
+    ) -> dict[list[dict[str, str]]]:
+        """
+        Modify lab/group/user associations.
+
+        :param associations: An object containing group and user list of objects
+            consisting of ID and permissions.
+        :returns: Updated object containing group and user list of objects consisting
+            of ID and permissions.
+        """
+        url = self._url_for("associations")
+        return self._session.patch(url, json=associations).json()
 
     @property
     def connector_mappings(self) -> list[dict[str, Any]]:
@@ -2229,10 +2226,17 @@ class Lab:
                 return user["username"]
         return None
 
-    def _set_owner(self, user_id: str | None = None, user_name: str | None = None):
-        """Sets the owner to the name of the user specified by the provided user_id.
+    def _set_owner(
+        self, user_id: str | None = None, user_name: str | None = None
+    ) -> None:
+        """
+        Sets the owner to the name of the user specified by the provided user_id.
         If given ID is None/doesn't exist, we fall back to the given user_name,
-        which will usually be the name of the current user or None."""
+        which will usually be the name of the current user or None.
+
+        :param user_id: User unique identifier.
+        :param user_name: Username.
+        """
         if user_id:
             user_name = self._user_name(user_id) or user_name
         self._owner = user_name

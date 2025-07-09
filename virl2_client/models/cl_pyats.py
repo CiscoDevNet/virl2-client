@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,7 +21,8 @@
 from __future__ import annotations
 
 import io
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 try:
     from pyats.topology.loader.base import TestbedFileLoader as _PyatsTFLoader
@@ -91,7 +92,7 @@ class ClPyats:
         Load a PyATS testbed instance from YAML representation.
 
         Disable all templating features of PyATS markup processor.
-        Also disable extensions loading (which still uses all of the templating)
+        Also disable extensions loading (which still uses all the templating)
         https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
         """
         processor = _PyatsTMProcessor(
@@ -116,15 +117,29 @@ class ClPyats:
         """
         self._check_pyats_installed()
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
-        testbed = self._load_pyats_testbed(testbed_yaml)
-        testbed.devices.terminal_server.credentials.default.username = username
-        testbed.devices.terminal_server.credentials.default.password = password
-        self._testbed = testbed
+        self._testbed = self._load_pyats_testbed(testbed_yaml)
+        self.set_termserv_credentials(username, password)
+
+    def set_termserv_credentials(
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        key_path: Path | str | None = None,
+    ) -> None:
+        terminal = self._testbed.devices.terminal_server
+        if username is not None:
+            terminal.credentials.default.username = username
+        if password is not None:
+            terminal.credentials.default.password = password
+        if key_path is not None:
+            ssh_options = f"-o IdentitiesOnly=yes -o IdentityFile={key_path}"
+            terminal.connections.cli.ssh_options = ssh_options
 
     def _prepare_params(
         self,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
+        **params: str,
     ) -> dict:
         """
         Prepare a dictionary of optional parameters to be executed before a command.
@@ -135,10 +150,9 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed.
         :returns: A dictionary of optional parameters to be executed with a command.
         """
-        params = {}
-        if init_exec_commands:
+        if init_exec_commands is not None:
             params["init_exec_commands"] = init_exec_commands
-        if init_config_commands:
+        if init_config_commands is not None:
             params["init_config_commands"] = init_config_commands
         return params
 
@@ -149,6 +163,7 @@ class ClPyats:
         configure_mode: bool = False,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
+        **pyats_params: Any,
     ) -> str:
         """
         Execute a command on the device.
@@ -163,6 +178,7 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
+        :param pyats_params: Additional PyATS call parameters
         :returns: The output from the device.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         """
@@ -173,13 +189,15 @@ class ClPyats:
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
+        params = self._prepare_params(
+            init_exec_commands, init_config_commands, **pyats_params
+        )
         if pyats_device not in self._connections or not pyats_device.is_connected():
             if pyats_device in self._connections:
                 pyats_device.destroy()
 
-            pyats_device.connect(log_stdout=False, learn_hostname=True)
+            pyats_device.connect(log_stdout=False, learn_hostname=True, **params)
             self._connections.add(pyats_device)
-        params = self._prepare_params(init_exec_commands, init_config_commands)
         if configure_mode:
             return pyats_device.configure(command, log_stdout=False, **params)
         else:
@@ -191,6 +209,7 @@ class ClPyats:
         command: str,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
+        **pyats_params: Any,
     ) -> str:
         """
         Run a command on the device in exec mode.
@@ -203,6 +222,7 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
+        :param pyats_params: Additional PyATS call parameters
         :returns: The output from the device.
         """
         return self._execute_command(
@@ -211,6 +231,7 @@ class ClPyats:
             configure_mode=False,
             init_exec_commands=init_exec_commands,
             init_config_commands=init_config_commands,
+            **pyats_params,
         )
 
     def run_config_command(
@@ -219,6 +240,7 @@ class ClPyats:
         command: str,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
+        **pyats_params: Any,
     ) -> str:
         """
         Run a command on the device in configure mode. pyATS automatically handles the
@@ -232,6 +254,7 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
+        :param pyats_params: Additional PyATS call parameters
         :returns: The output from the device.
         """
         return self._execute_command(
@@ -240,6 +263,7 @@ class ClPyats:
             configure_mode=True,
             init_exec_commands=init_exec_commands,
             init_config_commands=init_config_commands,
+            **pyats_params,
         )
 
     def cleanup(self) -> None:

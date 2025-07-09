@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Configuration file for the Sphinx documentation builder.
@@ -26,7 +26,7 @@ VIRL2_DOC = "virl2_client Documentation"
 # -- Project information -----------------------------------------------------
 
 project = "virl2_client"
-copyright = "Copyright (c) 2019-2024, Cisco Systems, Inc."
+copyright = "Copyright (c) 2019-2025, Cisco Systems, Inc."
 author = "VIRL2 team <virl@cisco.com>"
 
 # The short X.Y version

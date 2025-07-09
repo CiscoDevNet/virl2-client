@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -94,13 +94,12 @@ class Interface:
         return f"Interface: {self._label}{' (STALE)' if self._stale else ''}"
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self._id,
-            self._node,
-            self._label,
-            self._slot,
-            self._type,
+        return (
+            f"{self.__class__.__name__}("
+            f"{self._node!r}, "
+            f"{self._id!r}, "
+            f"{self._label!r}, "
+            f"{self._slot!r})"
         )
 
     def __hash__(self):
@@ -269,7 +268,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.is_physical' is deprecated. Use '.physical' instead.",
-            DeprecationWarning,
         )
         return self.physical
 
@@ -325,7 +323,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.remove_on_server()' is deprecated. Use '.remove()' instead.",
-            DeprecationWarning,
         )
         self._remove_on_server()
 
@@ -351,7 +348,6 @@ class Interface:
         warnings.warn(
             "'Interface.peer_interfaces()' is deprecated, "
             "use '.peer_interface' instead.",
-            DeprecationWarning,
         )
         return {self.peer_interface}
 
@@ -364,7 +360,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.peer_nodes() is deprecated. Use '.peer_node' instead.",
-            DeprecationWarning,
         )
         return {self.peer_node}
 
@@ -377,7 +372,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.links()' is deprecated. Use '.link' instead.",
-            DeprecationWarning,
         )
         link = self.link
         if link is None:
@@ -393,7 +387,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.degree()' is deprecated. Use '.connected' instead.",
-            DeprecationWarning,
         )
         return int(self.connected)
 
@@ -406,7 +399,6 @@ class Interface:
         """
         warnings.warn(
             "'Interface.is_connected()' is deprecated. Use '.connected' instead.",
-            DeprecationWarning,
         )
         return self.connected
 

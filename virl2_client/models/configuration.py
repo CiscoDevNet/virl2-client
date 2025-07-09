@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -55,7 +55,7 @@ def _get_from_file(virlrc_parent: Path, prop_name: str) -> str | None:
     return None
 
 
-def _get_prop(prop_name: str) -> str:
+def _get_prop(prop_name: str) -> str | None:
     """
     Get the value of a variable.
 
@@ -91,8 +91,8 @@ def _get_prop(prop_name: str) -> str:
 
 
 def get_configuration(
-    host: str, username: str, password: str, ssl_verify: bool | str
-) -> tuple[str, str, str, str]:
+    host: str | None, username: str | None, password: str | None, ssl_verify: bool | str
+) -> tuple[str, str, str, bool | str]:
     """
     Get the login configuration.
 
@@ -137,9 +137,9 @@ def get_configuration(
         raise InitializationError(message)
 
     if ssl_verify is True:
-        ssl_verify = _get_prop("CA_BUNDLE") or _get_prop("CML_VERIFY_CERT")
+        ssl_verify = _get_prop("CA_BUNDLE") or _get_prop("CML_VERIFY_CERT") or True
         # to match the behavior of virlutils, we allow to disable the SSL check via ENV
-        if ssl_verify and ssl_verify.lower() == "false":
+        if isinstance(ssl_verify, str) and ssl_verify.lower() == "false":
             ssl_verify = False
 
     return host, username, password, ssl_verify

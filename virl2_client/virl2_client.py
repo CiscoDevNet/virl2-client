@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -24,6 +24,8 @@ import logging
 import os
 import re
 import time
+import warnings
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
@@ -162,11 +164,24 @@ class ClientConfig(NamedTuple):
         return client
 
 
+class DiagnosticsCategory(Enum):
+    ALL = "all"
+    COMPUTES = "computes"
+    LABS = "labs"
+    LAB_EVENTS = "lab_events"
+    NODE_LAUNCH_QUEUE = "node_launch_queue"
+    SERVICES = "services"
+    NODE_DEFINITIONS = "node_definitions"
+    USER_LIST = "user_list"
+    LICENSING = "licensing"
+    STARTUP_SCHEDULER = "startup_scheduler"
+
+
 class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.8.0")
+    VERSION = Version("2.9.0")
     # list of Version objects
     INCOMPATIBLE_CONTROLLER_VERSIONS = [
         Version("2.0.0"),
@@ -183,6 +198,8 @@ class ClientLibrary:
         Version("2.4.1"),
         Version("2.5.0"),
         Version("2.5.1"),
+        Version("2.6.0"),
+        Version("2.6.1"),
     ]
     _URL_TEMPLATES = {
         "auth_test": "authok",
@@ -194,7 +211,7 @@ class ClientLibrary:
         "labs": "labs",
         "lab": "labs/{lab_id}",
         "lab_topology": "labs/{lab_id}/topology",
-        "diagnostics": "diagnostics",
+        "diagnostics": "diagnostics/{category}",
         "system_health": "system_health",
         "system_stats": "system_stats",
         "populate_lab_tiles": "populate_lab_tiles",
@@ -211,6 +228,7 @@ class ClientLibrary:
         convergence_wait_max_iter: int = 500,
         convergence_wait_time: int | float = 5,
         events: bool = False,
+        client_type: str = None,
     ) -> None:
         """
         Initialize a ClientLibrary instance. Note that ssl_verify can
@@ -254,7 +272,7 @@ class ClientLibrary:
 
         self._ssl_verify = ssl_verify
         try:
-            self._session = make_session(base_url, ssl_verify)
+            self._session = make_session(base_url, ssl_verify, client_type)
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION
@@ -319,15 +337,7 @@ class ClientLibrary:
             self.start_event_listening()
 
     def __repr__(self):
-        return "{}({!r}, {!r}, {!r}, {!r}, {!r}, {!r})".format(
-            self.__class__.__name__,
-            self.url,
-            self.username,
-            self.password,
-            self._ssl_verify,
-            self.raise_for_auth_failure,
-            self.allow_http,
-        )
+        return f"{self.__class__.__name__}({self.url!r})"
 
     def __str__(self):
         return f"{self.__class__.__name__} URL: {self._session.base_url}"
@@ -423,7 +433,7 @@ class ClientLibrary:
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
         """
-        controller_version = self.system_info().get("version")
+        controller_version = self.system_info().get("version", "")
         try:
             controller_version_obj = Version(controller_version)
         except (TypeError, ValueError):
@@ -576,7 +586,7 @@ class ClientLibrary:
         )
 
     @locked
-    def import_lab_from_path(self, path: str, title: str | None = None) -> Lab:
+    def import_lab_from_path(self, path: Path | str, title: str | None = None) -> Lab:
         """
         Import an existing topology from a file or path.
 
@@ -587,8 +597,7 @@ class ClientLibrary:
         """
         topology_path = Path(path)
         if not topology_path.exists():
-            message = f"{path} can not be found"
-            raise FileNotFoundError(message)
+            raise FileNotFoundError(path)
 
         topology = topology_path.read_text()
         return self.import_lab(
@@ -626,16 +635,11 @@ class ClientLibrary:
         :param show_all: Whether to get only labs owned by the admin or all user labs.
         :returns: A list of Lab objects.
         """
-        url = {"url": self._url_for("labs")}
-        if show_all:
-            url["params"] = {"show_all": True}
-        lab_ids = self._session.get(**url).json()
-
+        lab_ids = self.get_lab_list(show_all=show_all)
         result = []
         for lab_id in lab_ids:
             lab = self.join_existing_lab(lab_id)
             result.append(lab)
-
         return result
 
     @locked
@@ -738,7 +742,6 @@ class ClientLibrary:
         elif lab_id in self._labs:
             self._labs[lab_id].remove()
             self._remove_lab_local(self._labs[lab_id])
-
         else:
             self._remove_unjoined_lab(lab_id)
 
@@ -786,7 +789,7 @@ class ClientLibrary:
                 topology = self._session.get(url).json()
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
-                    raise LabNotFound("No lab with the given ID exists on the host.")
+                    raise LabNotFound(lab_id)
                 raise
             title = topology.get("lab", {}).get("title")
         else:
@@ -800,6 +803,8 @@ class ClientLibrary:
             self.password,
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
+            wait_max_iterations=self.convergence_wait_max_iter,
+            wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
         )
         if sync_lab:
@@ -810,14 +815,40 @@ class ClientLibrary:
         self._labs[lab_id] = lab
         return lab
 
-    def get_diagnostics(self) -> dict:
+    def get_diagnostics(self, *categories: DiagnosticsCategory) -> dict:
         """
-        Return the controller diagnostic data as a JSON object.
+        Return selected diagnostics data as a JSON object.
 
-        :returns: The diagnostic data.
+        :param categories: List of diagnostics categories to fetch.
+            DEPRECATED: If not provided, provide DiagnosticsCategory.ALL to fetch all
+            diagnostics data.
+        :returns: The diagnostics data.
         """
-        url = self._url_for("diagnostics")
-        return self._session.get(url).json()
+        if not categories:
+            warnings.warn(
+                "'ClientLibrary.get_diagnostics()' without arguments is deprecated. "
+                "Use 'ClientLibrary.get_diagnostics(DiagnosticsCategory.ALL)' or "
+                "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES, "
+                "DiagnosticsCategory.LABS, ...)' with specific categories instead.",
+                DeprecationWarning,
+            )
+            categories = [DiagnosticsCategory.ALL]
+        if DiagnosticsCategory.ALL in categories:
+            categories = list(DiagnosticsCategory)[1:]
+
+        diagnostics_data = {}
+        for category in set(categories):
+            value = category.value
+            url = self._url_for("diagnostics", category=value)
+            try:
+                response = self._session.get(url)
+                response.raise_for_status()
+                diagnostics_data[value] = response.json()
+            except httpx.HTTPStatusError:
+                diagnostics_data[value] = {
+                    "error": f"Failed to fetch {value} diagnostics"
+                }
+        return diagnostics_data
 
     def get_system_health(self) -> dict:
         """
@@ -875,7 +906,7 @@ class ClientLibrary:
             owned by the admin (False).
         :returns: A list of lab IDs.
         """
-        url = {"url": self._url_for("labs")}
+        url: dict[str, str | dict] = {"url": self._url_for("labs")}
         if show_all:
             url["params"] = {"show_all": True}
         return self._session.get(**url).json()

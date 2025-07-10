@@ -116,14 +116,12 @@ class Node:
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
         self._operational_data: dict[str, Any] = {}
         self._interface_operational_data: dict[str, dict[str, Any]] = {}
-        if (
-            kwargs.get("compute_id") is not None
-            or kwargs.get("resource_pool") is not None
-        ):
-            self._operational_data = {
-                "compute_id": kwargs.get("compute_id"),
-                "resource_pool": kwargs.get("resource_pool"),
-            }
+        if kwargs.get("operational") is not None:
+            self._operational_data.update(kwargs.get("operational"))
+        if kwargs.get("compute_id") is not None:
+            self._operational_data["compute_id"] = kwargs.get("compute_id")
+        if kwargs.get("resource_pool") is not None:
+            self._operational_data["resource_pool"] = kwargs.get("resource_pool")
 
         self._state: str | None = None
         self._session: httpx.Client = lab._session
@@ -539,8 +537,7 @@ class Node:
     @property
     def pinned_compute_id(self) -> str | None:
         """Return the ID of the compute this node is pinned to."""
-        self._lab.sync_operational_if_outdated()
-        return self._operational_data.get("pinned_compute_id")
+        return self._pinned_compute_id
 
     @property
     def operational_data(self) -> dict[str, Any]:
@@ -558,7 +555,7 @@ class Node:
     def pinned_compute_id(self, value) -> None:
         """Set the ID of the compute this node should be pinned to."""
         self._set_node_property("pinned_compute_id", value)
-        self._operational_data["pinned_compute_id"] = value
+        self._pinned_compute_id = value
 
     @property
     def cpu_usage(self) -> int | float:
@@ -930,7 +927,6 @@ class Node:
             return
 
         operational = response.get("operational", {})
-        operational["pinned_compute_id"] = response.get("pinned_compute_id")
 
         self._operational_data = operational.copy()
 

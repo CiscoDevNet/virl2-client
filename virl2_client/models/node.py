@@ -549,7 +549,14 @@ class Node:
     def interface_operational_data(self) -> dict[str, dict[str, Any]]:
         """Return the full operational data for all interfaces as a dictionary."""
         self.sync_interface_operational_if_outdated()
-        return self._interface_operational_data.copy()
+        result = {}
+        for iface in self.interfaces():
+            if iface._operational_data:
+                result[iface.id] = iface._operational_data.copy()
+        for iface_id, data in self._interface_operational_data.items():
+            if iface_id not in result:
+                result[iface_id] = data.copy()
+        return result
 
     @pinned_compute_id.setter
     def pinned_compute_id(self, value) -> None:
@@ -942,6 +949,7 @@ class Node:
             operational = interface_data.get("operational", {})
 
             interface._deployed_mac_address = operational.get("mac_address")
+            interface._operational_data = operational.copy()
             self._interface_operational_data[interface_data["id"]] = operational.copy()
 
         self._last_sync_interface_operational_time = time.time()

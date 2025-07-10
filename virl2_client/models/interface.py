@@ -84,6 +84,7 @@ class Interface:
             "ipv6": None,
         }
         self._deployed_mac_address = None
+        self._operational_data: dict[str, Any] = {}
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -257,6 +258,19 @@ class Interface:
         """Return the deployed MAC address of the interface."""
         self.node.sync_interface_operational()
         return self._deployed_mac_address
+
+    @property
+    def operational_data(self) -> dict[str, Any]:
+        """Return the operational data for this interface."""
+        self.node.sync_interface_operational_if_outdated()
+        if (
+            not self._operational_data
+            and self.id in self.node._interface_operational_data
+        ):
+            self._operational_data = self.node._interface_operational_data[
+                self.id
+            ].copy()
+        return self._operational_data.copy()
 
     @property
     def is_physical(self) -> bool:

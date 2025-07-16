@@ -24,7 +24,7 @@ import warnings
 from collections.abc import Callable
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Type, cast
+from typing import TYPE_CHECKING, Any, Type, TypeVar, cast
 
 import httpx
 
@@ -43,6 +43,8 @@ if TYPE_CHECKING:
     from .models import Annotation, Interface, Lab, Link, Node, SmartAnnotation
 
     Element = Lab | Node | Interface | Link | Annotation | SmartAnnotation
+
+TCallable = TypeVar("TCallable", bound=Callable)
 
 
 class _Sentinel:

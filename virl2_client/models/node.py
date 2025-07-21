@@ -115,7 +115,6 @@ class Node:
         self._parameters: dict = kwargs.get("parameters", {})
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
         self._operational_data: dict[str, Any] = {}
-        self._interface_operational_data: dict[str, dict[str, Any]] = {}
         if kwargs.get("operational") is not None:
             self._operational_data.update(kwargs.get("operational"))
         if kwargs.get("compute_id") is not None:
@@ -547,15 +546,12 @@ class Node:
 
     @property
     def interface_operational_data(self) -> dict[str, dict[str, Any]]:
-        """Return the full operational data for all interfaces as a dictionary."""
+        """Return the operational data for all interfaces as a dictionary."""
         self.sync_interface_operational_if_outdated()
         result = {}
         for iface in self.interfaces():
             if iface._operational_data:
                 result[iface.id] = iface._operational_data.copy()
-        for iface_id, data in self._interface_operational_data.items():
-            if iface_id not in result:
-                result[iface_id] = data.copy()
         return result
 
     @pinned_compute_id.setter
@@ -950,7 +946,6 @@ class Node:
 
             interface._deployed_mac_address = operational.get("mac_address")
             interface._operational_data = operational.copy()
-            self._interface_operational_data[interface_data["id"]] = operational.copy()
 
         self._last_sync_interface_operational_time = time.time()
 

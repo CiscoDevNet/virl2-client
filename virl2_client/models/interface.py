@@ -263,13 +263,6 @@ class Interface:
     def operational_data(self) -> dict[str, Any]:
         """Return the operational data for this interface."""
         self.node.sync_interface_operational_if_outdated()
-        if (
-            not self._operational_data
-            and self.id in self.node._interface_operational_data
-        ):
-            self._operational_data = self.node._interface_operational_data[
-                self.id
-            ].copy()
         return self._operational_data.copy()
 
     @property

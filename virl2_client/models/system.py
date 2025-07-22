@@ -41,7 +41,6 @@ class SystemManagement:
         "compute_hosts": "system/compute_hosts",
         "notices": "system/notices",
         "external_connectors": "system/external_connectors",
-        "external_connector": "system/external_connectors",
         "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
     }

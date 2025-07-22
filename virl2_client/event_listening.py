@@ -169,7 +169,7 @@ class EventListener:
                     _LOGGER.info("Connected successfully")
                     self._ws_close = ws.close()
                     self._ws_connected_event.set()
-                    async for msg in ws:  # type: aiohttp.WSMessage
+                    async for msg in ws:
                         self._queue.put_nowait(msg.data)
         except aiohttp.ClientError:
             _LOGGER.error("Connection closed unexpectedly", exc_info=True)

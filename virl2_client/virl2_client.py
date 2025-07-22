@@ -645,7 +645,7 @@ class ClientLibrary:
     @locked
     def _remove_stale_labs(self):
         """Remove stale labs from the client library."""
-        for lab in list(self._labs.values()):
+        for lab in self._labs.values():
             if lab._stale:
                 self._remove_lab_local(lab)
 

@@ -1456,7 +1456,7 @@ class Lab:
 
             self._import_node(node_id, node)
 
-            interfaces = node.get("interfaces", [])
+            interfaces = node.get("interfaces") or []
             if not interfaces:
                 continue
 
@@ -1674,7 +1674,7 @@ class Lab:
 
         update_node_ids = set(node["id"] for node in topology["nodes"])
         update_link_ids = set(link["id"] for link in topology["links"])
-        if "interfaces" in topology:
+        if topology.get("interfaces") is not None:
             update_interface_ids = set(iface["id"] for iface in topology["interfaces"])
         else:
             update_interface_ids = set(
@@ -1819,7 +1819,7 @@ class Lab:
         """
         for node in topology["nodes"]:  # type: dict
             node_id = node["id"]
-            interfaces = node.get("interfaces", [])
+            interfaces = node.get("interfaces") or []
             if node_id in new_nodes:
                 new_node = self._import_node(node_id, node)
                 _LOGGER.info(f"Added node {new_node}")
@@ -1841,7 +1841,7 @@ class Lab:
         :param topology: Dictionary containing the lab topology.
         :param new_interfaces: Iterable of interface IDs to be added.
         """
-        if "interfaces" in topology:
+        if topology.get("interfaces") is not None:
             for iface in topology["interfaces"]:
                 iface_id = iface["id"]
                 if iface_id in new_interfaces:
@@ -1979,10 +1979,10 @@ class Lab:
         :raises InterfaceNotFound: If the interface cannot be found in the topology.
         """
         interface_containers: list = (
-            [topology] if "interfaces" in topology else topology["nodes"]
+            [topology] if topology.get("interfaces") else topology["nodes"]
         )
         for container in interface_containers:
-            for interface in container.get("interfaces", []):
+            for interface in container.get("interfaces") or []:
                 if interface["id"] == interface_id:
                     return interface
         # if it cannot be found, it is an internal structure error
@@ -2086,7 +2086,7 @@ class Lab:
         result: dict[str, dict] = self._session.get(url).json()
         for node_id, node_data in result.items():
             node = self.get_node_by_id(node_id)
-            mapping = node_data.get("interfaces", {})
+            mapping = node_data.get("interfaces") or {}
             node.map_l3_addresses_to_interfaces(mapping)
         self._last_sync_l3_address_time = time.time()
 

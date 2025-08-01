@@ -864,7 +864,7 @@ class Node:
         """
         url = self._url_for("layer3_addresses")
         result = self._session.get(url).json()
-        interfaces = result.get("interfaces", {})
+        interfaces = result.get("interfaces") or {}
         self.map_l3_addresses_to_interfaces(interfaces)
 
     @check_stale
@@ -911,7 +911,7 @@ class Node:
         if response is None:
             return {}
         self._pinned_compute_id = response.get("pinned_compute_id")
-        operational = response.get("operational", {})
+        operational = response.get("operational") or {}
         self._compute_id = operational.get("compute_id")
         self._resource_pool = operational.get("resource_pool")
         return operational
@@ -925,7 +925,7 @@ class Node:
         self._lab.sync_topology_if_outdated()
         for interface_data in response:
             interface = self._lab._interfaces[interface_data["id"]]
-            operational = interface_data.get("operational", {})
+            operational = interface_data.get("operational") or {}
             interface._deployed_mac_address = operational.get("mac_address")
         self._last_sync_interface_operational_time = time.time()
 

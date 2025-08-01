@@ -1662,6 +1662,23 @@ class Lab:
         :param topology: The updated topology.
         :param exclude_configurations: Whether to exclude configurations from updating.
         """
+        # this is TEMPORAL WA. REMOVE BEFORE MERGE!!!
+        # TODO: I assume this is redundant to have node: None in Topology schema
+        # or need to fix sync function to filter it out
+
+        def remove_node_none(obj):
+            if isinstance(obj, dict):
+                # Create a new dict without "node": None, and recurse
+                return {k: remove_node_none(v)
+                        for k, v in obj.items()
+                        if not (k == "node" and v is None)}
+            elif isinstance(obj, list):
+                # Recurse into lists
+                return [remove_node_none(item) for item in obj]
+            else:
+                return obj
+
+        topology = remove_node_none(topology)
         self._import_lab(topology)
 
         # add in order: node -> interface -> link -> annotation

@@ -1925,17 +1925,6 @@ class Lab:
                 interface_data = self._find_interface_in_topology(
                     interface_id, topology
                 )
-                # WA in more specific place)
-                # this can be done in schema. e.g. use two schemas
-                # one with node field and one without.
-                # issue is that in lab Topology schema data looks like:
-                # node{"id": 111, ....
-                #       interfaces: [{id: 222,
-                #                    label: "port0",
-                #                    .....
-                #                    node: None}}
-                # which does not make some sense sometimes.
-                interface_data.pop("node", None)
                 interface = self._interfaces[interface_id]
                 interface._update(interface_data, push_to_server=False)
 

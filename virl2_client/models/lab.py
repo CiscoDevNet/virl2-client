@@ -1925,6 +1925,10 @@ class Lab:
                 interface_data = self._find_interface_in_topology(
                     interface_id, topology
                 )
+                # WA to do not brake PCL after APIs changes.
+                # ignore node field as node_id on higher level has priority
+                # while this one can be None and cause inconsistency
+                interface_data.pop("node", None)
                 interface = self._interfaces[interface_id]
                 interface._update(interface_data, push_to_server=False)
 

@@ -711,7 +711,7 @@ class Lab:
         """
         # Use case - user was assigned one lab, wants to reset work;
         # can't delete lab, so removing all nodes is the only option
-        for node in list(self._nodes.values()):
+        for node in self._nodes.values():
             self.remove_node(node, wait=False)
 
         if self.need_to_wait(wait):
@@ -864,14 +864,14 @@ class Lab:
     @locked
     def remove_annotations(self) -> None:
         """Remove all annotations from the lab."""
-        for ann in list(self._annotations.values()):
+        for ann in self._annotations.values():
             self.remove_annotation(ann)
         _LOGGER.debug("all annotations removed from lab %s", self._id)
 
     @locked
     def remove_smart_annotations(self) -> None:
         """Remove all smart annotations from the lab."""
-        for ann in list(self._smart_annotations.values()):
+        for ann in self._smart_annotations.values():
             self.remove_smart_annotation(ann)
         _LOGGER.debug("all smart annotations removed from lab %s", self._id)
 
@@ -1448,7 +1448,8 @@ class Lab:
 
         :param topology: The topology to import nodes from.
         """
-        for node in topology["nodes"]:  # type: dict
+        node: dict
+        for node in topology["nodes"]:
             node_id = node["id"]
 
             if node_id in self._nodes:
@@ -1648,7 +1649,6 @@ class Lab:
         annotation_data = {
             key: annotation_data[key] for key in annotation_data if key != "id"
         }
-
         annotation = self._create_smart_annotation_local(
             annotation_id, **annotation_data
         )
@@ -1662,9 +1662,7 @@ class Lab:
         :param topology: The updated topology.
         :param exclude_configurations: Whether to exclude configurations from updating.
         """
-
         self._import_lab(topology)
-
         # add in order: node -> interface -> link -> annotation
         # remove in reverse: annotation -> link -> interface -> node
         existing_node_ids = set(self._nodes)
@@ -1673,22 +1671,20 @@ class Lab:
         existing_annotation_ids = set(self._annotations)
         existing_smart_annotation_ids = set(self._smart_annotations)
 
-        update_node_ids = set(node["id"] for node in topology["nodes"])
-        update_link_ids = set(link["id"] for link in topology["links"])
+        update_node_ids = {node["id"] for node in topology["nodes"]}
+        update_link_ids = {link["id"] for link in topology["links"]}
         if topology.get("interfaces") is not None:
-            update_interface_ids = set(iface["id"] for iface in topology["interfaces"])
+            update_interface_ids = {iface["id"] for iface in topology["interfaces"]}
         else:
-            update_interface_ids = set(
+            update_interface_ids = {
                 interface["id"]
                 for node in topology["nodes"]
                 for interface in node["interfaces"]
-            )
-        update_annotation_ids = set(
-            ann["id"] for ann in topology.get("annotations", [])
-        )
-        update_smart_annotation_ids = set(
+            }
+        update_annotation_ids = {ann["id"] for ann in topology.get("annotations", [])}
+        update_smart_annotation_ids = {
             ann["id"] for ann in topology.get("smart_annotations", [])
-        )
+        }
 
         # removed elements
         removed_nodes = existing_node_ids - update_node_ids
@@ -1818,7 +1814,8 @@ class Lab:
         :param new_nodes: Iterable of node IDs to be added.
         :param new_interfaces: Iterable of interface IDs to be added.
         """
-        for node in topology["nodes"]:  # type: dict
+        node: dict
+        for node in topology["nodes"]:
             node_id = node["id"]
             interfaces = node.get("interfaces") or []
             if node_id in new_nodes:
@@ -1925,7 +1922,7 @@ class Lab:
                 interface_data = self._find_interface_in_topology(
                     interface_id, topology
                 )
-                # WA to do not brake PCL after APIs changes.
+                # a temporary workaround to ensure compliance with API changes
                 # ignore node field as node_id on higher level has priority
                 # while this one can be None and cause inconsistency
                 interface_data.pop("node", None)
@@ -1983,7 +1980,7 @@ class Lab:
         :returns: The interface with the specified ID.
         :raises InterfaceNotFound: If the interface cannot be found in the topology.
         """
-        interface_containers: list = (
+        interface_containers: list[dict] = (
             [topology] if topology.get("interfaces") else topology["nodes"]
         )
         for container in interface_containers:

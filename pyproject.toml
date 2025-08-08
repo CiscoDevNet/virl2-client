@@ -7,8 +7,10 @@ license = "Apache-2.0"
 readme = "README.md"
 homepage = "https://github.com/ciscodevnet/virl2-client"
 repository = "https://github.com/ciscodevnet/virl2-client"
-include = ["examples/*"]
-exclude = ["tests/**/*"]
+exclude = [
+    "tests/**/*",
+    "examples/*"
+]
 
 classifiers = [
     "Development Status :: 4 - Beta",

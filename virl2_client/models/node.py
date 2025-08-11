@@ -114,7 +114,7 @@ class Node:
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
-        self._operational_data: dict[str, Any] = kwargs.get("operational", {})
+        self._operational: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
         self._session: httpx.Client = lab._session
@@ -516,33 +516,39 @@ class Node:
         return self._node_definition
 
     @property
-    def compute_id(self):
-        """Return the ID of the compute this node is assigned to."""
-        self._lab.sync_operational_if_outdated()
-        return self._operational_data.get("compute_id")
-
-    @property
-    def resource_pool(self) -> str:
-        """Return the ID of the resource pool if the node is part of a resource pool."""
-        self._lab.sync_operational_if_outdated()
-        return self._operational_data.get("resource_pool")
-
-    @property
     def pinned_compute_id(self) -> str | None:
         """Return the ID of the compute this node is pinned to."""
         return self._pinned_compute_id
-
-    @property
-    def operational_data(self) -> dict[str, Any]:
-        """Return the full operational data as a dictionary."""
-        self._lab.sync_operational_if_outdated()
-        return self._operational_data.copy()
 
     @pinned_compute_id.setter
     def pinned_compute_id(self, value) -> None:
         """Set the ID of the compute this node should be pinned to."""
         self._set_node_property("pinned_compute_id", value)
         self._pinned_compute_id = value
+
+    @property
+    def smart_annotations(self) -> dict[str, SmartAnnotation]:
+        """Return the tags on this node and their corresponding smart annotations."""
+        self._lab.sync_topology_if_outdated()
+        return {tag: self._lab.get_smart_annotation_by_tag(tag) for tag in self._tags}
+
+    @property
+    def compute_id(self):
+        """Return the ID of the compute this node is assigned to."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.get("compute_id")
+
+    @property
+    def resource_pool(self) -> str:
+        """Return the ID of the resource pool if the node is part of a resource pool."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.get("resource_pool")
+
+    @property
+    def operational(self) -> dict[str, Any]:
+        """Return the full operational data as a dictionary."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.copy()
 
     @property
     def cpu_usage(self) -> int | float:
@@ -561,12 +567,6 @@ class Node:
         """Return the amount of disk write by this node."""
         self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
-
-    @property
-    def smart_annotations(self) -> dict[str, SmartAnnotation]:
-        """Return the tags on this node and their corresponding smart annotations."""
-        self._lab.sync_topology_if_outdated()
-        return {tag: self._lab.get_smart_annotation_by_tag(tag) for tag in self._tags}
 
     @locked
     def get_interface_by_label(self, label: str) -> Interface:
@@ -910,27 +910,18 @@ class Node:
         if response is None:
             url = self._url_for("operational")
             response = self._session.get(url).json()
-        if response is None:
-            operational = {}
-        else:
-            operational = response.get("operational", {})
-
-        self._operational_data = operational.copy()
+        self._operational = response.get("operational", {})
 
     @check_stale
     @locked
-    def sync_interface_operational(self):
+    def sync_interface_operational(self) -> None:
         """Synchronize the operational state of the node's interfaces."""
         url = self._url_for("inteface_operational")
         response = self._session.get(url).json()
         self._lab.sync_topology_if_outdated()
         for interface_data in response:
             interface = self._lab._interfaces[interface_data["id"]]
-            operational = interface_data.get("operational", {})
-
-            interface._deployed_mac_address = operational.get("mac_address")
-            interface._operational_data = operational.copy()
-
+            interface.operational = interface_data.get("operational", {})
         self._last_sync_interface_operational_time = time.time()
 
     def update(

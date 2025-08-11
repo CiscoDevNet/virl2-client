@@ -65,6 +65,7 @@ class Interface:
         """
         self._id = iid
         self._node = node
+        self._lab = node._lab
         self._type = iface_type
         self._label = label
         self._slot = slot
@@ -83,8 +84,7 @@ class Interface:
             "ipv4": None,
             "ipv6": None,
         }
-        self._deployed_mac_address = None
-        self._operational_data: dict[str, Any] = {}
+        self._operational: dict[str, Any] = {}
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -253,27 +253,17 @@ class Interface:
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv6"]
 
-    def sync_operational_data(self) -> None:
-        """Synchronize the operational data for this interface."""
-        url = self._url_for("interface")
-        params = {"operational": True}
-        response = self._session.get(url, params=params).json()
-
-        operational = response.get("operational", {})
-        self._deployed_mac_address = operational.get("mac_address")
-        self._operational_data = operational.copy()
-
     @property
     def deployed_mac_address(self) -> str | None:
         """Return the deployed MAC address of the interface."""
-        self.sync_operational_data()
-        return self._deployed_mac_address
+        self._lab.sync_operational_if_outdated()
+        return self._operational.get("mac_address")
 
     @property
-    def operational_data(self) -> dict[str, Any]:
+    def operational(self) -> dict[str, Any]:
         """Return the operational data for this interface."""
-        self.sync_operational_data()
-        return self._operational_data.copy()
+        self._lab.sync_operational_if_outdated()
+        return self._operational.copy()
 
     @property
     def is_physical(self) -> bool:

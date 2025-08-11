@@ -253,16 +253,26 @@ class Interface:
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv6"]
 
+    def sync_operational_data(self) -> None:
+        """Synchronize the operational data for this interface."""
+        url = self._url_for("interface")
+        params = {"operational": True}
+        response = self._session.get(url, params=params).json()
+
+        operational = response.get("operational", {})
+        self._deployed_mac_address = operational.get("mac_address")
+        self._operational_data = operational.copy()
+
     @property
     def deployed_mac_address(self) -> str | None:
         """Return the deployed MAC address of the interface."""
-        self.node.sync_interface_operational()
+        self.sync_operational_data()
         return self._deployed_mac_address
 
     @property
     def operational_data(self) -> dict[str, Any]:
         """Return the operational data for this interface."""
-        self.node.sync_interface_operational_if_outdated()
+        self.sync_operational_data()
         return self._operational_data.copy()
 
     @property

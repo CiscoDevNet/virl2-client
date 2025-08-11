@@ -114,13 +114,7 @@ class Node:
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
-        self._operational_data: dict[str, Any] = {}
-        if kwargs.get("operational") is not None:
-            self._operational_data.update(kwargs.get("operational"))
-        if kwargs.get("compute_id") is not None:
-            self._operational_data["compute_id"] = kwargs.get("compute_id")
-        if kwargs.get("resource_pool") is not None:
-            self._operational_data["resource_pool"] = kwargs.get("resource_pool")
+        self._operational_data: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
         self._session: httpx.Client = lab._session
@@ -544,16 +538,6 @@ class Node:
         self._lab.sync_operational_if_outdated()
         return self._operational_data.copy()
 
-    @property
-    def interface_operational_data(self) -> dict[str, dict[str, Any]]:
-        """Return the operational data for all interfaces as a dictionary."""
-        self.sync_interface_operational_if_outdated()
-        result = {}
-        for iface in self.interfaces():
-            if iface._operational_data:
-                result[iface.id] = iface._operational_data.copy()
-        return result
-
     @pinned_compute_id.setter
     def pinned_compute_id(self, value) -> None:
         """Set the ID of the compute this node should be pinned to."""
@@ -927,9 +911,9 @@ class Node:
             url = self._url_for("operational")
             response = self._session.get(url).json()
         if response is None:
-            return
-
-        operational = response.get("operational", {})
+            operational = {}
+        else:
+            operational = response.get("operational", {})
 
         self._operational_data = operational.copy()
 

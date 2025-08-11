@@ -105,14 +105,14 @@ def _check_and_mark_stale(func: Callable, instance: Element, *args, **kwargs):
         raise
 
 
-def check_stale(func: callable) -> callable:
+def check_stale(func: TCallable) -> TCallable:
     """A decorator that will make the wrapped function check staleness."""
 
     @wraps(func)
     def wrapper_stale(*args, **kwargs):
         return _check_and_mark_stale(func, args[0], *args, **kwargs)
 
-    return cast(callable, wrapper_stale)
+    return cast(TCallable, wrapper_stale)
 
 
 class property_s(property):
@@ -127,7 +127,7 @@ class property_s(property):
         return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 
-def locked(func: Callable) -> Callable:
+def locked(func: TCallable) -> TCallable:
     """
     A decorator that makes a method threadsafe.
     Parent class instance must have a `_session.lock` property for locking to occur.
@@ -144,7 +144,7 @@ def locked(func: Callable) -> Callable:
         with ctx:
             return func(*args, **kwargs)
 
-    return cast(Callable, wrapper_locked)
+    return cast(TCallable, wrapper_locked)
 
 
 def get_url_from_template(

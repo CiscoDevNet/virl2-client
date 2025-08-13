@@ -60,6 +60,10 @@ class LabNotFound(ElementNotFound):
     pass
 
 
+class LabRepositoryNotFound(ElementNotFound):
+    pass
+
+
 class InvalidContentType(VirlException):
     pass
 

@@ -25,7 +25,7 @@ import time
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from virl2_client.exceptions import ControllerNotFound
+from virl2_client.exceptions import ControllerNotFound, LabRepositoryNotFound
 
 from ..utils import _deprecated_argument, get_url_from_template
 
@@ -44,6 +44,9 @@ class SystemManagement:
         "external_connector": "system/external_connectors",
         "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
+        "lab_repos": "lab_repos",
+        "lab_repo": "lab_repos/{repo_id}",
+        "lab_repos_refresh": "lab_repos/refresh",
     }
 
     def __init__(
@@ -65,8 +68,10 @@ class SystemManagement:
         self.auto_sync_interval = auto_sync_interval
         self._last_sync_compute_host_time = 0.0
         self._last_sync_system_notice_time = 0.0
+        self._last_sync_lab_repository_time = 0.0
         self._compute_hosts: dict[str, ComputeHost] = {}
         self._system_notices: dict[str, SystemNotice] = {}
+        self._lab_repositories: dict[str, LabRepository] = {}
         self._maintenance_mode = False
         self._maintenance_notice: SystemNotice | None = None
 
@@ -104,6 +109,12 @@ class SystemManagement:
         """Return a dictionary of system notices."""
         self.sync_system_notices_if_outdated()
         return self._system_notices.copy()
+
+    @property
+    def lab_repositories(self) -> dict[str, LabRepository]:
+        """Return a dictionary of lab repositories."""
+        self.sync_lab_repositories_if_outdated()
+        return self._lab_repositories.copy()
 
     @property
     def maintenance_mode(self) -> bool:
@@ -157,6 +168,16 @@ class SystemManagement:
         ):
             self.sync_system_notices()
 
+    def sync_lab_repositories_if_outdated(self) -> None:
+        """Synchronize lab repositories if they are outdated."""
+        timestamp = time.time()
+        if (
+            self.auto_sync
+            and timestamp - self._last_sync_lab_repository_time
+            > self.auto_sync_interval
+        ):
+            self.sync_lab_repositories()
+
     def sync_compute_hosts(self) -> None:
         """Synchronize compute hosts from the server."""
         url = self._url_for("compute_hosts")
@@ -209,6 +230,27 @@ class SystemManagement:
         else:
             self._maintenance_notice = self._system_notices.get(notice_id)
         self._last_sync_system_notice_time = time.time()
+
+    def sync_lab_repositories(self) -> None:
+        """Synchronize lab repositories from the server."""
+        url = self._url_for("lab_repos")
+        lab_repositories = self._session.get(url).json()
+        lab_repository_ids = []
+
+        for lab_repository in lab_repositories:
+            repo_id = lab_repository.get("id")
+            if repo_id in self._lab_repositories:
+                self._lab_repositories[repo_id]._update(
+                    lab_repository, push_to_server=False
+                )
+            else:
+                self.add_lab_repository_local(**lab_repository)
+            lab_repository_ids.append(repo_id)
+
+        for repo_id in self._lab_repositories:
+            if repo_id not in lab_repository_ids:
+                self._lab_repositories.pop(repo_id)
+        self._last_sync_lab_repository_time = time.time()
 
     def get_external_connectors(self, sync: bool | None = None) -> list[dict[str, str]]:
         """
@@ -369,6 +411,107 @@ class SystemManagement:
         )
         self._system_notices[id] = new_system_notice
         return new_system_notice
+
+    def get_lab_repositories(self) -> list[dict[str, Any]]:
+        """
+        Get the list of configured lab repositories.
+
+        :returns: A list of lab repository objects.
+        """
+        url = self._url_for("lab_repos")
+        return self._session.get(url).json()
+
+    def add_lab_repository(self, url: str, name: str, folder: str) -> dict[str, Any]:
+        """
+        Add a lab repository.
+
+        :param url: The URL of the lab repository.
+        :param name: The name of the lab repository.
+        :param folder: The folder name for the lab repository.
+        :returns: The created lab repository data.
+        """
+        repo_url = self._url_for("lab_repos")
+        data = {"url": url, "name": name, "folder": folder}
+        result = self._session.post(repo_url, json=data).json()
+
+        # Add to local storage
+        self.add_lab_repository_local(**result)
+        return result
+
+    def refresh_lab_repositories(self) -> dict[str, dict[str, Any]]:
+        """
+        Performs a git pull on each configured lab repository and returns the result.
+
+        :returns: A dictionary containing the refresh status for each repository.
+        """
+        url = self._url_for("lab_repos_refresh")
+        return self._session.put(url).json()
+
+    def delete_lab_repository(self, repo_id: str) -> None:
+        """
+        Delete the specified lab repository.
+
+        :param repo_id: The ID of the lab repository to delete.
+        """
+        url = self._url_for("lab_repo", repo_id=repo_id)
+        self._session.delete(url)
+
+        # Remove from local storage
+        if repo_id in self._lab_repositories:
+            self._lab_repositories.pop(repo_id)
+
+    def add_lab_repository_local(
+        self,
+        id: str,
+        url: str,
+        name: str,
+        folder: str,
+    ) -> "LabRepository":
+        """
+        Add a lab repository locally.
+
+        :param id: The unique identifier of the lab repository.
+        :param url: The URL of the lab repository.
+        :param name: The name of the lab repository.
+        :param folder: The folder name for the lab repository.
+        :returns: The newly created lab repository object.
+        """
+        new_lab_repository = LabRepository(
+            self,
+            id,
+            url,
+            name,
+            folder,
+        )
+        self._lab_repositories[id] = new_lab_repository
+        return new_lab_repository
+
+    def get_lab_repository_by_id(self, repo_id: str) -> "LabRepository":
+        """
+        Get a lab repository by its ID.
+
+        :param repo_id: The ID of the lab repository.
+        :returns: The lab repository with the specified ID.
+        :raises LabRepositoryNotFound: If no lab repository with the specified ID is found.
+        """
+        self.sync_lab_repositories_if_outdated()
+        if repo_id not in self._lab_repositories:
+            raise LabRepositoryNotFound(repo_id)
+        return self._lab_repositories[repo_id]
+
+    def get_lab_repository_by_name(self, name: str) -> "LabRepository":
+        """
+        Get a lab repository by its name.
+
+        :param name: The name of the lab repository.
+        :returns: The lab repository with the specified name.
+        :raises LabRepositoryNotFound: If no lab repository with the specified name is found.
+        """
+        self.sync_lab_repositories_if_outdated()
+        for repo in self._lab_repositories.values():
+            if repo.name == name:
+                return repo
+        raise LabRepositoryNotFound(name)
 
 
 class ComputeHost:
@@ -687,4 +830,120 @@ class SystemNotice:
         """
         url = self._url_for("notice")
         new_data = self._session.patch(url, json=notice_data).json()
+        self._update(new_data, push_to_server=False)
+
+
+class LabRepository:
+    _URL_TEMPLATES = {"lab_repo": "lab_repos/{repo_id}"}
+
+    def __init__(
+        self,
+        system: SystemManagement,
+        id: str,
+        url: str,
+        name: str,
+        folder: str,
+    ):
+        """
+        A lab repository, which provides access to lab templates and resources.
+
+        :param system: The SystemManagement instance.
+        :param id: The ID of the lab repository.
+        :param url: The URL of the lab repository.
+        :param name: The name of the lab repository.
+        :param folder: The folder name for the lab repository.
+        """
+        self._system = system
+        self._session: httpx.Client = system._session
+        self._id = id
+        self._url = url
+        self._name = name
+        self._folder = folder
+
+    def __str__(self):
+        return f"Lab repository: {self._name}"
+
+    def _url_for(self, endpoint, **kwargs) -> str:
+        """
+        Generate the URL for a given API endpoint.
+
+        :param endpoint: The desired endpoint.
+        :param **kwargs: Keyword arguments used to format the URL.
+        :returns: The formatted URL.
+        """
+        kwargs["repo_id"] = self._id
+        return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
+    @property
+    def id(self) -> str:
+        """Return the ID of the lab repository."""
+        return self._id
+
+    @property
+    def url(self) -> str:
+        """Return the URL of the lab repository."""
+        self._system.sync_lab_repositories_if_outdated()
+        return self._url
+
+    @property
+    def name(self) -> str:
+        """Return the name of the lab repository."""
+        self._system.sync_lab_repositories_if_outdated()
+        return self._name
+
+    @property
+    def folder(self) -> str:
+        """Return the folder name of the lab repository."""
+        self._system.sync_lab_repositories_if_outdated()
+        return self._folder
+
+    def remove(self) -> None:
+        """Remove the lab repository."""
+        _LOGGER.info(f"Removing lab repository {self}")
+        url = self._url_for("lab_repo")
+        self._session.delete(url)
+
+    def update(self, repo_data: dict[str, Any], push_to_server=None) -> None:
+        """
+        Update the lab repository with the given data.
+
+        :param repo_data: The data to update the lab repository with.
+        :param push_to_server: DEPRECATED: Was only used by internal methods
+            and should otherwise always be True.
+        """
+        _deprecated_argument(self.update, push_to_server, "push_to_server")
+        self._update(repo_data, push_to_server=True)
+
+    def _update(self, repo_data: dict[str, Any], push_to_server: bool = True) -> None:
+        """
+        Update the lab repository with the given data.
+
+        :param repo_data: The data to update the lab repository with.
+        :param push_to_server: Whether to push the changes to the server.
+        """
+        if push_to_server:
+            self._set_repo_properties(repo_data)
+            return
+
+        for key, value in repo_data.items():
+            setattr(self, f"_{key}", value)
+
+    def _set_repo_property(self, key: str, val: Any) -> None:
+        """
+        Set a specific property of the lab repository.
+
+        :param key: The property key.
+        :param val: The new value for the property.
+        """
+        _LOGGER.debug(f"Setting lab repository property {self} {key}: {val}")
+        self._set_repo_properties({key: val})
+
+    def _set_repo_properties(self, repo_data: dict[str, Any]) -> None:
+        """
+        Set multiple properties of the lab repository.
+
+        :param repo_data: The data to set as properties of the lab repository.
+        """
+        url = self._url_for("lab_repo")
+        new_data = self._session.patch(url, json=repo_data).json()
         self._update(new_data, push_to_server=False)

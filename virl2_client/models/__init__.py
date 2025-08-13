@@ -34,12 +34,13 @@ from .node import Node
 from .node_image_definition import NodeImageDefinitions
 from .resource_pool import ResourcePoolManagement
 from .smart_annotation import SmartAnnotation
-from .system import SystemManagement
+from .system import LabRepository, SystemManagement
 from .user import UserManagement
 
 __all__ = (
     "Interface",
     "Lab",
+    "LabRepository",
     "Link",
     "Node",
     "NodeImageDefinitions",

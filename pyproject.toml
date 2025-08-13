@@ -42,7 +42,6 @@ sphinx = {version="^7", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7"
-poetry-plugin-export = "*"
 pre-commit = "^4"
 pytest = "*"
 respx = "^0.22.0"
@@ -51,6 +50,9 @@ respx = "^0.22.0"
 events = ["aiohttp"]
 pyats = ["pyats"]
 docs = ["sphinx", "sphinx_rtd_theme"]
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = "*"
 
 [build-system]
 requires = ["poetry-core"]

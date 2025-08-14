@@ -112,13 +112,12 @@ class Node:
         self._boot_disk_size: int | None = kwargs.get("boot_disk_size")
         self._hide_links: bool = kwargs.get("hide_links", False)
         self._tags: list[str] = kwargs.get("tags", [])
-        self._resource_pool: str | None = kwargs.get("resource_pool")
         self._parameters: dict = kwargs.get("parameters", {})
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
+        self._operational: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
         self._session: httpx.Client = lab._session
-        self._compute_id: str | None = kwargs.get("compute_id")
         self._stale = False
         self._last_sync_l3_address_time = 0.0
         self._last_sync_interface_operational_time = 0.0
@@ -517,21 +516,8 @@ class Node:
         return self._node_definition
 
     @property
-    def compute_id(self):
-        """Return the ID of the compute this node is assigned to."""
-        self._lab.sync_operational_if_outdated()
-        return self._compute_id
-
-    @property
-    def resource_pool(self) -> str:
-        """Return the ID of the resource pool if the node is part of a resource pool."""
-        self._lab.sync_operational_if_outdated()
-        return self._resource_pool
-
-    @property
     def pinned_compute_id(self) -> str | None:
         """Return the ID of the compute this node is pinned to."""
-        self._lab.sync_operational_if_outdated()
         return self._pinned_compute_id
 
     @pinned_compute_id.setter
@@ -539,6 +525,30 @@ class Node:
         """Set the ID of the compute this node should be pinned to."""
         self._set_node_property("pinned_compute_id", value)
         self._pinned_compute_id = value
+
+    @property
+    def smart_annotations(self) -> dict[str, SmartAnnotation]:
+        """Return the tags on this node and their corresponding smart annotations."""
+        self._lab.sync_topology_if_outdated()
+        return {tag: self._lab.get_smart_annotation_by_tag(tag) for tag in self._tags}
+
+    @property
+    def compute_id(self):
+        """Return the ID of the compute this node is assigned to."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.get("compute_id")
+
+    @property
+    def resource_pool(self) -> str:
+        """Return the ID of the resource pool if the node is part of a resource pool."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.get("resource_pool")
+
+    @property
+    def operational(self) -> dict[str, Any]:
+        """Return the full operational data as a dictionary."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.copy()
 
     @property
     def cpu_usage(self) -> int | float:
@@ -557,12 +567,6 @@ class Node:
         """Return the amount of disk write by this node."""
         self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
-
-    @property
-    def smart_annotations(self) -> dict[str, SmartAnnotation]:
-        """Return the tags on this node and their corresponding smart annotations."""
-        self._lab.sync_topology_if_outdated()
-        return {tag: self._lab.get_smart_annotation_by_tag(tag) for tag in self._tags}
 
     @locked
     def get_interface_by_label(self, label: str) -> Interface:
@@ -895,9 +899,7 @@ class Node:
 
     @check_stale
     @locked
-    def sync_operational(
-        self, response: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def sync_operational(self, response: dict[str, Any] | None = None) -> None:
         """
         Synchronize the operational state of the node.
 
@@ -908,25 +910,18 @@ class Node:
         if response is None:
             url = self._url_for("operational")
             response = self._session.get(url).json()
-        if response is None:
-            return {}
-        self._pinned_compute_id = response.get("pinned_compute_id")
-        operational = response.get("operational") or {}
-        self._compute_id = operational.get("compute_id")
-        self._resource_pool = operational.get("resource_pool")
-        return operational
+        self._operational = response.get("operational") or {}
 
     @check_stale
     @locked
-    def sync_interface_operational(self):
+    def sync_interface_operational(self) -> None:
         """Synchronize the operational state of the node's interfaces."""
         url = self._url_for("inteface_operational")
         response = self._session.get(url).json()
         self._lab.sync_topology_if_outdated()
         for interface_data in response:
             interface = self._lab._interfaces[interface_data["id"]]
-            operational = interface_data.get("operational") or {}
-            interface._deployed_mac_address = operational.get("mac_address")
+            interface._operational = interface_data.get("operational") or {}
         self._last_sync_interface_operational_time = time.time()
 
     def update(

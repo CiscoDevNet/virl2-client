@@ -363,20 +363,16 @@ def test_client_library_str_and_repr(client_library_server_current):
 
 def test_incompatible_version(client_library_server_2_0_0):
     with pytest.raises(InitializationError) as err:
-        with patch.object(
-            ClientLibrary, "INCOMPATIBLE_CONTROLLER_VERSIONS", new=[Version("2.0.0")]
-        ):
-            ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        str(err.value) == "Controller version 2.0.0 is marked incompatible! "
-        "List of versions marked explicitly as incompatible: [2.0.0]."
+        ClientLibrary("somehost", "virl2", password="virl2")
+    assert str(err.value) == (
+        "Unsupported minor version (only last 3 minor versions are supported). "
+        f"Client {ClientLibrary.VERSION}, controller 2.0.0."
     )
 
 
 def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
     with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
+        ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         f"Please ensure the client version is compatible with the controller version. "
         f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
@@ -385,8 +381,7 @@ def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
 
 def test_client_minor_version_lt_warn(client_library_server_2_19_0, caplog):
     with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
+        ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         f"Please ensure the client version is compatible with the controller version. "
         f"Client {CURRENT_VERSION}, controller 2.19.0." in caplog.text
@@ -395,8 +390,7 @@ def test_client_minor_version_lt_warn(client_library_server_2_19_0, caplog):
 
 def test_exact_version_no_warn(client_library_server_current, caplog):
     with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
+        ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         f"Please ensure the client version is compatible with the controller version. "
         f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text

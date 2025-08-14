@@ -196,7 +196,7 @@ class SystemManagement:
                 self.add_compute_host_local(**compute_host)
             compute_host_ids.append(compute_id)
 
-        for compute_id in self._compute_hosts:
+        for compute_id in list(self._compute_hosts):
             if compute_id not in compute_host_ids:
                 self._compute_hosts.pop(compute_id)
         self._last_sync_compute_host_time = time.time()
@@ -217,7 +217,7 @@ class SystemManagement:
                 self.add_system_notice_local(**system_notice)
             system_notice_ids.append(notice_id)
 
-        for notice_id in self._system_notices:
+        for notice_id in list(self._system_notices):
             if notice_id not in system_notice_ids:
                 self._system_notices.pop(notice_id)
 
@@ -247,7 +247,7 @@ class SystemManagement:
                 self.add_lab_repository_local(**lab_repository)
             lab_repository_ids.append(repo_id)
 
-        for repo_id in self._lab_repositories:
+        for repo_id in list(self._lab_repositories):
             if repo_id not in lab_repository_ids:
                 self._lab_repositories.pop(repo_id)
         self._last_sync_lab_repository_time = time.time()

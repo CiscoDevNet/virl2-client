@@ -181,26 +181,8 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.9.0")
-    # list of Version objects
-    INCOMPATIBLE_CONTROLLER_VERSIONS = [
-        Version("2.0.0"),
-        Version("2.0.1"),
-        Version("2.1.0"),
-        Version("2.1.1"),
-        Version("2.1.2"),
-        Version("2.2.1"),
-        Version("2.2.2"),
-        Version("2.2.3"),
-        Version("2.3.0"),
-        Version("2.3.1"),
-        Version("2.4.0"),
-        Version("2.4.1"),
-        Version("2.5.0"),
-        Version("2.5.1"),
-        Version("2.6.0"),
-        Version("2.6.1"),
-    ]
+    VERSION = Version("2.10.0")
+
     _URL_TEMPLATES = {
         "auth_test": "authok",
         "system_info": "system_information",
@@ -428,35 +410,37 @@ class ClientLibrary:
     def check_controller_version(self) -> Version | None:
         """
         Check remote controller version against current client version
-        (specified in `self.VERSION`) and against controller version
-        blacklist (specified in `self.INCOMPATIBLE_CONTROLLER_VERSIONS`).
+        (specified in `self.VERSION` and support last 3 minor versions).
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
+
+        :raises InitializationError: If the controller version is incompatible.
+        :returns: The controller version if it is compatible, or None if the version
+            cannot be parsed.
         """
-        controller_version = self.system_info().get("version", "")
+        controller_version_str = self.system_info().get("version", "")
         try:
-            controller_version_obj = Version(controller_version)
+            controller_version = Version(controller_version_str)
         except (TypeError, ValueError):
-            _LOGGER.warning(f"Invalid version detected: {controller_version}!")
+            _LOGGER.warning(f"Invalid version detected: {controller_version_str}!")
             return None
 
-        if controller_version_obj in self.INCOMPATIBLE_CONTROLLER_VERSIONS:
+        if self.VERSION.major_lt(controller_version):
             raise InitializationError(
-                f"Controller version {controller_version_obj} is marked incompatible! "
-                f"List of versions marked explicitly as incompatible: "
-                f"{self.INCOMPATIBLE_CONTROLLER_VERSIONS}."
+                "Major version mismatch. "
+                f"Client {self.VERSION}, controller {controller_version}."
             )
-        if self.VERSION.major_lt(controller_version_obj):
+        if self.VERSION.minor - 3 >= controller_version.minor:
             raise InitializationError(
-                f"Major version mismatch. Client {self.VERSION}, "
-                f"controller {controller_version_obj}."
+                "Unsupported minor version (only last 3 minor versions are supported). "
+                f"Client {self.VERSION}, controller {controller_version}."
             )
-        if self.VERSION.minor_lt(controller_version_obj):
+        if self.VERSION.minor_lt(controller_version):
             _LOGGER.warning(
-                f"Please ensure the client version is compatible with the controller "
-                f"version. Client {self.VERSION}, controller {controller_version_obj}."
+                "Please ensure the client version is compatible with the controller "
+                f"version. Client {self.VERSION}, controller {controller_version}."
             )
-        return controller_version_obj
+        return controller_version
 
     def is_system_ready(
         self, wait: bool = False, max_wait: int = 60, sleep: int = 5
@@ -645,7 +629,7 @@ class ClientLibrary:
     @locked
     def _remove_stale_labs(self):
         """Remove stale labs from the client library."""
-        for lab in list(self._labs.values()):
+        for lab in tuple(self._labs.values()):
             if lab._stale:
                 self._remove_lab_local(lab)
 

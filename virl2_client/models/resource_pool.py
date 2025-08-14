@@ -99,7 +99,7 @@ class ResourcePoolManagement:
                 self._add_resource_pool_local(**res_pool)
             res_pool_ids.append(pool_id)
         # remove all local pools that don't exist on remove
-        for local_res_pool_id in list(self._resource_pools):
+        for local_res_pool_id in tuple(self._resource_pools):
             if local_res_pool_id not in res_pool_ids:
                 self._resource_pools.pop(local_res_pool_id)
         self._last_sync_resource_pool_time = time.time()

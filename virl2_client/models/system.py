@@ -41,7 +41,6 @@ class SystemManagement:
         "compute_hosts": "system/compute_hosts",
         "notices": "system/notices",
         "external_connectors": "system/external_connectors",
-        "external_connector": "system/external_connectors",
         "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
         "lab_repos": "lab_repos",
@@ -99,6 +98,7 @@ class SystemManagement:
             (should never be the case).
         :returns: The controller object.
         """
+        self.sync_compute_hosts_if_outdated()
         for compute_host in self._compute_hosts.values():
             if compute_host.is_connector:
                 return compute_host
@@ -196,7 +196,7 @@ class SystemManagement:
                 self.add_compute_host_local(**compute_host)
             compute_host_ids.append(compute_id)
 
-        for compute_id in list(self._compute_hosts):
+        for compute_id in tuple(self._compute_hosts):
             if compute_id not in compute_host_ids:
                 self._compute_hosts.pop(compute_id)
         self._last_sync_compute_host_time = time.time()
@@ -217,7 +217,7 @@ class SystemManagement:
                 self.add_system_notice_local(**system_notice)
             system_notice_ids.append(notice_id)
 
-        for notice_id in list(self._system_notices):
+        for notice_id in tuple(self._system_notices):
             if notice_id not in system_notice_ids:
                 self._system_notices.pop(notice_id)
 

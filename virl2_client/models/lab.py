@@ -711,7 +711,7 @@ class Lab:
         """
         # Use case - user was assigned one lab, wants to reset work;
         # can't delete lab, so removing all nodes is the only option
-        for node in self._nodes.values():
+        for node in tuple(self._nodes.values()):
             self.remove_node(node, wait=False)
 
         if self.need_to_wait(wait):
@@ -864,14 +864,14 @@ class Lab:
     @locked
     def remove_annotations(self) -> None:
         """Remove all annotations from the lab."""
-        for ann in self._annotations.values():
+        for ann in tuple(self._annotations.values()):
             self.remove_annotation(ann)
         _LOGGER.debug("all annotations removed from lab %s", self._id)
 
     @locked
     def remove_smart_annotations(self) -> None:
         """Remove all smart annotations from the lab."""
-        for ann in self._smart_annotations.values():
+        for ann in tuple(self._smart_annotations.values()):
             self.remove_smart_annotation(ann)
         _LOGGER.debug("all smart annotations removed from lab %s", self._id)
 

@@ -247,7 +247,7 @@ class SystemManagement:
                 self.add_lab_repository_local(**lab_repository)
             lab_repository_ids.append(repo_id)
 
-        for repo_id in list(self._lab_repositories):
+        for repo_id in tuple(self._lab_repositories):
             if repo_id not in lab_repository_ids:
                 self._lab_repositories.pop(repo_id)
         self._last_sync_lab_repository_time = time.time()

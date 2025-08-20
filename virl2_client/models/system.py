@@ -237,7 +237,7 @@ class SystemManagement:
         :param data: The data to update.
         :returns: The updated data.
         """
-        url = f"{self._url_for('external_connector')}/{connector_id}"
+        url = f"{self._url_for('external_connectors')}/{connector_id}"
         return self._session.patch(url, json=data).json()
 
     def delete_external_connector(self, connector_id: str) -> None:
@@ -246,7 +246,7 @@ class SystemManagement:
 
         :param connector_id: The ID of the connector to delete.
         """
-        url = f"{self._url_for('external_connector')}/{connector_id}"
+        url = f"{self._url_for('external_connectors')}/{connector_id}"
         self._session.delete(url)
 
     def get_web_session_timeout(self) -> int:

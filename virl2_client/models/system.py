@@ -44,7 +44,6 @@ class SystemManagement:
         "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
         "lab_repos": "lab_repos",
-        "lab_repo": "lab_repos/{repo_id}",
         "lab_repos_refresh": "lab_repos/refresh",
     }
 
@@ -447,19 +446,6 @@ class SystemManagement:
         url = self._url_for("lab_repos_refresh")
         return self._session.put(url).json()
 
-    def delete_lab_repository(self, repo_id: str) -> None:
-        """
-        Delete the specified lab repository.
-
-        :param repo_id: The ID of the lab repository to delete.
-        """
-        url = self._url_for("lab_repo", repo_id=repo_id)
-        self._session.delete(url)
-
-        # Remove from local storage
-        if repo_id in self._lab_repositories:
-            self._lab_repositories.pop(repo_id)
-
     def add_lab_repository_local(
         self,
         id: str,
@@ -486,7 +472,7 @@ class SystemManagement:
         self._lab_repositories[id] = new_lab_repository
         return new_lab_repository
 
-    def get_lab_repository_by_id(self, repo_id: str) -> "LabRepository":
+    def get_lab_repository(self, repo_id: str) -> "LabRepository":
         """
         Get a lab repository by its ID.
 
@@ -903,47 +889,17 @@ class LabRepository:
         url = self._url_for("lab_repo")
         self._session.delete(url)
 
-    def update(self, repo_data: dict[str, Any], push_to_server=None) -> None:
-        """
-        Update the lab repository with the given data.
-
-        :param repo_data: The data to update the lab repository with.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
-        """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
-        self._update(repo_data, push_to_server=True)
-
     def _update(self, repo_data: dict[str, Any], push_to_server: bool = True) -> None:
         """
         Update the lab repository with the given data.
 
         :param repo_data: The data to update the lab repository with.
         :param push_to_server: Whether to push the changes to the server.
+            For lab repositories, this should always be False as they cannot be updated via API.
         """
         if push_to_server:
-            self._set_repo_properties(repo_data)
+            # Lab repositories cannot be updated via API
             return
 
         for key, value in repo_data.items():
             setattr(self, f"_{key}", value)
-
-    def _set_repo_property(self, key: str, val: Any) -> None:
-        """
-        Set a specific property of the lab repository.
-
-        :param key: The property key.
-        :param val: The new value for the property.
-        """
-        _LOGGER.debug(f"Setting lab repository property {self} {key}: {val}")
-        self._set_repo_properties({key: val})
-
-    def _set_repo_properties(self, repo_data: dict[str, Any]) -> None:
-        """
-        Set multiple properties of the lab repository.
-
-        :param repo_data: The data to set as properties of the lab repository.
-        """
-        url = self._url_for("lab_repo")
-        new_data = self._session.patch(url, json=repo_data).json()
-        self._update(new_data, push_to_server=False)

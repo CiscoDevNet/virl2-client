@@ -22,6 +22,6 @@ import warnings
 from .node_image_definition import *  # noqa
 
 warnings.warn(
-    "The module name 'virl2_client.models.node_image_definitions' is deprecated."
+    "The module name 'virl2_client.models.node_image_definitions' is deprecated. "
     "Use 'virl2_client.models.node_image_definition' instead.",
 )

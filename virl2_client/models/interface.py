@@ -353,8 +353,8 @@ class Interface:
         Return the peer interface connected to this interface in a set.
         """
         warnings.warn(
-            "'Interface.peer_interfaces()' is deprecated, "
-            "use '.peer_interface' instead.",
+            "'Interface.peer_interfaces()' is deprecated. "
+            "Use '.peer_interface' instead.",
         )
         return {self.peer_interface}
 

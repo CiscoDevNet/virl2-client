@@ -2132,8 +2132,8 @@ class Lab:
         :returns: Updated objects consisting of group ID and permissions.
         """
         warnings.warn(
-            "'Lab.update_lab_groups()' is deprecated. Use '.update_associations()'"
-            " instead.",
+            "'Lab.update_lab_groups()' is deprecated. "
+            "Use '.update_associations()' instead.",
         )
         url = self._url_for("lab")
         data = {"groups": group_list}

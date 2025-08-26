@@ -238,11 +238,7 @@ class SystemManagement:
 
         for lab_repository in lab_repositories:
             repo_id = lab_repository.get("id")
-            if repo_id in self._lab_repositories:
-                self._lab_repositories[repo_id]._update(
-                    lab_repository, push_to_server=False
-                )
-            else:
+            if repo_id not in self._lab_repositories:
                 self.add_lab_repository_local(**lab_repository)
             lab_repository_ids.append(repo_id)
 
@@ -452,7 +448,7 @@ class SystemManagement:
         url: str,
         name: str,
         folder: str,
-    ) -> "LabRepository":
+    ) -> LabRepository:
         """
         Add a lab repository locally.
 
@@ -462,17 +458,11 @@ class SystemManagement:
         :param folder: The folder name for the lab repository.
         :returns: The newly created lab repository object.
         """
-        new_lab_repository = LabRepository(
-            self,
-            id,
-            url,
-            name,
-            folder,
-        )
+        new_lab_repository = LabRepository(self, id, url, name, folder)
         self._lab_repositories[id] = new_lab_repository
         return new_lab_repository
 
-    def get_lab_repository(self, repo_id: str) -> "LabRepository":
+    def get_lab_repository(self, repo_id: str) -> LabRepository:
         """
         Get a lab repository by its ID.
 
@@ -485,7 +475,7 @@ class SystemManagement:
             raise LabRepositoryNotFound(repo_id)
         return self._lab_repositories[repo_id]
 
-    def get_lab_repository_by_name(self, name: str) -> "LabRepository":
+    def get_lab_repository_by_name(self, name: str) -> LabRepository:
         """
         Get a lab repository by its name.
 
@@ -888,18 +878,3 @@ class LabRepository:
         _LOGGER.info(f"Removing lab repository {self}")
         url = self._url_for("lab_repo")
         self._session.delete(url)
-
-    def _update(self, repo_data: dict[str, Any], push_to_server: bool = True) -> None:
-        """
-        Update the lab repository with the given data.
-
-        :param repo_data: The data to update the lab repository with.
-        :param push_to_server: Whether to push the changes to the server.
-            For lab repositories, this should always be False as they cannot be updated via API.
-        """
-        if push_to_server:
-            # Lab repositories cannot be updated via API
-            return
-
-        for key, value in repo_data.items():
-            setattr(self, f"_{key}", value)

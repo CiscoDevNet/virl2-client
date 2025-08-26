@@ -29,7 +29,6 @@ from virl2_client.exceptions import LabRepositoryNotFound
 from virl2_client.models.system import LabRepository, SystemManagement
 from virl2_client.virl2_client import ClientLibrary
 
-
 MOCK_LAB_REPOSITORY_1 = {
     "id": "repo-123",
     "url": "https://github.com/cisco/lab-templates.git",
@@ -127,7 +126,7 @@ def test_lab_repository_remove(mock_system_management):
 def test_lab_repositories_property_behavior(mock_system_management):
     """Test lab_repositories property triggers sync and returns a copy."""
     mock_system_management.sync_lab_repositories_if_outdated = Mock()
-    
+
     mock_system_management._lab_repositories = {"repo-123": Mock(), "repo-456": Mock()}
     repos = mock_system_management.lab_repositories
     mock_system_management.sync_lab_repositories_if_outdated.assert_called_once()
@@ -213,11 +212,11 @@ def test_get_lab_repository_by_name_success_and_failure(system_with_repos):
 def test_get_lab_repositories_api_call(mock_system_management):
     """Test get_lab_repositories makes correct API call."""
     system = mock_system_management
-    
+
     mock_response = Mock()
     mock_response.json.return_value = MOCK_LAB_REPOSITORIES_LIST
     system._session.get.return_value = mock_response
-    
+
     system._url_for = Mock(return_value="lab_repos")
 
     result = system.get_lab_repositories()
@@ -230,32 +229,36 @@ def test_get_lab_repositories_api_call(mock_system_management):
 def test_add_lab_repository_api_call(mock_system_management):
     """Test add_lab_repository makes correct API call and updates local storage."""
     system = mock_system_management
-    
+
     mock_response = Mock()
     mock_response.json.return_value = MOCK_LAB_REPOSITORY_1
     system._session.post.return_value = mock_response
-    
+
     system._url_for = Mock(return_value="lab_repos")
     system.add_lab_repository_local = Mock(return_value=Mock())
 
     result = system.add_lab_repository(
         url="https://github.com/cisco/lab-templates.git",
         name="cisco-templates",
-        folder="cisco_labs"
+        folder="cisco_labs",
     )
 
     assert result == MOCK_LAB_REPOSITORY_1
     system._url_for.assert_called_once_with("lab_repos")
-    expected_data = {"url": "https://github.com/cisco/lab-templates.git", "name": "cisco-templates", "folder": "cisco_labs"}
+    expected_data = {
+        "url": "https://github.com/cisco/lab-templates.git",
+        "name": "cisco-templates",
+        "folder": "cisco_labs",
+    }
     system._session.post.assert_called_once_with("lab_repos", json=expected_data)
-    
+
     system.add_lab_repository_local.assert_called_once_with(**MOCK_LAB_REPOSITORY_1)
 
 
 def test_refresh_lab_repositories_api_call(mock_system_management):
     """Test refresh_lab_repositories makes correct API call."""
     system = mock_system_management
-    
+
     refresh_response = {
         "repo-123": {"status": "success", "message": "Updated successfully"},
         "repo-456": {"status": "error", "message": "Failed to pull"},
@@ -263,7 +266,7 @@ def test_refresh_lab_repositories_api_call(mock_system_management):
     mock_response = Mock()
     mock_response.json.return_value = refresh_response
     system._session.put.return_value = mock_response
-    
+
     system._url_for = Mock(return_value="lab_repos/refresh")
     result = system.refresh_lab_repositories()
 
@@ -272,22 +275,22 @@ def test_refresh_lab_repositories_api_call(mock_system_management):
     system._session.put.assert_called_once_with("lab_repos/refresh")
 
 
-@patch('time.time')
+@patch("time.time")
 def test_sync_lab_repositories_behavior(mock_time, mock_system_management):
     """Test sync_lab_repositories preserves existing, adds new, and removes deleted repos."""
     mock_time.return_value = 1234567890.0
     system = mock_system_management
-    
+
     system.add_lab_repository_local(**MOCK_LAB_REPOSITORY_1)
     system.add_lab_repository_local(**MOCK_LAB_REPOSITORY_2)
-    
+
     new_repo_data = {
         "id": "repo-789",
         "url": "https://github.com/new/repo.git",
         "name": "new-repo",
         "folder": "new_folder",
     }
-    
+
     mock_response = Mock()
     mock_response.json.return_value = [MOCK_LAB_REPOSITORY_1, new_repo_data]
     system._session.get.return_value = mock_response
@@ -300,21 +303,21 @@ def test_sync_lab_repositories_behavior(mock_time, mock_system_management):
 
     assert system._lab_repositories["repo-123"] is original_repo_123
     assert original_repo_123.name == original_name
-    
+
     assert "repo-789" in system._lab_repositories
     assert system._lab_repositories["repo-789"].name == "new-repo"
-    
+
     assert "repo-456" not in system._lab_repositories
-    
+
     assert len(system._lab_repositories) == 2
-    
+
     assert system._last_sync_lab_repository_time == 1234567890.0
 
 
 def test_lab_repository_not_found_exception():
     """Test LabRepositoryNotFound exception behavior and inheritance."""
     from virl2_client.exceptions import ElementNotFound
-    
+
     exc = LabRepositoryNotFound("test-repo-id")
     assert "test-repo-id" in str(exc)
     assert isinstance(exc, ElementNotFound)
@@ -326,21 +329,25 @@ def test_lab_repository_end_to_end_workflow():
     """Test complete workflow from client creation to repository management."""
     respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
     respx.get("https://localhost/api/v0/authok").respond(200)
-    
-    respx.get("https://localhost/api/v0/system_information").respond(json={"version": "2.10.0"})
-    
+
+    respx.get("https://localhost/api/v0/system_information").respond(
+        json={"version": "2.10.0"}
+    )
+
     lab_repos_route = respx.get("https://localhost/api/v0/lab_repos")
     lab_repos_route.side_effect = [
         httpx.Response(200, json=[]),  # First call during initialization - empty
-        httpx.Response(200, json=[MOCK_LAB_REPOSITORY_1]),  # Second call after adding repository
+        httpx.Response(
+            200, json=[MOCK_LAB_REPOSITORY_1]
+        ),  # Second call after adding repository
     ]
-    
+
     respx.post("https://localhost/api/v0/lab_repos").respond(json=MOCK_LAB_REPOSITORY_1)
-    
+
     respx.delete("https://localhost/api/v0/lab_repos/repo-123").respond(200)
 
     client = ClientLibrary("https://localhost", "admin", "admin")
-    
+
     # Test initial state - no repositories
     repos = client.system_management.lab_repositories
     assert len(repos) == 0
@@ -349,7 +356,7 @@ def test_lab_repository_end_to_end_workflow():
     result = client.system_management.add_lab_repository(
         url="https://github.com/cisco/lab-templates.git",
         name="cisco-templates",
-        folder="cisco_labs"
+        folder="cisco_labs",
     )
     assert result == MOCK_LAB_REPOSITORY_1
 
@@ -358,7 +365,9 @@ def test_lab_repository_end_to_end_workflow():
     assert repo.id == "repo-123"
     assert repo.name == "cisco-templates"
 
-    repo_by_name = client.system_management.get_lab_repository_by_name("cisco-templates")
+    repo_by_name = client.system_management.get_lab_repository_by_name(
+        "cisco-templates"
+    )
     assert repo_by_name.id == "repo-123"
 
     # Test repository removal

@@ -28,19 +28,21 @@ from .authentication import TokenAuth
 from .group import GroupManagement
 from .interface import Interface
 from .lab import Lab
+from .lab_repository import LabRepository, LabRepositoryManagement
 from .licensing import Licensing
 from .link import Link
 from .node import Node
 from .node_image_definition import NodeImageDefinitions
 from .resource_pool import ResourcePoolManagement
 from .smart_annotation import SmartAnnotation
-from .system import LabRepository, SystemManagement
+from .system import SystemManagement
 from .user import UserManagement
 
 __all__ = (
     "Interface",
     "Lab",
     "LabRepository",
+    "LabRepositoryManagement",
     "Link",
     "Node",
     "NodeImageDefinitions",

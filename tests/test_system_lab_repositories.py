@@ -26,7 +26,8 @@ import pytest
 import respx
 
 from virl2_client.exceptions import LabRepositoryNotFound
-from virl2_client.models.system import LabRepository, SystemManagement
+from virl2_client.models.lab_repository import LabRepository
+from virl2_client.models.system import SystemManagement
 from virl2_client.virl2_client import ClientLibrary
 
 MOCK_LAB_REPOSITORY_1 = {
@@ -91,11 +92,9 @@ def test_lab_repository_properties_sync_behavior(mock_system_management):
 
     mock_system_management.sync_lab_repositories_if_outdated = Mock()
 
-    # Accessing id property - should not trigger sync
     _ = repo.id
     mock_system_management.sync_lab_repositories_if_outdated.assert_not_called()
 
-    # Accessing mutable properties - should trigger sync
     _ = repo.url
     assert mock_system_management.sync_lab_repositories_if_outdated.call_count == 1
 
@@ -116,47 +115,58 @@ def test_lab_repository_remove(mock_system_management):
         folder="test_folder",
     )
 
+    mock_system_management.lab_repository_management._lab_repositories["test-id"] = repo
+
     mock_system_management._url_for = Mock(return_value="lab_repos/test-id")
     repo.remove()
     mock_system_management._session.delete.assert_called_once_with("lab_repos/test-id")
 
-    assert "test-id" not in mock_system_management._lab_repositories
+    assert (
+        "test-id"
+        not in mock_system_management.lab_repository_management._lab_repositories
+    )
 
 
 def test_lab_repositories_property_behavior(mock_system_management):
     """Test lab_repositories property triggers sync and returns a copy."""
     mock_system_management.sync_lab_repositories_if_outdated = Mock()
 
-    mock_system_management._lab_repositories = {"repo-123": Mock(), "repo-456": Mock()}
+    mock_system_management.lab_repository_management._lab_repositories = {
+        "repo-123": Mock(),
+        "repo-456": Mock(),
+    }
     repos = mock_system_management.lab_repositories
     mock_system_management.sync_lab_repositories_if_outdated.assert_called_once()
 
-    assert repos is not mock_system_management._lab_repositories
+    assert (
+        repos is not mock_system_management.lab_repository_management._lab_repositories
+    )
     assert len(repos) == 2
 
 
 def test_sync_lab_repositories_if_outdated_conditions(mock_system_management):
     """Test sync_lab_repositories_if_outdated behavior under different conditions."""
     system = mock_system_management
-    system.sync_lab_repositories = Mock()
+    lab_repo_mgmt = system.lab_repository_management
+    lab_repo_mgmt.sync_lab_repositories = Mock()
 
     # Test 1: Auto-sync disabled - should not sync
-    system.auto_sync = False
-    system._last_sync_lab_repository_time = 0.0
+    lab_repo_mgmt.auto_sync = False
+    lab_repo_mgmt._last_sync_lab_repository_time = 0.0
     system.sync_lab_repositories_if_outdated()
-    system.sync_lab_repositories.assert_not_called()
+    lab_repo_mgmt.sync_lab_repositories.assert_not_called()
 
     # Test 2: Auto-sync enabled, recent sync - should not sync
-    system.auto_sync = True
-    system.auto_sync_interval = 1.0
-    system._last_sync_lab_repository_time = time.time()
+    lab_repo_mgmt.auto_sync = True
+    lab_repo_mgmt.auto_sync_interval = 1.0
+    lab_repo_mgmt._last_sync_lab_repository_time = time.time()
     system.sync_lab_repositories_if_outdated()
-    system.sync_lab_repositories.assert_not_called()
+    lab_repo_mgmt.sync_lab_repositories.assert_not_called()
 
     # Test 3: Auto-sync enabled, outdated - should sync
-    system._last_sync_lab_repository_time = 0.0
+    lab_repo_mgmt._last_sync_lab_repository_time = 0.0
     system.sync_lab_repositories_if_outdated()
-    system.sync_lab_repositories.assert_called_once()
+    lab_repo_mgmt.sync_lab_repositories.assert_called_once()
 
 
 def test_add_lab_repository_local(mock_system_management):
@@ -171,14 +181,14 @@ def test_add_lab_repository_local(mock_system_management):
     assert repo._name == "cisco-templates"
     assert repo._folder == "cisco_labs"
 
-    assert "repo-123" in system._lab_repositories
-    assert system._lab_repositories["repo-123"] is repo
+    assert "repo-123" in system.lab_repository_management._lab_repositories
+    assert system.lab_repository_management._lab_repositories["repo-123"] is repo
 
 
 def test_get_lab_repository_success_and_failure(system_with_repos):
     """Test get_lab_repository for both success and failure cases."""
     system = system_with_repos
-    system.sync_lab_repositories_if_outdated = Mock()
+    system.lab_repository_management.sync_lab_repositories_if_outdated = Mock()
 
     # Test success case
     repo = system.get_lab_repository("repo-123")
@@ -190,7 +200,10 @@ def test_get_lab_repository_success_and_failure(system_with_repos):
         system.get_lab_repository("non-existent")
     assert "non-existent" in str(exc_info.value)
 
-    assert system.sync_lab_repositories_if_outdated.call_count == 2
+    assert (
+        system.lab_repository_management.sync_lab_repositories_if_outdated.call_count
+        == 2
+    )
 
 
 def test_get_lab_repository_by_name_success_and_failure(system_with_repos):
@@ -217,12 +230,12 @@ def test_get_lab_repositories_api_call(mock_system_management):
     mock_response.json.return_value = MOCK_LAB_REPOSITORIES_LIST
     system._session.get.return_value = mock_response
 
-    system._url_for = Mock(return_value="lab_repos")
+    system.lab_repository_management._url_for = Mock(return_value="lab_repos")
 
     result = system.get_lab_repositories()
 
     assert result == MOCK_LAB_REPOSITORIES_LIST
-    system._url_for.assert_called_once_with("lab_repos")
+    system.lab_repository_management._url_for.assert_called_once_with("lab_repos")
     system._session.get.assert_called_once_with("lab_repos")
 
 
@@ -234,8 +247,10 @@ def test_add_lab_repository_api_call(mock_system_management):
     mock_response.json.return_value = MOCK_LAB_REPOSITORY_1
     system._session.post.return_value = mock_response
 
-    system._url_for = Mock(return_value="lab_repos")
-    system.add_lab_repository_local = Mock(return_value=Mock())
+    system.lab_repository_management._url_for = Mock(return_value="lab_repos")
+    system.lab_repository_management.add_lab_repository_local = Mock(
+        return_value=Mock()
+    )
 
     result = system.add_lab_repository(
         url="https://github.com/cisco/lab-templates.git",
@@ -244,7 +259,7 @@ def test_add_lab_repository_api_call(mock_system_management):
     )
 
     assert result == MOCK_LAB_REPOSITORY_1
-    system._url_for.assert_called_once_with("lab_repos")
+    system.lab_repository_management._url_for.assert_called_once_with("lab_repos")
     expected_data = {
         "url": "https://github.com/cisco/lab-templates.git",
         "name": "cisco-templates",
@@ -252,7 +267,9 @@ def test_add_lab_repository_api_call(mock_system_management):
     }
     system._session.post.assert_called_once_with("lab_repos", json=expected_data)
 
-    system.add_lab_repository_local.assert_called_once_with(**MOCK_LAB_REPOSITORY_1)
+    system.lab_repository_management.add_lab_repository_local.assert_called_once_with(
+        **MOCK_LAB_REPOSITORY_1
+    )
 
 
 def test_refresh_lab_repositories_api_call(mock_system_management):
@@ -267,11 +284,13 @@ def test_refresh_lab_repositories_api_call(mock_system_management):
     mock_response.json.return_value = refresh_response
     system._session.put.return_value = mock_response
 
-    system._url_for = Mock(return_value="lab_repos/refresh")
+    system.lab_repository_management._url_for = Mock(return_value="lab_repos/refresh")
     result = system.refresh_lab_repositories()
 
     assert result == refresh_response
-    system._url_for.assert_called_once_with("lab_repos_refresh")
+    system.lab_repository_management._url_for.assert_called_once_with(
+        "lab_repos_refresh"
+    )
     system._session.put.assert_called_once_with("lab_repos/refresh")
 
 
@@ -296,22 +315,30 @@ def test_sync_lab_repositories_behavior(mock_time, mock_system_management):
     system._session.get.return_value = mock_response
     system._url_for = Mock(return_value="lab_repos")
 
-    original_repo_123 = system._lab_repositories["repo-123"]
+    original_repo_123 = system.lab_repository_management._lab_repositories["repo-123"]
     original_name = original_repo_123.name
 
-    system.sync_lab_repositories()
+    system.lab_repository_management.sync_lab_repositories()
 
-    assert system._lab_repositories["repo-123"] is original_repo_123
+    assert (
+        system.lab_repository_management._lab_repositories["repo-123"]
+        is original_repo_123
+    )
     assert original_repo_123.name == original_name
 
-    assert "repo-789" in system._lab_repositories
-    assert system._lab_repositories["repo-789"].name == "new-repo"
+    assert "repo-789" in system.lab_repository_management._lab_repositories
+    assert (
+        system.lab_repository_management._lab_repositories["repo-789"].name
+        == "new-repo"
+    )
 
-    assert "repo-456" not in system._lab_repositories
+    assert "repo-456" not in system.lab_repository_management._lab_repositories
 
-    assert len(system._lab_repositories) == 2
+    assert len(system.lab_repository_management._lab_repositories) == 2
 
-    assert system._last_sync_lab_repository_time == 1234567890.0
+    assert (
+        system.lab_repository_management._last_sync_lab_repository_time == 1234567890.0
+    )
 
 
 def test_lab_repository_not_found_exception():
@@ -336,10 +363,8 @@ def test_lab_repository_end_to_end_workflow():
 
     lab_repos_route = respx.get("https://localhost/api/v0/lab_repos")
     lab_repos_route.side_effect = [
-        httpx.Response(200, json=[]),  # First call during initialization - empty
-        httpx.Response(
-            200, json=[MOCK_LAB_REPOSITORY_1]
-        ),  # Second call after adding repository
+        httpx.Response(200, json=[]),
+        httpx.Response(200, json=[MOCK_LAB_REPOSITORY_1]),
     ]
 
     respx.post("https://localhost/api/v0/lab_repos").respond(json=MOCK_LAB_REPOSITORY_1)
@@ -348,11 +373,9 @@ def test_lab_repository_end_to_end_workflow():
 
     client = ClientLibrary("https://localhost", "admin", "admin")
 
-    # Test initial state - no repositories
     repos = client.system_management.lab_repositories
     assert len(repos) == 0
 
-    # Test adding a repository
     result = client.system_management.add_lab_repository(
         url="https://github.com/cisco/lab-templates.git",
         name="cisco-templates",
@@ -360,7 +383,6 @@ def test_lab_repository_end_to_end_workflow():
     )
     assert result == MOCK_LAB_REPOSITORY_1
 
-    # Test getting repository by ID and by name
     repo = client.system_management.get_lab_repository("repo-123")
     assert repo.id == "repo-123"
     assert repo.name == "cisco-templates"
@@ -370,5 +392,4 @@ def test_lab_repository_end_to_end_workflow():
     )
     assert repo_by_name.id == "repo-123"
 
-    # Test repository removal
     repo.remove()

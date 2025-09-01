@@ -2209,6 +2209,7 @@ class Lab:
         for node_data in response:
             if node := self._nodes.get(node_data["id"]):
                 node.sync_operational(node_data)
+                node.sync_interface_operational()
 
         self._last_sync_operational_time = time.time()
 

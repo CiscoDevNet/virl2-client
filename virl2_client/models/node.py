@@ -410,7 +410,9 @@ class Node:
         self._set_node_property("configuration", value)
         self._set_configuration(value)
 
-    def _set_configuration(self, value: str | list | dict | None) -> None:
+    def _set_configuration(
+        self, value: str | list | dict | None, from_server: bool = False
+    ) -> None:
         """
         Set the content of:
          - the main configuration file if passed a string,
@@ -420,6 +422,8 @@ class Node:
         Can also use "Main" in place of the filename of the main configuration file.
 
         :param value: The configuration data in one of three formats.
+        :param from_server: True - completely replace local configuration with server data.
+                            False - merge with existing configuration (backward compatibility).
         """
         if self._configuration is None:
             self._configuration = []
@@ -433,6 +437,12 @@ class Node:
             self._configuration = []
             return
         new_configs = value if isinstance(value, list) else [value]
+
+        # data from server sync -> replace entire configuration to match server state
+        if from_server:
+            self._configuration = new_configs.copy()
+            return
+
         current_configs = {
             config["name"]: idx for idx, config in enumerate(self._configuration)
         }
@@ -964,7 +974,7 @@ class Node:
         for key, value in node_data.items():
             if key == "configuration":
                 if not exclude_configurations:
-                    self._set_configuration(value)
+                    self._set_configuration(value, from_server=True)
                 continue
             if key == "operational":
                 self.sync_operational(node_data)

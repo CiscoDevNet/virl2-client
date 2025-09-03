@@ -427,30 +427,25 @@ class Node:
         """
         if self._configuration is None:
             self._configuration = []
-        if isinstance(value, str):
-            if self._configuration:
-                self._configuration[0]["content"] = value
-            else:
-                self._configuration.append({"name": "Main", "content": value})
-            return
-        if not value:
-            self._configuration = []
-            return
-        new_configs = value if isinstance(value, list) else [value]
-
-        # data from server sync -> replace entire configuration to match server state
-        if from_server:
-            self._configuration = new_configs.copy()
-            return
-
-        current_configs = {
-            config["name"]: idx for idx, config in enumerate(self._configuration)
-        }
-        for config in new_configs:
-            if config["name"] in current_configs:
-                self._configuration[current_configs[config["name"]]] = config
-            else:
-                self._configuration.append(config)
+        match value:
+            case str():
+                if self._configuration:
+                    self._configuration[0]["content"] = value
+                else:
+                    self._configuration.append({"name": "Main", "content": value})
+            case list():
+                self._configuration = value
+            case dict():
+                for configuration in self._configuration:
+                    if configuration["name"] == value["name"]:
+                        configuration["content"] = value["content"]
+                        break
+                else:
+                    self._configuration.append(value)
+            case None:
+                self._configuration = []
+            case _:
+                raise TypeError(f"Unhandled type: {type(value)}")
 
     @property
     def configuration_files(self) -> list[dict[str, str]] | None:

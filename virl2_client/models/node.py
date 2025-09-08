@@ -410,7 +410,9 @@ class Node:
         self._set_node_property("configuration", value)
         self._set_configuration(value)
 
-    def _set_configuration(self, value: str | list | dict | None) -> None:
+    def _set_configuration(
+        self, value: str | list | dict | None, from_server: bool = False
+    ) -> None:
         """
         Set the content of:
          - the main configuration file if passed a string,
@@ -420,27 +422,30 @@ class Node:
         Can also use "Main" in place of the filename of the main configuration file.
 
         :param value: The configuration data in one of three formats.
+        :param from_server: True - completely replace local configuration with server data.
+                            False - merge with existing configuration (backward compatibility).
         """
         if self._configuration is None:
             self._configuration = []
-        if isinstance(value, str):
-            if self._configuration:
-                self._configuration[0]["content"] = value
-            else:
-                self._configuration.append({"name": "Main", "content": value})
-            return
-        if not value:
-            self._configuration = []
-            return
-        new_configs = value if isinstance(value, list) else [value]
-        current_configs = {
-            config["name"]: idx for idx, config in enumerate(self._configuration)
-        }
-        for config in new_configs:
-            if config["name"] in current_configs:
-                self._configuration[current_configs[config["name"]]] = config
-            else:
-                self._configuration.append(config)
+        match value:
+            case str():
+                if self._configuration:
+                    self._configuration[0]["content"] = value
+                else:
+                    self._configuration.append({"name": "Main", "content": value})
+            case list():
+                self._configuration = value
+            case dict():
+                for configuration in self._configuration:
+                    if configuration["name"] == value["name"]:
+                        configuration["content"] = value["content"]
+                        break
+                else:
+                    self._configuration.append(value)
+            case None:
+                self._configuration = []
+            case _:
+                raise TypeError(f"Unhandled type: {type(value)}")
 
     @property
     def configuration_files(self) -> list[dict[str, str]] | None:
@@ -964,7 +969,7 @@ class Node:
         for key, value in node_data.items():
             if key == "configuration":
                 if not exclude_configurations:
-                    self._set_configuration(value)
+                    self._set_configuration(value, from_server=True)
                 continue
             if key == "operational":
                 self.sync_operational(node_data)

@@ -146,6 +146,7 @@ class ClientConfig(NamedTuple):
     raise_for_auth_failure: bool = True
     convergence_wait_max_iter: int = 500
     convergence_wait_time: int | float = 5
+    check_version: bool = True
 
     def make_client(self) -> ClientLibrary:
         client = ClientLibrary(
@@ -157,6 +158,7 @@ class ClientConfig(NamedTuple):
             allow_http=self.allow_http,
             convergence_wait_max_iter=self.convergence_wait_max_iter,
             convergence_wait_time=self.convergence_wait_time,
+            check_version=self.check_version,
             events=self.events,
         )
         client.auto_sync_interval = self.auto_sync
@@ -211,6 +213,7 @@ class ClientLibrary:
         convergence_wait_time: int | float = 5,
         events: bool = False,
         client_type: str = None,
+        check_version: bool = True,
     ) -> None:
         """
         Initialize a ClientLibrary instance. Note that ssl_verify can
@@ -232,6 +235,8 @@ class ClientLibrary:
         :param convergence_wait_max_iter: Maximum number of iterations for convergence.
         :param convergence_wait_time: Time in seconds to sleep between convergence calls
             on the backend.
+        :param check_version: Raise an exception if client and server versions
+            are more than 2 minor releases apart.
         :param events: A flag indicating whether to enable event-based data
             synchronization from the server. When enabled, utilizes a mechanism for
             receiving real-time updates from the server, instead of periodically
@@ -245,14 +250,29 @@ class ClientLibrary:
         if cert is not None:
             ssl_verify = cert
 
+        self.allow_http = allow_http
         url, base_url = _prepare_url(url, allow_http)
         self.username: str = username
         self.password: str = password
+        self.url: str = url
+        self.raise_for_auth_failure = raise_for_auth_failure
+        self.check_version = check_version
 
+        self._ssl_verify = ssl_verify
         if ssl_verify is False:
             _LOGGER.warning("SSL Verification disabled")
 
-        self._ssl_verify = ssl_verify
+        self.auto_sync = True
+        """`auto_sync` automatically syncs data with the backend after a specific
+        time. The default expiry time is 1.0s. This time can be configured by
+        setting the `auto_sync_interval`."""
+        self.auto_sync_interval = 1.0  # seconds
+
+        self.convergence_wait_max_iter = convergence_wait_max_iter
+        self.convergence_wait_time = convergence_wait_time
+
+        self._labs: dict[str, Lab] = {}
+
         try:
             self._session = make_session(base_url, ssl_verify, client_type)
         except httpx.InvalidURL as exc:
@@ -265,22 +285,7 @@ class ClientLibrary:
         #  which has no logout function; this TokenAuth function will, therefore,
         #  not be visible to a type checker, causing warnings.
 
-        self.auto_sync = True
-        """`auto_sync` automatically syncs data with the backend after a specific
-        time. The default expiry time is 1.0s. This time can be configured by
-        setting the `auto_sync_interval`."""
-        self.auto_sync_interval = 1.0  # seconds
-
-        self.convergence_wait_max_iter = convergence_wait_max_iter
-        self.convergence_wait_time = convergence_wait_time
-
-        self.allow_http = allow_http
         self.definitions = NodeImageDefinitions(self._session)
-
-        self.url: str = url
-        self.raise_for_auth_failure = raise_for_auth_failure
-        self._labs: dict[str, Lab] = {}
-
         self.licensing = Licensing(
             self._session, is_cert_deprecated=controller_version >= Version("2.7.0")
         )
@@ -413,6 +418,7 @@ class ClientLibrary:
         (specified in `self.VERSION` and support last 3 minor versions).
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
+        These all are disabled if `self.check_version` attribute is set to False.
 
         :raises InitializationError: If the controller version is incompatible.
         :returns: The controller version if it is compatible, or None if the version
@@ -424,6 +430,9 @@ class ClientLibrary:
         except (TypeError, ValueError):
             _LOGGER.warning(f"Invalid version detected: {controller_version_str}!")
             return None
+
+        if not self.check_version:
+            return controller_version
 
         if self.VERSION.major_lt(controller_version):
             raise InitializationError(

@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any
 from virl2_client.exceptions import ControllerNotFound
 
 from ..utils import _deprecated_argument, get_url_from_template
-from .lab_repository import LabRepository, LabRepositoryManagement
 
 if TYPE_CHECKING:
     import httpx
@@ -69,9 +68,6 @@ class SystemManagement:
         self._system_notices: dict[str, SystemNotice] = {}
         self._maintenance_mode = False
         self._maintenance_notice: SystemNotice | None = None
-        self._lab_repository_management = LabRepositoryManagement(
-            self, session, auto_sync, auto_sync_interval
-        )
 
     def _url_for(self, endpoint, **kwargs):
         """
@@ -108,17 +104,6 @@ class SystemManagement:
         """Return a dictionary of system notices."""
         self.sync_system_notices_if_outdated()
         return self._system_notices.copy()
-
-    @property
-    def lab_repositories(self):
-        """Return a copy of the lab repositories dictionary."""
-        self.sync_lab_repositories_if_outdated()
-        return self._lab_repository_management._lab_repositories.copy()
-
-    @property
-    def lab_repository_management(self):
-        """Return the lab repository management instance."""
-        return self._lab_repository_management
 
     @property
     def maintenance_mode(self) -> bool:
@@ -384,80 +369,6 @@ class SystemManagement:
         )
         self._system_notices[id] = new_system_notice
         return new_system_notice
-
-    def get_lab_repositories(self) -> list[dict[str, Any]]:
-        """
-        Get the list of configured lab repositories.
-
-        :returns: A list of lab repository objects.
-        """
-        # Lab repository management is now delegated to LabRepositoryManagement
-        return self.lab_repository_management.get_lab_repositories()
-
-    def add_lab_repository(self, url: str, name: str, folder: str) -> dict[str, Any]:
-        """
-        Add a lab repository.
-
-        :param url: The URL of the lab repository.
-        :param name: The name of the lab repository.
-        :param folder: The folder name for the lab repository.
-        :returns: The created lab repository data.
-        """
-        return self.lab_repository_management.add_lab_repository(url, name, folder)
-
-    def refresh_lab_repositories(self) -> dict[str, dict[str, Any]]:
-        """
-        Performs a git pull on each configured lab repository and returns the result.
-
-        :returns: A dictionary containing the refresh status for each repository.
-        """
-        return self.lab_repository_management.refresh_lab_repositories()
-
-    def add_lab_repository_local(
-        self,
-        id: str,
-        url: str,
-        name: str,
-        folder: str,
-    ) -> LabRepository:
-        """
-        Add a lab repository locally.
-
-        :param id: The unique identifier of the lab repository.
-        :param url: The URL of the lab repository.
-        :param name: The name of the lab repository.
-        :param folder: The folder name for the lab repository.
-        :returns: The newly created lab repository object.
-        """
-        return self.lab_repository_management.add_lab_repository_local(
-            id, url, name, folder
-        )
-
-    def get_lab_repository(self, repo_id: str) -> LabRepository:
-        """
-        Get a lab repository by its ID.
-
-        :param repo_id: The ID of the lab repository.
-        :returns: The lab repository with the specified ID.
-        :raises LabRepositoryNotFound: If no lab repository with the specified ID is found.
-        """
-        return self.lab_repository_management.get_lab_repository(repo_id)
-
-    def get_lab_repository_by_name(self, name: str) -> LabRepository:
-        """
-        Get a lab repository by its name.
-
-        :param name: The name of the lab repository.
-        :returns: The lab repository with the specified name.
-        :raises LabRepositoryNotFound: If no lab repository with the specified name is found.
-        """
-        return self.lab_repository_management.get_lab_repository_by_name(name)
-
-    def sync_lab_repositories_if_outdated(self) -> None:
-        """
-        Sync lab repositories if they are outdated.
-        """
-        return self.lab_repository_management.sync_lab_repositories_if_outdated()
 
 
 class ComputeHost:

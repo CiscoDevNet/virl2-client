@@ -82,19 +82,28 @@ class LabRepository:
     @property
     def url(self) -> str:
         """Return the URL of the lab repository."""
-        self._system.sync_lab_repositories_if_outdated()
+        if hasattr(self._system, "sync_lab_repositories_if_outdated"):
+            self._system.sync_lab_repositories_if_outdated()
+        elif hasattr(self._system, "lab_repository_management"):
+            self._system.lab_repository_management.sync_lab_repositories_if_outdated()
         return self._url
 
     @property
     def name(self) -> str:
         """Return the name of the lab repository."""
-        self._system.sync_lab_repositories_if_outdated()
+        if hasattr(self._system, "sync_lab_repositories_if_outdated"):
+            self._system.sync_lab_repositories_if_outdated()
+        elif hasattr(self._system, "lab_repository_management"):
+            self._system.lab_repository_management.sync_lab_repositories_if_outdated()
         return self._name
 
     @property
     def folder(self) -> str:
         """Return the folder name of the lab repository."""
-        self._system.sync_lab_repositories_if_outdated()
+        if hasattr(self._system, "sync_lab_repositories_if_outdated"):
+            self._system.sync_lab_repositories_if_outdated()
+        elif hasattr(self._system, "lab_repository_management"):
+            self._system.lab_repository_management.sync_lab_repositories_if_outdated()
         return self._folder
 
     def remove(self) -> None:
@@ -103,9 +112,12 @@ class LabRepository:
         url = self._url_for("lab_repo")
         self._session.delete(url)
 
-        # Remove from local storage
-        if self._id in self._system.lab_repository_management._lab_repositories:
-            del self._system.lab_repository_management._lab_repositories[self._id]
+        if hasattr(self._system, "_lab_repositories"):
+            if self._id in self._system._lab_repositories:
+                del self._system._lab_repositories[self._id]
+        elif hasattr(self._system, "lab_repository_management"):
+            if self._id in self._system.lab_repository_management._lab_repositories:
+                del self._system.lab_repository_management._lab_repositories[self._id]
 
 
 class LabRepositoryManagement:

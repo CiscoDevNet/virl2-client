@@ -58,7 +58,7 @@ class Node:
         "vnc_key": "{lab}/nodes/{id}/keys/vnc",
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
         "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
-        "inteface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
+        "interface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
     }
 
     def __init__(
@@ -921,7 +921,7 @@ class Node:
     @locked
     def sync_interface_operational(self) -> None:
         """Synchronize the operational state of the node's interfaces."""
-        url = self._url_for("inteface_operational")
+        url = self._url_for("interface_operational")
         response = self._session.get(url).json()
         self._lab.sync_topology_if_outdated()
         for interface_data in response:

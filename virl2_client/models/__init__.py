@@ -28,6 +28,7 @@ from .authentication import TokenAuth
 from .group import GroupManagement
 from .interface import Interface
 from .lab import Lab
+from .lab_repository import LabRepository, LabRepositoryManagement
 from .licensing import Licensing
 from .link import Link
 from .node import Node
@@ -40,6 +41,8 @@ from .user import UserManagement
 __all__ = (
     "Interface",
     "Lab",
+    "LabRepository",
+    "LabRepositoryManagement",
     "Link",
     "Node",
     "NodeImageDefinitions",

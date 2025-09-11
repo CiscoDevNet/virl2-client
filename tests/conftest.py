@@ -119,6 +119,11 @@ def respx_mock_with_labs(respx_mock, test_data_dir: Path):
         ).respond(
             json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
         )
+        respx_mock.get(
+            FAKE_HOST_API
+            + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}/interfaces"
+            + "?data=true&operational=true"
+        ).respond(json=[])
     respx_mock.get(
         FAKE_HOST_API
         + "labs/444a78d1-575c-4746-8469-696e580f17b6/nodes?data=true&operational=true&"

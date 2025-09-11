@@ -89,12 +89,7 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
     },
     "border_radius": 0,
     "border_style": "",
-    "color": {
-        "rectangle": WHITE,
-        "ellipse": WHITE,
-        "line": WHITE,
-        "text": GREY,
-    },
+    "color": {"rectangle": WHITE, "ellipse": WHITE, "line": WHITE, "text": GREY},
     "line_end": None,
     "line_start": None,
     "rotation": 0,
@@ -122,10 +117,7 @@ class Annotation:
     }
 
     def __init__(
-        self,
-        lab: Lab,
-        annotation_id: str,
-        annotation_type: AnnotationTypeString,
+        self, lab: Lab, annotation_id: str, annotation_type: AnnotationTypeString
     ) -> None:
         """
         A VIRL2 lab annotation.
@@ -309,9 +301,7 @@ class Annotation:
 
     @classmethod
     def is_valid_property(
-        cls,
-        annotation_type: AnnotationTypeString,
-        _property: str,
+        cls, annotation_type: AnnotationTypeString, _property: str
     ) -> bool:
         """Check if the given property is recognized by the selected annotation type."""
         try:

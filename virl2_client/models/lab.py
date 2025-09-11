@@ -498,7 +498,7 @@ class Lab:
         """
         warnings.warn(
             "'Lab.get_link_by_nodes()' is deprecated. "
-            "Use 'Node.get_link_to()' or 'Node.get_links_to()' instead.",
+            "Use 'Node.get_link_to()' or 'Node.get_links_to()' instead."
         )
         if not (links := node1.get_links_to(node2)):
             raise LinkNotFound
@@ -519,7 +519,7 @@ class Lab:
         """
         warnings.warn(
             "'Lab.get_link_by_interfaces()' is deprecated. "
-            "Use 'Interface.get_link_to()' instead.",
+            "Use 'Interface.get_link_to()' instead."
         )
         if (link := iface1.link) is not None and iface2 in link.interfaces:
             return link
@@ -614,12 +614,7 @@ class Lab:
             url = self._url_for("nodes")
 
         kwargs.update(
-            {
-                "label": label,
-                "node_definition": node_definition,
-                "x": x,
-                "y": y,
-            }
+            {"label": label, "node_definition": node_definition, "x": x, "y": y}
         )
 
         result: dict[str, str] = self._session.post(url, json=kwargs).json()
@@ -651,7 +646,7 @@ class Lab:
         warnings.warn(
             "'Lab.add_node_local()' is deprecated. You probably want Lab.create_node() "
             "instead. (If you really want to create a node locally only, "
-            "use '._create_node_local()'.)",
+            "use '._create_node_local()'.)"
         )
         return self._create_node_local(*args, **kwargs)
 
@@ -795,10 +790,7 @@ class Lab:
 
     @check_stale
     @locked
-    def remove_annotation(
-        self,
-        annotation: Annotation | str,
-    ) -> None:
+    def remove_annotation(self, annotation: Annotation | str) -> None:
         """
         Remove an annotation from the lab.
 
@@ -828,10 +820,7 @@ class Lab:
 
     @check_stale
     @locked
-    def remove_smart_annotation(
-        self,
-        annotation: SmartAnnotation | str,
-    ) -> None:
+    def remove_smart_annotation(self, annotation: SmartAnnotation | str) -> None:
         """
         Remove a smart annotation from the lab.
 
@@ -894,10 +883,7 @@ class Lab:
         if isinstance(i2, str):
             i2 = self.get_interface_by_id(i2)
         url = self._url_for("links")
-        data = {
-            "src_int": i1.id,
-            "dst_int": i2.id,
-        }
+        data = {"src_int": i1.id, "dst_int": i2.id}
         response = self._session.post(url, json=data)
         result = response.json()
         link_id = result["id"]
@@ -1032,9 +1018,7 @@ class Lab:
             self._initialized = True
 
         annotation = self._create_annotation_local(
-            res_annotation["id"],
-            annotation_type,
-            **res_annotation,
+            res_annotation["id"], annotation_type, **res_annotation
         )
         return annotation
 
@@ -1350,7 +1334,7 @@ class Lab:
             warnings.warn(
                 "Lab.sync(): The argument 'with_node_configurations' is deprecated, "
                 "as it does the opposite of what is expected. "
-                "Use exclude_configurations instead.",
+                "Use exclude_configurations instead."
             )
             exclude_configurations = with_node_configurations
 
@@ -1429,7 +1413,7 @@ class Lab:
             if not created:
                 warnings.warn(
                     "Labs created in older CML releases (schema version 0.0.5 or lower)"
-                    " are deprecated. Use labs with schema version 0.1.0 or higher.",
+                    " are deprecated. Use labs with schema version 0.1.0 or higher."
                 )
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
@@ -1538,11 +1522,7 @@ class Lab:
 
     @locked
     def _import_link(
-        self,
-        link_id: str,
-        iface_b_id: str,
-        iface_a_id: str,
-        label: str | None = None,
+        self, link_id: str, iface_b_id: str, iface_a_id: str, label: str | None = None
     ) -> Link:
         """
         Import a link with the given parameters.
@@ -1610,9 +1590,7 @@ class Lab:
 
     @locked
     def _import_annotation(
-        self,
-        annotation_id: str,
-        annotation_data: dict,
+        self, annotation_id: str, annotation_data: dict
     ) -> AnnotationType:
         """
         Import an annotation with the given parameters.
@@ -1635,9 +1613,7 @@ class Lab:
 
     @locked
     def _import_smart_annotation(
-        self,
-        annotation_id: str,
-        annotation_data: dict,
+        self, annotation_id: str, annotation_data: dict
     ) -> SmartAnnotation:
         """
         Import a smart annotation with the given parameters.
@@ -2008,8 +1984,7 @@ class Lab:
 
     @staticmethod
     def _find_annotation_in_topology(
-        annotation_id: str,
-        topology: dict,
+        annotation_id: str, topology: dict
     ) -> dict[str, Any]:
         """
         Find an annotation in the given topology.
@@ -2027,8 +2002,7 @@ class Lab:
 
     @staticmethod
     def _find_smart_annotation_in_topology(
-        annotation_id: str,
-        topology: dict,
+        annotation_id: str, topology: dict
     ) -> dict[str, Any]:
         """
         Find an annotation in the given topology.
@@ -2112,9 +2086,7 @@ class Lab:
 
         :returns: List of objects consisting of group ID and permissions.
         """
-        warnings.warn(
-            "'Lab.groups' is deprecated. Use '.associations' instead.",
-        )
+        warnings.warn("'Lab.groups' is deprecated. Use '.associations' instead.")
         url = self._url_for("lab")
         return self._session.get(url).json()["groups"]
 
@@ -2133,7 +2105,7 @@ class Lab:
         """
         warnings.warn(
             "'Lab.update_lab_groups()' is deprecated. "
-            "Use '.update_associations()' instead.",
+            "Use '.update_associations()' instead."
         )
         url = self._url_for("lab")
         data = {"groups": group_list}

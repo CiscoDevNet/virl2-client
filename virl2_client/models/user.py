@@ -156,10 +156,7 @@ class UserManagement:
             "pubkey": pubkey,
             "tour_version": tour_version,
         }
-        sentinel_data = {
-            "resource_pool": resource_pool,
-            "opt_in": opt_in,
-        }
+        sentinel_data = {"resource_pool": resource_pool, "opt_in": opt_in}
         for key, value in optional_data.items():
             if value is not None:
                 data[key] = value

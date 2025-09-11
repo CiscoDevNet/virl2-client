@@ -52,10 +52,7 @@ class AuthManagement:
         self._last_sync_time = 0.0
         self._session = session
         self._settings = {}
-        self._managers = {
-            "local": None,
-            "ldap": LDAPManager(self),
-        }
+        self._managers = {"local": None, "ldap": LDAPManager(self)}
 
     def _url_for(self, endpoint, **kwargs):
         """

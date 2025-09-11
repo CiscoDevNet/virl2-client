@@ -52,7 +52,7 @@ _SMART_ANNOTATION_PROPERTIES = set(_SMART_ANNOTATION_DEFAULTS) | {"id"}
 
 class SmartAnnotation:
     _URL_TEMPLATES = {
-        "smart_annotation": "labs/{lab_id}/smart_annotations/{annotation_id}",
+        "smart_annotation": "labs/{lab_id}/smart_annotations/{annotation_id}"
     }
 
     def __init__(

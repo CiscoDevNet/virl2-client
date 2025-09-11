@@ -142,7 +142,7 @@ class NodeImageDefinitions:
             warnings.warn(
                 "'NodeImageDefinitions.upload_node_definition()': "
                 "The argument 'json' is deprecated as the content type "
-                "is determined from the provided 'body'.",
+                "is determined from the provided 'body'."
             )
             is_json = True
         url = self._url_for("node_defs")
@@ -169,7 +169,7 @@ class NodeImageDefinitions:
             warnings.warn(
                 "'NodeImageDefinitions.upload_image_definition()': "
                 "The argument 'json' is deprecated as the content type "
-                "is determined from the provided 'body'.",
+                "is determined from the provided 'body'."
             )
             is_json = True
         url = self._url_for("image_defs")
@@ -209,9 +209,7 @@ class NodeImageDefinitions:
         return self._session.get(url).text
 
     def upload_image_file(
-        self,
-        filename: pathlib.Path | str,
-        rename: str | None = None,
+        self, filename: pathlib.Path | str, rename: str | None = None
     ) -> None:
         """
         Upload an image file.

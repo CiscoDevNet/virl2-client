@@ -127,9 +127,7 @@ class Licensing:
         Get the currently installed licensing public certificate.
         """
         if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.get_certificate()' is deprecated.",
-            )
+            warnings.warn("'Licensing.get_certificate()' is deprecated.")
             return None
         url = self._url_for("certificate")
         response = self._session.get(url)
@@ -147,9 +145,7 @@ class Licensing:
         of an unregistered product instance.
         """
         if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.install_certificate()' is deprecated.",
-            )
+            warnings.warn("'Licensing.install_certificate()' is deprecated.")
             return False
         url = self._url_for("certificate")
         response = self._session.post(url, content=cert)
@@ -165,9 +161,7 @@ class Licensing:
         of an unregistered product instance.
         """
         if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.remove_certificate()' is deprecated.",
-            )
+            warnings.warn("'Licensing.remove_certificate()' is deprecated.")
             return False
         url = self._url_for("certificate")
         response = self._session.delete(url)

@@ -23,5 +23,5 @@ from .group import *  # noqa
 
 warnings.warn(
     "The module name 'virl2_client.models.groups' is deprecated. "
-    "Use 'virl2_client.models.group' instead.",
+    "Use 'virl2_client.models.group' instead."
 )

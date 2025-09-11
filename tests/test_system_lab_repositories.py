@@ -138,10 +138,7 @@ def test_lab_repositories_property_behavior(mock_lab_repository_management):
     lab_repo_mgmt = mock_lab_repository_management
     lab_repo_mgmt.sync_lab_repositories_if_outdated = Mock()
 
-    lab_repo_mgmt._lab_repositories = {
-        "repo-123": Mock(),
-        "repo-456": Mock(),
-    }
+    lab_repo_mgmt._lab_repositories = {"repo-123": Mock(), "repo-456": Mock()}
 
     result = lab_repo_mgmt.lab_repositories
     lab_repo_mgmt.sync_lab_repositories_if_outdated.assert_called_once()

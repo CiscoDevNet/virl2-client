@@ -358,14 +358,7 @@ class SystemManagement:
         :returns: The newly created system notice object.
         """
         new_system_notice = SystemNotice(
-            self,
-            id,
-            level,
-            label,
-            content,
-            enabled,
-            acknowledged,
-            groups,
+            self, id, level, label, content, enabled, acknowledged, groups
         )
         self._system_notices[id] = new_system_notice
         return new_system_notice
@@ -481,7 +474,7 @@ class ComputeHost:
         """Return the list of nodes associated with the compute host."""
         warnings.warn(
             "'ComputeHost.nodes' is deprecated. Use 'ComputeHost.node_counts' or "
-            "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES)' instead.",
+            "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES)' instead."
         )
         self._system.sync_compute_hosts_if_outdated()
         return self._nodes

@@ -543,10 +543,7 @@ class ClientLibrary:
 
     @locked
     def _create_imported_lab(
-        self,
-        topology: str,
-        title: str | None = None,
-        virl_1x: bool = False,
+        self, topology: str, title: str | None = None, virl_1x: bool = False
     ):
         if virl_1x:
             url = self._url_for("import_1x")

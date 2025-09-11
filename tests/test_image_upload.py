@@ -98,8 +98,7 @@ def windows_path(path: str) -> Iterator[None]:
 )
 @pytest.mark.parametrize("rename", [None, "rename"])
 @pytest.mark.parametrize(
-    "test_string",
-    WRONG_FORMAT_LIST + NOT_SUPPORTED_LIST + EXPECTED_PASS_LIST,
+    "test_string", WRONG_FORMAT_LIST + NOT_SUPPORTED_LIST + EXPECTED_PASS_LIST
 )
 def test_image_upload_file(rename: str | None, test_string: str, test_path: str):
     session = MagicMock()

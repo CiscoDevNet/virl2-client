@@ -459,9 +459,7 @@ class Node:
 
         Return the initial configuration of this node.
         """
-        warnings.warn(
-            "'Node.config' is deprecated. Use '.configuration' instead.",
-        )
+        warnings.warn("'Node.config' is deprecated. Use '.configuration' instead.")
         return self.configuration
 
     @config.setter
@@ -473,9 +471,7 @@ class Node:
 
         Set the initial configuration of this node.
         """
-        warnings.warn(
-            "'Node.config' is deprecated. Use '.configuration' instead.",
-        )
+        warnings.warn("'Node.config' is deprecated. Use '.configuration' instead.")
         self.configuration = value
 
     @property
@@ -772,7 +768,7 @@ class Node:
         Remove the node on the server.
         """
         warnings.warn(
-            "'Node.remove_on_server()' is deprecated. Use '.remove()' instead.",
+            "'Node.remove_on_server()' is deprecated. Use '.remove()' instead."
         )
         # To not change behavior of scripts, this will still remove on server only.
         self._remove_on_server()

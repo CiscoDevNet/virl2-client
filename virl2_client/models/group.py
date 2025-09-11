@@ -165,8 +165,7 @@ class GroupManagement:
         :returns: A list of labs associated with this group.
         """
         warnings.warn(
-            "'GroupManagement.group_labs()' is deprecated."
-            "Use '.associations' instead.",
+            "'GroupManagement.group_labs()' is deprecated.Use '.associations' instead."
         )
         return [lab["id"] for lab in self.get_group(group_id)["labs"]]
 

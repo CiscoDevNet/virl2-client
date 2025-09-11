@@ -36,14 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 class LabRepository:
     _URL_TEMPLATES = {"lab_repo": "lab_repos/{repo_id}"}
 
-    def __init__(
-        self,
-        system,
-        id: str,
-        url: str,
-        name: str,
-        folder: str,
-    ):
+    def __init__(self, system, id: str, url: str, name: str, folder: str):
         """
         A lab repository, which provides access to lab templates and resources.
 
@@ -233,11 +226,7 @@ class LabRepositoryManagement:
         return self._session.put(url).json()
 
     def add_lab_repository_local(
-        self,
-        id: str,
-        url: str,
-        name: str,
-        folder: str,
+        self, id: str, url: str, name: str, folder: str
     ) -> LabRepository:
         """
         Add a lab repository locally.

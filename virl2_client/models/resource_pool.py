@@ -126,11 +126,7 @@ class ResourcePoolManagement:
             )
         return resource_pools
 
-    def create_resource_pool(
-        self,
-        label: str,
-        **kwargs,
-    ) -> ResourcePool:
+    def create_resource_pool(self, label: str, **kwargs) -> ResourcePool:
         """
         Create a resource pool with the given parameters.
 
@@ -146,10 +142,7 @@ class ResourcePoolManagement:
         return self._add_resource_pool_local(**response)
 
     def create_resource_pools(
-        self,
-        label: str,
-        users: list[str],
-        **kwargs,
+        self, label: str, users: list[str], **kwargs
     ) -> list[ResourcePool]:
         """
         Create a list of resource pools with the given parameters.

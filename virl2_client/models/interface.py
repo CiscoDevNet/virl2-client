@@ -273,9 +273,7 @@ class Interface:
 
         Check if the interface is physical.
         """
-        warnings.warn(
-            "'Interface.is_physical' is deprecated. Use '.physical' instead.",
-        )
+        warnings.warn("'Interface.is_physical' is deprecated. Use '.physical' instead.")
         return self.physical
 
     def as_dict(self) -> dict[str, str]:
@@ -329,7 +327,7 @@ class Interface:
         Remove the interface on the server.
         """
         warnings.warn(
-            "'Interface.remove_on_server()' is deprecated. Use '.remove()' instead.",
+            "'Interface.remove_on_server()' is deprecated. Use '.remove()' instead."
         )
         self._remove_on_server()
 
@@ -354,7 +352,7 @@ class Interface:
         """
         warnings.warn(
             "'Interface.peer_interfaces()' is deprecated. "
-            "Use '.peer_interface' instead.",
+            "Use '.peer_interface' instead."
         )
         return {self.peer_interface}
 
@@ -366,7 +364,7 @@ class Interface:
         Return the node of the peer interface in a set.
         """
         warnings.warn(
-            "'Interface.peer_nodes() is deprecated. Use '.peer_node' instead.",
+            "'Interface.peer_nodes() is deprecated. Use '.peer_node' instead."
         )
         return {self.peer_node}
 
@@ -377,9 +375,7 @@ class Interface:
 
         Return the link connected to this interface in a list.
         """
-        warnings.warn(
-            "'Interface.links()' is deprecated. Use '.link' instead.",
-        )
+        warnings.warn("'Interface.links()' is deprecated. Use '.link' instead.")
         link = self.link
         if link is None:
             return []
@@ -392,9 +388,7 @@ class Interface:
 
         Return the degree of the interface.
         """
-        warnings.warn(
-            "'Interface.degree()' is deprecated. Use '.connected' instead.",
-        )
+        warnings.warn("'Interface.degree()' is deprecated. Use '.connected' instead.")
         return int(self.connected)
 
     def is_connected(self):
@@ -405,16 +399,14 @@ class Interface:
         Check if the interface is connected to a link.
         """
         warnings.warn(
-            "'Interface.is_connected()' is deprecated. Use '.connected' instead.",
+            "'Interface.is_connected()' is deprecated. Use '.connected' instead."
         )
         return self.connected
 
     @check_stale
     @locked
     def _update(
-        self,
-        interface_data: dict[str, Any],
-        push_to_server: bool = True,
+        self, interface_data: dict[str, Any], push_to_server: bool = True
     ) -> None:
         """
         Update the interface_data with the provided data.

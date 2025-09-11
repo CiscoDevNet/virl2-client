@@ -280,21 +280,14 @@ class EventHandler(EventHandlerBase):
             self._handle_element_modified(event)
             return
         if event.element_type == "node":
-            new_element = event.lab._import_node(
-                event.element_id,
-                event.data,
-            )
+            new_element = event.lab._import_node(event.element_id, event.data)
         elif event.element_type == "interface":
             new_element = event.lab._import_interface(
-                event.element_id,
-                event.data["node"],
-                event.data,
+                event.element_id, event.data["node"], event.data
             )
         elif event.element_type == "link":
             new_element = event.lab._import_link(
-                event.element_id,
-                event.data["interface_a"],
-                event.data["interface_b"],
+                event.element_id, event.data["interface_a"], event.data["interface_b"]
             )
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,

@@ -393,3 +393,74 @@ def test_all_labs(client_library):
     lab: Lab = iosv_labs[0]
     node = lab.get_node_by_label("csr1000v-0")
     assert node.compute_id == "99c887f5-052e-4864-a583-49fa7c4b68a9"
+
+
+def test_sync_interfaces_operational(respx_mock):
+    """Test Lab.sync_interfaces_operational() uses new bulk endpoint."""
+    respx_mock.get("mock://mock/labs/1/interfaces").respond(
+        json=[{"id": "iface1", "operational": {"mac_address": "aa:bb:cc:dd:ee:ff"}}]
+    )
+    session = make_session("mock://mock")
+    session.lock = MagicMock()
+    lab = Lab(
+        "test",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+    lab._interfaces = {"iface1": MagicMock()}
+
+    lab.sync_interfaces_operational()
+
+    respx_mock.assert_all_called()
+    assert lab._interfaces["iface1"]._operational == {
+        "mac_address": "aa:bb:cc:dd:ee:ff"
+    }
+
+
+def test_lab_clear_discovered_addresses(respx_mock):
+    """Test Lab.clear_discovered_addresses() calls backend API."""
+    respx_mock.delete("mock://mock/labs/1/layer3_addresses").respond(status_code=204)
+    session = make_session("mock://mock")
+    session.lock = MagicMock()
+    lab = Lab(
+        "test",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    lab.clear_discovered_addresses()
+
+    respx_mock.assert_all_called()
+
+
+def test_node_clear_discovered_addresses(respx_mock):
+    """Test Node.clear_discovered_addresses() calls backend API."""
+    respx_mock.delete("mock://mock/labs/1/nodes/n1/layer3_addresses").respond(
+        status_code=204
+    )
+    session = make_session("mock://mock")
+    session.lock = MagicMock()
+    lab = Lab(
+        "test",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+    from virl2_client.models.node import Node
+
+    node = Node(lab, "n1", "test", "iosv")
+
+    node.clear_discovered_addresses()
+
+    respx_mock.assert_all_called()

@@ -176,6 +176,7 @@ class Lab:
         self._last_sync_l3_address_time = 0.0
         self._last_sync_topology_time = 0.0
         self._last_sync_operational_time = 0.0
+        self._last_sync_interfaces_operational_time = 0.0
 
         self._initialized = False
 
@@ -391,6 +392,18 @@ class Lab:
         """
         self.sync_topology_if_outdated()
         return list(self._interfaces.values())
+
+    def sync_interfaces_operational(self) -> None:
+        """Synchronize the operational state of all interfaces in the lab."""
+        url = self._url_for("interfaces")
+        response = self._session.get(url).json()
+
+        for interface_data in response:
+            if (interface_id := interface_data["id"]) in self._interfaces:
+                interface = self._interfaces[interface_id]
+                interface._operational = interface_data.get("operational") or {}
+
+        self._last_sync_interfaces_operational_time = time.time()
 
     def annotations(self) -> list[AnnotationType]:
         """
@@ -2235,7 +2248,8 @@ class Lab:
         for node_data in response:
             if node := self._nodes.get(node_data["id"]):
                 node.sync_operational(node_data)
-                node.sync_interface_operational()
+
+        self.sync_interfaces_operational()
 
         self._last_sync_operational_time = time.time()
 

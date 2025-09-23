@@ -865,11 +865,18 @@ class Node:
 
         For this to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
+
+        If the node is not running or there's an error fetching L3 addresses,
+        this method will silently clear the discovered addresses rather than
+        raising an exception.
         """
         url = self._url_for("layer3_addresses")
-        result = self._session.get(url).json()
-        interfaces = result.get("interfaces") or {}
-        self.map_l3_addresses_to_interfaces(interfaces)
+        try:
+            result = self._session.get(url).json()
+            interfaces = result.get("interfaces") or {}
+            self.map_l3_addresses_to_interfaces(interfaces)
+        except httpx.HTTPStatusError:
+            self.map_l3_addresses_to_interfaces({})
 
     @check_stale
     @locked
@@ -879,23 +886,64 @@ class Node:
         """
         Map layer 3 addresses to interfaces.
 
+        This method updates all loaded interfaces on this node:
+        - Interfaces present in the mapping get updated with new L3 address info
+        - Interfaces NOT present in the mapping get their L3 addresses cleared
+        ensuring that stale addresses are removed when nodes are stopped/wiped.
+
         :param mapping: A dictionary mapping MAC addresses to interface information.
         """
-        for mac_address, entry in mapping.items():
-            if not (label := entry.get("label")):
+        try:
+            node_interfaces = self.interfaces()
+        except Exception:
+            for mac_address, entry in mapping.items():
+                if not (label := entry.get("label")):
+                    continue
+                try:
+                    iface = self.get_interface_by_label(label)
+                    iface._ip_snooped_info = {
+                        "mac_address": mac_address,
+                        "ipv4": entry.get("ip4"),
+                        "ipv6": entry.get("ip6"),
+                    }
+                except InterfaceNotFound:
+                    continue
+            self._last_sync_l3_address_time = time.time()
+            return
+
+        label_to_mapping = {
+            entry["label"]: (mac_address, entry)
+            for mac_address, entry in mapping.items()
+            if entry.get("label")
+        }
+
+        for iface in node_interfaces:
+            if iface.label not in label_to_mapping:
+                iface._ip_snooped_info = {
+                    "mac_address": None,
+                    "ipv4": None,
+                    "ipv6": None,
+                }
                 continue
-            try:
-                iface = self.get_interface_by_label(label)
-            except InterfaceNotFound:
-                continue
-            ipv4 = entry.get("ip4")
-            ipv6 = entry.get("ip6")
+
+            mac_address, entry = label_to_mapping[iface.label]
             iface._ip_snooped_info = {
                 "mac_address": mac_address,
-                "ipv4": ipv4,
-                "ipv6": ipv6,
+                "ipv4": entry.get("ip4"),
+                "ipv6": entry.get("ip6"),
             }
+
         self._last_sync_l3_address_time = time.time()
+
+    def clear_discovered_addresses(self) -> None:
+        """
+        Clear all discovered L3 addresses for this node from the snooper.
+
+        This method calls the backend API to clear discovered addresses from
+        the snooper system.
+        """
+        url = self._url_for("layer3_addresses")
+        self._session.delete(url)
 
     @check_stale
     @locked

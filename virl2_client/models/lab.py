@@ -2086,11 +2086,37 @@ class Lab:
         """Sync all layer 3 IP addresses from the backend server."""
         url = self._url_for("layer3_addresses")
         result: dict[str, dict] = self._session.get(url).json()
-        for node_id, node_data in result.items():
-            node = self.get_node_by_id(node_id)
+
+        try:
+            lab_nodes = self.nodes()
+        except Exception:
+            for node_id, node_data in result.items():
+                node = self.get_node_by_id(node_id)
+                mapping = node_data.get("interfaces") or {}
+                node.map_l3_addresses_to_interfaces(mapping)
+            self._last_sync_l3_address_time = time.time()
+            return
+
+        for node in lab_nodes:
+            if node.id not in result:
+                node.map_l3_addresses_to_interfaces({})
+                continue
+
+            node_data = result[node.id]
             mapping = node_data.get("interfaces") or {}
             node.map_l3_addresses_to_interfaces(mapping)
+
         self._last_sync_l3_address_time = time.time()
+
+    def clear_discovered_addresses(self) -> None:
+        """
+        Clear all discovered L3 addresses for all nodes in this lab from the snooper.
+
+        This method calls the backend API to clear discovered addresses from
+        the snooper system for all nodes in this lab.
+        """
+        url = self._url_for("layer3_addresses")
+        self._session.delete(url)
 
     @check_stale
     def download(self) -> str:

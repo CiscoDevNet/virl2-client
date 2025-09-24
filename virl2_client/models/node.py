@@ -875,7 +875,9 @@ class Node:
             result = self._session.get(url).json()
             interfaces = result.get("interfaces") or {}
             self.map_l3_addresses_to_interfaces(interfaces)
-        except httpx.HTTPStatusError:
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400:
+                raise
             self.map_l3_addresses_to_interfaces({})
 
     @check_stale

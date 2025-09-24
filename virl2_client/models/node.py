@@ -27,13 +27,13 @@ import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
-
     from .interface import Interface
     from .lab import Lab
     from .link import Link

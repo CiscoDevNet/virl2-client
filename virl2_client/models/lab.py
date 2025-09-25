@@ -2122,12 +2122,7 @@ class Lab:
         self._last_sync_l3_address_time = time.time()
 
     def clear_discovered_addresses(self) -> None:
-        """
-        Clear all discovered L3 addresses for all nodes in this lab from the snooper.
-
-        This method calls the backend API to clear discovered addresses from
-        the snooper system for all nodes in this lab.
-        """
+        """Clear all discovered L3 addresses for all nodes in this lab from snooper."""
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
 

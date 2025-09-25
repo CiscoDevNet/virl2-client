@@ -396,7 +396,7 @@ def test_all_labs(client_library):
 
 
 def test_sync_interfaces_operational(respx_mock):
-    """Test Lab.sync_interfaces_operational() uses new bulk endpoint."""
+    """Test Lab.sync_interfaces_operational() uses bulk interfaces endpoint."""
     respx_mock.get("mock://mock/labs/1/interfaces").respond(
         json=[{"id": "iface1", "operational": {"mac_address": "aa:bb:cc:dd:ee:ff"}}]
     )
@@ -422,7 +422,7 @@ def test_sync_interfaces_operational(respx_mock):
 
 
 def test_lab_clear_discovered_addresses(respx_mock):
-    """Test Lab.clear_discovered_addresses() calls backend API."""
+    """Test Lab.clear_discovered_addresses() calls API."""
     respx_mock.delete("mock://mock/labs/1/layer3_addresses").respond(status_code=204)
     session = make_session("mock://mock")
     session.lock = MagicMock()
@@ -442,7 +442,7 @@ def test_lab_clear_discovered_addresses(respx_mock):
 
 
 def test_node_clear_discovered_addresses(respx_mock):
-    """Test Node.clear_discovered_addresses() calls backend API."""
+    """Test Node.clear_discovered_addresses() calls API."""
     respx_mock.delete("mock://mock/labs/1/nodes/n1/layer3_addresses").respond(
         status_code=204
     )

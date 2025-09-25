@@ -891,7 +891,6 @@ class Node:
         This method updates all loaded interfaces on this node:
         - Interfaces present in the mapping get updated with new L3 address info
         - Interfaces NOT present in the mapping get their L3 addresses cleared
-        ensuring that stale addresses are removed when nodes are stopped/wiped.
 
         :param mapping: A dictionary mapping MAC addresses to interface information.
         """
@@ -938,12 +937,7 @@ class Node:
         self._last_sync_l3_address_time = time.time()
 
     def clear_discovered_addresses(self) -> None:
-        """
-        Clear all discovered L3 addresses for this node from the snooper.
-
-        This method calls the backend API to clear discovered addresses from
-        the snooper system.
-        """
+        """Clear all discovered L3 addresses for this node from the snooper."""
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
 

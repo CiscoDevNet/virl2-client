@@ -894,32 +894,16 @@ class Node:
 
         :param mapping: A dictionary mapping MAC addresses to interface information.
         """
-        try:
-            node_interfaces = self.interfaces()
-        except Exception:
-            for mac_address, entry in mapping.items():
-                if not (label := entry.get("label")):
-                    continue
-                try:
-                    iface = self.get_interface_by_label(label)
-                    iface._ip_snooped_info = {
-                        "mac_address": mac_address,
-                        "ipv4": entry.get("ip4"),
-                        "ipv6": entry.get("ip6"),
-                    }
-                except InterfaceNotFound:
-                    continue
-            self._last_sync_l3_address_time = time.time()
-            return
+        node_interfaces = self.interfaces()
 
-        label_to_mapping = {
-            entry["label"]: (mac_address, entry)
+        id_to_mapping = {
+            entry["interface_id"]: (mac_address, entry)
             for mac_address, entry in mapping.items()
-            if entry.get("label")
+            if entry.get("interface_id")
         }
 
         for iface in node_interfaces:
-            if iface.label not in label_to_mapping:
+            if iface.id not in id_to_mapping:
                 iface._ip_snooped_info = {
                     "mac_address": None,
                     "ipv4": None,
@@ -927,7 +911,7 @@ class Node:
                 }
                 continue
 
-            mac_address, entry = label_to_mapping[iface.label]
+            mac_address, entry = id_to_mapping[iface.id]
             iface._ip_snooped_info = {
                 "mac_address": mac_address,
                 "ipv4": entry.get("ip4"),
@@ -940,6 +924,7 @@ class Node:
         """Clear all discovered L3 addresses for this node from the snooper."""
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
+        self.map_l3_addresses_to_interfaces({})
 
     @check_stale
     @locked

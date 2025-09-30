@@ -176,7 +176,6 @@ class Lab:
         self._last_sync_l3_address_time = 0.0
         self._last_sync_topology_time = 0.0
         self._last_sync_operational_time = 0.0
-        self._last_sync_interfaces_operational_time = 0.0
 
         self._initialized = False
 
@@ -398,12 +397,15 @@ class Lab:
         url = self._url_for("interfaces")
         response = self._session.get(url).json()
 
-        for interface_data in response:
-            if (interface_id := interface_data["id"]) in self._interfaces:
-                interface = self._interfaces[interface_id]
-                interface._operational = interface_data.get("operational") or {}
+        response_dict = {item["id"]: item for item in response}
 
-        self._last_sync_interfaces_operational_time = time.time()
+        for interface_id, interface in self._interfaces.items():
+            interface_data = response_dict.get(interface_id)
+            interface._operational = (
+                interface_data.get("operational", {}) if interface_data else {}
+            )
+
+        self._last_sync_operational_time = time.time()
 
     def annotations(self) -> list[AnnotationType]:
         """
@@ -2100,24 +2102,16 @@ class Lab:
         url = self._url_for("layer3_addresses")
         result: dict[str, dict] = self._session.get(url).json()
 
-        try:
-            lab_nodes = self.nodes()
-        except Exception:
-            for node_id, node_data in result.items():
-                node = self.get_node_by_id(node_id)
-                mapping = node_data.get("interfaces") or {}
-                node.map_l3_addresses_to_interfaces(mapping)
-            self._last_sync_l3_address_time = time.time()
-            return
+        lab_nodes = self.nodes()
 
         for node in lab_nodes:
             if node.id not in result:
                 node.map_l3_addresses_to_interfaces({})
-                continue
 
-            node_data = result[node.id]
-            mapping = node_data.get("interfaces") or {}
-            node.map_l3_addresses_to_interfaces(mapping)
+        for node_id, node_data in result.items():
+            if node := self._nodes.get(node_id):
+                mapping = node_data.get("interfaces") or {}
+                node.map_l3_addresses_to_interfaces(mapping)
 
         self._last_sync_l3_address_time = time.time()
 
@@ -2125,6 +2119,8 @@ class Lab:
         """Clear all discovered L3 addresses for all nodes in this lab from snooper."""
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
+        for node in self._nodes.values():
+            node.map_l3_addresses_to_interfaces({})
 
     @check_stale
     def download(self) -> str:
@@ -2240,9 +2236,12 @@ class Lab:
 
         url = self._url_for("nodes_operational")
         response: list[dict] = self._session.get(url).json()
-        for node_data in response:
-            if node := self._nodes.get(node_data["id"]):
-                node.sync_operational(node_data)
+
+        response_dict = {item["id"]: item for item in response}
+
+        for node in self.nodes():
+            node_data = response_dict.get(node.id, {})
+            node.sync_operational(node_data)
 
         self.sync_interfaces_operational()
 

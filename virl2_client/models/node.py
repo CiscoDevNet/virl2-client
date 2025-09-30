@@ -897,9 +897,9 @@ class Node:
         node_interfaces = self.interfaces()
 
         id_to_mapping = {
-            entry["interface_id"]: (mac_address, entry)
+            entry["id"]: (mac_address, entry)
             for mac_address, entry in mapping.items()
-            if entry.get("interface_id")
+            if entry.get("id")
         }
 
         for iface in node_interfaces:

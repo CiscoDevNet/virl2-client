@@ -278,7 +278,7 @@ class ClientLibrary:
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION
-        controller_version = self.check_controller_version()
+        self.check_controller_version()
 
         self._session.auth = TokenAuth(self)
         # Note: session.auth is defined in the httpx module to be of type Auth,
@@ -286,9 +286,7 @@ class ClientLibrary:
         #  not be visible to a type checker, causing warnings.
 
         self.definitions = NodeImageDefinitions(self._session)
-        self.licensing = Licensing(
-            self._session, is_cert_deprecated=controller_version >= Version("2.7.0")
-        )
+        self.licensing = Licensing(self._session)
         self.user_management = UserManagement(self._session)
         self.group_management = GroupManagement(self._session)
         self.system_management = SystemManagement(
@@ -412,7 +410,7 @@ class ClientLibrary:
         url = self._url_for("system_info")
         return self._session.get(url).json()
 
-    def check_controller_version(self) -> Version | None:
+    def check_controller_version(self) -> None:
         """
         Check remote controller version against current client version
         (specified in `self.VERSION` and support last 3 minor versions).
@@ -421,8 +419,7 @@ class ClientLibrary:
         These all are disabled if `self.check_version` attribute is set to False.
 
         :raises InitializationError: If the controller version is incompatible.
-        :returns: The controller version if it is compatible, or None if the version
-            cannot be parsed.
+        :returns: None
         """
         controller_version_str = self.system_info().get("version", "")
         try:
@@ -432,7 +429,7 @@ class ClientLibrary:
             return None
 
         if not self.check_version:
-            return controller_version
+            return None
 
         if self.VERSION.major_lt(controller_version):
             raise InitializationError(
@@ -449,7 +446,6 @@ class ClientLibrary:
                 "Please ensure the client version is compatible with the controller "
                 f"version. Client {self.VERSION}, controller {controller_version}."
             )
-        return controller_version
 
     def is_system_ready(
         self, wait: bool = False, max_wait: int = 60, sleep: int = 5

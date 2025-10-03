@@ -43,7 +43,6 @@ class Licensing:
         "authorization_renew": "licensing/authorization/renew",
         "transport": "licensing/transport",
         "product_license": "licensing/product_license",
-        "certificate": "licensing/certificate",
         "registration": "licensing/registration",
         "registration_renew": "licensing/registration/renew",
         "deregistration": "licensing/deregistration",
@@ -53,7 +52,7 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, session: httpx.Client, is_cert_deprecated: bool) -> None:
+    def __init__(self, session: httpx.Client) -> None:
         """
         Manage licensing.
 
@@ -61,7 +60,6 @@ class Licensing:
         :param is_cert_deprecated: Whether the certificate supported is deprecated.
         """
         self._session = session
-        self._is_cert_deprecated = is_cert_deprecated
 
     def _url_for(self, endpoint, **kwargs):
         """
@@ -119,61 +117,6 @@ class Licensing:
         _LOGGER.info("Product license was accepted by the agent.")
         return response.status_code == 204
 
-    def get_certificate(self) -> str | None:
-        """
-        DEPRECATED: There is no replacement as the certificate support was dropped.
-        (Reason: the certificate support was dropped in CML 2.7.0)
-
-        Get the currently installed licensing public certificate.
-        """
-        if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.get_certificate()' is deprecated.",
-            )
-            return None
-        url = self._url_for("certificate")
-        response = self._session.get(url)
-        if response.is_success:
-            _LOGGER.info("Certificate received.")
-            return response.json()
-        return None
-
-    def install_certificate(self, cert: str) -> bool:
-        """
-        DEPRECATED: There is no replacement as the certificate support was dropped.
-        (Reason: the certificate support was dropped in CML 2.7.0)
-
-        Set up a licensing public certificate for internal deployment
-        of an unregistered product instance.
-        """
-        if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.install_certificate()' is deprecated.",
-            )
-            return False
-        url = self._url_for("certificate")
-        response = self._session.post(url, content=cert)
-        _LOGGER.info("Certificate was accepted by the agent.")
-        return response.status_code == 204
-
-    def remove_certificate(self) -> bool:
-        """
-        DEPRECATED: There is no replacement as the certificate support was dropped.
-        (Reason: the certificate support was dropped in CML 2.7.0)
-
-        Clear any licensing public certificate for internal deployment
-        of an unregistered product instance.
-        """
-        if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.remove_certificate()' is deprecated.",
-            )
-            return False
-        url = self._url_for("certificate")
-        response = self._session.delete(url)
-        _LOGGER.info("Certificate was removed.")
-        return response.status_code == 204
-
     def register(self, token: str, reregister=False) -> bool:
         """Setup licensing registration."""
         url = self._url_for("registration")
@@ -218,9 +161,17 @@ class Licensing:
         return response.status_code
 
     def features(self) -> list[dict[str, str | int]]:
-        """Get current licensing features."""
-        url = self._url_for("features")
-        return self._session.get(url).json()
+        """
+        DEPRECATED: Use `.status()` instead.
+        (Reason: dropped in favor of single call to get the whole licensing status)
+
+        Get current licensing features.
+        """
+        warnings.warn(
+            "'Licensing.features()' is deprecated. "
+            "Use '.status()[\"features\"]' instead."
+        )
+        return self.status().get("features")
 
     def update_features(self, features: dict[str, int] | list[dict[str, int]]) -> None:
         """Update licensing feature's explicit count in reservation mode."""

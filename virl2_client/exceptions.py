@@ -80,6 +80,10 @@ class InvalidProperty(VirlException):
     pass
 
 
+class InvalidTopologySchema(VirlException):
+    pass
+
+
 class MethodNotActive(VirlException):
     pass
 

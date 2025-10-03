@@ -34,6 +34,7 @@ from ..exceptions import (
     ElementAlreadyExists,
     InterfaceNotFound,
     InvalidAnnotationType,
+    InvalidTopologySchema,
     LabNotFound,
     LinkNotFound,
     NodeNotFound,
@@ -482,49 +483,6 @@ class Lab:
         except KeyError:
             raise LinkNotFound(link_id)
 
-    @staticmethod
-    def get_link_by_nodes(node1: Node, node2: Node) -> Link:
-        """
-        DEPRECATED: Use `Node.get_link_to()` to get one link
-        or `Node.get_links_to()` to get all links.
-        (Reason: redundancy)
-
-        Return ONE of the links identified by two node objects.
-
-        :param node1: The first node.
-        :param node2: The second node.
-        :returns: One of links between the nodes.
-        :raises LinkNotFound: If no such link exists.
-        """
-        warnings.warn(
-            "'Lab.get_link_by_nodes()' is deprecated. "
-            "Use 'Node.get_link_to()' or 'Node.get_links_to()' instead.",
-        )
-        if not (links := node1.get_links_to(node2)):
-            raise LinkNotFound
-        return links[0]
-
-    @staticmethod
-    def get_link_by_interfaces(iface1: Interface, iface2: Interface) -> Link | None:
-        """
-        DEPRECATED: Use `Interface.get_link_to()` instead.
-        (Reason: redundancy)
-
-        Return the link identified by two interface objects.
-
-        :param iface1: The first interface.
-        :param iface2: The second interface.
-        :returns: The link between the interfaces.
-        :raises LinkNotFound: If no such link exists.
-        """
-        warnings.warn(
-            "'Lab.get_link_by_interfaces()' is deprecated. "
-            "Use 'Interface.get_link_to()' instead.",
-        )
-        if (link := iface1.link) is not None and iface2 in link.interfaces:
-            return link
-        raise LinkNotFound
-
     def get_annotation_by_id(self, annotation_id: str) -> AnnotationType:
         """
         Return the annotation identified by the ID.
@@ -639,21 +597,6 @@ class Lab:
         kwargs.pop("compute_id", None)
         node = self._create_node_local(node_id, **kwargs)
         return node
-
-    def add_node_local(self, *args, **kwargs):
-        """
-        DEPRECATED: Use `.create_node()` instead.
-        (Reason: only creates a node in the client, which is not useful;
-        if really needed, use `._create_node_local()`)
-
-        Creates a node in the client, but not on the server.
-        """
-        warnings.warn(
-            "'Lab.add_node_local()' is deprecated. You probably want Lab.create_node() "
-            "instead. (If you really want to create a node locally only, "
-            "use '._create_node_local()'.)",
-        )
-        return self._create_node_local(*args, **kwargs)
 
     @locked
     def _create_node_local(
@@ -1333,7 +1276,6 @@ class Lab:
     def sync(
         self,
         topology_only=True,
-        with_node_configurations: bool | None = None,
         exclude_configurations: bool | None = False,
     ) -> None:
         """
@@ -1341,19 +1283,9 @@ class Lab:
 
         :param topology_only: Only sync the topology without statistics and IP
             addresses.
-        :param with_node_configurations: DEPRECATED: does the opposite of what
-            is expected. Use exclude_configurations instead.
         :param exclude_configurations: Whether to exclude configurations
             from synchronization.
         """
-        if with_node_configurations is not None:
-            warnings.warn(
-                "Lab.sync(): The argument 'with_node_configurations' is deprecated, "
-                "as it does the opposite of what is expected. "
-                "Use exclude_configurations instead.",
-            )
-            exclude_configurations = with_node_configurations
-
         self._sync_topology(exclude_configurations)
 
         if not topology_only:
@@ -1409,7 +1341,7 @@ class Lab:
         self._handle_import_annotations(topology)
 
     @locked
-    def _import_lab(self, topology: dict, created: bool = False) -> None:
+    def _import_lab(self, topology: dict[str, dict], created: bool = False) -> None:
         """
         Replace lab properties with the given topology.
 
@@ -1427,10 +1359,7 @@ class Lab:
             # If we just created the lab, we skip the warning, since the
             # lab post endpoint returns data in the old format
             if not created:
-                warnings.warn(
-                    "Labs created in older CML releases (schema version 0.0.5 or lower)"
-                    " are deprecated. Use labs with schema version 0.1.0 or higher.",
-                )
+                raise InvalidTopologySchema
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]

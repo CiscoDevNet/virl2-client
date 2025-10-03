@@ -452,33 +452,6 @@ class Node:
         return deepcopy(self._configuration)
 
     @property
-    def config(self) -> str | None:
-        """
-        DEPRECATED: Use `.configuration` instead.
-        (Reason: consistency with API)
-
-        Return the initial configuration of this node.
-        """
-        warnings.warn(
-            "'Node.config' is deprecated. Use '.configuration' instead.",
-        )
-        return self.configuration
-
-    @config.setter
-    @locked
-    def config(self, value: str) -> None:
-        """
-        DEPRECATED: Use `.configuration` instead.
-        (Reason: consistency with API)
-
-        Set the initial configuration of this node.
-        """
-        warnings.warn(
-            "'Node.config' is deprecated. Use '.configuration' instead.",
-        )
-        self.configuration = value
-
-    @property
     def parameters(self) -> dict:
         """Return node parameters."""
         self._lab.sync_topology_if_outdated()
@@ -763,19 +736,6 @@ class Node:
         _LOGGER.info(f"Removing node {self}")
         url = self._url_for("node")
         self._session.delete(url)
-
-    def remove_on_server(self) -> None:
-        """
-        DEPRECATED: Use `.remove()` instead.
-        (Reason: was never meant to be public, removing only on server is not useful)
-
-        Remove the node on the server.
-        """
-        warnings.warn(
-            "'Node.remove_on_server()' is deprecated. Use '.remove()' instead.",
-        )
-        # To not change behavior of scripts, this will still remove on server only.
-        self._remove_on_server()
 
     @check_stale
     def tags(self) -> list[str]:

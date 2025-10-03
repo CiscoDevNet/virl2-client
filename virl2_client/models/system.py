@@ -258,15 +258,15 @@ class SystemManagement:
         url = self._url_for("web_session_timeout")
         return self._session.get(url).json()
 
-    def set_web_session_timeout(self, timeout: int) -> str:
+    def set_web_session_timeout(self, timeout: int) -> None:
         """
         Set the web session timeout in seconds.
 
         :param timeout: The timeout value in seconds.
-        :returns: 'OK'
+        :returns: None
         """
         url = f"{self._url_for('web_session_timeout')}/{timeout}"
-        return self._session.patch(url).json()
+        self._session.patch(url)
 
     def get_new_compute_host_state(self) -> str:
         """

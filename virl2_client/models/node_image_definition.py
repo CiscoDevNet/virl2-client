@@ -23,7 +23,6 @@ from __future__ import annotations
 import os
 import pathlib
 import time
-import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, BinaryIO
 
@@ -126,25 +125,15 @@ class NodeImageDefinitions:
         url = f"node_definitions/{definition_id}/read_only"
         return self._session.put(url, json=read_only).json()
 
-    def upload_node_definition(
-        self, body: str | dict, update: bool = False, json: bool | None = None
-    ) -> str:
+    def upload_node_definition(self, body: str | dict, update: bool = False) -> str:
         """
         Upload a new node definition.
 
         :param body: The node definition (yaml or json).
         :param update: If creating a new node definition or updating an existing one.
-        :param json: DEPRECATED: Replaced with type check.
         :returns: "Success".
         """
         is_json = _is_json_content(body)
-        if json is not None:
-            warnings.warn(
-                "'NodeImageDefinitions.upload_node_definition()': "
-                "The argument 'json' is deprecated as the content type "
-                "is determined from the provided 'body'.",
-            )
-            is_json = True
         url = self._url_for("node_defs")
         method = "PUT" if update else "POST"
         if is_json:
@@ -153,25 +142,15 @@ class NodeImageDefinitions:
             # YAML
             return self._session.request(method, url, content=body).json()
 
-    def upload_image_definition(
-        self, body: str | dict, update: bool = False, json: bool | None = None
-    ) -> str:
+    def upload_image_definition(self, body: str | dict, update: bool = False) -> str:
         """
         Upload a new image definition.
 
         :param body: The image definition (yaml or json).
         :param update: If creating a new image definition or updating an existing one.
-        :param json: DEPRECATED: Replaced with type check.
         :returns: "Success".
         """
         is_json = _is_json_content(body)
-        if json is not None:
-            warnings.warn(
-                "'NodeImageDefinitions.upload_image_definition()': "
-                "The argument 'json' is deprecated as the content type "
-                "is determined from the provided 'body'.",
-            )
-            is_json = True
         url = self._url_for("image_defs")
         method = "PUT" if update else "POST"
         if is_json:

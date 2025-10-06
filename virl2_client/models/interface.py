@@ -265,19 +265,6 @@ class Interface:
         self._lab.sync_operational_if_outdated()
         return self._operational.copy()
 
-    @property
-    def is_physical(self) -> bool:
-        """
-        DEPRECATED: Use `.physical` instead.
-        (Reason: renamed to match similar parameters)
-
-        Check if the interface is physical.
-        """
-        warnings.warn(
-            "'Interface.is_physical' is deprecated. Use '.physical' instead.",
-        )
-        return self.physical
-
     def as_dict(self) -> dict[str, str]:
         """Convert the interface to a dictionary representation."""
         return {
@@ -321,18 +308,6 @@ class Interface:
         url = self._url_for("interface")
         self._session.delete(url)
 
-    def remove_on_server(self) -> None:
-        """
-        DEPRECATED: Use `.remove()` instead.
-        (Reason: was never meant to be public, removing only on server is not useful)
-
-        Remove the interface on the server.
-        """
-        warnings.warn(
-            "'Interface.remove_on_server()' is deprecated. Use '.remove()' instead.",
-        )
-        self._remove_on_server()
-
     @check_stale
     def bring_up(self) -> None:
         """Bring up the interface."""
@@ -344,70 +319,6 @@ class Interface:
         """Shutdown the interface."""
         url = self._url_for("stop")
         self._session.put(url)
-
-    def peer_interfaces(self):
-        """
-        DEPRECATED: Use `.peer_interface` instead.
-        (Reason: pointless plural, could have been a parameter)
-
-        Return the peer interface connected to this interface in a set.
-        """
-        warnings.warn(
-            "'Interface.peer_interfaces()' is deprecated. "
-            "Use '.peer_interface' instead.",
-        )
-        return {self.peer_interface}
-
-    def peer_nodes(self):
-        """
-        DEPRECATED: Use `.peer_node` instead.
-        (Reason: pointless plural, could have been a parameter)
-
-        Return the node of the peer interface in a set.
-        """
-        warnings.warn(
-            "'Interface.peer_nodes() is deprecated. Use '.peer_node' instead.",
-        )
-        return {self.peer_node}
-
-    def links(self):
-        """
-        DEPRECATED: Use `.link` instead.
-        (Reason: pointless plural, could have been a parameter)
-
-        Return the link connected to this interface in a list.
-        """
-        warnings.warn(
-            "'Interface.links()' is deprecated. Use '.link' instead.",
-        )
-        link = self.link
-        if link is None:
-            return []
-        return [link]
-
-    def degree(self):
-        """
-        DEPRECATED: Use `.connected` instead.
-        (Reason: degree always 0 or 1)
-
-        Return the degree of the interface.
-        """
-        warnings.warn(
-            "'Interface.degree()' is deprecated. Use '.connected' instead.",
-        )
-        return int(self.connected)
-
-    def is_connected(self):
-        """
-        DEPRECATED: Use `.connected` instead.
-        (Reason: should have been a parameter, renamed to match similar parameters)
-
-        Check if the interface is connected to a link.
-        """
-        warnings.warn(
-            "'Interface.is_connected()' is deprecated. Use '.connected' instead.",
-        )
-        return self.connected
 
     @check_stale
     @locked

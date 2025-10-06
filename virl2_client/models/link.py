@@ -218,18 +218,6 @@ class Link:
         url = self._url_for("link")
         self._session.delete(url)
 
-    def remove_on_server(self) -> None:
-        """
-        DEPRECATED: Use `.remove()` instead.
-        (Reason: was never meant to be public, removing only on server is not useful)
-
-        Remove the link on the server.
-        """
-        warnings.warn(
-            "'Link.remove_on_server()' is deprecated. Use '.remove()' instead.",
-        )
-        self._remove_on_server()
-
     def wait_until_converged(
         self, max_iterations: int | None = None, wait_time: int | None = None
     ) -> None:

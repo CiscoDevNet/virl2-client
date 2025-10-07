@@ -242,14 +242,14 @@ class Interface:
         return self._ip_snooped_info["mac_address"]
 
     @property
-    def discovered_ipv4(self) -> str | None:
-        """Return the discovered IPv4 address of the interface."""
+    def discovered_ipv4(self) -> list[str] | None:
+        """Return the discovered IPv4 addresses of the interface."""
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv4"]
 
     @property
-    def discovered_ipv6(self) -> str | None:
-        """Return the discovered IPv6 address of the interface."""
+    def discovered_ipv6(self) -> list[str] | None:
+        """Return the discovered IPv6 addresses of the interface."""
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv6"]
 

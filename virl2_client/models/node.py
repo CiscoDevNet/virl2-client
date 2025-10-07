@@ -27,13 +27,13 @@ import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
-
     from .interface import Interface
     from .lab import Lab
     from .link import Link
@@ -120,7 +120,7 @@ class Node:
         self._session: httpx.Client = lab._session
         self._stale = False
         self._last_sync_l3_address_time = 0.0
-        self._last_sync_interface_operational_time = 0.0
+        self._last_sync_operational_time = 0.0
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -178,11 +178,22 @@ class Node:
 
     @check_stale
     @locked
+    def sync_operational_if_outdated(self) -> None:
+        timestamp = time.time()
+        if (
+            self._lab.auto_sync
+            and timestamp - self._last_sync_operational_time
+            > self._lab.auto_sync_interval
+        ):
+            self.sync_operational()
+
+    @check_stale
+    @locked
     def sync_interface_operational_if_outdated(self) -> None:
         timestamp = time.time()
         if (
             self._lab.auto_sync
-            and timestamp - self._last_sync_interface_operational_time
+            and timestamp - self._last_sync_operational_time
             > self._lab.auto_sync_interval
         ):
             self.sync_interface_operational()
@@ -825,6 +836,10 @@ class Node:
 
         For this to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
+
+        If the node is not running or there's an error fetching L3 addresses,
+        this method will silently clear the discovered addresses rather than
+        raising an exception.
         """
         url = self._url_for("layer3_addresses")
         result = self._session.get(url).json()
@@ -839,23 +854,43 @@ class Node:
         """
         Map layer 3 addresses to interfaces.
 
+        This method updates all loaded interfaces on this node:
+        - Interfaces present in the mapping get updated with new L3 address info
+        - Interfaces NOT present in the mapping get their L3 addresses cleared
+
         :param mapping: A dictionary mapping MAC addresses to interface information.
         """
-        for mac_address, entry in mapping.items():
-            if not (label := entry.get("label")):
+        node_interfaces = self.interfaces()
+
+        id_to_mapping = {
+            entry["id"]: (mac_address, entry)
+            for mac_address, entry in mapping.items()
+            if entry.get("id")
+        }
+
+        for iface in node_interfaces:
+            if iface.id not in id_to_mapping:
+                iface._ip_snooped_info = {
+                    "mac_address": None,
+                    "ipv4": None,
+                    "ipv6": None,
+                }
                 continue
-            try:
-                iface = self.get_interface_by_label(label)
-            except InterfaceNotFound:
-                continue
-            ipv4 = entry.get("ip4")
-            ipv6 = entry.get("ip6")
+
+            mac_address, entry = id_to_mapping[iface.id]
             iface._ip_snooped_info = {
                 "mac_address": mac_address,
-                "ipv4": ipv4,
-                "ipv6": ipv6,
+                "ipv4": entry.get("ip4"),
+                "ipv6": entry.get("ip6"),
             }
+
         self._last_sync_l3_address_time = time.time()
+
+    def clear_discovered_addresses(self) -> None:
+        """Clear all discovered L3 addresses for this node from the snooper."""
+        url = self._url_for("layer3_addresses")
+        self._session.delete(url)
+        self.map_l3_addresses_to_interfaces({})
 
     @check_stale
     @locked
@@ -882,7 +917,7 @@ class Node:
         for interface_data in response:
             interface = self._lab._interfaces[interface_data["id"]]
             interface._operational = interface_data.get("operational") or {}
-        self._last_sync_interface_operational_time = time.time()
+        self._last_sync_operational_time = time.time()
 
     def update(
         self,

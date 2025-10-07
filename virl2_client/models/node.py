@@ -120,7 +120,7 @@ class Node:
         self._session: httpx.Client = lab._session
         self._stale = False
         self._last_sync_l3_address_time = 0.0
-        self._last_sync_interface_operational_time = 0.0
+        self._last_sync_operational_time = 0.0
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -178,11 +178,22 @@ class Node:
 
     @check_stale
     @locked
+    def sync_operational_if_outdated(self) -> None:
+        timestamp = time.time()
+        if (
+            self._lab.auto_sync
+            and timestamp - self._last_sync_operational_time
+            > self._lab.auto_sync_interval
+        ):
+            self.sync_operational()
+
+    @check_stale
+    @locked
     def sync_interface_operational_if_outdated(self) -> None:
         timestamp = time.time()
         if (
             self._lab.auto_sync
-            and timestamp - self._last_sync_interface_operational_time
+            and timestamp - self._last_sync_operational_time
             > self._lab.auto_sync_interval
         ):
             self.sync_interface_operational()
@@ -946,7 +957,7 @@ class Node:
         for interface_data in response:
             interface = self._lab._interfaces[interface_data["id"]]
             interface._operational = interface_data.get("operational") or {}
-        self._last_sync_interface_operational_time = time.time()
+        self._last_sync_operational_time = time.time()
 
     def update(
         self,

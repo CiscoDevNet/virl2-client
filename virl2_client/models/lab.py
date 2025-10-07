@@ -2243,23 +2243,6 @@ class Lab:
 
         self._last_sync_operational_time = time.time()
 
-    def _user_name(self, user_id: str) -> str | None:
-        """
-        Get the username of the user with the given ID.
-
-        :param user_id: User unique identifier.
-        :returns: Username.
-        """
-        # Need an endpoint here in Lab that would normally be handled by UserManagement,
-        # but a Lab has no access to UserManagement, this seems like a better idea than
-        # dragging the entire UserManagement to the Lab for two lines
-        url = self._url_for("user_list")
-        users = self._session.get(url).json()
-        for user in users:
-            if user["id"] == user_id:
-                return user["username"]
-        return None
-
     def _set_owner(
         self, user_id: str | None = None, user_name: str | None = None
     ) -> None:
@@ -2272,5 +2255,10 @@ class Lab:
         :param user_name: Username.
         """
         if user_id:
-            user_name = self._user_name(user_id) or user_name
+            url = self._url_for("user_list")
+            users = self._session.get(url).json()
+            for user in users:
+                if user["id"] == user_id:
+                    user_name = user["username"]
+                    break
         self._owner = user_name

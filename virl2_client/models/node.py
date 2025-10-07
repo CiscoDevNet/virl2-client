@@ -871,12 +871,9 @@ class Node:
         raising an exception.
         """
         url = self._url_for("layer3_addresses")
-        try:
-            result = self._session.get(url).json()
-            interfaces = result.get("interfaces") or {}
-            self.map_l3_addresses_to_interfaces(interfaces)
-        except httpx.HTTPStatusError:
-            self.map_l3_addresses_to_interfaces({})
+        result = self._session.get(url).json()
+        interfaces = result.get("interfaces") or {}
+        self.map_l3_addresses_to_interfaces(interfaces)
 
     @check_stale
     @locked

@@ -875,9 +875,7 @@ class Node:
             result = self._session.get(url).json()
             interfaces = result.get("interfaces") or {}
             self.map_l3_addresses_to_interfaces(interfaces)
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 400:
-                raise
+        except httpx.HTTPStatusError:
             self.map_l3_addresses_to_interfaces({})
 
     @check_stale
@@ -945,14 +943,6 @@ class Node:
     @locked
     def sync_interface_operational(self) -> None:
         """Synchronize the operational state of the node's interfaces."""
-        current_time = time.time()
-        if (
-            current_time - self._lab._last_sync_interfaces_operational_time
-            < self._lab.auto_sync_interval
-        ):
-            self._last_sync_interface_operational_time = current_time
-            return
-
         url = self._url_for("interface_operational")
         response = self._session.get(url).json()
         self._lab.sync_topology_if_outdated()

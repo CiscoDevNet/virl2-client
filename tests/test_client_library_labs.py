@@ -479,10 +479,18 @@ def test_node_clear_discovered_addresses(respx_mock):
 
     assert interface1.discovered_ipv4 == ["192.168.1.1/24", "10.0.0.1/8"]
     assert interface2.discovered_ipv4 == ["192.168.2.1/24"]
+    assert interface1.discovered_ipv6 == []
+    assert interface2.discovered_ipv6 == []
+    assert interface1.discovered_mac_address is None
+    assert interface2.discovered_mac_address is None
 
     node.clear_discovered_addresses()
 
     assert interface1.discovered_ipv4 is None
     assert interface2.discovered_ipv4 is None
+    assert interface1.discovered_ipv6 is None
+    assert interface2.discovered_ipv6 is None
+    assert interface1.discovered_mac_address is None
+    assert interface2.discovered_mac_address is None
 
     respx_mock.assert_all_called()

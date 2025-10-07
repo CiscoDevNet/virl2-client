@@ -392,6 +392,8 @@ class Lab:
         self.sync_topology_if_outdated()
         return list(self._interfaces.values())
 
+    @check_stale
+    @locked
     def sync_interfaces_operational(self) -> None:
         """Synchronize the operational state of all interfaces in the lab."""
         url = self._url_for("interfaces")
@@ -400,7 +402,7 @@ class Lab:
         response_dict = {item["id"]: item for item in response}
 
         for interface_id, interface in self._interfaces.items():
-            interface_data = response_dict.get(interface_id)
+            interface_data = response_dict.get(interface_id) or {}
             interface._operational = (
                 interface_data.get("operational", {}) if interface_data else {}
             )
@@ -2102,16 +2104,10 @@ class Lab:
         url = self._url_for("layer3_addresses")
         result: dict[str, dict] = self._session.get(url).json()
 
-        lab_nodes = self.nodes()
-
-        for node in lab_nodes:
-            if node.id not in result:
-                node.map_l3_addresses_to_interfaces({})
-
-        for node_id, node_data in result.items():
-            if node := self._nodes.get(node_id):
-                mapping = node_data.get("interfaces") or {}
-                node.map_l3_addresses_to_interfaces(mapping)
+        for node in self.nodes():
+            node_data = result.get(node.id, {})
+            mapping = node_data.get("interfaces", {})
+            node.map_l3_addresses_to_interfaces(mapping)
 
         self._last_sync_l3_address_time = time.time()
 
@@ -2119,7 +2115,7 @@ class Lab:
         """Clear all discovered L3 addresses for all nodes in this lab from snooper."""
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
-        for node in self._nodes.values():
+        for node in self.nodes():
             node.map_l3_addresses_to_interfaces({})
 
     @check_stale

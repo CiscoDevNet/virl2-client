@@ -669,9 +669,12 @@ class ClientLibrary:
         title: str | None = None,
         description: str | None = None,
         notes: str | None = None,
+        autostart_enabled: bool = False,
+        autostart_priority: int | None = None,
+        autostart_delay: int | None = None,
     ) -> Lab:
         """
-        Create a new lab with optional title, description, and notes.
+        Create a new lab with optional title, description, notes, and autostart configuration.
 
         If no title, description, or notes are provided, the server will generate a
         default title in the format "Lab at Mon 13:30 PM" and leave the description
@@ -689,10 +692,36 @@ class ClientLibrary:
         :param title: The title of the lab.
         :param description: The description of the lab.
         :param notes: The notes of the lab.
+        :param autostart_enabled: Whether autostart is enabled for the lab.
+        :param autostart_priority: Priority of the lab autostart (0-1000, None for default).
+        :param autostart_delay: Delay in seconds before lab autostart (0-84600, None for default).
         :returns: A Lab instance representing the created lab.
         """
         url = self._url_for("labs")
         body = {"title": title, "description": description, "notes": notes}
+
+        # Add autostart configuration if any non-default values are provided
+        if (
+            autostart_enabled
+            or autostart_priority is not None
+            or autostart_delay is not None
+        ):
+            # Validate parameters before sending to server
+            if autostart_priority is not None and (
+                autostart_priority < 0 or autostart_priority > 1000
+            ):
+                raise ValueError("autostart_priority must be between 0 and 1000")
+            if autostart_delay is not None and (
+                autostart_delay < 0 or autostart_delay > 84600
+            ):
+                raise ValueError("autostart_delay must be between 0 and 84600")
+
+            body["autostart_config"] = {
+                "enabled": autostart_enabled,
+                "priority": autostart_priority,
+                "delay": autostart_delay,
+            }
+
         # exclude values left at None
         body = {k: v for k, v in body.items() if v is not None}
         result = self._session.post(url, json=body).json()

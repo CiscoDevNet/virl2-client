@@ -78,7 +78,7 @@ class Interface:
             "writebytes": 0,
             "writepackets": 0,
         }
-        self._ip_snooped_info: dict[str, str | None] = {
+        self._ip_snooped_info: dict[str, Any] = {
             "mac_address": None,
             "ipv4": None,
             "ipv6": None,
@@ -226,7 +226,7 @@ class Interface:
         return int(self.statistics["writepackets"])
 
     @property
-    def ip_snooped_info(self) -> dict[str, str | None]:
+    def ip_snooped_info(self) -> dict[str, list[str] | str | None]:
         """
         Return the discovered MAC, IPv4 and IPv6 addresses
         of the interface in a dictionary.
@@ -264,7 +264,7 @@ class Interface:
         self._lab.sync_operational_if_outdated()
         return self._operational.copy()
 
-    def as_dict(self) -> dict[str, str]:
+    def as_dict(self) -> dict[str, str | dict]:
         """Convert the interface to a dictionary representation."""
         return {
             "id": self.id,

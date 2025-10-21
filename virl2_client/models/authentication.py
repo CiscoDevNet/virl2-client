@@ -183,7 +183,7 @@ class CustomClient(httpx.Client):
 
 
 def make_session(
-    base_url: str, ssl_verify: bool | str = True, client_type: str = None
+    base_url: str, ssl_verify: bool | str = True, client_type: str | None = None
 ) -> httpx.Client:
     """
     Create an httpx Client object with the specified base URL

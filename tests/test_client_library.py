@@ -23,7 +23,7 @@ import logging
 import re
 import sys
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import httpx
 import pytest
@@ -797,3 +797,82 @@ def test_system_management_controller_triggers_compute_load(
 
     assert controller.is_connector is True
     assert controller.hostname == "controller-host"
+
+
+@pytest.mark.parametrize(
+    "autostart_enabled,autostart_priority,autostart_delay,should_include_config",
+    [
+        (False, None, None, False),
+        (True, None, None, True),
+        (False, 100, None, True),
+        (False, None, 300, True),
+        (True, 500, 600, True),
+    ],
+)
+def test_create_lab_autostart_parameters(
+    client_library_server_current,
+    autostart_enabled,
+    autostart_priority,
+    autostart_delay,
+    should_include_config,
+):
+    """Test creating a lab with various autostart parameter combinations."""
+    session = MagicMock()
+    lab_response = {
+        "id": "test_id",
+        "lab_title": "Test",
+        "lab_description": "",
+        "lab_notes": "",
+    }
+    session.post.return_value.json.return_value = lab_response
+
+    cl = ClientLibrary("https://mockhost", "user", "pass", ssl_verify=False)
+    cl._session = session
+    cl._labs = {}
+    cl.resource_pool_management = Mock()
+
+    with (
+        patch.object(Lab, "_import_lab"),
+        patch.object(Lab, "__init__", return_value=None),
+    ):
+        cl.create_lab(
+            title="Test Lab",
+            autostart_enabled=autostart_enabled,
+            autostart_priority=autostart_priority,
+            autostart_delay=autostart_delay,
+        )
+
+    call_args = session.post.call_args
+    request_body = call_args[1]["json"]
+
+    if should_include_config:
+        assert "autostart_config" in request_body
+        assert request_body["autostart_config"] == {
+            "enabled": autostart_enabled,
+            "priority": autostart_priority,
+            "delay": autostart_delay,
+        }
+    else:
+        assert "autostart_config" not in request_body
+
+
+@pytest.mark.parametrize(
+    "param,value,error_match",
+    [
+        ("autostart_priority", 2000, "between 0 and 1000"),
+        ("autostart_priority", -1, "between 0 and 1000"),
+        ("autostart_delay", 100000, "between 0 and 84600"),
+        ("autostart_delay", -1, "between 0 and 84600"),
+    ],
+)
+def test_create_lab_autostart_validation(
+    client_library_server_current, param, value, error_match
+):
+    """Test create_lab validation for autostart parameters."""
+    cl = ClientLibrary("https://mockhost", "user", "pass", ssl_verify=False)
+    cl._session = MagicMock()
+    cl.resource_pool_management = Mock()
+
+    kwargs = {param: value}
+    with pytest.raises(ValueError, match=error_match):
+        cl.create_lab(**kwargs)

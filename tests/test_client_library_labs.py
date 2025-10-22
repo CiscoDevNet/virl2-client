@@ -494,3 +494,151 @@ def test_node_clear_discovered_addresses(respx_mock):
     assert interface2.discovered_mac_address is None
 
     respx_mock.assert_all_called()
+
+
+def test_lab_autostart_initial_values():
+    """Test that new lab has correct initial autostart values."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    assert lab._autostart_config == {
+        "enabled": False,
+        "priority": None,
+        "delay": None,
+    }
+
+
+@pytest.mark.parametrize(
+    "enabled,priority,delay",
+    [
+        (True, 100, 60),
+        (False, 500, 300),
+        (True, None, None),
+        (False, 0, 0),
+        (True, 1000, 84600),
+    ],
+)
+def test_lab_autostart_properties(enabled, priority, delay):
+    """Test autostart property getters and setters."""
+    from unittest.mock import patch
+
+    session = MagicMock()
+    session.patch.return_value = Mock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with patch.object(lab, "sync_topology_if_outdated"):
+        lab.autostart_enabled = enabled
+        lab.autostart_priority = priority
+        lab.autostart_delay = delay
+
+        assert lab.autostart_enabled == enabled
+        assert lab.autostart_priority == priority
+        assert lab.autostart_delay == delay
+
+        assert lab._autostart_config == {
+            "enabled": enabled,
+            "priority": priority,
+            "delay": delay,
+        }
+
+
+@pytest.mark.parametrize(
+    "property_name,invalid_value,error_match",
+    [
+        ("autostart_priority", 2000, "between 0 and 1000"),
+        ("autostart_priority", -1, "between 0 and 1000"),
+        ("autostart_delay", 100000, "between 0 and 84600"),
+        ("autostart_delay", -1, "between 0 and 84600"),
+    ],
+)
+def test_lab_autostart_validation(property_name, invalid_value, error_match):
+    """Test autostart property validation."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with pytest.raises(ValueError, match=error_match):
+        setattr(lab, property_name, invalid_value)
+
+
+@pytest.mark.parametrize("has_autostart", [True, False])
+def test_lab_import_autostart_config(has_autostart):
+    """Test importing lab topology with/without autostart configuration."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    topology = {
+        "lab": {"title": "Test Lab", "description": "Test", "notes": "Notes"},
+        "nodes": [],
+        "links": [],
+    }
+
+    if has_autostart:
+        topology["lab"]["autostart_config"] = {
+            "enabled": True,
+            "priority": 200,
+            "delay": 180,
+        }
+        expected = {"enabled": True, "priority": 200, "delay": 180}
+    else:
+        expected = {"enabled": False, "priority": None, "delay": None}
+
+    lab._import_lab(topology)
+    assert lab._autostart_config == expected
+
+
+def test_lab_update_properties_autostart():
+    """Test updating lab properties with partial autostart configuration."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    lab._autostart_config = {"enabled": False, "priority": 100, "delay": 200}
+
+    properties = {
+        "title": "Updated Lab",
+        "autostart_config": {"enabled": True, "priority": 300},
+    }
+
+    lab.update_lab_properties(properties)
+
+    assert lab._title == "Updated Lab"
+    assert lab._autostart_config == {"enabled": True, "priority": 300, "delay": 200}

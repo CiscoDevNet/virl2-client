@@ -700,13 +700,11 @@ class ClientLibrary:
         url = self._url_for("labs")
         body = {"title": title, "description": description, "notes": notes}
 
-        # Add autostart configuration if any non-default values are provided
         if (
             autostart_enabled
             or autostart_priority is not None
             or autostart_delay is not None
         ):
-            # Validate parameters before sending to server
             if autostart_priority is not None and (
                 autostart_priority < 0 or autostart_priority > 1000
             ):

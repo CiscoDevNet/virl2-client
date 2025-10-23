@@ -523,7 +523,7 @@ def test_lab_autostart_initial_values():
         (False, 500, 300),
         (True, None, None),
         (False, 0, 0),
-        (True, 1000, 84600),
+        (True, 10000, 84600),
     ],
 )
 def test_lab_autostart_properties(enabled, priority, delay):
@@ -558,11 +558,52 @@ def test_lab_autostart_properties(enabled, priority, delay):
         }
 
 
+def test_lab_set_autostart_config():
+    """Test set_autostart_config convenience method."""
+    from unittest.mock import patch
+
+    session = MagicMock()
+    session.patch.return_value = Mock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with patch.object(lab, "sync_topology_if_outdated"):
+        # Test setting all values at once
+        lab.set_autostart_config(enabled=True, priority=500, delay=120)
+
+        assert lab._autostart_config == {
+            "enabled": True,
+            "priority": 500,
+            "delay": 120,
+        }
+        assert lab.autostart_enabled is True
+        assert lab.autostart_priority == 500
+        assert lab.autostart_delay == 120
+
+        # Test validation in convenience method
+        with pytest.raises(
+            ValueError, match="autostart_priority must be between 0 and 10000"
+        ):
+            lab.set_autostart_config(enabled=True, priority=15000)
+
+        with pytest.raises(
+            ValueError, match="autostart_delay must be between 0 and 84600"
+        ):
+            lab.set_autostart_config(enabled=True, delay=100000)
+
+
 @pytest.mark.parametrize(
     "property_name,invalid_value,error_match",
     [
-        ("autostart_priority", 2000, "between 0 and 1000"),
-        ("autostart_priority", -1, "between 0 and 1000"),
+        ("autostart_priority", 15000, "between 0 and 10000"),
+        ("autostart_priority", -1, "between 0 and 10000"),
         ("autostart_delay", 100000, "between 0 and 84600"),
         ("autostart_delay", -1, "between 0 and 84600"),
     ],

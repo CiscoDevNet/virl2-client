@@ -693,7 +693,7 @@ class ClientLibrary:
         :param description: The description of the lab.
         :param notes: The notes of the lab.
         :param autostart_enabled: Whether autostart is enabled for the lab.
-        :param autostart_priority: Priority of the lab autostart (0-1000, None for default).
+        :param autostart_priority: Priority of the lab autostart (0-10000, None for default).
         :param autostart_delay: Delay in seconds before lab autostart (0-84600, None for default).
         :returns: A Lab instance representing the created lab.
         """
@@ -706,9 +706,9 @@ class ClientLibrary:
             or autostart_delay is not None
         ):
             if autostart_priority is not None and (
-                autostart_priority < 0 or autostart_priority > 1000
+                autostart_priority < 0 or autostart_priority > 10000
             ):
-                raise ValueError("autostart_priority must be between 0 and 1000")
+                raise ValueError("autostart_priority must be between 0 and 10000")
             if autostart_delay is not None and (
                 autostart_delay < 0 or autostart_delay > 84600
             ):

@@ -358,8 +358,8 @@ class Lab:
     @autostart_priority.setter
     def autostart_priority(self, value: int | None) -> None:
         """Set the autostart priority of the lab."""
-        if value is not None and (value < 0 or value > 1000):
-            raise ValueError("autostart_priority must be between 0 and 1000")
+        if value is not None and not (0 <= value <= 10000):
+            raise ValueError("autostart_priority must be between 0 and 10000")
         self._autostart_config["priority"] = value
         self._set_property("autostart_config", self._autostart_config)
 
@@ -375,6 +375,31 @@ class Lab:
         if value is not None and (value < 0 or value > 84600):
             raise ValueError("autostart_delay must be between 0 and 84600")
         self._autostart_config["delay"] = value
+        self._set_property("autostart_config", self._autostart_config)
+
+    def set_autostart_config(
+        self,
+        enabled: bool = False,
+        priority: int | None = None,
+        delay: int | None = None,
+    ) -> None:
+        """
+        Set all autostart configuration properties at once.
+
+        :param enabled: Whether autostart is enabled.
+        :param priority: Priority of the lab autostart (0-10000, None for default).
+        :param delay: Delay in seconds before lab autostart (0-84600, None for default).
+        """
+        if priority is not None and (priority < 0 or priority > 10000):
+            raise ValueError("autostart_priority must be between 0 and 10000")
+        if delay is not None and (delay < 0 or delay > 84600):
+            raise ValueError("autostart_delay must be between 0 and 84600")
+
+        self._autostart_config = {
+            "enabled": enabled,
+            "priority": priority,
+            "delay": delay,
+        }
         self._set_property("autostart_config", self._autostart_config)
 
     def _set_property(self, prop: str, value: Any):

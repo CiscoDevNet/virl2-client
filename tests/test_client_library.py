@@ -859,8 +859,8 @@ def test_create_lab_autostart_parameters(
 @pytest.mark.parametrize(
     "param,value,error_match",
     [
-        ("autostart_priority", 2000, "between 0 and 1000"),
-        ("autostart_priority", -1, "between 0 and 1000"),
+        ("autostart_priority", 15000, "between 0 and 10000"),
+        ("autostart_priority", -1, "between 0 and 10000"),
         ("autostart_delay", 100000, "between 0 and 84600"),
         ("autostart_delay", -1, "between 0 and 84600"),
     ],

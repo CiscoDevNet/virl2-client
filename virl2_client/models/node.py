@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
@@ -92,6 +91,8 @@ class Node:
                 of a resource pool.
             - pinned_compute_id: The ID of the compute this node is pinned to.
                 The node will not run on any other compute.
+            - priority: Priority for staged lab startup (0-10000). Nodes with higher
+                priority start first. Nodes with no priority start after staged nodes.
         """
         self._lab: Lab = lab
         self._id: str = nid
@@ -114,6 +115,7 @@ class Node:
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
+        self._priority: int | None = kwargs.get("priority")
         self._operational: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
@@ -509,6 +511,21 @@ class Node:
         """Set the ID of the compute this node should be pinned to."""
         self._set_node_property("pinned_compute_id", value)
         self._pinned_compute_id = value
+
+    @property
+    def priority(self) -> int | None:
+        """Return the priority of the node for staged lab startup."""
+        self._lab.sync_topology_if_outdated()
+        return self._priority
+
+    @priority.setter
+    @locked
+    def priority(self, value: int | None) -> None:
+        """Set the priority of the node for staged lab startup (0-10000, or None)."""
+        if value is not None and not (0 <= value <= 10000):
+            raise ValueError("Priority must be between 0 and 10000, or None")
+        self._set_node_property("priority", value)
+        self._priority = value
 
     @property
     def smart_annotations(self) -> dict[str, SmartAnnotation]:

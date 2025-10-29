@@ -142,6 +142,9 @@ class Lab:
         self._session = session
         self._owner = username
         self._state = None
+        self._staging_enabled = False
+        self._staging_start_remaining = True
+        self._staging_abort_on_failure = False
         self._nodes: dict[str, Node] = {}
         """
         Dictionary containing all nodes in the lab.
@@ -331,6 +334,66 @@ class Lab:
     def description(self, value: str) -> None:
         """Set the description of the lab."""
         self._set_property("description", value)
+
+    @property
+    def staging_enabled(self) -> bool:
+        """Return whether node staging is enabled for the lab."""
+        self.sync_topology_if_outdated()
+        return self._staging_enabled
+
+    @staging_enabled.setter
+    def staging_enabled(self, value: bool) -> None:
+        """Set whether node staging is enabled for the lab."""
+        self._set_staging_property("staging_enabled", value)
+
+    @property
+    def staging_start_remaining(self) -> bool:
+        """Return whether to start remaining nodes after staged nodes complete."""
+        self.sync_topology_if_outdated()
+        return self._staging_start_remaining
+
+    @staging_start_remaining.setter
+    def staging_start_remaining(self, value: bool) -> None:
+        """Set whether to start remaining nodes after staged nodes complete."""
+        self._set_staging_property("staging_start_remaining", value)
+
+    @property
+    def staging_abort_on_failure(self) -> bool:
+        """Return whether to abort remaining nodes if a staged node fails."""
+        self.sync_topology_if_outdated()
+        return self._staging_abort_on_failure
+
+    @staging_abort_on_failure.setter
+    def staging_abort_on_failure(self, value: bool) -> None:
+        """Set whether to abort remaining nodes if a staged node fails."""
+        self._set_staging_property("staging_abort_on_failure", value)
+
+    def _set_staging_property(self, prop: str, value: bool) -> None:
+        """
+        Set a node staging property, mapping from client property names
+        to API property names.
+
+        :param prop: The client-side property name.
+        :param value: The new value of the property.
+        """
+        # Map client property names to API property names for node_staging object
+        api_prop_mapping = {
+            "staging_enabled": "enabled",
+            "staging_start_remaining": "start_remaining",
+            "staging_abort_on_failure": "abort_on_failure",
+        }
+
+        if prop not in api_prop_mapping:
+            raise ValueError(f"Unknown staging property: {prop}")
+
+        api_prop = api_prop_mapping[prop]
+
+        # Update the property using the node_staging nested structure
+        node_staging_data = {"node_staging": {api_prop: value}}
+
+        url = self._url_for("lab")
+        self._session.patch(url, json=node_staging_data)
+        setattr(self, f"_{prop}", value)
 
     def _set_property(self, prop: str, value: Any):
         """
@@ -560,6 +623,7 @@ class Lab:
         y: int = 0,
         wait: bool | None = None,
         populate_interfaces: bool = False,
+        priority: int | None = None,
         **kwargs,
     ) -> Node:
         """
@@ -573,6 +637,7 @@ class Lab:
             If left at the default value, the lab's wait property is used instead.
         :param populate_interfaces: Automatically create a pre-defined number
             of interfaces on node creation.
+        :param priority: Node startup priority (0-10000). Lower numbers start first.
         :returns: A Node object.
         """
         try:
@@ -594,6 +659,9 @@ class Lab:
                 "y": y,
             }
         )
+
+        if priority is not None:
+            kwargs["priority"] = priority
 
         result: dict[str, str] = self._session.post(url, json=kwargs).json()
         node_id: str = result["id"]
@@ -1385,6 +1453,12 @@ class Lab:
             self._notes = lab_dict["notes"]
             self._set_owner(lab_dict.get("owner"), default_owner)
 
+            # Handle node staging properties
+            node_staging = lab_dict.get("node_staging", {})
+            self._staging_enabled = node_staging.get("enabled", False)
+            self._staging_start_remaining = node_staging.get("start_remaining", True)
+            self._staging_abort_on_failure = node_staging.get("abort_on_failure", False)
+
     @locked
     def _handle_import_nodes(self, topology: dict) -> None:
         """
@@ -1897,6 +1971,17 @@ class Lab:
         self._description = properties.get("description", self._description)
         self._notes = properties.get("notes", self._notes)
         self._owner = properties.get("owner", self._owner)
+
+        # Handle node staging properties
+        node_staging = properties.get("node_staging", {})
+        if node_staging:
+            self._staging_enabled = node_staging.get("enabled", self._staging_enabled)
+            self._staging_start_remaining = node_staging.get(
+                "start_remaining", self._staging_start_remaining
+            )
+            self._staging_abort_on_failure = node_staging.get(
+                "abort_on_failure", self._staging_abort_on_failure
+            )
 
     @staticmethod
     def _find_link_in_topology(link_id: str, topology: dict) -> dict:

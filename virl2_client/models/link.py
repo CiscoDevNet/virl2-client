@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from typing import TYPE_CHECKING
 
 from ..utils import check_stale, get_url_from_template, locked
@@ -102,7 +101,7 @@ class Link:
     def __hash__(self):
         return hash(self._id)
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs):
         """
         Generate the URL for a given API endpoint.
 
@@ -290,7 +289,12 @@ class Link:
 
     @check_stale
     def set_condition(
-        self, bandwidth: int, latency: int, jitter: int, loss: float
+        self,
+        bandwidth: int | None = None,
+        latency: int | None = None,
+        jitter: int | None = None,
+        loss: float | None = None,
+        **kwargs: dict[str, float | int | bool | None],
     ) -> None:
         """
         Set the conditioning parameters for the link.
@@ -298,15 +302,48 @@ class Link:
         :param bandwidth: The desired bandwidth in kbps (0-10000000).
         :param latency: The desired latency in ms (0-10000).
         :param jitter: The desired jitter in ms (0-10000).
-        :param loss: The desired packet loss percentage (0-100).
+        :param loss: The desired packet loss in percent (0-100).
+        :param kwargs: Additional parameters. See below.
+
+        :Keyword Arguments:
+            - enabled: Whether the link conditioning is enabled.
+            - delay_corr: The desired packet loss correlation in percent (0-100).
+            - limit: The desired maximum delay in ms (0-10000).
+            - loss_corr: The desired packet loss correlation in percent (0-100).
+            - gap: The desired gap between packets in ms (0-10000).
+            - duplicate: The desired probability of duplicates in percent (0-100).
+            - duplicate_corr: The desired correlation of duplicates in percent (0-100).
+            - reorder_prob: The desired probability of re-orders in percent (0-100).
+            - reorder_corr: The desired re-order correlation in percent (0-100).
+            - corrupt_prob: The desired corruption probability in percent (0-100).
+            - corrupt_corr: The desired corruption correlation in percent (0-100).
         """
         url = self._url_for("condition")
-        data = {
-            "bandwidth": bandwidth,
-            "latency": latency,
-            "jitter": jitter,
-            "loss": loss,
-        }
+        data: dict[str, float | int | bool] = {}
+        if bandwidth is not None:
+            data["bandwidth"] = bandwidth
+        if latency is not None:
+            data["latency"] = latency
+        if jitter is not None:
+            data["jitter"] = jitter
+        if loss is not None:
+            data["loss"] = loss
+        expected_params = [
+            "enabled",
+            "delay_corr",
+            "limit",
+            "loss_corr",
+            "gap",
+            "duplicate",
+            "duplicate_corr",
+            "reorder_prob",
+            "reorder_corr",
+            "corrupt_prob",
+            "corrupt_corr",
+        ]
+        for key, value in kwargs.items():
+            if key in expected_params and value is not None:
+                data[key] = value
         self._session.patch(url, json=data)
 
     @check_stale
@@ -317,9 +354,7 @@ class Link:
         :returns: A dictionary containing the current conditioning parameters.
         """
         url = self._url_for("condition")
-        condition = self._session.get(url).json()
-        keys = ["bandwidth", "latency", "jitter", "loss"]
-        return {k: v for k, v in condition.items() if k in keys}
+        return self._session.get(url).json()
 
     @check_stale
     def remove_condition(self) -> None:
@@ -374,4 +409,4 @@ class Link:
             raise ValueError(msg)
 
         latency, bandwidth, loss = options[name]
-        self.set_condition(bandwidth, latency, 0, loss)
+        self.set_condition(bandwidth=bandwidth, latency=latency, loss=loss)

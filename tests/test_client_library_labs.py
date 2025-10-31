@@ -26,6 +26,7 @@ from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
 from virl2_client.models.node import Node
+from virl2_client.virl2_client import ClientLibrary
 
 RESOURCE_POOL_MANAGER = Mock()
 
@@ -763,8 +764,6 @@ def test_node_creation_without_priority():
 
 def test_client_library_create_lab_staging_parameters():
     """Test ClientLibrary create_lab method with staging parameters."""
-    from virl2_client.virl2_client import ClientLibrary
-
     session = MagicMock()
     session.post.return_value.json.return_value = {
         "id": "test_lab_id",
@@ -786,8 +785,6 @@ def test_client_library_create_lab_staging_parameters():
     cl._labs = {}
 
     cl._url_for.return_value = "labs"
-
-    from virl2_client.virl2_client import ClientLibrary
 
     actual_create_lab = ClientLibrary.create_lab.__get__(cl, ClientLibrary)
 
@@ -828,8 +825,6 @@ def test_client_library_create_lab_staging_combinations(
     staging_params, expected_staging
 ):
     """Test ClientLibrary create_lab with different staging parameter combinations."""
-    from virl2_client.virl2_client import ClientLibrary
-
     session = MagicMock()
     session.post.return_value.json.return_value = {
         "id": "test_lab_id",
@@ -851,8 +846,6 @@ def test_client_library_create_lab_staging_combinations(
     cl._labs = {}
 
     cl._url_for.return_value = "labs"
-
-    from virl2_client.virl2_client import ClientLibrary
 
     actual_create_lab = ClientLibrary.create_lab.__get__(cl, ClientLibrary)
 

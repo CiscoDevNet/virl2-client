@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
@@ -673,6 +672,7 @@ class Node:
         """
         url = self._url_for("stop")
         self._session.put(url)
+        self._lab.pyats.cleanup_node_connection(self.label)
         if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 

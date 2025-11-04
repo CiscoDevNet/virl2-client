@@ -24,7 +24,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from ..utils import check_stale, get_url_from_template, locked
+from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -290,10 +290,10 @@ class Link:
     @check_stale
     def set_condition(
         self,
-        bandwidth: int | None = None,
-        latency: int | None = None,
-        jitter: int | None = None,
-        loss: float | None = None,
+        bandwidth: int | None | _Sentinel = UNCHANGED,
+        latency: int | None | _Sentinel = UNCHANGED,
+        jitter: int | None | _Sentinel = UNCHANGED,
+        loss: float | None | _Sentinel = UNCHANGED,
         **kwargs: dict[str, float | int | bool | None],
     ) -> None:
         """
@@ -320,13 +320,13 @@ class Link:
         """
         url = self._url_for("condition")
         data: dict[str, float | int | bool] = {}
-        if bandwidth is not None:
+        if bandwidth is not UNCHANGED:
             data["bandwidth"] = bandwidth
-        if latency is not None:
+        if latency is not UNCHANGED:
             data["latency"] = latency
-        if jitter is not None:
+        if jitter is not UNCHANGED:
             data["jitter"] = jitter
-        if loss is not None:
+        if loss is not UNCHANGED:
             data["loss"] = loss
         expected_params = [
             "enabled",

@@ -342,7 +342,7 @@ class Link:
             "corrupt_corr",
         ]
         for key, value in kwargs.items():
-            if key in expected_params and value is not None:
+            if key in expected_params:
                 data[key] = value
         self._session.patch(url, json=data)
 

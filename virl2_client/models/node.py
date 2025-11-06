@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 

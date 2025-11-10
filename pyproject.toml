@@ -22,8 +22,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-# cryptography requires python>=3.9.2
-python = "^3.9.2"
+python = "^3.10"
 httpx = "^0.28.1"
 
 # https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
@@ -38,7 +37,7 @@ pyats = {version = "^25", optional = true}
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
 # version 8.2.3 is available but requires python>=3.11
-sphinx = {version="^7", optional = true}
+sphinx = {version="<8.2", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7"

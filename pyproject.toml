@@ -43,6 +43,7 @@ sphinx = {version="<8.2", optional = true}
 flake8 = "^7"
 pre-commit = "^4"
 pytest = "*"
+pytest-xdist = "*"
 respx = "^0.22.0"
 
 [tool.poetry.extras]

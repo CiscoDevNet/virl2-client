@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
+import sys
 from collections.abc import Iterator
 from io import BufferedReader
 from unittest.mock import ANY, MagicMock
@@ -36,12 +37,8 @@ WRONG_FORMAT_LIST = [
     "file",
     ".text",
     ".qcow2",
-    "qcow.",
     "qcow2",
     "qcow",
-    ".qcow.",
-    ".file.",
-    "file.qcow.",
 ]
 NOT_SUPPORTED_LIST = [
     " . ",
@@ -65,6 +62,15 @@ EXPECTED_PASS_LIST = [
     "qcow.iol",
     "file.tar",
     "file.tar.gz",
+]
+
+# pathlib treats ending dot differently since Python 3.14
+to_extend = NOT_SUPPORTED_LIST if sys.version_info >= (3, 14) else WRONG_FORMAT_LIST
+to_extend += [
+    ".qcow.",
+    "qcow.",
+    ".file.",
+    "file.qcow.",
 ]
 
 
@@ -95,6 +101,17 @@ def windows_path(path: str) -> Iterator[None]:
 @pytest.mark.parametrize(
     "test_path",
     ["", "/", "./", "./../", "test/test/", "/test/test/", "\\", "..\\..\\", "\\test\\"],
+    ids=[
+        "empty",
+        "root",
+        "current_unix",
+        "parent_unix",
+        "relative_unix",
+        "absolute_unix",
+        "backslash",
+        "parent_windows",
+        "absolute_windows",
+    ],
 )
 @pytest.mark.parametrize("rename", [None, "rename"])
 @pytest.mark.parametrize(

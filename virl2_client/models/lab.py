@@ -347,7 +347,7 @@ class Lab:
     def autostart_enabled(self, value: bool) -> None:
         """Set whether autostart is enabled for the lab."""
         self._autostart_config["enabled"] = value
-        self._set_property("autostart_config", self._autostart_config)
+        self._set_property("autostart", self._autostart_config)
 
     @property
     def autostart_priority(self) -> int | None:
@@ -361,7 +361,7 @@ class Lab:
         if value is not None and not (0 <= value <= 10000):
             raise ValueError("autostart_priority must be between 0 and 10000")
         self._autostart_config["priority"] = value
-        self._set_property("autostart_config", self._autostart_config)
+        self._set_property("autostart", self._autostart_config)
 
     @property
     def autostart_delay(self) -> int | None:
@@ -375,7 +375,7 @@ class Lab:
         if value is not None and (value < 0 or value > 84600):
             raise ValueError("autostart_delay must be between 0 and 84600")
         self._autostart_config["delay"] = value
-        self._set_property("autostart_config", self._autostart_config)
+        self._set_property("autostart", self._autostart_config)
 
     def set_autostart_config(
         self,
@@ -400,7 +400,7 @@ class Lab:
             "priority": priority,
             "delay": delay,
         }
-        self._set_property("autostart_config", self._autostart_config)
+        self._set_property("autostart", self._autostart_config)
 
     def _set_property(self, prop: str, value: Any):
         """
@@ -1448,7 +1448,8 @@ class Lab:
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
-            self._autostart_config = topology.get(
+            # Handle both new 'autostart' field and legacy 'autostart_config'
+            self._autostart_config = topology.get("autostart") or topology.get(
                 "autostart_config",
                 {
                     "enabled": False,
@@ -1461,7 +1462,8 @@ class Lab:
             self._title = lab_dict["title"]
             self._description = lab_dict["description"]
             self._notes = lab_dict["notes"]
-            self._autostart_config = lab_dict.get(
+            # Handle both new 'autostart' field and legacy 'autostart_config'
+            self._autostart_config = lab_dict.get("autostart") or lab_dict.get(
                 "autostart_config",
                 {
                     "enabled": False,
@@ -1984,7 +1986,10 @@ class Lab:
         self._notes = properties.get("notes", self._notes)
         self._owner = properties.get("owner", self._owner)
 
-        autostart_config = properties.get("autostart_config")
+        # Handle both new 'autostart' field and legacy 'autostart_config'
+        autostart_config = properties.get("autostart") or properties.get(
+            "autostart_config"
+        )
         if autostart_config is not None:
             self._autostart_config.update(autostart_config)
 

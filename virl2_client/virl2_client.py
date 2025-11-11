@@ -714,7 +714,7 @@ class ClientLibrary:
             ):
                 raise ValueError("autostart_delay must be between 0 and 84600")
 
-            body["autostart_config"] = {
+            body["autostart"] = {
                 "enabled": autostart_enabled,
                 "priority": autostart_priority,
                 "delay": autostart_delay,

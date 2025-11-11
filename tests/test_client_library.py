@@ -846,14 +846,14 @@ def test_create_lab_autostart_parameters(
     request_body = call_args[1]["json"]
 
     if should_include_config:
-        assert "autostart_config" in request_body
-        assert request_body["autostart_config"] == {
+        assert "autostart" in request_body
+        assert request_body["autostart"] == {
             "enabled": autostart_enabled,
             "priority": autostart_priority,
             "delay": autostart_delay,
         }
     else:
-        assert "autostart_config" not in request_body
+        assert "autostart" not in request_body
 
 
 @pytest.mark.parametrize(

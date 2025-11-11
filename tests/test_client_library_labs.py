@@ -627,7 +627,7 @@ def test_lab_autostart_validation(property_name, invalid_value, error_match):
 
 @pytest.mark.parametrize("has_autostart", [True, False])
 def test_lab_import_autostart_config(has_autostart):
-    """Test importing lab topology with/without autostart configuration."""
+    """Test importing lab topology with/without autostart configuration (legacy field name)."""
     session = MagicMock()
     lab = Lab(
         "test_lab",
@@ -659,6 +659,40 @@ def test_lab_import_autostart_config(has_autostart):
     assert lab._autostart_config == expected
 
 
+@pytest.mark.parametrize("has_autostart", [True, False])
+def test_lab_import_autostart_new_field(has_autostart):
+    """Test importing lab topology with/without autostart configuration (new field name)."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    topology = {
+        "lab": {"title": "Test Lab", "description": "Test", "notes": "Notes"},
+        "nodes": [],
+        "links": [],
+    }
+
+    if has_autostart:
+        topology["lab"]["autostart"] = {
+            "enabled": True,
+            "priority": 200,
+            "delay": 180,
+        }
+        expected = {"enabled": True, "priority": 200, "delay": 180}
+    else:
+        expected = {"enabled": False, "priority": None, "delay": None}
+
+    lab._import_lab(topology)
+    assert lab._autostart_config == expected
+
+
 def test_lab_update_properties_autostart():
     """Test updating lab properties with partial autostart configuration."""
     session = MagicMock()
@@ -677,6 +711,32 @@ def test_lab_update_properties_autostart():
     properties = {
         "title": "Updated Lab",
         "autostart_config": {"enabled": True, "priority": 300},
+    }
+
+    lab.update_lab_properties(properties)
+
+    assert lab._title == "Updated Lab"
+    assert lab._autostart_config == {"enabled": True, "priority": 300, "delay": 200}
+
+
+def test_lab_update_properties_autostart_new_field():
+    """Test updating lab properties with partial autostart configuration (new field name)."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    lab._autostart_config = {"enabled": False, "priority": 100, "delay": 200}
+
+    properties = {
+        "title": "Updated Lab",
+        "autostart": {"enabled": True, "priority": 300},
     }
 
     lab.update_lab_properties(properties)

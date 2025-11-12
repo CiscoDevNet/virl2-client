@@ -509,7 +509,7 @@ def test_lab_autostart_initial_values():
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
 
-    assert lab._autostart_config == {
+    assert lab._autostart == {
         "enabled": False,
         "priority": None,
         "delay": None,
@@ -551,15 +551,15 @@ def test_lab_autostart_properties(enabled, priority, delay):
         assert lab.autostart_priority == priority
         assert lab.autostart_delay == delay
 
-        assert lab._autostart_config == {
+        assert lab._autostart == {
             "enabled": enabled,
             "priority": priority,
             "delay": delay,
         }
 
 
-def test_lab_set_autostart_config():
-    """Test set_autostart_config convenience method."""
+def test_lab_set_autostart():
+    """Test set_autostart convenience method."""
     from unittest.mock import patch
 
     session = MagicMock()
@@ -576,9 +576,9 @@ def test_lab_set_autostart_config():
 
     with patch.object(lab, "sync_topology_if_outdated"):
         # Test setting all values at once
-        lab.set_autostart_config(enabled=True, priority=500, delay=120)
+        lab.set_autostart(enabled=True, priority=500, delay=120)
 
-        assert lab._autostart_config == {
+        assert lab._autostart == {
             "enabled": True,
             "priority": 500,
             "delay": 120,
@@ -591,12 +591,12 @@ def test_lab_set_autostart_config():
         with pytest.raises(
             ValueError, match="autostart_priority must be between 0 and 10000"
         ):
-            lab.set_autostart_config(enabled=True, priority=15000)
+            lab.set_autostart(enabled=True, priority=15000)
 
         with pytest.raises(
             ValueError, match="autostart_delay must be between 0 and 84600"
         ):
-            lab.set_autostart_config(enabled=True, delay=100000)
+            lab.set_autostart(enabled=True, delay=100000)
 
 
 @pytest.mark.parametrize(
@@ -627,7 +627,7 @@ def test_lab_autostart_validation(property_name, invalid_value, error_match):
 
 @pytest.mark.parametrize("has_autostart", [True, False])
 def test_lab_import_autostart_config(has_autostart):
-    """Test importing lab topology with/without autostart configuration (legacy field name)."""
+    """Test importing lab topology with/without autostart configuration."""
     session = MagicMock()
     lab = Lab(
         "test_lab",
@@ -646,7 +646,7 @@ def test_lab_import_autostart_config(has_autostart):
     }
 
     if has_autostart:
-        topology["lab"]["autostart_config"] = {
+        topology["lab"]["autostart"] = {
             "enabled": True,
             "priority": 200,
             "delay": 180,
@@ -656,7 +656,7 @@ def test_lab_import_autostart_config(has_autostart):
         expected = {"enabled": False, "priority": None, "delay": None}
 
     lab._import_lab(topology)
-    assert lab._autostart_config == expected
+    assert lab._autostart == expected
 
 
 @pytest.mark.parametrize("has_autostart", [True, False])
@@ -690,7 +690,7 @@ def test_lab_import_autostart_new_field(has_autostart):
         expected = {"enabled": False, "priority": None, "delay": None}
 
     lab._import_lab(topology)
-    assert lab._autostart_config == expected
+    assert lab._autostart == expected
 
 
 def test_lab_update_properties_autostart():
@@ -706,17 +706,17 @@ def test_lab_update_properties_autostart():
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
 
-    lab._autostart_config = {"enabled": False, "priority": 100, "delay": 200}
+    lab._autostart = {"enabled": False, "priority": 100, "delay": 200}
 
     properties = {
         "title": "Updated Lab",
-        "autostart_config": {"enabled": True, "priority": 300},
+        "autostart": {"enabled": True, "priority": 300},
     }
 
     lab.update_lab_properties(properties)
 
     assert lab._title == "Updated Lab"
-    assert lab._autostart_config == {"enabled": True, "priority": 300, "delay": 200}
+    assert lab._autostart == {"enabled": True, "priority": 300, "delay": 200}
 
 
 def test_lab_update_properties_autostart_new_field():
@@ -732,7 +732,7 @@ def test_lab_update_properties_autostart_new_field():
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
 
-    lab._autostart_config = {"enabled": False, "priority": 100, "delay": 200}
+    lab._autostart = {"enabled": False, "priority": 100, "delay": 200}
 
     properties = {
         "title": "Updated Lab",
@@ -742,4 +742,4 @@ def test_lab_update_properties_autostart_new_field():
     lab.update_lab_properties(properties)
 
     assert lab._title == "Updated Lab"
-    assert lab._autostart_config == {"enabled": True, "priority": 300, "delay": 200}
+    assert lab._autostart == {"enabled": True, "priority": 300, "delay": 200}

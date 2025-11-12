@@ -138,7 +138,7 @@ class Lab:
         self._title = title
         self._description = ""
         self._notes = ""
-        self._autostart_config = {
+        self._autostart = {
             "enabled": False,
             "priority": None,
             "delay": None,
@@ -341,43 +341,43 @@ class Lab:
     def autostart_enabled(self) -> bool:
         """Return whether autostart is enabled for the lab."""
         self.sync_topology_if_outdated()
-        return self._autostart_config["enabled"]
+        return self._autostart["enabled"]
 
     @autostart_enabled.setter
     def autostart_enabled(self, value: bool) -> None:
         """Set whether autostart is enabled for the lab."""
-        self._autostart_config["enabled"] = value
-        self._set_property("autostart", self._autostart_config)
+        self._autostart["enabled"] = value
+        self._set_property("autostart", self._autostart)
 
     @property
     def autostart_priority(self) -> int | None:
         """Return the autostart priority of the lab."""
         self.sync_topology_if_outdated()
-        return self._autostart_config["priority"]
+        return self._autostart["priority"]
 
     @autostart_priority.setter
     def autostart_priority(self, value: int | None) -> None:
         """Set the autostart priority of the lab."""
         if value is not None and not (0 <= value <= 10000):
             raise ValueError("autostart_priority must be between 0 and 10000")
-        self._autostart_config["priority"] = value
-        self._set_property("autostart", self._autostart_config)
+        self._autostart["priority"] = value
+        self._set_property("autostart", self._autostart)
 
     @property
     def autostart_delay(self) -> int | None:
         """Return the autostart delay of the lab."""
         self.sync_topology_if_outdated()
-        return self._autostart_config["delay"]
+        return self._autostart["delay"]
 
     @autostart_delay.setter
     def autostart_delay(self, value: int | None) -> None:
         """Set the autostart delay of the lab."""
         if value is not None and (value < 0 or value > 84600):
             raise ValueError("autostart_delay must be between 0 and 84600")
-        self._autostart_config["delay"] = value
-        self._set_property("autostart", self._autostart_config)
+        self._autostart["delay"] = value
+        self._set_property("autostart", self._autostart)
 
-    def set_autostart_config(
+    def set_autostart(
         self,
         enabled: bool = False,
         priority: int | None = None,
@@ -395,12 +395,12 @@ class Lab:
         if delay is not None and (delay < 0 or delay > 84600):
             raise ValueError("autostart_delay must be between 0 and 84600")
 
-        self._autostart_config = {
+        self._autostart = {
             "enabled": enabled,
             "priority": priority,
             "delay": delay,
         }
-        self._set_property("autostart", self._autostart_config)
+        self._set_property("autostart", self._autostart)
 
     def _set_property(self, prop: str, value: Any):
         """
@@ -1448,9 +1448,8 @@ class Lab:
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
-            # Handle both new 'autostart' field and legacy 'autostart_config'
-            self._autostart_config = topology.get("autostart") or topology.get(
-                "autostart_config",
+            self._autostart = topology.get(
+                "autostart",
                 {
                     "enabled": False,
                     "priority": None,
@@ -1462,9 +1461,8 @@ class Lab:
             self._title = lab_dict["title"]
             self._description = lab_dict["description"]
             self._notes = lab_dict["notes"]
-            # Handle both new 'autostart' field and legacy 'autostart_config'
-            self._autostart_config = lab_dict.get("autostart") or lab_dict.get(
-                "autostart_config",
+            self._autostart = lab_dict.get(
+                "autostart",
                 {
                     "enabled": False,
                     "priority": None,
@@ -1986,12 +1984,9 @@ class Lab:
         self._notes = properties.get("notes", self._notes)
         self._owner = properties.get("owner", self._owner)
 
-        # Handle both new 'autostart' field and legacy 'autostart_config'
-        autostart_config = properties.get("autostart") or properties.get(
-            "autostart_config"
-        )
-        if autostart_config is not None:
-            self._autostart_config.update(autostart_config)
+        autostart = properties.get("autostart")
+        if autostart is not None:
+            self._autostart.update(autostart)
 
     @staticmethod
     def _find_link_in_topology(link_id: str, topology: dict) -> dict:

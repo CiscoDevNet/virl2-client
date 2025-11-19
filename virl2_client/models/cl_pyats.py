@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import io
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -119,6 +120,37 @@ class ClPyats:
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
         self._testbed = self._load_pyats_testbed(testbed_yaml)
         self.set_termserv_credentials(username, password)
+
+    def switch_pyats_serial_console(self, node_label: str, console_number: int) -> None:
+        """
+        Switch to different serial console that is used to execute PyAts commands
+        should be executed after sync_testbed
+        and re-executed after every sync_testbed call.
+
+        :param node_label: The label/title of the device.
+        :param console_number: The serial console number to be used for PyAts.
+        """
+
+        try:
+            pyats_device: Device = self._testbed.devices[node_label]
+        except KeyError:
+            raise PyatsDeviceNotFound(node_label)
+
+        node = self._lab.get_node_by_label(node_label)
+
+        # will raise API error inside if console does not exist for device
+        node.console_key(console_number)
+
+        old_connect_command = pyats_device.connections["a"]["command"]
+
+        pattern = rf"({re.escape(node_label)})/\d+"
+        new_console_cfg = f"/{console_number}"
+
+        new_connect_command = re.sub(
+            pattern, rf"\1{new_console_cfg}", old_connect_command
+        )
+
+        pyats_device.connections["a"]["command"] = new_connect_command
 
     def set_termserv_credentials(
         self,

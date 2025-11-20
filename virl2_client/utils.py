@@ -21,9 +21,10 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from contextlib import nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Type, TypeVar, cast
 
 import httpx
 
@@ -39,9 +40,9 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .models import Annotation, Interface, Lab, Link, Node
+    from .models import Annotation, Interface, Lab, Link, Node, SmartAnnotation
 
-    Element = Union[Lab, Node, Interface, Link, Annotation]
+    Element = Lab | Node | Interface | Link | Annotation | SmartAnnotation
 
 TCallable = TypeVar("TCallable", bound=Callable)
 

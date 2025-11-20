@@ -768,3 +768,38 @@ def test_get_diagnostics_paths(
         if not valid:
             data = {"error": f"Failed to fetch {category.value} diagnostics"}
         assert diagnostics_data[category.value] == data
+
+
+@respx.mock
+def test_system_management_controller_triggers_compute_load(
+    client_library_server_current,
+):
+    respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
+    respx.get("https://localhost/api/v0/authok").respond(200)
+
+    compute_hosts_response = [
+        {
+            "id": "controller-123",
+            "hostname": "controller-host",
+            "server_address": "192.168.1.100",
+            "is_connector": True,
+            "is_simulator": False,
+            "is_connected": True,
+            "is_synced": True,
+            "admission_state": "approved",
+            "node_counts": {"deployed": 0, "running": 0, "orphans": 0},
+        }
+    ]
+
+    respx.get("https://localhost/api/v0/system/compute_hosts").respond(
+        json=compute_hosts_response
+    )
+
+    client_library = ClientLibrary(
+        "https://localhost", "user", "pass", ssl_verify=False
+    )
+
+    controller = client_library.system_management.controller
+
+    assert controller.is_connector is True
+    assert controller.hostname == "controller-host"

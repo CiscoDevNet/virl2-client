@@ -65,6 +65,7 @@ class Interface:
         """
         self._id = iid
         self._node = node
+        self._lab = node._lab
         self._type = iface_type
         self._label = label
         self._slot = slot
@@ -83,7 +84,7 @@ class Interface:
             "ipv4": None,
             "ipv6": None,
         }
-        self._deployed_mac_address = None
+        self._operational: dict[str, Any] = {}
 
     def __eq__(self, other):
         if not isinstance(other, Interface):
@@ -255,8 +256,14 @@ class Interface:
     @property
     def deployed_mac_address(self) -> str | None:
         """Return the deployed MAC address of the interface."""
-        self.node.sync_interface_operational()
-        return self._deployed_mac_address
+        self._lab.sync_operational_if_outdated()
+        return self._operational.get("mac_address")
+
+    @property
+    def operational(self) -> dict[str, Any]:
+        """Return the operational data for this interface."""
+        self._lab.sync_operational_if_outdated()
+        return self._operational.copy()
 
     @property
     def is_physical(self) -> bool:
@@ -346,8 +353,8 @@ class Interface:
         Return the peer interface connected to this interface in a set.
         """
         warnings.warn(
-            "'Interface.peer_interfaces()' is deprecated, "
-            "use '.peer_interface' instead.",
+            "'Interface.peer_interfaces()' is deprecated. "
+            "Use '.peer_interface' instead.",
         )
         return {self.peer_interface}
 

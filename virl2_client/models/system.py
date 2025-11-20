@@ -94,6 +94,7 @@ class SystemManagement:
             (should never be the case).
         :returns: The controller object.
         """
+        self.sync_compute_hosts_if_outdated()
         for compute_host in self._compute_hosts.values():
             if compute_host.is_connector:
                 return compute_host

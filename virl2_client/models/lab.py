@@ -24,7 +24,8 @@ import json
 import logging
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 from httpx import HTTPStatusError
 
@@ -2129,8 +2130,8 @@ class Lab:
         :returns: Updated objects consisting of group ID and permissions.
         """
         warnings.warn(
-            "'Lab.update_lab_groups()' is deprecated. Use '.update_associations()'"
-            " instead.",
+            "'Lab.update_lab_groups()' is deprecated. "
+            "Use '.update_associations()' instead.",
         )
         url = self._url_for("lab")
         data = {"groups": group_list}

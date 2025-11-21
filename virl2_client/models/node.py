@@ -717,14 +717,16 @@ class Node:
         return self._session.get(url).json()
 
     @check_stale
-    def console_key(self) -> str:
+    def console_key(self, console_number: int = 0) -> str:
         """
         Get the console key of the node.
 
+        :param console_number: The console number (defaults to 0).
         :returns: The console key.
         """
+        params = {"line": console_number}
         url = self._url_for("console_key")
-        return self._session.get(url).json()
+        return self._session.get(url, params=params).json()
 
     @check_stale
     def vnc_key(self) -> str:

@@ -669,6 +669,9 @@ class ClientLibrary:
         title: str | None = None,
         description: str | None = None,
         notes: str | None = None,
+        staging_enabled: bool | None = None,
+        staging_start_remaining: bool | None = None,
+        staging_abort_on_failure: bool | None = None,
     ) -> Lab:
         """
         Create a new lab with optional title, description, and notes.
@@ -689,10 +692,29 @@ class ClientLibrary:
         :param title: The title of the lab.
         :param description: The description of the lab.
         :param notes: The notes of the lab.
+        :param staging_enabled: Whether node staging is enabled for the lab.
+        :param staging_start_remaining: Whether to start remaining nodes after
+            priority nodes complete.
+        :param staging_abort_on_failure: Whether to abort startup if any node
+            fails to start.
         :returns: A Lab instance representing the created lab.
         """
         url = self._url_for("labs")
         body = {"title": title, "description": description, "notes": notes}
+
+        node_staging = {
+            k: v
+            for k, v in {
+                "enabled": staging_enabled,
+                "start_remaining": staging_start_remaining,
+                "abort_on_failure": staging_abort_on_failure,
+            }.items()
+            if v is not None
+        }
+
+        if node_staging:
+            body["node_staging"] = node_staging
+
         # exclude values left at None
         body = {k: v for k, v in body.items() if v is not None}
         result = self._session.post(url, json=body).json()

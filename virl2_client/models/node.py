@@ -672,6 +672,7 @@ class Node:
         """
         url = self._url_for("stop")
         self._session.put(url)
+        self._lab.pyats.cleanup(self.label)
         if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 

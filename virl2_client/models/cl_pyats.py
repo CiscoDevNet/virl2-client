@@ -35,7 +35,8 @@ try:
 except ImportError:
     _PyatsTFLoader = None
     _PyatsTMProcessor = None
-    _UConnectionError = _USubCommandFailure = None
+    _UConnectionError = None
+    _USubCommandFailure = None
 else:
     # Ensure markup processor never uses the command line arguments as that's broken
     _PyatsProcessor.argv.clear()
@@ -165,12 +166,7 @@ class ClPyats:
 
     def _reconnect(self, pyats_device: "Device", params: dict) -> None:
         """Helper method to reconnect a PyATS device with proper cleanup."""
-        if pyats_device in self._connections:
-            self._connections.discard(pyats_device)
-        try:
-            pyats_device.destroy()
-        except Exception:
-            pass
+        self._destroy_device(pyats_device, raise_exc=False)
         pyats_device.connect(
             logfile=os.devnull, log_stdout=False, learn_hostname=True, **params
         )
@@ -220,13 +216,10 @@ class ClPyats:
         if pyats_device not in self._connections or not pyats_device.is_connected():
             self._reconnect(pyats_device, params)
 
-        def _run():
+        try:
             if configure_mode:
                 return pyats_device.configure(command, log_stdout=False, **params)
             return pyats_device.execute(command, log_stdout=False, **params)
-
-        try:
-            return _run()
         except Exception as exc:
             should_raise = True
             retry_reason = None
@@ -240,16 +233,12 @@ class ClPyats:
                     should_raise = False
                     retry_reason = f"SubCommandFailure with TimeoutError cause: {cause}"
 
-            if should_raise:
-                raise
-
-            if _retry_attempted:
+            if _retry_attempted or should_raise:
                 raise
 
             _LOGGER.info(
                 f"PyATS command failed on node {node_label}, retrying after reconnection. Reason: {retry_reason}"
             )
-
             self._reconnect(pyats_device, params)
             return self._execute_command(
                 node_label,
@@ -329,24 +318,26 @@ class ClPyats:
         Clean up pyATS connections.
 
         :param node_label: The label/title of a specific node to cleanup.
-                          If None, all connections will be cleaned up.
+            If None, all connections will be cleaned up.
         """
         if node_label is None:
             for pyats_device in tuple(self._connections):
-                try:
-                    pyats_device.destroy()
-                finally:
-                    self._connections.discard(pyats_device)
-        else:
-            if self._testbed is None:
-                return
-            try:
-                pyats_device: "Device" = self._testbed.devices[node_label]
-            except KeyError:
-                return
-            if pyats_device in self._connections:
-                try:
-                    pyats_device.destroy()
+                self._destroy_device(pyats_device)
+            return
+        if self._testbed is None:
+            return
+        try:
+            pyats_device: "Device" = self._testbed.devices[node_label]
+        except KeyError:
+            return
+        if pyats_device in self._connections:
+            self._destroy_device(pyats_device)
 
-                finally:
-                    self._connections.discard(pyats_device)
+    def _destroy_device(self, pyats_device: "Device", raise_exc=True) -> None:
+        try:
+            pyats_device.destroy()
+        except Exception:
+            if raise_exc:
+                raise
+        finally:
+            self._connections.discard(pyats_device)

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from typing import TYPE_CHECKING
 
 from ..utils import check_stale, get_url_from_template, locked

@@ -1448,28 +1448,17 @@ class Lab:
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
-            self._autostart = topology.get(
-                "autostart",
-                {
-                    "enabled": False,
-                    "priority": None,
-                    "delay": None,
-                },
-            )
             self._set_owner(topology.get("lab_owner"), default_owner)
+            autostart_data = topology.get("autostart")
         else:
             self._title = lab_dict["title"]
             self._description = lab_dict["description"]
             self._notes = lab_dict["notes"]
-            self._autostart = lab_dict.get(
-                "autostart",
-                {
-                    "enabled": False,
-                    "priority": None,
-                    "delay": None,
-                },
-            )
             self._set_owner(lab_dict.get("owner"), default_owner)
+            autostart_data = lab_dict.get("autostart")
+
+        if autostart_data:
+            self._autostart = autostart_data
 
     @locked
     def _handle_import_nodes(self, topology: dict) -> None:

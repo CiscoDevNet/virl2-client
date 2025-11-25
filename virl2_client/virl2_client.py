@@ -693,7 +693,6 @@ class ClientLibrary:
         """
         url = self._url_for("labs")
         body = {"title": title, "description": description, "notes": notes}
-
         # exclude values left at None
         body = {k: v for k, v in body.items() if v is not None}
         result = self._session.post(url, json=body).json()

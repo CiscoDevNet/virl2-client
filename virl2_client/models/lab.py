@@ -358,7 +358,7 @@ class Lab:
     @autostart_priority.setter
     def autostart_priority(self, value: int | None) -> None:
         """Set the autostart priority of the lab."""
-        if value is not None and not (0 <= value <= 10000):
+        if not (value is None or 0 <= value <= 10000):
             raise ValueError("autostart_priority must be between 0 and 10000")
         self._autostart["priority"] = value
         self._set_property("autostart", self._autostart)

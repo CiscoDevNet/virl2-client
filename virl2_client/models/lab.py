@@ -372,7 +372,7 @@ class Lab:
     @autostart_delay.setter
     def autostart_delay(self, value: int | None) -> None:
         """Set the autostart delay of the lab."""
-        if value is not None and (value < 0 or value > 84600):
+        if not (value is None or 0 <= value <= 86400):
             raise ValueError("autostart_delay must be between 0 and 84600")
         self._autostart["delay"] = value
         self._set_property("autostart", self._autostart)

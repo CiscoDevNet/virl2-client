@@ -20,9 +20,10 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
 
-from ..utils import UNCHANGED, _Sentinel, get_url_from_template
+from ..utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -142,9 +143,9 @@ class UserManagement:
         password_dict: dict[str, str] | None = None,
         pubkey: str | None = None,
         resource_pool: str | None | _Sentinel = UNCHANGED,
-        opt_in: bool | None | _Sentinel = UNCHANGED,
+        opt_in: OptInStatus | bool | None | _Sentinel = UNCHANGED,
         tour_version: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> None:
         optional_data = {
             "fullname": fullname,
             "description": description,
@@ -156,16 +157,26 @@ class UserManagement:
             "pubkey": pubkey,
             "tour_version": tour_version,
         }
-        sentinel_data = {
-            "resource_pool": resource_pool,
-            "opt_in": opt_in,
-        }
         for key, value in optional_data.items():
             if value is not None:
                 data[key] = value
-        for key, value in sentinel_data.items():
-            if value != UNCHANGED:
-                data[key] = value
+        if resource_pool is not UNCHANGED:
+            data["resource_pool"] = resource_pool
+        if opt_in is UNCHANGED:
+            return
+        if not isinstance(opt_in, OptInStatus):
+            warnings.warn(
+                "Using boolean or None values for opt_in is deprecated. "
+                f"Use one of {[status.value for status in OptInStatus]} instead.",
+                DeprecationWarning,
+            )
+            if opt_in is True:
+                opt_in = OptInStatus.ACCEPTED
+            elif opt_in is False:
+                opt_in = OptInStatus.DECLINED
+            else:
+                opt_in = OptInStatus.UNSET
+        data["opt_in"] = opt_in.value
 
     def user_groups(self, user_id: str) -> list[str]:
         """

@@ -23,6 +23,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable
 from contextlib import nullcontext
+from enum import StrEnum, auto
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Type, TypeVar, cast
 
@@ -54,6 +55,12 @@ class _Sentinel:
 
 UNCHANGED = _Sentinel()
 _CONFIG_MODE = "exclude_configurations=false"
+
+
+class OptInStatus(StrEnum):
+    UNSET = auto()
+    ACCEPTED = auto()
+    DECLINED = auto()
 
 
 def _make_not_found(instance: Element) -> ElementNotFound:

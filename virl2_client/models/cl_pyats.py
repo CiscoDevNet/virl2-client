@@ -136,21 +136,11 @@ class ClPyats:
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
-        node = self._lab.get_node_by_label(node_label)
 
-        # will raise API error inside if console does not exist for device
-        node.console_key(console_number)
+        connect_cmd = pyats_device.connections["a"]["command"]
 
-        old_connect_command = pyats_device.connections["a"]["command"]
+        pyats_device.connections["a"]["command"] = connect_cmd[:-1] + console_number
 
-        pattern = rf"({re.escape(node_label)})/\d+"
-        new_console_cfg = f"/{console_number}"
-
-        new_connect_command = re.sub(
-            pattern, rf"\1{new_console_cfg}", old_connect_command
-        )
-
-        pyats_device.connections["a"]["command"] = new_connect_command
 
     def set_termserv_credentials(
         self,

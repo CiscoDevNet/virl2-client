@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 import io
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -130,17 +129,13 @@ class ClPyats:
         :param node_label: The label/title of the device.
         :param console_number: The serial console number to be used for PyAts.
         """
-
         try:
             pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
-
         connect_cmd = pyats_device.connections["a"]["command"]
-
         pyats_device.connections["a"]["command"] = connect_cmd[:-1] + console_number
-
 
     def set_termserv_credentials(
         self,

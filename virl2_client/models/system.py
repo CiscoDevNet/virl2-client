@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
 
-from ..utils import _deprecated_argument, get_url_from_template
+from ..utils import OptInStatus, _deprecated_argument, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -43,6 +43,8 @@ class SystemManagement:
         "external_connectors": "system/external_connectors",
         "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
+        "telemetry": "telemetry",
+        "telemetry_events": "telemetry/events",
     }
 
     def __init__(
@@ -138,6 +140,28 @@ class SystemManagement:
         if notice is not None and resolved is not None:
             notice._update(resolved, push_to_server=False)
         self._maintenance_notice = notice
+
+    @property
+    def telemetry(self) -> dict[str, OptInStatus | str]:
+        """Return the telemetry state."""
+        url = self._url_for("telemetry")
+        return self._session.get(url).json()
+
+    @property
+    def telemetry_state(self) -> OptInStatus:
+        """Return the telemetry state."""
+        return OptInStatus(self.telemetry["opt_in"])
+
+    @telemetry_state.setter
+    def telemetry_state(self, mode: OptInStatus) -> None:
+        """Set the telemetry state."""
+        url = self._url_for("telemetry")
+        self._session.put(url, json={"opt_in": mode.name})
+
+    def get_telemetry_events(self) -> list[dict[str, Any]]:
+        """Return the list of telemetry events."""
+        url = self._url_for("telemetry_events")
+        return self._session.get(url).json()
 
     def sync_compute_hosts_if_outdated(self) -> None:
         """Synchronize compute hosts if they are outdated."""

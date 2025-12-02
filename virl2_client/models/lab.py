@@ -142,9 +142,11 @@ class Lab:
         self._session = session
         self._owner = username
         self._state = None
-        self._staging_enabled = False
-        self._staging_start_remaining = True
-        self._staging_abort_on_failure = False
+        self._node_staging = {
+            "enabled": False,
+            "start_remaining": True,
+            "abort_on_failure": False,
+        }
         self._nodes: dict[str, Node] = {}
         """
         Dictionary containing all nodes in the lab.
@@ -336,64 +338,48 @@ class Lab:
         self._set_property("description", value)
 
     @property
+    def node_staging(self) -> dict[str, bool]:
+        """Return the node staging configuration as a dict."""
+        self.sync_topology_if_outdated()
+        return self._node_staging.copy()
+
+    @node_staging.setter
+    def node_staging(self, value: dict[str, bool]) -> None:
+        """Set the node staging configuration from a dict."""
+        if not isinstance(value, dict):
+            raise ValueError("node_staging must be a dict")
+
+        # Validate that all keys are valid
+        valid_keys = {"enabled", "start_remaining", "abort_on_failure"}
+        invalid_keys = set(value.keys()) - valid_keys
+        if invalid_keys:
+            raise ValueError(
+                f"Invalid node_staging keys: {invalid_keys}. Valid keys: {valid_keys}"
+            )
+
+        # Update the property using the node_staging structure
+        url = self._url_for("lab")
+        self._session.patch(url, json={"node_staging": value})
+        self._node_staging.update(value)
+
+    # Read-only access to individual staging values for backward compatibility
+    @property
     def staging_enabled(self) -> bool:
         """Return whether node staging is enabled for the lab."""
         self.sync_topology_if_outdated()
-        return self._staging_enabled
-
-    @staging_enabled.setter
-    def staging_enabled(self, value: bool) -> None:
-        """Set whether node staging is enabled for the lab."""
-        self._set_staging_property("staging_enabled", value)
+        return self._node_staging["enabled"]
 
     @property
     def staging_start_remaining(self) -> bool:
         """Return whether to start remaining nodes after staged nodes complete."""
         self.sync_topology_if_outdated()
-        return self._staging_start_remaining
-
-    @staging_start_remaining.setter
-    def staging_start_remaining(self, value: bool) -> None:
-        """Set whether to start remaining nodes after staged nodes complete."""
-        self._set_staging_property("staging_start_remaining", value)
+        return self._node_staging["start_remaining"]
 
     @property
     def staging_abort_on_failure(self) -> bool:
         """Return whether to abort remaining nodes if a staged node fails."""
         self.sync_topology_if_outdated()
-        return self._staging_abort_on_failure
-
-    @staging_abort_on_failure.setter
-    def staging_abort_on_failure(self, value: bool) -> None:
-        """Set whether to abort remaining nodes if a staged node fails."""
-        self._set_staging_property("staging_abort_on_failure", value)
-
-    def _set_staging_property(self, prop: str, value: bool) -> None:
-        """
-        Set a node staging property, mapping from client property names
-        to API property names.
-
-        :param prop: The client-side property name.
-        :param value: The new value of the property.
-        """
-        # Map client property names to API property names for node_staging object
-        api_prop_mapping = {
-            "staging_enabled": "enabled",
-            "staging_start_remaining": "start_remaining",
-            "staging_abort_on_failure": "abort_on_failure",
-        }
-
-        if prop not in api_prop_mapping:
-            raise ValueError(f"Unknown staging property: {prop}")
-
-        api_prop = api_prop_mapping[prop]
-
-        # Update the property using the node_staging nested structure
-        node_staging_data = {"node_staging": {api_prop: value}}
-
-        url = self._url_for("lab")
-        self._session.patch(url, json=node_staging_data)
-        setattr(self, f"_{prop}", value)
+        return self._node_staging["abort_on_failure"]
 
     def _set_property(self, prop: str, value: Any):
         """
@@ -1455,9 +1441,11 @@ class Lab:
 
             # Handle node staging properties
             node_staging = lab_dict.get("node_staging", {})
-            self._staging_enabled = node_staging.get("enabled", False)
-            self._staging_start_remaining = node_staging.get("start_remaining", True)
-            self._staging_abort_on_failure = node_staging.get("abort_on_failure", False)
+            self._node_staging = {
+                "enabled": node_staging.get("enabled", False),
+                "start_remaining": node_staging.get("start_remaining", True),
+                "abort_on_failure": node_staging.get("abort_on_failure", False),
+            }
 
     @locked
     def _handle_import_nodes(self, topology: dict) -> None:
@@ -1974,14 +1962,15 @@ class Lab:
 
         # Handle node staging properties
         node_staging = properties.get("node_staging", {})
-        if node_staging:
-            self._staging_enabled = node_staging.get("enabled", self._staging_enabled)
-            self._staging_start_remaining = node_staging.get(
-                "start_remaining", self._staging_start_remaining
-            )
-            self._staging_abort_on_failure = node_staging.get(
-                "abort_on_failure", self._staging_abort_on_failure
-            )
+        self._node_staging = {
+            "enabled": node_staging.get("enabled", self._node_staging["enabled"]),
+            "start_remaining": node_staging.get(
+                "start_remaining", self._node_staging["start_remaining"]
+            ),
+            "abort_on_failure": node_staging.get(
+                "abort_on_failure", self._node_staging["abort_on_failure"]
+            ),
+        }
 
     @staticmethod
     def _find_link_in_topology(link_id: str, topology: dict) -> dict:

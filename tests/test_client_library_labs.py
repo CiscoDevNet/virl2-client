@@ -521,7 +521,13 @@ def test_lab_staging_properties_individual(property_name, default_value, test_va
 
     assert getattr(lab, property_name) == default_value
 
-    setattr(lab, property_name, test_value)
+    # Use node_staging dict instead of individual setter (per senior feedback)
+    staging_key_map = {
+        "staging_enabled": "enabled",
+        "staging_start_remaining": "start_remaining",
+        "staging_abort_on_failure": "abort_on_failure",
+    }
+    lab.node_staging = {staging_key_map[property_name]: test_value}
     assert getattr(lab, property_name) == test_value
 
     assert session.patch.call_count == 1
@@ -545,15 +551,18 @@ def test_lab_staging_properties_all():
     assert lab.staging_start_remaining is True
     assert lab.staging_abort_on_failure is False
 
-    lab.staging_enabled = True
-    lab.staging_start_remaining = False
-    lab.staging_abort_on_failure = True
+    # Use node_staging dict instead of individual setters (per senior feedback)
+    lab.node_staging = {
+        "enabled": True,
+        "start_remaining": False,
+        "abort_on_failure": True,
+    }
 
     assert lab.staging_enabled is True
     assert lab.staging_start_remaining is False
     assert lab.staging_abort_on_failure is True
 
-    assert session.patch.call_count == 3
+    assert session.patch.call_count == 1
 
 
 @pytest.mark.parametrize("priority_value", [0, 1, 5000, 9999, 10000, None])
@@ -790,9 +799,11 @@ def test_client_library_create_lab_staging_parameters():
 
     actual_create_lab(
         title="Staging Test Lab",
-        staging_enabled=True,
-        staging_start_remaining=False,
-        staging_abort_on_failure=True,
+        node_staging={
+            "enabled": True,
+            "start_remaining": False,
+            "abort_on_failure": True,
+        },
     )
 
     session.post.assert_called_once()
@@ -808,11 +819,11 @@ def test_client_library_create_lab_staging_parameters():
 @pytest.mark.parametrize(
     "staging_params,expected_staging",
     [
-        ({"staging_enabled": True}, {"enabled": True}),
-        ({"staging_start_remaining": False}, {"start_remaining": False}),
-        ({"staging_abort_on_failure": True}, {"abort_on_failure": True}),
+        ({"node_staging": {"enabled": True}}, {"enabled": True}),
+        ({"node_staging": {"start_remaining": False}}, {"start_remaining": False}),
+        ({"node_staging": {"abort_on_failure": True}}, {"abort_on_failure": True}),
         (
-            {"staging_enabled": True, "staging_start_remaining": False},
+            {"node_staging": {"enabled": True, "start_remaining": False}},
             {"enabled": True, "start_remaining": False},
         ),
         (

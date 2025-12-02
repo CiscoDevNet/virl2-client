@@ -26,6 +26,7 @@ from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
 from virl2_client.models.node import Node
+from virl2_client.virl2_client import ClientLibrary
 
 RESOURCE_POOL_MANAGER = Mock()
 
@@ -494,3 +495,382 @@ def test_node_clear_discovered_addresses(respx_mock):
     assert interface2.discovered_mac_address is None
 
     respx_mock.assert_all_called()
+
+
+@pytest.mark.parametrize(
+    "property_name,default_value,test_value",
+    [
+        ("staging_enabled", False, True),
+        ("staging_start_remaining", True, False),
+        ("staging_abort_on_failure", False, True),
+    ],
+)
+def test_lab_staging_properties_individual(property_name, default_value, test_value):
+    """Test individual lab staging properties with their defaults and setters."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    assert getattr(lab, property_name) == default_value
+
+    # Use node_staging dict instead of individual setter (per senior feedback)
+    staging_key_map = {
+        "staging_enabled": "enabled",
+        "staging_start_remaining": "start_remaining",
+        "staging_abort_on_failure": "abort_on_failure",
+    }
+    lab.node_staging = {staging_key_map[property_name]: test_value}
+    assert getattr(lab, property_name) == test_value
+
+    assert session.patch.call_count == 1
+
+
+def test_lab_staging_properties_all():
+    """Test all lab staging properties together."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    assert lab.staging_enabled is False
+    assert lab.staging_start_remaining is True
+    assert lab.staging_abort_on_failure is False
+
+    # Use node_staging dict instead of individual setters (per senior feedback)
+    lab.node_staging = {
+        "enabled": True,
+        "start_remaining": False,
+        "abort_on_failure": True,
+    }
+
+    assert lab.staging_enabled is True
+    assert lab.staging_start_remaining is False
+    assert lab.staging_abort_on_failure is True
+
+    assert session.patch.call_count == 1
+
+
+@pytest.mark.parametrize("priority_value", [0, 1, 5000, 9999, 10000, None])
+def test_node_priority_valid_values(priority_value):
+    """Test node priority property with valid values."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    node = lab._create_node_local("test_node", "Test Node", "server")
+
+    node.priority = priority_value
+    assert node.priority == priority_value
+
+
+@pytest.mark.parametrize("invalid_value", [-1, -100, 10001, 50000])
+def test_node_priority_invalid_values(invalid_value):
+    """Test node priority property with invalid values."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    node = lab._create_node_local("test_node", "Test Node", "server")
+
+    with pytest.raises(
+        ValueError, match="Priority must be between 0 and 10000, or None"
+    ):
+        node.priority = invalid_value
+
+
+def test_node_priority_default():
+    """Test node priority default value."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    node = lab._create_node_local("test_node", "Test Node", "server")
+
+    assert node.priority is None
+
+
+@pytest.mark.parametrize(
+    "staging_data,expected_enabled,expected_start_remaining,expected_abort",
+    [
+        (
+            {"enabled": True, "start_remaining": False, "abort_on_failure": True},
+            True,
+            False,
+            True,
+        ),
+        (
+            {"enabled": False, "start_remaining": True, "abort_on_failure": False},
+            False,
+            True,
+            False,
+        ),
+        ({}, False, True, False),
+        ({"enabled": True}, True, True, False),
+    ],
+)
+def test_lab_staging_import(
+    staging_data, expected_enabled, expected_start_remaining, expected_abort
+):
+    """Test that lab staging properties are handled during import."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    topology = {
+        "lab": {
+            "title": "Test Lab",
+            "description": "Test Description",
+            "notes": "Test Notes",
+            "owner": "testuser",
+            "node_staging": staging_data,
+        }
+    }
+
+    lab._import_lab(topology)
+
+    assert lab.staging_enabled is expected_enabled
+    assert lab.staging_start_remaining is expected_start_remaining
+    assert lab.staging_abort_on_failure is expected_abort
+
+
+def test_lab_staging_import_missing_section():
+    """Test lab import when node_staging section is missing."""
+    session = MagicMock()
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    topology = {
+        "lab": {
+            "title": "Test Lab",
+            "description": "Test Description",
+            "notes": "Test Notes",
+            "owner": "testuser",
+            # no node_staging section
+        }
+    }
+
+    lab._import_lab(topology)
+
+    assert lab.staging_enabled is False
+    assert lab.staging_start_remaining is True
+    assert lab.staging_abort_on_failure is False
+
+
+def test_node_creation_with_priority():
+    """Test that node creation with priority parameter works."""
+    session = MagicMock()
+    session.post.return_value.json.return_value = {"id": "test_node_id"}
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(lab, "wait_until_lab_converged", MagicMock())
+        m.setattr(lab, "need_to_wait", MagicMock(return_value=False))
+
+        lab.create_node("test_node", "server", x=100, y=200, priority=50)
+
+        session.post.assert_called_once()
+        call_args = session.post.call_args
+        json_data = call_args[1]["json"]
+
+        assert json_data["priority"] == 50
+        assert json_data["label"] == "test_node"
+        assert json_data["node_definition"] == "server"
+
+
+def test_node_creation_without_priority():
+    """Test that node creation without priority parameter works."""
+    session = MagicMock()
+    session.post.return_value.json.return_value = {"id": "test_node_id"}
+    username = password = "test"
+    lab = Lab(
+        "laboratory",
+        "1",
+        session,
+        username,
+        password,
+        auto_sync=0,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(lab, "wait_until_lab_converged", MagicMock())
+        m.setattr(lab, "need_to_wait", MagicMock(return_value=False))
+
+        lab.create_node("test_node", "server", x=100, y=200)
+
+        session.post.assert_called_once()
+        call_args = session.post.call_args
+        json_data = call_args[1]["json"]
+
+        assert "priority" not in json_data
+        assert json_data["label"] == "test_node"
+        assert json_data["node_definition"] == "server"
+
+
+def test_client_library_create_lab_staging_parameters():
+    """Test ClientLibrary create_lab method with staging parameters."""
+    session = MagicMock()
+    session.post.return_value.json.return_value = {
+        "id": "test_lab_id",
+        "lab_title": "Staging Test Lab",
+        "lab_description": "",
+        "lab_notes": "",
+        "lab_owner": "test_user",
+    }
+
+    cl = MagicMock(spec=ClientLibrary)
+    cl._session = session
+    cl.username = "test_user"
+    cl.password = "test_pass"
+    cl.auto_sync = False
+    cl.auto_sync_interval = 1.0
+    cl.convergence_wait_max_iter = 500
+    cl.convergence_wait_time = 5
+    cl.resource_pool_management = RESOURCE_POOL_MANAGER
+    cl._labs = {}
+
+    cl._url_for.return_value = "labs"
+
+    actual_create_lab = ClientLibrary.create_lab.__get__(cl, ClientLibrary)
+
+    actual_create_lab(
+        title="Staging Test Lab",
+        node_staging={
+            "enabled": True,
+            "start_remaining": False,
+            "abort_on_failure": True,
+        },
+    )
+
+    session.post.assert_called_once()
+    call_args = session.post.call_args
+    json_data = call_args[1]["json"]
+
+    assert json_data["title"] == "Staging Test Lab"
+    assert json_data["node_staging"]["enabled"] is True
+    assert json_data["node_staging"]["start_remaining"] is False
+    assert json_data["node_staging"]["abort_on_failure"] is True
+
+
+@pytest.mark.parametrize(
+    "staging_params,expected_staging",
+    [
+        ({"node_staging": {"enabled": True}}, {"enabled": True}),
+        ({"node_staging": {"start_remaining": False}}, {"start_remaining": False}),
+        ({"node_staging": {"abort_on_failure": True}}, {"abort_on_failure": True}),
+        (
+            {"node_staging": {"enabled": True, "start_remaining": False}},
+            {"enabled": True, "start_remaining": False},
+        ),
+        (
+            {},  # No staging parameters
+            None,  # Should not include node_staging in request
+        ),
+    ],
+)
+def test_client_library_create_lab_staging_combinations(
+    staging_params, expected_staging
+):
+    """Test ClientLibrary create_lab with different staging parameter combinations."""
+    session = MagicMock()
+    session.post.return_value.json.return_value = {
+        "id": "test_lab_id",
+        "lab_title": "Test Lab",
+        "lab_description": "",
+        "lab_notes": "",
+        "lab_owner": "test_user",
+    }
+
+    cl = MagicMock(spec=ClientLibrary)
+    cl._session = session
+    cl.username = "test_user"
+    cl.password = "test_pass"
+    cl.auto_sync = False
+    cl.auto_sync_interval = 1.0
+    cl.convergence_wait_max_iter = 500
+    cl.convergence_wait_time = 5
+    cl.resource_pool_management = RESOURCE_POOL_MANAGER
+    cl._labs = {}
+
+    cl._url_for.return_value = "labs"
+
+    actual_create_lab = ClientLibrary.create_lab.__get__(cl, ClientLibrary)
+
+    actual_create_lab(title="Test Lab", **staging_params)
+
+    session.post.assert_called_once()
+    call_args = session.post.call_args
+    json_data = call_args[1]["json"]
+
+    assert json_data["title"] == "Test Lab"
+
+    if expected_staging is None:
+        assert "node_staging" not in json_data
+    else:
+        assert "node_staging" in json_data
+        for key, value in expected_staging.items():
+            assert json_data["node_staging"][key] == value

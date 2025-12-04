@@ -1200,6 +1200,7 @@ class Lab:
         """
         url = self._url_for("stop")
         self._session.put(url)
+        self.cleanup_pyats_connections()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
         _LOGGER.debug(f"Stopped lab: {self._id}")

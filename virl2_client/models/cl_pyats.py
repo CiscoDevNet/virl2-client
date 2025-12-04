@@ -21,6 +21,8 @@
 from __future__ import annotations
 
 import io
+import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -28,15 +30,21 @@ try:
     from pyats.topology.loader.base import TestbedFileLoader as _PyatsTFLoader
     from pyats.topology.loader.markup import TestbedMarkupProcessor as _PyatsTMProcessor
     from pyats.utils.yaml.markup import Processor as _PyatsProcessor
+    from unicon.core.errors import ConnectionError as _UConnectionError
+    from unicon.core.errors import SubCommandFailure as _USubCommandFailure
 except ImportError:
     _PyatsTFLoader = None
     _PyatsTMProcessor = None
+    _UConnectionError = None
+    _USubCommandFailure = None
 else:
     # Ensure markup processor never uses the command line arguments as that's broken
     _PyatsProcessor.argv.clear()
 
 
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
+
+_LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from genie.libs.conf.device import Device
@@ -173,6 +181,14 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
+    def _reconnect(self, pyats_device: "Device", params: dict) -> None:
+        """Helper method to reconnect a PyATS device with proper cleanup."""
+        self._destroy_device(pyats_device, raise_exc=False)
+        pyats_device.connect(
+            logfile=os.devnull, log_stdout=False, learn_hostname=True, **params
+        )
+        self._connections.add(pyats_device)
+
     def _execute_command(
         self,
         node_label: str,
@@ -180,6 +196,7 @@ class ClPyats:
         configure_mode: bool = False,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
+        _retry_attempted: bool = False,
         **pyats_params: Any,
     ) -> str:
         """
@@ -201,24 +218,54 @@ class ClPyats:
         """
         self._check_pyats_installed()
 
+        if self._testbed is None:
+            raise RuntimeError("pyATS testbed is not initialized")
+
         try:
-            pyats_device: Device = self._testbed.devices[node_label]
+            pyats_device: "Device" = self._testbed.devices[node_label]
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
         params = self._prepare_params(
             init_exec_commands, init_config_commands, **pyats_params
         )
-        if pyats_device not in self._connections or not pyats_device.is_connected():
-            if pyats_device in self._connections:
-                pyats_device.destroy()
 
-            pyats_device.connect(log_stdout=False, learn_hostname=True, **params)
-            self._connections.add(pyats_device)
-        if configure_mode:
-            return pyats_device.configure(command, log_stdout=False, **params)
-        else:
+        if pyats_device not in self._connections or not pyats_device.is_connected():
+            self._reconnect(pyats_device, params)
+
+        try:
+            if configure_mode:
+                return pyats_device.configure(command, log_stdout=False, **params)
             return pyats_device.execute(command, log_stdout=False, **params)
+        except Exception as exc:
+            should_raise = True
+            retry_reason = None
+
+            if _UConnectionError and isinstance(exc, _UConnectionError):
+                should_raise = False
+                retry_reason = f"ConnectionError: {exc}"
+            elif _USubCommandFailure and isinstance(exc, _USubCommandFailure):
+                cause = getattr(exc, "__cause__", None)
+                if isinstance(cause, TimeoutError):
+                    should_raise = False
+                    retry_reason = f"SubCommandFailure with TimeoutError cause: {cause}"
+
+            if _retry_attempted or should_raise:
+                raise
+
+            _LOGGER.info(
+                f"PyATS command failed on node {node_label}, retrying after reconnection. Reason: {retry_reason}"
+            )
+            self._reconnect(pyats_device, params)
+            return self._execute_command(
+                node_label,
+                command,
+                configure_mode,
+                init_exec_commands,
+                init_config_commands,
+                _retry_attempted=True,
+                **pyats_params,
+            )
 
     def run_command(
         self,
@@ -283,8 +330,31 @@ class ClPyats:
             **pyats_params,
         )
 
-    def cleanup(self) -> None:
-        """Clean up the pyATS connections."""
-        for pyats_device in self._connections:
+    def cleanup(self, node_label: str | None = None) -> None:
+        """
+        Clean up pyATS connections.
+
+        :param node_label: The label/title of a specific node to cleanup.
+            If None, all connections will be cleaned up.
+        """
+        if node_label is None:
+            for pyats_device in tuple(self._connections):
+                self._destroy_device(pyats_device)
+            return
+        if self._testbed is None:
+            return
+        try:
+            pyats_device: "Device" = self._testbed.devices[node_label]
+        except KeyError:
+            return
+        if pyats_device in self._connections:
+            self._destroy_device(pyats_device)
+
+    def _destroy_device(self, pyats_device: "Device", raise_exc=True) -> None:
+        try:
             pyats_device.destroy()
-        self._connections.clear()
+        except Exception:
+            if raise_exc:
+                raise
+        finally:
+            self._connections.discard(pyats_device)

@@ -120,6 +120,23 @@ class ClPyats:
         self._testbed = self._load_pyats_testbed(testbed_yaml)
         self.set_termserv_credentials(username, password)
 
+    def switch_pyats_serial_console(self, node_label: str, console_number: int) -> None:
+        """
+        Switch to different serial console that is used to execute PyAts commands
+        should be executed after sync_testbed
+        and re-executed after every sync_testbed call.
+
+        :param node_label: The label/title of the device.
+        :param console_number: The serial console number to be used for PyAts.
+        """
+        try:
+            pyats_device: Device = self._testbed.devices[node_label]
+        except KeyError:
+            raise PyatsDeviceNotFound(node_label)
+
+        connect_cmd = pyats_device.connections["a"]["command"]
+        pyats_device.connections["a"]["command"] = connect_cmd[:-1] + console_number
+
     def set_termserv_credentials(
         self,
         username: str | None = None,

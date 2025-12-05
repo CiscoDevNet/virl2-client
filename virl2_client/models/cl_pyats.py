@@ -184,9 +184,12 @@ class ClPyats:
     def _reconnect(self, pyats_device: "Device", params: dict) -> None:
         """Helper method to reconnect a PyATS device with proper cleanup."""
         self._destroy_device(pyats_device, raise_exc=False)
-        pyats_device.connect(
-            logfile=os.devnull, log_stdout=False, learn_hostname=True, **params
-        )
+        try:
+            pyats_device.connect(
+                logfile=os.devnull, log_stdout=False, learn_hostname=True, **params
+            )
+        finally:
+            _remove_unicon_loggers(pyats_device)
         self._connections.add(pyats_device)
 
     def _execute_command(
@@ -238,17 +241,7 @@ class ClPyats:
                 return pyats_device.configure(command, log_stdout=False, **params)
             return pyats_device.execute(command, log_stdout=False, **params)
         except Exception as exc:
-            should_raise = True
-            retry_reason = None
-
-            if _UConnectionError and isinstance(exc, _UConnectionError):
-                should_raise = False
-                retry_reason = f"ConnectionError: {exc}"
-            elif _USubCommandFailure and isinstance(exc, _USubCommandFailure):
-                cause = getattr(exc, "__cause__", None)
-                if isinstance(cause, TimeoutError):
-                    should_raise = False
-                    retry_reason = f"SubCommandFailure with TimeoutError cause: {cause}"
+            should_raise, retry_reason = _analyze_execute_failure(exc)
 
             if _retry_attempted or should_raise:
                 raise
@@ -358,3 +351,36 @@ class ClPyats:
                 raise
         finally:
             self._connections.discard(pyats_device)
+
+
+def _analyze_execute_failure(exc: Exception) -> tuple[bool, str]:
+    should_raise = True
+    retry_reason = None
+
+    if _UConnectionError and isinstance(exc, _UConnectionError):
+        should_raise = False
+        retry_reason = f"ConnectionError: {exc}"
+    elif _USubCommandFailure and isinstance(exc, _USubCommandFailure):
+        cause = getattr(exc, "__cause__", None)
+        if isinstance(cause, TimeoutError):
+            should_raise = False
+            retry_reason = f"SubCommandFailure with TimeoutError cause: {cause}"
+    return should_raise, retry_reason
+
+
+def _remove_unicon_loggers(pyats_device: "Device") -> None:
+    """Prevent unicon logger instances and placeholders from accummulating"""
+    loggers = logging.root.manager.loggerDict
+    try:
+        names = {
+            con.log.name for con in pyats_device.connectionmgr.connections.values()
+        }
+        names.update(
+            name for name in loggers if name.startswith("unicon.terminal_server.")
+        )
+    except (AttributeError, TypeError, KeyError):
+        return
+    for name in names:
+        while name.startswith("unicon."):
+            loggers.pop(name, None)
+            name = name.rsplit(".", 1)[0]

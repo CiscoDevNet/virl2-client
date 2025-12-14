@@ -39,7 +39,7 @@ def test_topology_creation_and_removal():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
     node_a = lab._create_node_local("0", "node A", "nd")
@@ -152,7 +152,7 @@ def test_need_to_wait1():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=True,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
@@ -170,7 +170,7 @@ def test_need_to_wait2():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
@@ -188,7 +188,7 @@ def test_str_and_repr():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
@@ -205,7 +205,7 @@ def test_create_node():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
@@ -233,7 +233,7 @@ def test_create_link(respx_mock, connect_two_nodes):
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
@@ -273,7 +273,7 @@ def test_sync_stats(respx_mock):
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
@@ -290,7 +290,7 @@ def test_tags():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
     lab.get_smart_annotation_by_tag = MagicMock()
@@ -328,7 +328,7 @@ def test_find_by_label():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
 
@@ -354,7 +354,7 @@ def test_next_free_interface():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
     node_a = lab._create_node_local("0", "node A", "nd")
@@ -409,7 +409,7 @@ def test_sync_interfaces_operational(respx_mock):
         session,
         "user",
         "pass",
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
     )
     lab._interfaces = {"iface1": MagicMock()}
@@ -494,3 +494,236 @@ def test_node_clear_discovered_addresses(respx_mock):
     assert interface2.discovered_mac_address is None
 
     respx_mock.assert_all_called()
+
+
+def test_lab_autostart_initial_values():
+    """Test that new lab has correct initial autostart values."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    assert lab._autostart == {"enabled": False, "priority": None, "delay": None}
+
+
+@pytest.mark.parametrize(
+    "enabled,priority,delay",
+    [
+        (True, 100, 60),
+        (False, 500, 300),
+        (True, None, None),
+        (False, 0, 0),
+        (True, 10000, 86400),
+    ],
+)
+def test_lab_autostart_properties(enabled, priority, delay):
+    """Test autostart property getters and setters."""
+    from unittest.mock import patch
+
+    session = MagicMock()
+    session.patch.return_value = Mock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with patch.object(lab, "sync_topology_if_outdated"):
+        lab.autostart_enabled = enabled
+        lab.autostart_priority = priority
+        lab.autostart_delay = delay
+
+        assert lab.autostart_enabled == enabled
+        assert lab.autostart_priority == priority
+        assert lab.autostart_delay == delay
+
+        assert lab._autostart == {
+            "enabled": enabled,
+            "priority": priority,
+            "delay": delay,
+        }
+
+
+def test_lab_set_autostart():
+    """Test set_autostart convenience method."""
+    from unittest.mock import patch
+
+    session = MagicMock()
+    session.patch.return_value = Mock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with patch.object(lab, "sync_topology_if_outdated"):
+        # Test setting all values at once
+        lab.set_autostart(enabled=True, priority=500, delay=120)
+
+        assert lab._autostart == {"enabled": True, "priority": 500, "delay": 120}
+        assert lab.autostart_enabled is True
+        assert lab.autostart_priority == 500
+        assert lab.autostart_delay == 120
+
+        # Test validation in convenience method
+        with pytest.raises(
+            ValueError, match="autostart_priority must be between 0 and 10000"
+        ):
+            lab.set_autostart(enabled=True, priority=15000)
+
+        with pytest.raises(
+            ValueError, match="autostart_delay must be between 0 and 86400"
+        ):
+            lab.set_autostart(enabled=True, delay=100000)
+
+
+@pytest.mark.parametrize(
+    "property_name,invalid_value,error_match",
+    [
+        ("autostart_priority", 15000, "between 0 and 10000"),
+        ("autostart_priority", -1, "between 0 and 10000"),
+        ("autostart_delay", 100000, "between 0 and 86400"),
+        ("autostart_delay", -1, "between 0 and 86400"),
+    ],
+)
+def test_lab_autostart_validation(property_name, invalid_value, error_match):
+    """Test autostart property validation."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    with pytest.raises(ValueError, match=error_match):
+        setattr(lab, property_name, invalid_value)
+
+
+@pytest.mark.parametrize("has_autostart", [True, False])
+def test_lab_import_autostart(has_autostart):
+    """Test importing lab topology with/without autostart configuration."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    topology = {
+        "lab": {"title": "Test Lab", "description": "Test", "notes": "Notes"},
+        "nodes": [],
+        "links": [],
+    }
+
+    if has_autostart:
+        topology["lab"]["autostart"] = {"enabled": True, "priority": 200, "delay": 180}
+        expected = {"enabled": True, "priority": 200, "delay": 180}
+    else:
+        expected = {"enabled": False, "priority": None, "delay": None}
+
+    lab._import_lab(topology)
+    assert lab._autostart == expected
+
+
+@pytest.mark.parametrize("has_autostart", [True, False])
+def test_lab_import_autostart_new_field(has_autostart):
+    """Test importing lab topology with/without autostart configuration (new field name)."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    topology = {
+        "lab": {"title": "Test Lab", "description": "Test", "notes": "Notes"},
+        "nodes": [],
+        "links": [],
+    }
+
+    if has_autostart:
+        topology["lab"]["autostart"] = {"enabled": True, "priority": 200, "delay": 180}
+        expected = {"enabled": True, "priority": 200, "delay": 180}
+    else:
+        expected = {"enabled": False, "priority": None, "delay": None}
+
+    lab._import_lab(topology)
+    assert lab._autostart == expected
+
+
+def test_lab_update_properties_autostart():
+    """Test updating lab properties with partial autostart configuration."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    lab._autostart = {"enabled": False, "priority": 100, "delay": 200}
+
+    properties = {
+        "title": "Updated Lab",
+        "autostart": {"enabled": True, "priority": 300},
+    }
+
+    lab.update_lab_properties(properties)
+
+    assert lab._title == "Updated Lab"
+    assert lab._autostart == {"enabled": True, "priority": 300, "delay": 200}
+
+
+def test_lab_update_properties_autostart_new_field():
+    """Test updating lab properties with partial autostart configuration (new field name)."""
+    session = MagicMock()
+    lab = Lab(
+        "test_lab",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+    )
+
+    lab._autostart = {"enabled": False, "priority": 100, "delay": 200}
+
+    properties = {
+        "title": "Updated Lab",
+        "autostart": {"enabled": True, "priority": 300},
+    }
+
+    lab.update_lab_properties(properties)
+
+    assert lab._title == "Updated Lab"
+    assert lab._autostart == {"enabled": True, "priority": 300, "delay": 200}

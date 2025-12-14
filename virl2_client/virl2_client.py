@@ -669,6 +669,8 @@ class ClientLibrary:
         title: str | None = None,
         description: str | None = None,
         notes: str | None = None,
+        autostart: dict | None = None,
+        node_staging: dict | None = None,
     ) -> Lab:
         """
         Create a new lab with optional title, description, and notes.
@@ -689,10 +691,21 @@ class ClientLibrary:
         :param title: The title of the lab.
         :param description: The description of the lab.
         :param notes: The notes of the lab.
+        :param autostart: Parameter for autostart (enabled, priority, delay).
+        :param node_staging: Parameter for node staging (enabled, abort_on_failure, start_remaining).
         :returns: A Lab instance representing the created lab.
         """
         url = self._url_for("labs")
-        body = {"title": title, "description": description, "notes": notes}
+        body: dict[str, str | dict | None] = {
+            "title": title,
+            "description": description,
+            "notes": notes,
+        }
+        if autostart:
+            body["autostart"] = autostart
+        if node_staging:
+            body["node_staging"] = node_staging
+
         # exclude values left at None
         body = {k: v for k, v in body.items() if v is not None}
         result = self._session.post(url, json=body).json()

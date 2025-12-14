@@ -41,7 +41,7 @@ from ..exceptions import (
     SmartAnnotationNotFound,
     VirlException,
 )
-from ..utils import check_stale, get_url_from_template, locked
+from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 from .annotation import (
     Annotation,
@@ -142,6 +142,11 @@ class Lab:
             "enabled": False,
             "priority": None,
             "delay": None,
+        }
+        self._node_staging = {
+            "enabled": False,
+            "start_remaining": True,
+            "abort_on_failure": False,
         }
         self._id = lab_id
         self._session = session
@@ -337,30 +342,65 @@ class Lab:
         """Set the description of the lab."""
         self._set_property("description", value)
 
+    @property
+    def autostart(self) -> dict[str, Any]:
+        """Return the autostart configuration as a dict."""
+        self.sync_topology_if_outdated()
+        return self._autostart.copy()
+
     def set_autostart(
         self,
-        enabled: bool = False,
-        priority: int | None = None,
-        delay: int | None = None,
+        enabled: bool | None = None,
+        priority: int | None | _Sentinel = UNCHANGED,
+        delay: int | None | _Sentinel = UNCHANGED,
     ) -> None:
         """
-        Set all autostart configuration properties at once.
+        Set all autostart configuration properties.
 
         :param enabled: Whether autostart is enabled.
         :param priority: Priority of the lab autostart (0-10000, None for default).
         :param delay: Delay in seconds before lab autostart (0-86400, None for default).
         """
-        if priority is not None and (priority < 0 or priority > 10000):
-            raise ValueError("autostart_priority must be between 0 and 10000")
-        if delay is not None and (delay < 0 or delay > 86400):
-            raise ValueError("autostart_delay must be between 0 and 86400")
+        autostart = {}
+        if enabled is not None:
+            autostart["enabled"] = enabled
+        if priority is not UNCHANGED:
+            autostart["priority"] = priority
+        if delay is not UNCHANGED:
+            autostart["delay"] = delay
+        if autostart:
+            self._autostart.update(autostart)
+            self._set_property("autostart", self._autostart)
 
-        self._autostart = {
-            "enabled": enabled,
-            "priority": priority,
-            "delay": delay,
-        }
-        self._set_property("autostart", self._autostart)
+    @property
+    def node_staging(self) -> dict[str, bool]:
+        """Return the node staging configuration as a dict."""
+        self.sync_topology_if_outdated()
+        return self._node_staging.copy()
+
+    def set_node_staging(
+        self,
+        enabled: bool | None = None,
+        start_remaining: bool | None = None,
+        abort_on_failure: bool | None = None,
+    ) -> None:
+        """
+        Set all node staging configuration properties.
+
+        :param enabled: Whether node staging is enabled.
+        :param start_remaining: Whether to start remaining nodes after staging.
+        :param abort_on_failure: Whether to abort staging on failure.
+        """
+        node_staging = {}
+        if enabled is not None:
+            node_staging["enabled"] = enabled
+        if start_remaining is not None:
+            node_staging["start_remaining"] = start_remaining
+        if abort_on_failure is not None:
+            node_staging["abort_on_failure"] = abort_on_failure
+        if node_staging:
+            self._node_staging.update(node_staging)
+            self._set_property("node_staging", self._node_staging)
 
     def _set_property(self, prop: str, value: Any):
         """
@@ -603,7 +643,27 @@ class Lab:
             If left at the default value, the lab's wait property is used instead.
         :param populate_interfaces: Automatically create a pre-defined number
             of interfaces on node creation.
+        :param kwargs: Optional parameters. See below.
         :returns: A Node object.
+
+        :Keyword Arguments:
+            - image_definition: The definition of the image used by this node.
+            - configuration: The initial configuration of this node.
+            - ram: The memory of the node in MiB (if applicable).
+            - cpus: The number of CPUs in this node (if applicable).
+            - cpu_limit: The CPU limit of the node (default is 100%).
+            - data_volume: The size in GiB of the second HDD (if > 0).
+            - boot_disk_size: The size in GiB of the boot disk
+                (will expand to this size).
+            - hide_links: A flag indicating whether the node's links should be hidden
+                in UI visualization.
+            - tags: A list of tags associated with the node.
+            - resource_pool: The ID of the resource pool if the node is part
+                of a resource pool.
+            - pinned_compute_id: The ID of the compute this node is pinned to.
+                The node will not run on any other compute.
+            - priority: The launch priority of the node (0-10000, or None).
+                The higher the priority, the sooner the node will be started.
         """
         try:
             self.get_node_by_label(label)
@@ -1410,16 +1470,18 @@ class Lab:
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
             self._set_owner(topology.get("lab_owner"), default_owner)
-            autostart_data = topology.get("autostart")
+            if autostart := topology.get("autostart"):
+                self._autostart = autostart
+            node_staging = topology.get("node_staging")
         else:
             self._title = lab_dict["title"]
             self._description = lab_dict["description"]
             self._notes = lab_dict["notes"]
             self._set_owner(lab_dict.get("owner"), default_owner)
-            autostart_data = lab_dict.get("autostart")
+            node_staging = lab_dict.get("node_staging")
 
-        if autostart_data:
-            self._autostart = autostart_data
+        if node_staging:
+            self._node_staging = node_staging
 
     @locked
     def _handle_import_nodes(self, topology: dict) -> None:
@@ -1934,6 +1996,18 @@ class Lab:
         self._notes = properties.get("notes", self._notes)
         self._owner = properties.get("owner", self._owner)
         self._autostart.update(properties.get("autostart", {}))
+
+        # Handle node staging properties
+        node_staging = properties.get("node_staging", {})
+        self._node_staging = {
+            "enabled": node_staging.get("enabled", self._node_staging["enabled"]),
+            "start_remaining": node_staging.get(
+                "start_remaining", self._node_staging["start_remaining"]
+            ),
+            "abort_on_failure": node_staging.get(
+                "abort_on_failure", self._node_staging["abort_on_failure"]
+            ),
+        }
 
     @staticmethod
     def _find_link_in_topology(link_id: str, topology: dict) -> dict:

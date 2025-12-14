@@ -91,6 +91,8 @@ class Node:
                 of a resource pool.
             - pinned_compute_id: The ID of the compute this node is pinned to.
                 The node will not run on any other compute.
+            - priority: The launch priority of the node (0-10000, or None).
+                The higher the priority, the sooner the node will be started.
         """
         self._lab: Lab = lab
         self._id: str = nid
@@ -113,6 +115,7 @@ class Node:
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
+        self._priority: int | None = kwargs.get("priority")
         self._operational: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
@@ -508,6 +511,19 @@ class Node:
         """Set the ID of the compute this node should be pinned to."""
         self._set_node_property("pinned_compute_id", value)
         self._pinned_compute_id = value
+
+    @property
+    def priority(self) -> int | None:
+        """Return the priority of the node."""
+        self._lab.sync_topology_if_outdated()
+        return self._priority
+
+    @priority.setter
+    @locked
+    def priority(self, value: int | None) -> None:
+        """Set the priority of the node (0-10000, or None)."""
+        self._set_node_property("priority", value)
+        self._priority = value
 
     @property
     def smart_annotations(self) -> dict[str, SmartAnnotation]:

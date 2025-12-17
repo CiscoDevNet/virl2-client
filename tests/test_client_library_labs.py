@@ -21,11 +21,13 @@
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from respx import MockRouter
 
 from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
 from virl2_client.models.node import Node
+from virl2_client.virl2_client import ClientLibrary
 
 RESOURCE_POOL_MANAGER = Mock()
 
@@ -216,7 +218,7 @@ def test_create_node():
 
 
 @pytest.mark.parametrize("connect_two_nodes", [True, False])
-def test_create_link(respx_mock, connect_two_nodes):
+def test_create_link(respx_mock: MockRouter, connect_two_nodes: bool):
     respx_mock.post("mock://mock/labs/1/nodes").respond(json={"id": "n0"})
     respx_mock.post("mock://mock/labs/1/interfaces").respond(
         json={"id": "i0", "label": "eth0", "slot": 0}
@@ -260,7 +262,7 @@ def test_create_link(respx_mock, connect_two_nodes):
     respx_mock.assert_all_called()
 
 
-def test_sync_stats(respx_mock):
+def test_sync_stats(respx_mock: MockRouter):
     respx_mock.get("mock://mock/labs/1/simulation_stats").respond(
         json={"nodes": {}, "links": {}}
     )
@@ -374,7 +376,7 @@ def test_next_free_interface():
     assert nf is None
 
 
-def test_join_existing_lab(client_library):
+def test_join_existing_lab(client_library: ClientLibrary):
     lab = client_library.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
     assert lab.title == "IOSv Feature Tests"
     assert lab.statistics == {
@@ -386,7 +388,7 @@ def test_join_existing_lab(client_library):
     }
 
 
-def test_all_labs(client_library):
+def test_all_labs(client_library: ClientLibrary):
     all_labs = client_library.all_labs()
     assert len(all_labs) == 4
     iosv_labs = client_library.find_labs_by_title("IOSv Feature Tests")
@@ -396,7 +398,7 @@ def test_all_labs(client_library):
     assert node.compute_id == "99c887f5-052e-4864-a583-49fa7c4b68a9"
 
 
-def test_sync_interfaces_operational(respx_mock):
+def test_sync_interfaces_operational(respx_mock: MockRouter):
     """Test Lab.sync_interfaces_operational() uses bulk interfaces endpoint."""
     respx_mock.get("mock://mock/labs/1/interfaces").respond(
         json=[{"id": "iface1", "operational": {"mac_address": "aa:bb:cc:dd:ee:ff"}}]
@@ -422,7 +424,7 @@ def test_sync_interfaces_operational(respx_mock):
     }
 
 
-def test_lab_clear_discovered_addresses(respx_mock):
+def test_lab_clear_discovered_addresses(respx_mock: MockRouter):
     """Test Lab.clear_discovered_addresses() calls API."""
     respx_mock.delete("mock://mock/labs/1/layer3_addresses").respond(status_code=204)
     session = make_session("mock://mock")
@@ -442,7 +444,7 @@ def test_lab_clear_discovered_addresses(respx_mock):
     respx_mock.assert_all_called()
 
 
-def test_node_clear_discovered_addresses(respx_mock):
+def test_node_clear_discovered_addresses(respx_mock: MockRouter):
     """Test Node.clear_discovered_addresses()"""
     respx_mock.delete("mock://mock/labs/1/nodes/n1/layer3_addresses").respond(
         status_code=204

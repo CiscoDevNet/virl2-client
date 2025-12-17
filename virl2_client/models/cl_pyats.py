@@ -70,8 +70,6 @@ class ClPyats:
         :param lab: The lab object to be used with pyATS.
         :param hostname: Forced hostname or IP address and port of the console
             terminal server.
-        :raises PyatsNotInstalled: If pyATS is not installed.
-        :raises PyatsDeviceNotFound: If the device cannot be found.
         """
         self._lab = lab
         self._hostname = hostname
@@ -129,6 +127,7 @@ class ClPyats:
 
         :param username: The username to be inserted into the testbed data.
         :param password: The password to be inserted into the testbed data.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
@@ -143,7 +142,10 @@ class ClPyats:
 
         :param node_label: The label/title of the device.
         :param console_number: The serial console number to be used for PyAts.
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         """
+        self._check_pyats_installed()
         try:
             pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
@@ -168,7 +170,13 @@ class ClPyats:
         files that would be loaded from the environment and running user ssh
         configuration, so that the passed password or key is attempted first.
         Pass empty string or custom SSH options to override this behavior.
+
+        :param username: The username to be set.
+        :param password: The password to be set.
+        :param key_path: The SSH key path to be set.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         """
+        self._check_pyats_installed()
         terminal = self._testbed.devices.terminal_server
         if username is not None:
             terminal.credentials.default.username = username
@@ -249,6 +257,7 @@ class ClPyats:
         :param pyats_params: Additional PyATS call parameters
         :returns: The output from the device.
         :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()
 
@@ -308,6 +317,8 @@ class ClPyats:
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
         :param pyats_params: Additional PyATS call parameters
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
         return self._execute_command(
@@ -340,6 +351,8 @@ class ClPyats:
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
         :param pyats_params: Additional PyATS call parameters
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
         return self._execute_command(

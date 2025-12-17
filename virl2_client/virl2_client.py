@@ -20,16 +20,18 @@
 
 from __future__ import annotations
 
+import getpass
 import logging
 import os
 import re
+import sys
 import time
 import warnings
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
-from typing import Any, NamedTuple
+from typing import NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -47,7 +49,6 @@ from .models import (
     UserManagement,
 )
 from .models.authentication import make_session
-from .models.configuration import get_configuration
 from .utils import _deprecated_argument, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,9 +137,19 @@ class ClientConfig(NamedTuple):
     """Stores client library configuration, which can be used to create
     any number of identically configured instances of ClientLibrary."""
 
+    _CONFIG_FILE_NAME = ".virlrc"
+    _CONFIG_SOURCES = {
+        "url": ["VIRL2_URL", "VIRL_HOST"],
+        "username": ["VIRL2_USER", "VIRL_USERNAME"],
+        "password": ["VIRL2_PASS", "VIRL_PASSWORD"],
+        "jwtoken": ["VIRL2_JWT"],
+        "ssl_verify": ["CA_BUNDLE", "CML_VERIFY_CERT"],
+    }
+
     url: str | None = None
     username: str | None = None
     password: str | None = None
+    jwtoken: str | None = None
     ssl_verify: bool | str = True
     allow_http: bool = False
     auto_sync: float = 1.0
@@ -153,6 +164,7 @@ class ClientConfig(NamedTuple):
             url=self.url,
             username=self.username,
             password=self.password,
+            jwtoken=self.jwtoken,
             ssl_verify=self.ssl_verify,
             raise_for_auth_failure=self.raise_for_auth_failure,
             allow_http=self.allow_http,
@@ -164,6 +176,111 @@ class ClientConfig(NamedTuple):
         client.auto_sync_interval = self.auto_sync
         client.auto_sync = self.auto_sync >= 0.0 and not self.events
         return client
+
+    @classmethod
+    def _get_from_file(cls, virlrc_parent: Path, prop_name: str) -> str | None:
+        virlrc = virlrc_parent / cls._CONFIG_FILE_NAME
+        if virlrc.is_file():
+            with virlrc.open() as fh:
+                config = fh.readlines()
+
+            for line in config:
+                if line.startswith(prop_name):
+                    prop = line.split("=")[1].strip()
+                    if prop.startswith('"') and prop.endswith('"'):
+                        prop = prop[1:-1]
+                    return prop
+        return None
+
+    @classmethod
+    def _get_prop(cls, prop_name: str) -> str | None:
+        cwd = Path.cwd()
+        if prop := cls._get_from_file(cwd, prop_name):
+            return prop
+
+        for path in cwd.parents:
+            if prop := cls._get_from_file(path, prop_name):
+                return prop
+
+        return cls._get_from_file(Path.home(), prop_name) or None
+
+    @classmethod
+    def _populate_from_env(cls, config: dict):
+        for key, env_vars in cls._CONFIG_SOURCES.items():
+            if config[key] is not None:
+                continue
+            for env_var in env_vars:
+                if value := os.getenv(env_var):
+                    config[key] = value
+                    break
+
+    @classmethod
+    def _populate_from_rc_files(cls, config: dict):
+        for key, env_vars in cls._CONFIG_SOURCES.items():
+            if config[key] is None:
+                config[key] = cls._get_prop(env_vars[0])
+
+    @classmethod
+    def _populate_from_inputs(cls, config: dict):
+        if config["url"] is None:
+            config["url"] = input("Please enter the IP / hostname of your CML server: ")
+
+        if config["username"] is None and config["jwtoken"] is None:
+            auth_input = input("Please enter your username or JWT (if using a token): ")
+            if len(auth_input) > 32:
+                config["jwtoken"] = auth_input
+            else:
+                config["username"] = auth_input
+
+        if config["username"] is not None and config["password"] is None:
+            config["password"] = getpass.getpass("Please enter your password: ")
+
+    @classmethod
+    def get_configuration(
+        cls,
+        url: str | None,
+        username: str | None,
+        password: str | None,
+        jwtoken: str | None,
+        ssl_verify: bool | str | None,
+        allow_inputs: bool | None = None,
+    ) -> "ClientConfig":
+        populate_functions = [cls._populate_from_env, cls._populate_from_rc_files]
+        if allow_inputs is None:
+            allow_inputs = sys.stdin.isatty()
+        if allow_inputs:
+            populate_functions.append(cls._populate_from_inputs)
+        else:
+            warnings.warn(
+                "Interactive inputs are deprecated when stdin is not a TTY. "
+                "In the future, allow_inputs will default to False in such cases.",
+                DeprecationWarning,
+            )
+
+        config = {
+            "url": url,
+            "username": username,
+            "password": password,
+            "jwtoken": jwtoken,
+            "ssl_verify": ssl_verify,
+        }
+
+        for populate_function in populate_functions:
+            populate_function(config)
+            if (
+                config["url"]
+                and config["ssl_verify"] is not None
+                and (config["jwtoken"] or config["username"] and config["password"])
+            ):
+                return cls(**config)
+
+        if not config["url"]:
+            raise InitializationError("No URL provided.")
+        if not (config["jwtoken"] or (config["username"] and config["password"])):
+            raise InitializationError("Incomplete authentication configuration.")
+        if config["ssl_verify"] is None:
+            config["ssl_verify"] = True
+        return cls(**config)
 
 
 class DiagnosticsCategory(Enum):
@@ -186,7 +303,7 @@ class ClientLibrary:
     VERSION = Version("2.10.0")
 
     _URL_TEMPLATES = {
-        "auth_test": "authok",
+        "auth": "authentication",
         "system_info": "system_information",
         "import": "import",
         "import_1x": "import/virl-1x",
@@ -206,7 +323,8 @@ class ClientLibrary:
         url: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        ssl_verify: bool | str = True,
+        jwtoken: str | None = None,
+        ssl_verify: bool | str | None = None,
         raise_for_auth_failure: bool = False,
         allow_http: bool = False,
         convergence_wait_max_iter: int = 500,
@@ -215,51 +333,20 @@ class ClientLibrary:
         client_type: str = None,
         check_version: bool = True,
     ) -> None:
-        """
-        Initialize a ClientLibrary instance. Note that ssl_verify can
-        also be a string that points to a cert (see class documentation).
-
-        :param url: URL of controller. It's also possible to pass the
-            URL via the ``VIRL2_URL`` or ``VIRL_HOST`` environment variable.
-            If no protocol scheme is provided, "https:" is used.
-        :param username: Username of the user to authenticate. It's also possible
-            to pass the username via ``VIRL2_USER`` or ``VIRL_USERNAME`` variable.
-        :param password: Password of the user to authenticate. It's also possible
-            to pass the password via ``VIRL2_PASS`` or ``VIRL_PASSWORD`` variable.
-        :param ssl_verify: Path of the SSL controller certificate, or True to load
-            from ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variable,
-            or False to disable.
-        :param raise_for_auth_failure: Raise an exception if unable to connect to
-            controller. (Use for scripting scenarios.)
-        :param allow_http: If set, a https URL will not be enforced.
-        :param convergence_wait_max_iter: Maximum number of iterations for convergence.
-        :param convergence_wait_time: Time in seconds to sleep between convergence calls
-            on the backend.
-        :param check_version: Raise an exception if client and server versions
-            are more than 2 minor releases apart.
-        :param events: A flag indicating whether to enable event-based data
-            synchronization from the server. When enabled, utilizes a mechanism for
-            receiving real-time updates from the server, instead of periodically
-            requesting the data.
-        :raises InitializationError: If no URL is provided, authentication fails or host
-            can't be reached.
-        """
-        url, username, password, cert = get_configuration(
-            url, username, password, ssl_verify
+        client_config = ClientConfig.get_configuration(
+            url, username, password, jwtoken, ssl_verify
         )
-        if cert is not None:
-            ssl_verify = cert
-
         self.allow_http = allow_http
-        url, base_url = _prepare_url(url, allow_http)
-        self.username: str = username
-        self.password: str = password
+        url, base_url = _prepare_url(client_config.url, allow_http)
+        self.username: str | None = client_config.username
+        self.password: str | None = client_config.password
+        self.jwtoken: str | None = client_config.jwtoken
         self.url: str = url
         self.raise_for_auth_failure = raise_for_auth_failure
         self.check_version = check_version
 
-        self._ssl_verify = ssl_verify
-        if ssl_verify is False:
+        self._ssl_verify = client_config.ssl_verify
+        if client_config.ssl_verify is False:
             _LOGGER.warning("SSL Verification disabled")
 
         self.auto_sync = True
@@ -343,9 +430,9 @@ class ClientLibrary:
 
         :raises InitializationError: If authentication fails.
         """
-        url = self._url_for("auth_test")
+        url = self._url_for("auth")
         try:
-            self._session.get(url)
+            response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
             if status_code == httpx.codes.FORBIDDEN:
@@ -356,28 +443,11 @@ class ClientLibrary:
             raise
         except httpx.HTTPError as exc:
             raise InitializationError(exc)
-
-    @staticmethod
-    def _environ_get(
-        key: str, value: Any | None = None, default: Any | None = None
-    ) -> Any | None:
-        """
-        If the value is not yet set, fetch it from the environment or return the default
-        value.
-
-        :param key: The key to fetch the value for.
-        :param value: The value to use if it is already set.
-        :param default: The default value to use if the key is not set
-            and value is None.
-        :returns: The fetched value or the default value.
-        """
-        if value is None:
-            value = os.environ.get(key)
-            if value:
-                _LOGGER.info(f"Using value {key} from environment")
-            else:
-                value = default
-        return value
+        user_info = response.json()
+        self.user_id = user_info.get("id")
+        self.admin = user_info.get("admin", False)
+        if self.username is None:
+            self.username = user_info.get("username")
 
     @property
     def uuid(self) -> str:

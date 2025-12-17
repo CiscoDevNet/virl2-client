@@ -339,7 +339,16 @@ def test_lab_repository_not_found_exception():
 def test_lab_repository_end_to_end_workflow():
     """Test complete workflow using LabRepositoryManagement directly."""
     respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
-    respx.get("https://localhost/api/v0/authok").respond(200)
+    respx.get("https://localhost/api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "admin": True,
+            "error": None,
+        },
+    )
 
     respx.get("https://localhost/api/v0/system_information").respond(
         json={"version": "2.10.0"}

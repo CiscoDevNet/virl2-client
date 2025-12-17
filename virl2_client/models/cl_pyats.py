@@ -44,13 +44,20 @@ else:
 
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
-_LOGGER = logging.getLogger(__name__)
-
 if TYPE_CHECKING:
     from genie.libs.conf.device import Device
     from genie.libs.conf.testbed import Testbed
 
     from .lab import Lab
+
+
+_LOGGER = logging.getLogger(__name__)
+
+# Do not use any identity keys and agents with the terminal server
+# by default - the keys would be attempted before password, and may
+# exhaust the number of allowed attempts at the server
+# to use ssh keys, set the specific key path or set empty ssh_options
+DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
 
 
 class ClPyats:
@@ -128,7 +135,7 @@ class ClPyats:
         self._testbed = self._load_pyats_testbed(testbed_yaml)
         self.set_termserv_credentials(username, password)
 
-    def switch_pyats_serial_console(self, node_label: str, console_number: int) -> None:
+    def switch_serial_console(self, node_label: str, console_number: int | str) -> None:
         """
         Switch to different serial console that is used to execute PyAts commands
         should be executed after sync_testbed
@@ -142,23 +149,37 @@ class ClPyats:
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
-        connect_cmd = pyats_device.connections["a"]["command"]
-        pyats_device.connections["a"]["command"] = connect_cmd[:-1] + console_number
+        command = pyats_device.connections["a"]["command"]
+        pyats_device.connections["a"]["command"] = command[:-1] + str(console_number)
 
     def set_termserv_credentials(
         self,
         username: str | None = None,
         password: str | None = None,
         key_path: Path | str | None = None,
+        ssh_options: str | None = None,
     ) -> None:
+        """
+        Configure how to connect to the SSH terminal server after the testbed
+        was synced with the server; the username must be known before making
+        any connections. Then either set the password, or path to an identity
+        file if SSH authentication with public keys is set up on the server.
+        By default, this function disables authentication agents and identity
+        files that would be loaded from the environment and running user ssh
+        configuration, so that the passed password or key is attempted first.
+        Pass empty string or custom SSH options to override this behavior.
+        """
         terminal = self._testbed.devices.terminal_server
+        if ssh_options is None:
+            ssh_options = DEFAULT_SSH_OPTIONS
         if username is not None:
             terminal.credentials.default.username = username
         if password is not None:
             terminal.credentials.default.password = password
-        if key_path is not None:
-            ssh_options = f"-o IdentitiesOnly=yes -o IdentityFile={key_path}"
             terminal.connections.cli.ssh_options = ssh_options
+        if key_path is not None:
+            ssh_options += f" -o IdentityFile={key_path}"
+        terminal.connections.cli.ssh_options = ssh_options
 
     def _prepare_params(
         self,

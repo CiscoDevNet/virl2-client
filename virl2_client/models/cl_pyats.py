@@ -157,7 +157,7 @@ class ClPyats:
         username: str | None = None,
         password: str | None = None,
         key_path: Path | str | None = None,
-        ssh_options: str | None = None,
+        ssh_options: str = DEFAULT_SSH_OPTIONS,
     ) -> None:
         """
         Configure how to connect to the SSH terminal server after the testbed
@@ -170,8 +170,6 @@ class ClPyats:
         Pass empty string or custom SSH options to override this behavior.
         """
         terminal = self._testbed.devices.terminal_server
-        if ssh_options is None:
-            ssh_options = DEFAULT_SSH_OPTIONS
         if username is not None:
             terminal.credentials.default.username = username
         if password is not None:
@@ -214,6 +212,8 @@ class ClPyats:
 
     def _reconnect(self, pyats_device: "Device", params: dict) -> None:
         """Helper method to reconnect a PyATS device with proper cleanup."""
+        if self._is_connected(pyats_device):
+            return
         self._destroy_device(pyats_device, raise_exc=False)
         try:
             pyats_device.connect(
@@ -222,16 +222,6 @@ class ClPyats:
         finally:
             _remove_unicon_loggers(pyats_device)
         self._connections.add(pyats_device)
-
-    def _maybe_reconnect(self, pyats_device: "Device", params: dict):
-        """Reconnect the device and/or its proxy as needed"""
-        # check terminal server first, it may be missing, None or list of connections
-        #if proxies := getattr(pyats_device, "proxy_connections", None):
-        #    for proxy in proxies:
-        #        if not proxy.is_connected or not proxy.spawn.fd:
-        #            proxy.connect()
-        if not self._is_connected(pyats_device):
-            self._reconnect(pyats_device, params)
 
     def _execute_command(
         self,
@@ -275,7 +265,7 @@ class ClPyats:
         )
 
         try:
-            self._maybe_reconnect(pyats_device, params)
+            self._reconnect(pyats_device, params)
             if configure_mode:
                 return pyats_device.configure(command, log_stdout=False, **params)
             return pyats_device.execute(command, log_stdout=False, **params)
@@ -288,7 +278,6 @@ class ClPyats:
             _LOGGER.info(
                 f"PyATS command failed on node {node_label}, retrying after reconnection. Reason: {retry_reason}"
             )
-            self._maybe_reconnect(pyats_device, params)
             return self._execute_command(
                 node_label,
                 command,

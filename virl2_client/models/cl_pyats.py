@@ -44,13 +44,20 @@ else:
 
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
-_LOGGER = logging.getLogger(__name__)
-
 if TYPE_CHECKING:
     from genie.libs.conf.device import Device
     from genie.libs.conf.testbed import Testbed
 
     from .lab import Lab
+
+
+_LOGGER = logging.getLogger(__name__)
+
+# Do not use any identity keys and agents with the terminal server
+# by default - the keys would be attempted before password, and may
+# exhaust the number of allowed attempts at the server
+# to use ssh keys, set the specific key path or set empty ssh_options
+DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
 
 
 class ClPyats:
@@ -128,7 +135,7 @@ class ClPyats:
         self._testbed = self._load_pyats_testbed(testbed_yaml)
         self.set_termserv_credentials(username, password)
 
-    def switch_pyats_serial_console(self, node_label: str, console_number: int) -> None:
+    def switch_serial_console(self, node_label: str, console_number: int | str) -> None:
         """
         Switch to different serial console that is used to execute PyAts commands
         should be executed after sync_testbed
@@ -142,23 +149,35 @@ class ClPyats:
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
-        connect_cmd = pyats_device.connections["a"]["command"]
-        pyats_device.connections["a"]["command"] = connect_cmd[:-1] + console_number
+        command = pyats_device.connections["a"]["command"]
+        pyats_device.connections["a"]["command"] = command[:-1] + str(console_number)
 
     def set_termserv_credentials(
         self,
         username: str | None = None,
         password: str | None = None,
         key_path: Path | str | None = None,
+        ssh_options: str = DEFAULT_SSH_OPTIONS,
     ) -> None:
+        """
+        Configure how to connect to the SSH terminal server after the testbed
+        was synced with the server; the username must be known before making
+        any connections. Then either set the password, or path to an identity
+        file if SSH authentication with public keys is set up on the server.
+        By default, this function disables authentication agents and identity
+        files that would be loaded from the environment and running user ssh
+        configuration, so that the passed password or key is attempted first.
+        Pass empty string or custom SSH options to override this behavior.
+        """
         terminal = self._testbed.devices.terminal_server
         if username is not None:
             terminal.credentials.default.username = username
         if password is not None:
             terminal.credentials.default.password = password
-        if key_path is not None:
-            ssh_options = f"-o IdentitiesOnly=yes -o IdentityFile={key_path}"
             terminal.connections.cli.ssh_options = ssh_options
+        if key_path is not None:
+            ssh_options += f" -o IdentityFile={key_path}"
+        terminal.connections.cli.ssh_options = ssh_options
 
     def _prepare_params(
         self,
@@ -181,8 +200,20 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
+    def _is_connected(self, pyats_device: "Device") -> bool:
+        """Helper method to see if the device appears connected"""
+        if pyats_device not in self._connections or not pyats_device.is_connected():
+            return False
+        try:
+            spawn = pyats_device.connectionmgr.connections.cli.spawn
+            return bool(spawn.fd)
+        except (TypeError, AttributeError):
+            return False
+
     def _reconnect(self, pyats_device: "Device", params: dict) -> None:
         """Helper method to reconnect a PyATS device with proper cleanup."""
+        if self._is_connected(pyats_device):
+            return
         self._destroy_device(pyats_device, raise_exc=False)
         try:
             pyats_device.connect(
@@ -233,10 +264,8 @@ class ClPyats:
             init_exec_commands, init_config_commands, **pyats_params
         )
 
-        if pyats_device not in self._connections or not pyats_device.is_connected():
-            self._reconnect(pyats_device, params)
-
         try:
+            self._reconnect(pyats_device, params)
             if configure_mode:
                 return pyats_device.configure(command, log_stdout=False, **params)
             return pyats_device.execute(command, log_stdout=False, **params)
@@ -249,7 +278,6 @@ class ClPyats:
             _LOGGER.info(
                 f"PyATS command failed on node {node_label}, retrying after reconnection. Reason: {retry_reason}"
             )
-            self._reconnect(pyats_device, params)
             return self._execute_command(
                 node_label,
                 command,
@@ -353,7 +381,7 @@ class ClPyats:
             self._connections.discard(pyats_device)
 
 
-def _analyze_execute_failure(exc: Exception) -> tuple[bool, str]:
+def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
     should_raise = True
     retry_reason = None
 

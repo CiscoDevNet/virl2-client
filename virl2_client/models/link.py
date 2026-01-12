@@ -426,16 +426,12 @@ class Link:
         """
         Start a packet capture on this link.
 
-        :param maxpackets: Maximum number of packets to capture (1-1000000).
-        :param maxtime: Maximum time in seconds to capture (1-86400).
+        :param maxpackets: Maximum number of packets to capture (1-1000000). If None, server sets default.
+        :param maxtime: Maximum time in seconds to capture (1-86400). If None, server sets default.
         :param bpfilter: Berkeley packet filter string (1-128 chars).
         :param encap: Link encapsulation type.
         :returns: Dictionary containing the capture status and configuration.
-        :raises ValueError: If neither maxpackets nor maxtime is specified.
         """
-        if maxpackets is None and maxtime is None:
-            raise ValueError("Either 'maxpackets' or 'maxtime' must be specified")
-
         url = self._url_for("capture_start")
         data: dict[str, str | int] = {"encap": encap}
 

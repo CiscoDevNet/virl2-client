@@ -435,17 +435,17 @@ class Link:
         """
         if maxpackets is None and maxtime is None:
             raise ValueError("Either 'maxpackets' or 'maxtime' must be specified")
-        
+
         url = self._url_for("capture_start")
         data: dict[str, str | int] = {"encap": encap}
-        
+
         if maxpackets is not None:
             data["maxpackets"] = maxpackets
         if maxtime is not None:
             data["maxtime"] = maxtime
         if bpfilter is not None:
             data["bpfilter"] = bpfilter
-            
+
         _LOGGER.info(f"Starting packet capture on link {self.id}")
         return self._session.put(url, json=data).json()
 
@@ -488,7 +488,7 @@ class Link:
         """
         if capture_key is None:
             capture_key = self.capture_key()
-        
+
         url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}"
         _LOGGER.info(f"Downloading PCAP for capture key {capture_key}")
         return self._session.get(url).content
@@ -502,7 +502,7 @@ class Link:
         """
         if capture_key is None:
             capture_key = self.capture_key()
-        
+
         url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}/packets"
         _LOGGER.info(f"Getting packet list for capture key {capture_key}")
         return self._session.get(url).json()
@@ -519,7 +519,7 @@ class Link:
         """
         if capture_key is None:
             capture_key = self.capture_key()
-        
+
         url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}/packet/{packet_id}"
         _LOGGER.info(f"Downloading packet {packet_id} for capture key {capture_key}")
         return self._session.get(url).json()

@@ -45,6 +45,10 @@ class Link:
         "start": "{lab}/links/{id}/state/start",
         "stop": "{lab}/links/{id}/state/stop",
         "condition": "{lab}/links/{id}/condition",
+        "capture_start": "{lab}/links/{id}/capture/start",
+        "capture_stop": "{lab}/links/{id}/capture/stop",
+        "capture_status": "{lab}/links/{id}/capture/status",
+        "capture_key": "{lab}/links/{id}/capture/key",
     }
 
     def __init__(
@@ -410,3 +414,108 @@ class Link:
 
         latency, bandwidth, loss = options[name]
         self.set_condition(bandwidth=bandwidth, latency=latency, loss=loss)
+
+    @check_stale
+    def start_capture(
+        self,
+        maxpackets: int | None = None,
+        maxtime: int | None = None,
+        bpfilter: str | None = None,
+        encap: str = "ethernet",
+    ) -> dict:
+        """
+        Start a packet capture on this link.
+
+        :param maxpackets: Maximum number of packets to capture (1-1000000). If None, server sets default.
+        :param maxtime: Maximum time in seconds to capture (1-86400). If None, server sets default.
+        :param bpfilter: Berkeley packet filter string (1-128 chars).
+        :param encap: Link encapsulation type.
+        :returns: Dictionary containing the capture status and configuration.
+        """
+        url = self._url_for("capture_start")
+        data: dict[str, str | int] = {"encap": encap}
+
+        if maxpackets is not None:
+            data["maxpackets"] = maxpackets
+        if maxtime is not None:
+            data["maxtime"] = maxtime
+        if bpfilter is not None:
+            data["bpfilter"] = bpfilter
+
+        _LOGGER.info(f"Starting packet capture on link {self.id}")
+        return self._session.put(url, json=data).json()
+
+    @check_stale
+    def stop_capture(self) -> None:
+        """
+        Stop the packet capture on this link.
+        """
+        url = self._url_for("capture_stop")
+        _LOGGER.info(f"Stopping packet capture on link {self.id}")
+        self._session.put(url)
+
+    @check_stale
+    def capture_status(self) -> dict:
+        """
+        Get the current packet capture status for this link.
+
+        :returns: Dictionary containing capture configuration, start time, and packet count.
+        """
+        url = self._url_for("capture_status")
+        return self._session.get(url).json()
+
+    @check_stale
+    def capture_key(self) -> str:
+        """
+        Get the capture key (UUID) for the packet capture on this link.
+
+        :returns: The capture key as a string.
+        :raises: HTTP exception if no capture is running on this link.
+        """
+        url = self._url_for("capture_key")
+        return self._session.get(url).json()
+
+    def download_capture(self, capture_key: str | None = None) -> bytes:
+        """
+        Download the PCAP file for this link's capture.
+
+        :param capture_key: The capture key. If None, will fetch it automatically.
+        :returns: The PCAP file content as bytes.
+        """
+        if capture_key is None:
+            capture_key = self.capture_key()
+
+        url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}"
+        _LOGGER.info(f"Downloading PCAP for capture key {capture_key}")
+        return self._session.get(url).content
+
+    def get_capture_packets(self, capture_key: str | None = None) -> list[dict]:
+        """
+        Get a list of all captured packets in decoded format.
+
+        :param capture_key: The capture key. If None, will fetch it automatically.
+        :returns: List of packet dictionaries with decoded packet information.
+        """
+        if capture_key is None:
+            capture_key = self.capture_key()
+
+        url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}/packets"
+        _LOGGER.info(f"Getting packet list for capture key {capture_key}")
+        return self._session.get(url).json()
+
+    def download_capture_packet(
+        self, packet_id: int, capture_key: str | None = None
+    ) -> dict:
+        """
+        Download a specific packet from the capture in decoded format.
+
+        :param packet_id: The ID of the packet to download (1-based).
+        :param capture_key: The capture key. If None, will fetch it automatically.
+        :returns: Dictionary containing the decoded packet information.
+        """
+        if capture_key is None:
+            capture_key = self.capture_key()
+
+        url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}/packet/{packet_id}"
+        _LOGGER.info(f"Downloading packet {packet_id} for capture key {capture_key}")
+        return self._session.get(url).json()

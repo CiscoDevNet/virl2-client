@@ -71,7 +71,6 @@ class TokenAuth(httpx.Auth):
         :param client_library: A client library instance.
         """
         self.client_library = client_library
-        self._token: str | None = None
 
     @property
     def token(self) -> str | None:
@@ -79,8 +78,8 @@ class TokenAuth(httpx.Auth):
         Return the authentication token. If the token has not been set, it is obtained
         from the server.
         """
-        if self._token is not None:
-            return self._token
+        if self.client_library.jwtoken:
+            return self.client_library.jwtoken
 
         base_url = self.client_library._session.base_url
         if base_url.port is not None and base_url.port != 443:
@@ -97,8 +96,8 @@ class TokenAuth(httpx.Auth):
             auth=None,  # type: ignore
         )  # auth=None works but is missing from .post's type hint
         raise_for_status(response)
-        self._token = response.json()
-        return self._token
+        self.client_library.jwtoken = response.json()
+        return self.client_library.jwtoken
 
     @token.setter
     def token(self, value: str | None) -> None:
@@ -107,7 +106,7 @@ class TokenAuth(httpx.Auth):
 
         :param value: The value to set as the authentication token.
         """
-        self._token = value
+        self.client_library.jwtoken = value
 
     def auth_flow(
         self, request: httpx.Request

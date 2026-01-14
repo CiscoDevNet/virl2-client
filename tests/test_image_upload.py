@@ -79,7 +79,7 @@ to_extend += [
 # then locally run test_image_upload_file, and this will generate all the files
 # in the expected_pass_list into test_data.
 @pytest.fixture
-def create_test_files(test_data_dir):
+def create_test_files(test_data_dir: pathlib.Path):
     for file_path in EXPECTED_PASS_LIST:
         path = test_data_dir / file_path
         path.write_text("test")

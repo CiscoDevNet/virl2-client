@@ -4,11 +4,14 @@
 # All rights reserved.
 #
 import os
+from collections.abc import Iterator
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from virl2_client import ClientLibrary
-from virl2_client.models.configuration import _CONFIG_FILE_NAME
+from virl2_client.virl2_client import ClientConfig
 
 _TEST_ENV = {
     "VIRL2_URL": "0.0.0.0",
@@ -21,8 +24,8 @@ _TEST_ENV = {
 
 
 @pytest.fixture
-def cwd_virlrc(tmp_path):
-    path = tmp_path / _CONFIG_FILE_NAME
+def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
+    path = tmp_path / ClientConfig._CONFIG_FILE_NAME
     with path.open("w") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
@@ -35,8 +38,8 @@ def cwd_virlrc(tmp_path):
 
 
 @pytest.fixture
-def home_virlrc(tmp_path):
-    path = tmp_path / _CONFIG_FILE_NAME
+def home_virlrc(tmp_path: Path) -> Iterator[Path]:
+    path = tmp_path / ClientConfig._CONFIG_FILE_NAME
     with path.open("w") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
@@ -51,13 +54,17 @@ def home_virlrc(tmp_path):
     os.remove(path)
 
 
-def test_local_virlrc(client_library_server_current, cwd_virlrc):
+def test_local_virlrc(client_library_server_current: MagicMock, cwd_virlrc: Path):
+    _ = client_library_server_current, cwd_virlrc
     cl = ClientLibrary(ssl_verify=False)
     assert cl.is_system_ready()
     assert all([cl.url, cl.username, cl.password])
 
 
-def test_export_credentials(client_library_server_current, monkeypatch):
+def test_export_credentials(
+    client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
+):
+    _ = client_library_server_current
     for name, value in _TEST_ENV.items():
         monkeypatch.setenv(name, value)
 
@@ -66,12 +73,16 @@ def test_export_credentials(client_library_server_current, monkeypatch):
     assert all([cl.url, cl.username, cl.password])
 
 
-def test_home_directory_virlrc(client_library_server_current, home_virlrc):
+def test_home_directory_virlrc(
+    client_library_server_current: MagicMock, home_virlrc: Path
+):
+    _ = client_library_server_current, home_virlrc
     cl = ClientLibrary(ssl_verify=False)
     assert cl.is_system_ready()
     assert all([cl.url, cl.username, cl.password])
 
 
-def test_read_from_stdin(client_library_server_current):
+def test_read_from_stdin(client_library_server_current: MagicMock):
+    _ = client_library_server_current
     with pytest.raises(OSError, match="reading from stdin"):
         _ = ClientLibrary(ssl_verify=False)

@@ -18,22 +18,28 @@
 # limitations under the License.
 #
 
+import sys
+from collections.abc import Iterator
 from functools import partial
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from respx import MockRouter
 
 from virl2_client.models import authentication
 from virl2_client.virl2_client import ClientLibrary
+
+# Patch sys.stdin.isatty to simulate an interactive terminal
+sys.stdin.isatty = lambda: True
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
 FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 
 
-def client_library_patched_system_info(version):
+def client_library_patched_system_info(version: str) -> Iterator[MagicMock]:
     with patch.object(
         ClientLibrary, "system_info", return_value={"version": version, "ready": True}
     ) as cl:
@@ -41,22 +47,22 @@ def client_library_patched_system_info(version):
 
 
 @pytest.fixture
-def client_library_server_current():
+def client_library_server_current() -> Iterator[MagicMock]:
     yield from client_library_patched_system_info(version=CURRENT_VERSION)
 
 
 @pytest.fixture
-def client_library_server_2_0_0():
+def client_library_server_2_0_0() -> Iterator[MagicMock]:
     yield from client_library_patched_system_info(version="2.0.0")
 
 
 @pytest.fixture
-def client_library_server_2_19_0():
+def client_library_server_2_19_0() -> Iterator[MagicMock]:
     yield from client_library_patched_system_info(version="2.19.0")
 
 
 @pytest.fixture
-def mocked_session():
+def mocked_session() -> Iterator[MagicMock]:
     with patch.object(authentication, "CustomClient", autospec=True) as session:
         yield session
 
@@ -86,7 +92,7 @@ def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Re
 
 
 @pytest.fixture
-def respx_mock_with_labs(respx_mock, test_data_dir: Path):
+def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path):
     """
     A test fixture that provides basic lab data with respx_mock so that unit tests can
     call ``client.all_labs`` or ``client.join_existing_lab``.  The sample data includes
@@ -96,7 +102,15 @@ def respx_mock_with_labs(respx_mock, test_data_dir: Path):
         json={"version": CURRENT_VERSION, "ready": True, "oui": "52:54:00:00:00:00"},
     )
     respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
-    respx_mock.get(FAKE_HOST_API + "authok")
+    respx_mock.get(FAKE_HOST_API + "authentication").respond(
+        json={
+            "username": "username",
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "admin": True,
+            "error": None,
+        }
+    )
     respx_mock.get(
         FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/resource_pools"
     ).respond(json=[])
@@ -164,6 +178,7 @@ def respx_mock_with_labs(respx_mock, test_data_dir: Path):
 
 
 @pytest.fixture
-def client_library(respx_mock_with_labs):
+def client_library(respx_mock_with_labs: MockRouter) -> Iterator[ClientLibrary]:
+    _ = respx_mock_with_labs
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     yield client

@@ -1,3 +1,8 @@
+#
+# This file is part of VIRL 2
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
+# All rights reserved.
+#
 [tool.poetry]
 name = "virl2_client"
 version = "2.10.0-dev0"

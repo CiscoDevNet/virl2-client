@@ -59,7 +59,7 @@ def test_start_capture_with_params(mock_link):
     """Test start_capture with explicit parameters."""
     expected_response = {
         "config": {
-            "link_capture_key": "test-key-123",
+            "link_capture_key": mock_link.id,
             "maxpackets": 100,
             "encap": "ethernet",
         },
@@ -73,7 +73,7 @@ def test_start_capture_with_params(mock_link):
 
     assert result == expected_response
     assert result["config"]["maxpackets"] == 100
-    assert "link_capture_key" in result["config"]
+    assert result["config"]["link_capture_key"] == mock_link.id
 
 
 @respx.mock
@@ -81,7 +81,7 @@ def test_start_capture_defaults(mock_link):
     """Test start_capture without parameters uses server defaults."""
     expected_response = {
         "config": {
-            "link_capture_key": "default-key-456",
+            "link_capture_key": mock_link.id,
             "maxpackets": 1000000,
             "maxtime": 86400,
             "encap": "ethernet",
@@ -97,6 +97,7 @@ def test_start_capture_defaults(mock_link):
     assert result == expected_response
     assert result["config"]["maxpackets"] == 1000000
     assert result["config"]["maxtime"] == 86400
+    assert result["config"]["link_capture_key"] == mock_link.id
 
 
 @respx.mock
@@ -104,7 +105,7 @@ def test_capture_status(mock_link):
     """Test capture_status with mocked HTTP call."""
     expected_status = {
         "config": {
-            "link_capture_key": "status-key-456",
+            "link_capture_key": mock_link.id,
             "maxpackets": 200,
             "encap": "ethernet",
         },
@@ -118,17 +119,17 @@ def test_capture_status(mock_link):
 
     assert result == expected_status
     assert result["packetscaptured"] == 15
+    assert result["config"]["link_capture_key"] == mock_link.id
 
 
 @respx.mock
 def test_capture_key(mock_link):
     """Test capture_key with mocked HTTP call."""
-    expected_key = "capture-key-789"
-    mock_link._session.get.return_value.json.return_value = expected_key
+    mock_link._session.get.return_value.json.return_value = mock_link.id
 
     result = mock_link.capture_key()
 
-    assert result == expected_key
+    assert result == mock_link.id
 
 
 @respx.mock
@@ -143,23 +144,15 @@ def test_stop_capture(mock_link):
 
 
 @respx.mock
-def test_download_capture_auto_key(mock_link):
-    """Test download_capture with automatic key retrieval."""
-
-    def mock_get_side_effect(url):
-        mock_response = Mock()
-        if "capture/key" in url:
-            mock_response.json.return_value = "auto-retrieved-key"
-        else:
-            mock_response.content = b"PCAP file content"
-        return mock_response
-
-    mock_link._session.get.side_effect = mock_get_side_effect
+def test_download_capture(mock_link):
+    """Test download_capture."""
+    expected_content = b"PCAP file content"
+    mock_link._session.get.return_value.content = expected_content
 
     result = mock_link.download_capture()
 
-    assert result == b"PCAP file content"
-    assert mock_link._session.get.call_count == 2
+    mock_link._session.get.assert_called_once()
+    assert result == expected_content
 
 
 @respx.mock
@@ -169,16 +162,7 @@ def test_get_capture_packets(mock_link):
         {"packet": {"timestamp": "2026-01-12T10:00:01Z", "size": 64}},
         {"packet": {"timestamp": "2026-01-12T10:00:02Z", "size": 128}},
     ]
-
-    def mock_get_side_effect(url):
-        mock_response = Mock()
-        if "capture/key" in url:
-            mock_response.json.return_value = "packet-key-123"
-        else:
-            mock_response.json.return_value = expected_packets
-        return mock_response
-
-    mock_link._session.get.side_effect = mock_get_side_effect
+    mock_link._session.get.return_value.json.return_value = expected_packets
 
     result = mock_link.get_capture_packets()
 
@@ -187,22 +171,12 @@ def test_get_capture_packets(mock_link):
 
 
 @respx.mock
-def test_download_capture_packet(mock_link):
+def test_get_capture_packet(mock_link):
     """Test download_capture_packet with mocked HTTP call."""
-    expected_packet_data = {
-        "packet": {"timestamp": "2026-01-12T10:00:05Z", "size": 256}
-    }
+    # the actual PDML is rather large
+    expected_packet_data = {"proto": []}
+    mock_link._session.get.return_value.json.return_value = expected_packet_data
 
-    def mock_get_side_effect(url):
-        mock_response = Mock()
-        if "capture/key" in url:
-            mock_response.json.return_value = "packet-download-key"
-        else:
-            mock_response.json.return_value = expected_packet_data
-        return mock_response
-
-    mock_link._session.get.side_effect = mock_get_side_effect
-
-    result = mock_link.download_capture_packet(packet_id=5)
+    result = mock_link.get_capture_packet(packet_id=5)
 
     assert result == expected_packet_data

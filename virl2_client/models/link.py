@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from typing import TYPE_CHECKING
 
 from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
@@ -48,7 +49,10 @@ class Link:
         "capture_start": "{lab}/links/{id}/capture/start",
         "capture_stop": "{lab}/links/{id}/capture/stop",
         "capture_status": "{lab}/links/{id}/capture/status",
-        "capture_key": "{lab}/links/{id}/capture/key",
+        "capture_key": "{lab}/links/{id}/capture/key",  # deprecated
+        "pcap_file": "{pcap}/{id}",
+        "pcap_packets": "{pcap}/{id}/packets",
+        "pcap_packet": "{pcap}/{id}/packets/{packet_id}",
     }
 
     def __init__(
@@ -113,8 +117,11 @@ class Link:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self._lab._url_for("lab")
-        kwargs["id"] = self.id
+        if endpoint.startswith("pcap"):
+            kwargs["pcap"] = f"{self._session.base_url}/api/v0/pcap"
+        else:
+            kwargs["lab"] = self._lab._url_for("lab")
+        kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -442,7 +449,7 @@ class Link:
         if bpfilter is not None:
             data["bpfilter"] = bpfilter
 
-        _LOGGER.info(f"Starting packet capture on link {self.id}")
+        _LOGGER.info(f"Starting packet capture on link {self._id}")
         return self._session.put(url, json=data).json()
 
     @check_stale
@@ -451,7 +458,7 @@ class Link:
         Stop the packet capture on this link.
         """
         url = self._url_for("capture_stop")
-        _LOGGER.info(f"Stopping packet capture on link {self.id}")
+        _LOGGER.info(f"Stopping packet capture on link {self._id}")
         self._session.put(url)
 
     @check_stale
@@ -468,54 +475,41 @@ class Link:
     def capture_key(self) -> str:
         """
         Get the capture key (UUID) for the packet capture on this link.
+        The capture key is deprecated and since 2.10 matches the link uuid.
 
         :returns: The capture key as a string.
-        :raises: HTTP exception if no capture is running on this link.
         """
+        warnings.warn("Use of capture keys is deprecated. Use the link ID instead.")
         url = self._url_for("capture_key")
         return self._session.get(url).json()
 
-    def download_capture(self, capture_key: str | None = None) -> bytes:
+    def download_capture(self) -> bytes:
         """
-        Download the PCAP file for this link's capture.
+        Download the PCAP file for this link's last capture.
 
-        :param capture_key: The capture key. If None, will fetch it automatically.
         :returns: The PCAP file content as bytes.
         """
-        if capture_key is None:
-            capture_key = self.capture_key()
-
-        url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}"
-        _LOGGER.info(f"Downloading PCAP for capture key {capture_key}")
+        url = self._url_for("pcap_file")
+        _LOGGER.info(f"Downloading PCAP for link {self._id}")
         return self._session.get(url).content
 
-    def get_capture_packets(self, capture_key: str | None = None) -> list[dict]:
+    def get_capture_packets(self) -> list[dict]:
         """
-        Get a list of all captured packets in decoded format.
+        Get a list of all captured packets in decoded format from last capture.
 
-        :param capture_key: The capture key. If None, will fetch it automatically.
         :returns: List of packet dictionaries with decoded packet information.
         """
-        if capture_key is None:
-            capture_key = self.capture_key()
-
-        url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}/packets"
-        _LOGGER.info(f"Getting packet list for capture key {capture_key}")
+        url = self._url_for("pcap_packets")
+        _LOGGER.info(f"Getting packet list for link {self._id}")
         return self._session.get(url).json()
 
-    def download_capture_packet(
-        self, packet_id: int, capture_key: str | None = None
-    ) -> dict:
+    def get_capture_packet(self, packet_id: int) -> dict:
         """
-        Download a specific packet from the capture in decoded format.
+        Get a specific packet from the last capture in decoded format.
 
-        :param packet_id: The ID of the packet to download (1-based).
-        :param capture_key: The capture key. If None, will fetch it automatically.
+        :param packet_id: The ID of the packet (1-based index).
         :returns: Dictionary containing the decoded packet information.
         """
-        if capture_key is None:
-            capture_key = self.capture_key()
-
-        url = f"{self._lab._session.base_url}/api/v0/pcap/{capture_key}/packet/{packet_id}"
-        _LOGGER.info(f"Downloading packet {packet_id} for capture key {capture_key}")
+        url = self._url_for("pcap_packet", packet_id=packet_id)
+        _LOGGER.info(f"Downloading packet {packet_id} for link {self._id}")
         return self._session.get(url).json()

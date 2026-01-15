@@ -313,8 +313,7 @@ class EventHandler(EventHandlerBase):
             event.element._update(event.data, push_to_server=False)
 
         elif event.element_type == "link":
-            # only sends link_capture_key which is not used by the client,
-            # so we discard the message
+            # not used by the client so we discard the message
             pass
 
         else:

@@ -121,8 +121,8 @@ class Node:
         self._hide_links: bool = kwargs.get("hide_links", False)
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
-        self._pyats: dict[str, None] = kwargs.get(
-            "pyats", {"username": None, "password": None}
+        self._pyats: dict[str, str | None] = kwargs.get(
+            "pyats", {"username": None, "password": None, "enable_password": None}
         )
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
         self._priority: int | None = kwargs.get("priority")
@@ -492,20 +492,29 @@ class Node:
 
     @locked
     def set_pyats_credentials(
-        self, username: str | None = UNCHANGED, password: str | None = UNCHANGED
+        self,
+        username: str | None = UNCHANGED,
+        password: str | None = UNCHANGED,
+        enable_password: str | None = UNCHANGED,
     ) -> None:
         """Set pyATS credentials for this node.
 
         This updates the node on the controller with a ``pyats`` field whose
         structure matches the backend expectation, typically::
 
-            {"username": "<user>", "password": "<pass>"}
+            {
+                "username": "<user>",
+                "password": "<pass>",
+                "enable_password": "<enable_password_pass>"
+            }
         """
         pyats = self._pyats.copy()
         if username is not UNCHANGED:
             pyats["username"] = username
         if password is not UNCHANGED:
             pyats["password"] = password
+        if enable_password is not UNCHANGED:
+            pyats["enable_password"] = enable_password
         self._set_node_property("pyats", pyats)
         self._pyats = pyats
 

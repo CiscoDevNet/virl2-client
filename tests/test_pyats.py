@@ -66,16 +66,30 @@ def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
     "node, initial_pyats, expected_pyats",
     [
         # default: nothing set
-        (None, {}, {"username": None, "password": None}),
+        (None, {}, {"username": None, "password": None, "enable_password": None}),
         # set only username from default
-        (None, {"username": "pyuser"}, {"username": "pyuser", "password": None}),
+        (
+            None,
+            {"username": "pyuser"},
+            {"username": "pyuser", "password": None, "enable_password": None},
+        ),
         # set only password from default
-        (None, {"password": "pypass"}, {"username": None, "password": "pypass"}),
+        (
+            None,
+            {"password": "pypass"},
+            {"username": None, "password": "pypass", "enable_password": None},
+        ),
         # set both from default
         (
             None,
             {"username": "pyuser", "password": "pypass"},
-            {"username": "pyuser", "password": "pypass"},
+            {"username": "pyuser", "password": "pypass", "enable_password": None},
+        ),
+        # set only enable_password from default
+        (
+            None,
+            {"enable_password": "enpass"},
+            {"username": None, "password": None, "enable_password": "enpass"},
         ),
         # explicitly clear username and password back to None
         (
@@ -107,17 +121,32 @@ def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
             {"password": None},
             {"username": "u", "password": None},
         ),
+        # set enable_password on node that already has enable_password
+        (
+            {"username": "u", "password": "p", "enable_password": None},
+            {"enable_password": "enpass"},
+            {"username": "u", "password": "p", "enable_password": "enpass"},
+        ),
+        # clear enable_password back to None
+        (
+            {"username": "u", "password": "p", "enable_password": "enpass"},
+            {"enable_password": None},
+            {"username": "u", "password": "p", "enable_password": None},
+        ),
     ],
     ids=[
         "default",
         "set_username_only",
         "set_password_only",
         "set_both",
+        "set_enable_password_only",
         "clear_both",
         "change_username_only",
         "change_password_only",
         "set_username_none",
         "set_password_none",
+        "set_enable_password_from_existing",
+        "clear_enable_password",
     ],
     indirect=["node"],
 )

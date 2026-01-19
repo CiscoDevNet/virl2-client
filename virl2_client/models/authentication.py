@@ -170,7 +170,7 @@ class CustomClient(httpx.Client):
         except httpx.HTTPStatusError as error:
             try:
                 error_detail = json.loads(error.response.text)["description"]
-            except (json.JSONDecodeError, IndexError, TypeError):
+            except (json.JSONDecodeError, IndexError, KeyError, TypeError):
                 error_detail = error.response.text
             prefix = self._ERROR_PREFIX.get(error.response.status_code // 100, "")
             api_error = APIError(

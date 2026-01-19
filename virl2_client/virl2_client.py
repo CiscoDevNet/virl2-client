@@ -304,6 +304,7 @@ class ClientLibrary:
 
     _URL_TEMPLATES = {
         "auth": "authentication",
+        "old_auth": "authok",
         "system_info": "system_information",
         "import": "import",
         "import_1x": "import/virl-1x",
@@ -365,7 +366,7 @@ class ClientLibrary:
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
         # checks version from system_info against self.VERSION
-        self.check_controller_version()
+        controller_version = self.check_controller_version()
 
         self._session.auth = TokenAuth(self)
         # Note: session.auth is defined in the httpx module to be of type Auth,
@@ -393,7 +394,7 @@ class ClientLibrary:
         )
 
         try:
-            self._make_test_auth_call()
+            self._make_test_auth_call(controller_version >= Version("2.10.0"))
         except InitializationError as exc:
             if raise_for_auth_failure:
                 raise
@@ -424,13 +425,16 @@ class ClientLibrary:
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def _make_test_auth_call(self) -> None:
+    def _make_test_auth_call(self, new_auth: bool) -> None:
         """
         Make a call to confirm that authentication works.
 
         :raises InitializationError: If authentication fails.
         """
-        url = self._url_for("auth")
+        if new_auth:
+            url = self._url_for("auth")
+        else:
+            url = self._url_for("old_auth")
         try:
             response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
@@ -443,11 +447,11 @@ class ClientLibrary:
             raise
         except httpx.HTTPError as exc:
             raise InitializationError(exc)
-        user_info = response.json()
-        self.user_id = user_info.get("id")
-        self.admin = user_info.get("admin", False)
-        if self.username is None:
-            self.username = user_info.get("username")
+        if new_auth:
+            user_info: dict = response.json()
+            self.user_id = user_info["id"]
+            self.admin = user_info.get("admin", False)
+            self.username = user_info["username"]
 
     @property
     def uuid(self) -> str:
@@ -480,7 +484,7 @@ class ClientLibrary:
         url = self._url_for("system_info")
         return self._session.get(url).json()
 
-    def check_controller_version(self) -> None:
+    def check_controller_version(self) -> Version | None:
         """
         Check remote controller version against current client version
         (specified in `self.VERSION` and support last 3 minor versions).
@@ -516,6 +520,7 @@ class ClientLibrary:
                 "Please ensure the client version is compatible with the controller "
                 f"version. Client {self.VERSION}, controller {controller_version}."
             )
+        return controller_version
 
     def is_system_ready(
         self, wait: bool = False, max_wait: int = 60, sleep: int = 5

@@ -136,6 +136,37 @@ def test_ssl_certificate_from_env_variable(
 
 
 @respx.mock
+def test_new_auth_url_used_with_cml_2_10(
+    client_library_server_current: MagicMock,
+):
+    """Verify that the new auth URL is used with CML 2.10.x controllers.
+
+    With the current client version (2.10.0), _make_test_auth_call should
+    access the "authentication" endpoint and not the legacy "authok" one.
+    """
+
+    _ = client_library_server_current
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "admin": True,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "error": None,
+        },
+    )
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(404)
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert new_auth_route.called
+    assert not old_auth_route.called
+
+
+@respx.mock
 def test_auth_and_reauth_token(client_library_server_current: MagicMock):
     def initial_different_response(
         initial: httpx.Response, subsequent: httpx.Response = httpx.Response(200)
@@ -156,9 +187,9 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock):
             200,
             json={
                 "username": "username",
+                "admin": True,
                 "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
                 "token": "BOGUS_TOKEN",
-                "admin": True,
                 "error": None,
             },
         ),
@@ -194,6 +225,31 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock):
     assert respx.calls.call_count == 6
 
 
+@respx.mock
+def test_old_auth_url_used_with_cml_2_9(
+    client_library_server_2_9_0: MagicMock, monkeypatch: pytest.MonkeyPatch
+):
+    """Verify that the legacy auth URL is used with a 2.9.x controller when
+    the client library version is also 2.9.x.
+
+    This simulates running an older client (2.9) against a 2.9 controller,
+    where only the legacy "authok" endpoint is available.
+    """
+
+    _ = client_library_server_2_9_0
+
+    monkeypatch.setattr(ClientLibrary, "VERSION", Version("2.9.0"))
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(404)
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert old_auth_route.called
+    assert not new_auth_route.called
+
+
 def test_client_library_init_allow_http(client_library_server_current: MagicMock):
     _ = client_library_server_current
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
@@ -211,6 +267,62 @@ def test_client_library_init_disallow_http(client_library_server_current: MagicM
         ClientLibrary("http://somehost", "virl2", "virl2")
     with pytest.raises(InitializationError, match="must be https"):
         ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
+
+
+@respx.mock
+def test_new_auth_url_fails_with_cml_2_9(client_library_server_2_9_0: MagicMock):
+    """Negative test: new auth URL does not work with CML 2.9.x.
+
+    With the current client version (2.10.0) and a 2.9 controller, only the
+    legacy "authok" endpoint is expected to exist server-side.
+    """
+
+    _ = client_library_server_2_9_0
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(404)
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert old_auth_route.called
+    assert not new_auth_route.called
+
+
+@respx.mock
+def test_old_auth_url_deprecated_with_cml_2_10(
+    client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
+):
+    """Negative test: legacy auth URL should be considered deprecated on
+    CML 2.10.x controllers.  This is a theoretical scenario in case it is not
+    forbidden to connect to a newer controller with an older client anymore.
+
+    This simulates using an older client (2.9.x) against a 2.10 controller,
+    where the "authok" endpointis deprecated. _make_test_auth_call will
+    select the "legacy" endpoint, which still works, but eventually won't.
+    """
+
+    _ = client_library_server_current
+
+    monkeypatch.setattr(ClientLibrary, "VERSION", Version("2.9.0"))
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "admin": True,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "error": None,
+        },
+    )
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert new_auth_route.called
+    assert not old_auth_route.called
 
 
 # the test fails if you have variables set in env
@@ -367,7 +479,15 @@ def test_client_library_config(
     mocked_session: MagicMock,
     config: ClientConfig,
 ):
-    _ = client_library_server_current, mocked_session
+    _ = client_library_server_current
+    mock_client = mocked_session.return_value
+    mock_client.get.return_value.json.return_value = {
+        "admin": False,
+        "username": config.username,
+        "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+        "token": "BOGUS_TOKEN",
+        "error": None,
+    }
     client_library = config.make_client()
     assert client_library._session.base_url.path.startswith(config.url)
     assert client_library.username == config.username
@@ -379,8 +499,6 @@ def test_client_library_config(
     assert client_library._session.mock_calls == [
         call.get("authentication"),
         call.get().json(),
-        call.get().json().get("id"),
-        call.get().json().get("admin", False),
         call.base_url.path.startswith(config.url),
         call.base_url.path.startswith().__bool__(),
     ]

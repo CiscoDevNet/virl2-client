@@ -49,7 +49,6 @@ class Link:
         "capture_start": "{lab}/links/{id}/capture/start",
         "capture_stop": "{lab}/links/{id}/capture/stop",
         "capture_status": "{lab}/links/{id}/capture/status",
-        "capture_key": "{lab}/links/{id}/capture/key",  # deprecated
         "pcap_file": "{pcap}/{id}",
         "pcap_packets": "{pcap}/{id}/packets",
         "pcap_packet": "{pcap}/{id}/packets/{packet_id}",
@@ -469,18 +468,6 @@ class Link:
         :returns: Dictionary containing capture configuration, start time, and packet count.
         """
         url = self._url_for("capture_status")
-        return self._session.get(url).json()
-
-    @check_stale
-    def capture_key(self) -> str:
-        """
-        Get the capture key (UUID) for the packet capture on this link.
-        The capture key is deprecated and since 2.10 matches the link uuid.
-
-        :returns: The capture key as a string.
-        """
-        warnings.warn("Use of capture keys is deprecated. Use the link ID instead.")
-        url = self._url_for("capture_key")
         return self._session.get(url).json()
 
     def download_capture(self) -> bytes:

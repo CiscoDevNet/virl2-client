@@ -236,6 +236,22 @@ class ClientConfig(NamedTuple):
             config["password"] = getpass.getpass("Please enter your password: ")
 
     @classmethod
+    def _validate(cls, config: dict, final=False) -> bool:
+        message = None
+        if not config["url"]:
+            message = "No URL provided."
+        if not (config["jwtoken"] or (config["username"] and config["password"])):
+            message = "Incomplete authentication configuration."
+        ssl_verify_pending = config["ssl_verify"] is None
+        if final:
+            if message:
+                raise InitializationError(message)
+            elif ssl_verify_pending:
+                config["ssl_verify"] = True
+            return True
+        return not ssl_verify_pending and not message
+
+    @classmethod
     def get_configuration(
         cls,
         url: str | None,
@@ -245,18 +261,8 @@ class ClientConfig(NamedTuple):
         ssl_verify: bool | str | None,
         allow_inputs: bool | None = None,
     ) -> "ClientConfig":
-        populate_functions = [cls._populate_from_env, cls._populate_from_rc_files]
-        if allow_inputs is None:
+        if emit_warning := allow_inputs is None:
             allow_inputs = sys.stdin.isatty()
-        if allow_inputs:
-            populate_functions.append(cls._populate_from_inputs)
-        else:
-            warnings.warn(
-                "Interactive inputs are deprecated when stdin is not a TTY. "
-                "In the future, allow_inputs will default to False in such cases.",
-                DeprecationWarning,
-            )
-
         config = {
             "url": url,
             "username": username,
@@ -265,22 +271,24 @@ class ClientConfig(NamedTuple):
             "ssl_verify": ssl_verify,
         }
 
-        for populate_function in populate_functions:
-            populate_function(config)
-            if (
-                config["url"]
-                and config["ssl_verify"] is not None
-                and (config["jwtoken"] or config["username"] and config["password"])
-            ):
-                return cls(**config)
+        cls._populate_from_env(config)
+        if cls._validate(config):
+            return cls(**config)
 
-        if not config["url"]:
-            raise InitializationError("No URL provided.")
-        if not (config["jwtoken"] or (config["username"] and config["password"])):
-            raise InitializationError("Incomplete authentication configuration.")
-        if config["ssl_verify"] is None:
-            config["ssl_verify"] = True
-        return cls(**config)
+        cls._populate_from_rc_files(config)
+        if cls._validate(config, final=not allow_inputs):
+            return cls(**config)
+
+        if emit_warning:
+            warnings.warn(
+                "Interactive inputs are deprecated when stdin is not a TTY. "
+                "In the future, allow_inputs will default to False in such cases.",
+                DeprecationWarning,
+            )
+
+        cls._populate_from_inputs(config)
+        if cls._validate(config, final=True):
+            return cls(**config)
 
 
 class DiagnosticsCategory(Enum):

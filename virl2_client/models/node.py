@@ -32,6 +32,7 @@ from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import (
     UNCHANGED,
     _deprecated_argument,
+    _Sentinel,
     check_stale,
     get_url_from_template,
     locked,
@@ -493,11 +494,15 @@ class Node:
     @locked
     def set_pyats_credentials(
         self,
-        username: str | None = UNCHANGED,
-        password: str | None = UNCHANGED,
-        enable_password: str | None = UNCHANGED,
+        username: str | None | _Sentinel = UNCHANGED,
+        password: str | None | _Sentinel = UNCHANGED,
+        enable_password: str | None | _Sentinel = UNCHANGED,
     ) -> None:
         """Set pyATS credentials for this node.
+
+        :param username: The username to set, or None to clear it.
+        :param password: The password to set, or None to clear it.
+        :param enable_password: The enable password to set, or None to clear it.
 
         This updates the node on the controller with a ``pyats`` field whose
         structure matches the backend expectation, typically::

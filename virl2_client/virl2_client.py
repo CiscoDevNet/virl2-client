@@ -261,8 +261,6 @@ class ClientConfig(NamedTuple):
         ssl_verify: bool | str | None,
         allow_inputs: bool | None = None,
     ) -> "ClientConfig":
-        if emit_warning := allow_inputs is None:
-            allow_inputs = sys.stdin.isatty()
         config = {
             "url": url,
             "username": username,
@@ -276,17 +274,18 @@ class ClientConfig(NamedTuple):
             return cls(**config)
 
         cls._populate_from_rc_files(config)
-        if cls._validate(config, final=not allow_inputs):
+        if cls._validate(config):
             return cls(**config)
 
-        if emit_warning:
-            warnings.warn(
-                "Interactive inputs are deprecated when stdin is not a TTY. "
-                "In the future, allow_inputs will default to False in such cases.",
-                DeprecationWarning,
-            )
-
-        cls._populate_from_inputs(config)
+        if allow_inputs is None:
+            if not sys.stdin.isatty():
+                warnings.warn(
+                    "Interactive inputs are deprecated when stdin is not a TTY. "
+                    "In the future, allow_inputs will default to False in such cases.",
+                    DeprecationWarning,
+                )
+        if allow_inputs is not False:
+            cls._populate_from_inputs(config)
         if cls._validate(config, final=True):
             return cls(**config)
 

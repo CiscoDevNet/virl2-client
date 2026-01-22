@@ -29,7 +29,14 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
-from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
+from ..utils import (
+    UNCHANGED,
+    _deprecated_argument,
+    _Sentinel,
+    check_stale,
+    get_url_from_template,
+    locked,
+)
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -93,6 +100,7 @@ class Node:
                 The node will not run on any other compute.
             - priority: The launch priority of the node (0-10000, or None).
                 The higher the priority, the sooner the node will be started.
+            - pyats: PyATS credentials for this node (if applicable).
         """
         self._lab: Lab = lab
         self._id: str = nid
@@ -114,6 +122,9 @@ class Node:
         self._hide_links: bool = kwargs.get("hide_links", False)
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
+        self._pyats: dict[str, str | None] = kwargs.get(
+            "pyats", {"username": None, "password": None, "enable_password": None}
+        )
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
         self._priority: int | None = kwargs.get("priority")
         self._operational: dict[str, Any] = kwargs.get("operational", {})
@@ -469,6 +480,48 @@ class Node:
         """Return node parameters."""
         self._lab.sync_topology_if_outdated()
         return self._parameters
+
+    @property
+    def pyats_credentials(self) -> dict[str, str | None]:
+        """Return pyATS credentials for this node, if configured.
+
+        The value is expected to be a mapping with "username" and "password" keys,
+        as provided by the backend (for example via the node's node definition).
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._pyats
+
+    @locked
+    def set_pyats_credentials(
+        self,
+        username: str | None | _Sentinel = UNCHANGED,
+        password: str | None | _Sentinel = UNCHANGED,
+        enable_password: str | None | _Sentinel = UNCHANGED,
+    ) -> None:
+        """Set pyATS credentials for this node.
+
+        :param username: The username to set, or None to clear it.
+        :param password: The password to set, or None to clear it.
+        :param enable_password: The enable password to set, or None to clear it.
+
+        This updates the node on the controller with a ``pyats`` field whose
+        structure matches the backend expectation, typically::
+
+            {
+                "username": "<user>",
+                "password": "<pass>",
+                "enable_password": "<enable_password_pass>"
+            }
+        """
+        pyats = self._pyats.copy()
+        if username is not UNCHANGED:
+            pyats["username"] = username
+        if password is not UNCHANGED:
+            pyats["password"] = password
+        if enable_password is not UNCHANGED:
+            pyats["enable_password"] = enable_password
+        self._set_node_property("pyats", pyats)
+        self._pyats = pyats
 
     def update_parameters(self, new_params: dict) -> None:
         """

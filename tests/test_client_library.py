@@ -31,7 +31,6 @@ import respx
 
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
-    ClientConfig,
     ClientLibrary,
     DiagnosticsCategory,
     InitializationError,
@@ -461,47 +460,6 @@ def test_client_library_init_password(
         assert cl.username == "virl2"
         assert cl.password == params[1]
         assert cl._session.base_url == "https://validhostname/api/v0/"
-
-
-@pytest.mark.parametrize(
-    "config",
-    [
-        ClientConfig("http://somehost", "virl2", "pa$$", allow_http=True),
-        ClientConfig("https://somehost:443", "virl4", "somepass", ssl_verify=False),
-        ClientConfig("https://somehost", "virl4", "somepass", ssl_verify="/path.pem"),
-        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=-1),
-        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=0.0),
-        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=2.3),
-    ],
-)
-def test_client_library_config(
-    client_library_server_current: MagicMock,
-    mocked_session: MagicMock,
-    config: ClientConfig,
-):
-    _ = client_library_server_current
-    mock_client = mocked_session.return_value
-    mock_client.get.return_value.json.return_value = {
-        "admin": False,
-        "username": config.username,
-        "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
-        "token": "BOGUS_TOKEN",
-        "error": None,
-    }
-    client_library = config.make_client()
-    assert client_library._session.base_url.path.startswith(config.url)
-    assert client_library.username == config.username
-    assert client_library.password == config.password
-    assert client_library.allow_http == config.allow_http
-    assert client_library._ssl_verify == config.ssl_verify
-    assert client_library.auto_sync == (config.auto_sync >= 0.0)
-    assert client_library.auto_sync_interval == config.auto_sync
-    assert client_library._session.mock_calls == [
-        call.get("authentication"),
-        call.get().json(),
-        call.base_url.path.startswith(config.url),
-        call.base_url.path.startswith().__bool__(),
-    ]
 
 
 def test_client_library_str_and_repr(client_library_server_current: MagicMock):

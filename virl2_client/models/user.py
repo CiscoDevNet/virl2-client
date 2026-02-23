@@ -165,7 +165,7 @@ class UserManagement:
         if opt_in is UNCHANGED:
             return
 
-        if isinstance(opt_in, OptInStatus):
+        if not isinstance(opt_in, OptInStatus):
             warnings.warn(
                 "Using boolean or None values for opt_in are deprecated. "
                 f"Use one of {[str(status) for status in OptInStatus]} instead.",

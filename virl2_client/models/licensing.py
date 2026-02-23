@@ -169,7 +169,8 @@ class Licensing:
         """
         warnings.warn(
             "'Licensing.features()' is deprecated. "
-            "Use '.status()[\"features\"]' instead."
+            "Use '.status()[\"features\"]' instead.",
+            DeprecationWarning,
         )
         return self.status().get("features")
 

@@ -64,7 +64,7 @@ class SmartAnnotation:
         """
         A VIRL2 lab smart annotation.
 
-        :param lab: The lab object to which the link belongs.
+        :param lab: The lab object to which the smart annotation belongs.
         :param annotation_id: The ID of the smart annotation.
         """
         self._id = annotation_id

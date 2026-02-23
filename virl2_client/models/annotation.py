@@ -130,7 +130,7 @@ class Annotation:
         """
         A VIRL2 lab annotation.
 
-        :param lab: The lab object to which the link belongs.
+        :param lab: The lab object to which the annotation belongs.
         :param annotation_id: The ID of the annotation.
         :param annotation_type: annotation type (text, line, ellipse, rectangle)
         """

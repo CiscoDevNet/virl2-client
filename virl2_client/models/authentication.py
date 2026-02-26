@@ -28,7 +28,7 @@ from uuid import uuid4
 
 import httpx
 
-from ..exceptions import APIError
+from ..exceptions import APIError, InitializationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,6 +123,12 @@ class TokenAuth(httpx.Auth):
         if response.status_code == 401:
             _LOGGER.warning("re-auth called on 401 unauthorized")
             self.token = None
+            if not (self.client_library.username and self.client_library.password):
+                raise InitializationError(
+                    "JWT token expired and automatic re-authentication is not "
+                    "possible because username/password are not configured. "
+                    "Set client.jwtoken, or initialize with username/password.",
+                )
             request.headers["Authorization"] = f"Bearer {self.token}"
             response = yield request
 

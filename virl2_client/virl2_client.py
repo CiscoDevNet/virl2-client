@@ -901,19 +901,14 @@ class ClientLibrary:
         Return selected diagnostics data as a JSON object.
 
         :param categories: List of diagnostics categories to fetch.
-            DEPRECATED: If not provided, provide DiagnosticsCategory.ALL to fetch all
-            diagnostics data.
         :returns: The diagnostics data.
         """
         if not categories:
-            warnings.warn(
-                "'ClientLibrary.get_diagnostics()' without arguments is deprecated. "
-                "Use 'ClientLibrary.get_diagnostics(DiagnosticsCategory.ALL)' or "
-                "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES, "
-                "DiagnosticsCategory.LABS, ...)' with specific categories instead.",
-                DeprecationWarning,
+            raise ValueError(
+                "No diagnostics category provided. Use "
+                "ClientLibrary.get_diagnostics(DiagnosticsCategory.ALL) "
+                "or provide one or more explicit categories."
             )
-            categories = [DiagnosticsCategory.ALL]
         if DiagnosticsCategory.USER_LIST in categories:
             warnings.warn(
                 "'DiagnosticsCategory.USER_LIST' is deprecated. "

@@ -20,10 +20,9 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any
 
-from ..utils import _deprecated_argument, get_url_from_template
+from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -90,8 +89,6 @@ class GroupManagement:
             - description: The description of the group.
             - members: The members of the group.
             - associations: The lab associations for the group.
-            - labs: DEPRECATED: replaced by 'associations'.
-                The labs associated with the group.
 
         :returns: The created group object.
         """
@@ -112,8 +109,6 @@ class GroupManagement:
             - description: The description of the group.
             - members: The members of the group.
             - associations: The lab associations for the group.
-            - labs: DEPRECATED: replaced by 'associations'.
-                The labs associated with the group.
 
         :returns: The updated group object.
         """
@@ -128,19 +123,14 @@ class GroupManagement:
         name: str | None = None,
         description: str | None = None,
         members: list[str] | None = None,
-        labs: list[dict[str, str]] | None = None,
         associations: list[dict[str, list[str]]] | None = None,
     ):
         optional_data = {
             "name": name,
             "description": description,
             "members": members,
-            "labs": labs,
             "associations": associations,
         }
-        if labs is not None:
-            func = self.create_group if data else self.update_group
-            _deprecated_argument(func, labs, "labs")
         for key, value in optional_data.items():
             if value is not None:
                 data[key] = value
@@ -153,21 +143,6 @@ class GroupManagement:
         :returns: A list of users associated with this group.
         """
         return self.get_group(group_id)["members"]
-
-    def group_labs(self, group_id: str) -> list[str]:
-        """
-        DEPRECATED: Use `.associations()` instead.
-        (Reason: adapted to the new format of lab associations)
-
-        Get a list of labs associated with a group.
-
-        :param group_id: The UUID4 of the group.
-        :returns: A list of labs associated with this group.
-        """
-        warnings.warn(
-            "'GroupManagement.group_labs()' is deprecated.Use '.associations' instead.",
-        )
-        return [lab["id"] for lab in self.get_group(group_id)["labs"]]
 
     def associations(self, group_id: str) -> list[dict[str, list[str]]]:
         """

@@ -901,7 +901,7 @@ def test_different_version_strings():
         Version("54dev0+build8.7ee86bf8")
 
 
-def test_import_lab_offline_deprecated(
+def test_import_lab_rejects_offline_argument(
     client_library_server_current: MagicMock,
     mocked_session: MagicMock,
     tmp_path: Path,
@@ -912,7 +912,7 @@ def test_import_lab_offline_deprecated(
     topology_file_path = test_data_dir / "sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
-        with pytest.deprecated_call():
+        with pytest.raises(TypeError):
             client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
 
 

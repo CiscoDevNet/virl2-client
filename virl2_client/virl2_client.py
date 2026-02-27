@@ -49,7 +49,7 @@ from .models import (
     UserManagement,
 )
 from .models.authentication import make_session
-from .utils import _deprecated_argument, get_url_from_template, locked
+from .utils import get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -608,7 +608,6 @@ class ClientLibrary:
         self,
         topology: str,
         title: str | None = None,
-        offline: bool | None = None,
         virl_1x: bool = False,
     ) -> Lab:
         """
@@ -616,13 +615,11 @@ class ClientLibrary:
 
         :param topology: The topology representation as a string.
         :param title: The title of the lab.
-        :param offline: DEPRECATED: Offline mode has been removed.
         :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
         :returns: The imported Lab instance.
         :raises ValueError: If no lab ID is returned in the API response.
         :raises httpx.HTTPError: If there was a transport error.
         """
-        _deprecated_argument(self.import_lab, offline, "offline")
         lab = self._create_imported_lab(topology, title, virl_1x)
         lab.sync()
         self._labs[lab.id] = lab

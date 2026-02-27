@@ -917,6 +917,12 @@ class ClientLibrary:
                 DeprecationWarning,
             )
             categories = [DiagnosticsCategory.ALL]
+        if DiagnosticsCategory.USER_LIST in categories:
+            warnings.warn(
+                "'DiagnosticsCategory.USER_LIST' is deprecated. "
+                "Use UserManagement.users() instead.",
+                DeprecationWarning,
+            )
         if DiagnosticsCategory.ALL in categories:
             categories = list(DiagnosticsCategory)[1:]
 

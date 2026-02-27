@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
 
-from ..utils import OptInStatus, _deprecated_argument, get_url_from_template
+from ..utils import OptInStatus, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -510,15 +510,12 @@ class ComputeHost:
         url = self._url_for("compute_host")
         self._session.delete(url)
 
-    def update(self, host_data: dict[str, Any], push_to_server=None) -> None:
+    def update(self, host_data: dict[str, Any]) -> None:
         """
         Update the compute host with the given data.
 
         :param host_data: The data to update the compute host.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(host_data, push_to_server=True)
 
     def _update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
@@ -650,15 +647,12 @@ class SystemNotice:
         url = self._url_for("notice")
         self._session.delete(url)
 
-    def update(self, notice_data: dict[str, Any], push_to_server=None) -> None:
+    def update(self, notice_data: dict[str, Any]) -> None:
         """
         Update the system notice with the given data.
 
         :param notice_data: The data to update the system notice with.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(notice_data, push_to_server=True)
 
     def _update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:

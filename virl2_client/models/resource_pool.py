@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from ..exceptions import InvalidProperty
-from ..utils import _deprecated_argument, get_url_from_template
+from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -417,15 +417,12 @@ class ResourcePool:
         url = self._url_for("resource_pool")
         self._session.delete(url)
 
-    def update(self, pool_data: dict[str, Any], push_to_server=None) -> None:
+    def update(self, pool_data: dict[str, Any]) -> None:
         """
         Update multiple properties of the pool at once.
 
         :param pool_data: A dictionary of the properties to update.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(pool_data, push_to_server=True)
 
     def _update(self, pool_data: dict[str, Any], push_to_server: bool = True) -> None:

@@ -29,6 +29,7 @@ import httpx
 import pytest
 import respx
 
+from virl2_client.exceptions import APIError
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
     ClientLibrary,
@@ -222,6 +223,97 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock):
     assert respx.calls[4].request.url == f"{FAKE_URL}api/v0/authentication"
     assert respx.calls[5].request.url == f"{FAKE_URL}api/v0/labs"
     assert respx.calls.call_count == 6
+
+
+@respx.mock
+def test_jwt_only_valid_token_does_not_call_password_auth(
+    client_library_server_current: MagicMock,
+):
+    _ = client_library_server_current
+
+    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "jwt_user",
+            "admin": False,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "VALID_TOKEN",
+            "error": None,
+        },
+    )
+    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+        json="SHOULD_NOT_BE_USED"
+    )
+    respx.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
+
+    cl = ClientLibrary(url=FAKE_URL, jwtoken="VALID_TOKEN")
+    cl.all_labs()
+
+    assert auth_route.called
+    assert not password_auth_route.called
+
+
+@respx.mock
+def test_jwt_expired_with_credentials_reauths_using_password_auth(
+    client_library_server_current: MagicMock,
+):
+    _ = client_library_server_current
+
+    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication")
+    auth_route.side_effect = [
+        httpx.Response(401),
+        httpx.Response(
+            200,
+            json={
+                "username": "test",
+                "admin": True,
+                "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+                "token": "REFRESHED_TOKEN",
+                "error": None,
+            },
+        ),
+    ]
+    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+        json="REFRESHED_TOKEN"
+    )
+
+    ClientLibrary(
+        url=FAKE_URL,
+        username="test",
+        password="pa$$",
+        jwtoken="EXPIRED_TOKEN",
+    )
+
+    assert auth_route.called
+    assert auth_route.call_count == 2
+    assert password_auth_route.called
+    assert json.loads(password_auth_route.calls[0].request.content) == {
+        "username": "test",
+        "password": "pa$$",
+    }
+
+
+@respx.mock
+def test_jwt_reauth_without_credentials_fails_cleanly(
+    client_library_server_current: MagicMock,
+    reset_env: None,
+):
+    _ = client_library_server_current, reset_env
+
+    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
+    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+        json="SHOULD_NOT_BE_USED"
+    )
+
+    with pytest.raises(
+        APIError,
+        match="JWT token expired and automatic re-authentication is not possible",
+    ):
+        ClientLibrary(url=FAKE_URL, jwtoken="EXPIRED_TOKEN")
+
+    assert auth_route.called
+    assert auth_route.call_count == 1
+    assert not password_auth_route.called
 
 
 @respx.mock

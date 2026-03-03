@@ -901,7 +901,7 @@ def test_different_version_strings():
         Version("54dev0+build8.7ee86bf8")
 
 
-def test_import_lab_offline_deprecated(
+def test_import_lab_rejects_offline_argument(
     client_library_server_current: MagicMock,
     mocked_session: MagicMock,
     tmp_path: Path,
@@ -912,7 +912,7 @@ def test_import_lab_offline_deprecated(
     topology_file_path = test_data_dir / "sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
-        with pytest.deprecated_call():
+        with pytest.raises(TypeError):
             client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
 
 
@@ -949,7 +949,6 @@ def test_convergence_parametrization(
 @pytest.mark.parametrize(
     "categories",
     [
-        (),
         [DiagnosticsCategory.ALL],
         [DiagnosticsCategory.COMPUTES],
         [DiagnosticsCategory.LABS, DiagnosticsCategory.SERVICES],
@@ -967,7 +966,7 @@ def test_get_diagnostics_paths(
         return_value = httpx.Response(404)
 
     expected_categories = categories
-    if not categories or DiagnosticsCategory.ALL in categories:
+    if DiagnosticsCategory.ALL in categories:
         expected_categories = list(DiagnosticsCategory)[1:]
 
     with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
@@ -975,16 +974,17 @@ def test_get_diagnostics_paths(
             respx_mock.get(f"diagnostics/{category.value}").mock(
                 return_value=return_value
             )
-        if categories:
-            diagnostics_data = client_library.get_diagnostics(*categories)
-        else:
-            with pytest.deprecated_call():
-                diagnostics_data = client_library.get_diagnostics(*categories)
+        diagnostics_data = client_library.get_diagnostics(*categories)
 
     for category in expected_categories:
         if not valid:
             data = {"error": f"Failed to fetch {category.value} diagnostics"}
         assert diagnostics_data[category.value] == data
+
+
+def test_get_diagnostics_requires_categories(client_library: ClientLibrary):
+    with pytest.raises(ValueError, match="No diagnostics category provided"):
+        client_library.get_diagnostics()
 
 
 @respx.mock

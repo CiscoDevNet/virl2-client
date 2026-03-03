@@ -24,7 +24,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Literal
 
 from ..exceptions import InvalidProperty
-from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
+from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -348,15 +348,12 @@ class Annotation:
         url = self._url_for("annotation")
         self._session.delete(url)
 
-    def update(self, annotation_data: dict[str, Any], push_to_server=None) -> None:
+    def update(self, annotation_data: dict[str, Any]) -> None:
         """
         Update annotation properties.
 
         :param annotation_data: JSON dict with new annotation property:value pairs.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(annotation_data, push_to_server=True)
 
     @check_stale

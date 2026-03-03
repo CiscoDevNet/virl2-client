@@ -22,12 +22,11 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
 
-from ..utils import OptInStatus, _deprecated_argument, get_url_from_template
+from ..utils import OptInStatus, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -324,7 +323,6 @@ class SystemManagement:
         is_synced: bool,
         admission_state: str,
         node_counts: dict[str, int],
-        nodes: list[str] | None = None,
     ) -> ComputeHost:
         """
         Add a compute host locally.
@@ -338,7 +336,6 @@ class SystemManagement:
         :param is_synced: A boolean indicating if the compute host is synced.
         :param admission_state: The admission state of the compute host.
         :param node_counts: Count of deployed and running nodes and orphans.
-        :param nodes: A list of node IDs associated with the compute host.
         :returns: The added compute host.
         """
         new_compute_host = ComputeHost(
@@ -352,7 +349,6 @@ class SystemManagement:
             is_synced,
             admission_state,
             node_counts,
-            nodes,
         )
         self._compute_hosts[compute_id] = new_compute_host
         return new_compute_host
@@ -410,7 +406,6 @@ class ComputeHost:
         is_synced: bool,
         admission_state: str,
         node_counts: dict[str, int],
-        nodes: list[str] | None = None,
     ):
         """
         A compute host, which hosts some of the nodes of the simulation.
@@ -425,8 +420,6 @@ class ComputeHost:
         :param is_synced: Whether the compute host is synced.
         :param admission_state: The admission state of the compute host.
         :param node_counts: The counts of deployed and running nodes and orphans.
-        :param nodes: DEPRECATED: replaced by node_counts.
-            The list of node IDs associated with the compute host.
         """
         self._system = system
         self._session: httpx.Client = system._session
@@ -439,7 +432,6 @@ class ComputeHost:
         self._is_synced = is_synced
         self._admission_state = admission_state
         self._node_counts = node_counts
-        self._nodes = nodes if nodes is not None else []
 
     def __str__(self):
         return f"Compute host: {self._hostname}"
@@ -501,16 +493,6 @@ class ComputeHost:
         return self._node_counts
 
     @property
-    def nodes(self) -> list[str]:
-        """Return the list of nodes associated with the compute host."""
-        warnings.warn(
-            "'ComputeHost.nodes' is deprecated. Use 'ComputeHost.node_counts' or "
-            "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES)' instead.",
-        )
-        self._system.sync_compute_hosts_if_outdated()
-        return self._nodes
-
-    @property
     def admission_state(self) -> str:
         """Return the admission state of the compute host."""
         self._system.sync_compute_hosts_if_outdated()
@@ -528,15 +510,12 @@ class ComputeHost:
         url = self._url_for("compute_host")
         self._session.delete(url)
 
-    def update(self, host_data: dict[str, Any], push_to_server=None) -> None:
+    def update(self, host_data: dict[str, Any]) -> None:
         """
         Update the compute host with the given data.
 
         :param host_data: The data to update the compute host.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(host_data, push_to_server=True)
 
     def _update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
@@ -668,15 +647,12 @@ class SystemNotice:
         url = self._url_for("notice")
         self._session.delete(url)
 
-    def update(self, notice_data: dict[str, Any], push_to_server=None) -> None:
+    def update(self, notice_data: dict[str, Any]) -> None:
         """
         Update the system notice with the given data.
 
         :param notice_data: The data to update the system notice with.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(notice_data, push_to_server=True)
 
     def _update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:

@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-import warnings
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
@@ -2165,43 +2164,6 @@ class Lab:
         """
         url = self._url_for("download")
         return self._session.get(url).text
-
-    @property
-    def groups(self) -> list[dict[str, str]]:
-        """
-        DEPRECATED: Use `.associations` instead.
-        (Reason: adapted to new format of lab associations)
-
-        Return the groups this lab is associated with.
-
-        :returns: List of objects consisting of group ID and permissions.
-        """
-        warnings.warn(
-            "'Lab.groups' is deprecated. Use '.associations' instead.",
-        )
-        url = self._url_for("lab")
-        return self._session.get(url).json()["groups"]
-
-    @check_stale
-    def update_lab_groups(
-        self, group_list: list[dict[str, str]]
-    ) -> list[dict[str, str]]:
-        """
-        DEPRECATED: Use `.update_associations()` instead.
-        (Reason: adapted to new format of lab associations)
-
-        Modify lab/group association.
-
-        :param group_list: List of objects consisting of group ID and permissions.
-        :returns: Updated objects consisting of group ID and permissions.
-        """
-        warnings.warn(
-            "'Lab.update_lab_groups()' is deprecated. "
-            "Use '.update_associations()' instead.",
-        )
-        url = self._url_for("lab")
-        data = {"groups": group_list}
-        return self._session.patch(url, json=data).json()
 
     @property
     def associations(self) -> dict[str, list[dict[str, list[str]]]]:

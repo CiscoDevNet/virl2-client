@@ -17,6 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Tests for lab autostart configuration."""
+
+from __future__ import annotations
+
+from typing import Any
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -26,7 +31,12 @@ from virl2_client.models import Lab
 RESOURCE_POOL_MANAGER = Mock()
 
 
-def conditional_side_effect(*args, **kwargs):
+def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
+    """Side-effect for session.patch that validates autostart fields in json payload.
+
+    :param args: Unused positional args from patch call.
+    :param kwargs: Keyword args; uses ``json`` to validate autostart.enabled, priority, delay.
+    """
     _ = args
     resp = kwargs.get("json", {})
     if autostart := resp.get("autostart"):
@@ -40,7 +50,7 @@ def conditional_side_effect(*args, **kwargs):
                 raise ValueError("Invalid value for delay")
 
 
-def test_autostart_initial_values():
+def test_autostart_initial_values() -> None:
     """Test that new lab has correct initial autostart values."""
     session = MagicMock()
     lab = Lab(
@@ -55,7 +65,7 @@ def test_autostart_initial_values():
     assert lab._autostart == {"enabled": False, "priority": None, "delay": None}
 
 
-def test_lab_autostart_setter():
+def test_lab_autostart_setter() -> None:
     """Test setting the autostart parameter on a Lab instance."""
     session = MagicMock()
     lab = Lab(
@@ -75,7 +85,7 @@ def test_lab_autostart_setter():
     )
 
 
-def test_lab_autostart_setter_invalid():
+def test_lab_autostart_setter_invalid() -> None:
     """Test setting invalid autostart parameters raises ValueError."""
     session = MagicMock()
     session.patch.side_effect = conditional_side_effect
@@ -105,7 +115,7 @@ def test_lab_autostart_setter_invalid():
         lab.set_autostart(enabled=True, priority=5, delay=86401)
 
 
-def test_lab_autostart_setter_no_change():
+def test_lab_autostart_setter_no_change() -> None:
     """Test that setting autostart to the same value does not trigger an API call."""
     session = MagicMock()
     lab = Lab(
@@ -126,7 +136,7 @@ def test_lab_autostart_setter_no_change():
     session.patch.assert_called()
 
 
-def test_lab_autostart_setter_partial_update():
+def test_lab_autostart_setter_partial_update() -> None:
     """Test that setting only some autostart parameters updates correctly."""
     session = MagicMock()
     lab = Lab(

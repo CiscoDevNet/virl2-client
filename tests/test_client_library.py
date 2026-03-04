@@ -18,6 +18,8 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -44,7 +46,12 @@ FAKE_URL = "https://0.0.0.0/fake_url/"
 
 # TODO: split into multiple test modules, by feature.
 @pytest.fixture
-def reset_env(monkeypatch: pytest.MonkeyPatch):
+def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear VIRL2-related environment variables for isolated init tests.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :returns: None.
+    """
     env_vars = [
         "VIRL2_URL",
         "VIRL_HOST",
@@ -63,7 +70,13 @@ def test_import_lab_from_path_virl(
     client_library_server_current: MagicMock,
     mocked_session: MagicMock,
     tmp_path: Path,
-):
+) -> None:
+    """Import lab from .virl file path and verify POST to import/virl-1x.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :param tmp_path: Temporary directory fixture.
+    """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     Lab.sync = Mock()
@@ -86,7 +99,14 @@ def test_import_lab_from_path_virl_title(
     client_library_server_current: MagicMock,
     mocked_session: MagicMock,
     tmp_path: Path,
-):
+) -> None:
+    """Import lab with custom title passed as query parameter.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :param tmp_path: Temporary directory for generated VIRL file.
+    :returns: ``None``.
+    """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     Lab.sync = Mock()
@@ -107,7 +127,13 @@ def test_import_lab_from_path_virl_title(
 
 def test_ssl_certificate(
     client_library_server_current: MagicMock, mocked_session: MagicMock
-):
+) -> None:
+    """Use constructor-provided SSL CA bundle path for requests.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :returns: ``None``.
+    """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(
         url=FAKE_URL,
@@ -125,7 +151,14 @@ def test_ssl_certificate_from_env_variable(
     client_library_server_current: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
     mocked_session: MagicMock,
-):
+) -> None:
+    """Use ``CA_BUNDLE`` environment variable for SSL verification.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :param monkeypatch: Fixture for temporary environment mutation.
+    :param mocked_session: Mocked HTTP session fixture.
+    :returns: ``None``.
+    """
     _ = client_library_server_current, mocked_session
     monkeypatch.setenv("CA_BUNDLE", "/home/user/cert.pem")
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
@@ -138,11 +171,12 @@ def test_ssl_certificate_from_env_variable(
 @respx.mock
 def test_new_auth_url_used_with_cml_2_10(
     client_library_server_current: MagicMock,
-):
-    """Verify that the new auth URL is used with CML 2.10.x controllers.
+) -> None:
+    """Verify new auth URL is used with CML 2.10.x controllers.
 
-    With the current client version (2.10.0), _make_test_auth_call should
-    access the "authentication" endpoint and not the legacy "authok" one.
+    With client 2.10.0, _make_test_auth_call uses "authentication" not "authok".
+
+    :param client_library_server_current: Patched system_info fixture.
     """
 
     _ = client_library_server_current
@@ -167,10 +201,21 @@ def test_new_auth_url_used_with_cml_2_10(
 
 
 @respx.mock
-def test_auth_and_reauth_token(client_library_server_current: MagicMock):
+def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None:
+    """Verify auth token flow: initial failure, re-auth, and subsequent success.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
+
     def initial_different_response(
         initial: httpx.Response, subsequent: httpx.Response = httpx.Response(200)
     ) -> Iterator[httpx.Response]:
+        """Yield one initial response, then yield the subsequent response forever.
+
+        :param initial: First response emitted exactly once.
+        :param subsequent: Response repeatedly emitted after first yield.
+        :returns: Infinite response iterator with first-response override.
+        """
         _ = client_library_server_current
         yield initial
         while True:
@@ -319,12 +364,11 @@ def test_jwt_reauth_without_credentials_fails_cleanly(
 @respx.mock
 def test_old_auth_url_used_with_cml_2_9(
     client_library_server_2_9_0: MagicMock, monkeypatch: pytest.MonkeyPatch
-):
-    """Verify that the legacy auth URL is used with a 2.9.x controller when
-    the client library version is also 2.9.x.
+) -> None:
+    """Verify legacy auth URL is used with CML 2.9.x controller and 2.9.x client.
 
-    This simulates running an older client (2.9) against a 2.9 controller,
-    where only the legacy "authok" endpoint is available.
+    :param client_library_server_2_9_0: Patched system_info for 2.9.0.
+    :param monkeypatch: Pytest monkeypatch fixture.
     """
 
     _ = client_library_server_2_9_0
@@ -341,7 +385,13 @@ def test_old_auth_url_used_with_cml_2_9(
     assert not new_auth_route.called
 
 
-def test_client_library_init_allow_http(client_library_server_current: MagicMock):
+def test_client_library_init_allow_http(
+    client_library_server_current: MagicMock,
+) -> None:
+    """Client accepts http:// URL when allow_http=True.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
     assert cl._session.base_url.scheme == "http"
@@ -352,7 +402,13 @@ def test_client_library_init_allow_http(client_library_server_current: MagicMock
     assert cl.password == "virl2"
 
 
-def test_client_library_init_disallow_http(client_library_server_current: MagicMock):
+def test_client_library_init_disallow_http(
+    client_library_server_current: MagicMock,
+) -> None:
+    """Client raises InitializationError for http:// when allow_http=False.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
     with pytest.raises(InitializationError, match="must be https"):
         ClientLibrary("http://somehost", "virl2", "virl2")
@@ -361,11 +417,15 @@ def test_client_library_init_disallow_http(client_library_server_current: MagicM
 
 
 @respx.mock
-def test_new_auth_url_fails_with_cml_2_9(client_library_server_2_9_0: MagicMock):
+def test_new_auth_url_fails_with_cml_2_9(
+    client_library_server_2_9_0: MagicMock,
+) -> None:
     """Negative test: new auth URL does not work with CML 2.9.x.
 
     With the current client version (2.10.0) and a 2.9 controller, only the
     legacy "authok" endpoint is expected to exist server-side.
+
+    :param client_library_server_2_9_0: Patched system_info for 2.9.0.
     """
 
     _ = client_library_server_2_9_0
@@ -383,7 +443,7 @@ def test_new_auth_url_fails_with_cml_2_9(client_library_server_2_9_0: MagicMock)
 @respx.mock
 def test_old_auth_url_deprecated_with_cml_2_10(
     client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
-):
+) -> None:
     """Negative test: legacy auth URL should be considered deprecated on
     CML 2.10.x controllers.  This is a theoretical scenario in case it is not
     forbidden to connect to a newer controller with an older client anymore.
@@ -391,6 +451,9 @@ def test_old_auth_url_deprecated_with_cml_2_10(
     This simulates using an older client (2.9.x) against a 2.10 controller,
     where the "authok" endpointis deprecated. _make_test_auth_call will
     select the "legacy" endpoint, which still works, but eventually won't.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param monkeypatch: Pytest monkeypatch fixture.
     """
 
     _ = client_library_server_current
@@ -437,8 +500,17 @@ def test_client_library_init_url(
     monkeypatch: pytest.MonkeyPatch,
     via: str,
     env_var: str,
-    params: tuple,
-):
+    params: tuple[bool, str | None],
+) -> None:
+    """ClientLibrary URL init from env or parameter with validation.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param reset_env: Fixture clearing VIRL2 env vars.
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param via: Source of URL ('environment' or 'parameter').
+    :param env_var: Environment variable name for URL.
+    :param params: Tuple of (should_fail, url_value).
+    """
     _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
@@ -486,8 +558,17 @@ def test_client_library_init_user(
     monkeypatch: pytest.MonkeyPatch,
     via: str,
     env_var: str,
-    params: tuple,
-):
+    params: tuple[bool, str | None],
+) -> None:
+    """ClientLibrary username init from env or parameter with validation.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param reset_env: Fixture clearing VIRL2 env vars.
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param via: Source of username ('environment' or 'parameter').
+    :param env_var: Environment variable name for username.
+    :param params: Tuple of (should_fail, username_value).
+    """
     _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
@@ -525,8 +606,17 @@ def test_client_library_init_password(
     monkeypatch: pytest.MonkeyPatch,
     via: str,
     env_var: str,
-    params: tuple,
-):
+    params: tuple[bool, str | None],
+) -> None:
+    """ClientLibrary password init from env or parameter with validation.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param reset_env: Fixture clearing VIRL2 env vars.
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param via: Source of password ('environment' or 'parameter').
+    :param env_var: Environment variable name for password.
+    :param params: Tuple of (should_fail, password_value).
+    """
     _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
@@ -554,14 +644,26 @@ def test_client_library_init_password(
         assert cl._session.base_url == "https://validhostname/api/v0/"
 
 
-def test_client_library_str_and_repr(client_library_server_current: MagicMock):
+def test_client_library_str_and_repr(
+    client_library_server_current: MagicMock,
+) -> None:
+    """ClientLibrary str and repr return expected format.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert repr(client_library) == "ClientLibrary('https://somehost')"
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 
-def test_incompatible_version(client_library_server_2_0_0: MagicMock):
+def test_incompatible_version(
+    client_library_server_2_0_0: MagicMock,
+) -> None:
+    """ClientLibrary raises InitializationError for unsupported controller version.
+
+    :param client_library_server_2_0_0: Patched system_info for 2.0.0.
+    """
     _ = client_library_server_2_0_0
     with pytest.raises(InitializationError) as err:
         ClientLibrary("somehost", "virl2", password="virl2")
@@ -573,7 +675,12 @@ def test_incompatible_version(client_library_server_2_0_0: MagicMock):
 
 def test_client_minor_version_gt_nowarn(
     client_library_server_current: MagicMock, caplog: pytest.LogCaptureFixture
-):
+) -> None:
+    """No version warning when client minor is greater than controller.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param caplog: Pytest log capture fixture.
+    """
     _ = client_library_server_current
     with caplog.at_level(logging.WARNING):
         ClientLibrary("somehost", "virl2", password="virl2")
@@ -585,7 +692,12 @@ def test_client_minor_version_gt_nowarn(
 
 def test_client_minor_version_lt_warn(
     client_library_server_2_19_0: MagicMock, caplog: pytest.LogCaptureFixture
-):
+) -> None:
+    """Version warning when client minor is less than controller.
+
+    :param client_library_server_2_19_0: Patched system_info for 2.19.0.
+    :param caplog: Pytest log capture fixture.
+    """
     _ = client_library_server_2_19_0
     with caplog.at_level(logging.WARNING):
         ClientLibrary("somehost", "virl2", password="virl2")
@@ -597,7 +709,12 @@ def test_client_minor_version_lt_warn(
 
 def test_exact_version_no_warn(
     client_library_server_current: MagicMock, caplog: pytest.LogCaptureFixture
-):
+) -> None:
+    """No version warning when client and controller versions match.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param caplog: Pytest log capture fixture.
+    """
     _ = client_library_server_current
     with caplog.at_level(logging.WARNING):
         ClientLibrary("somehost", "virl2", password="virl2")
@@ -661,8 +778,14 @@ def test_exact_version_no_warn(
     ],
 )
 def test_version_comparison_greater_than(
-    greater: Version, lesser: Version, expected: bool
-):
+    greater: Version, lesser: Version | str | int, expected: bool
+) -> None:
+    """Compare Version objects with greater-than operator.
+
+    :param greater: Version expected to be greater.
+    :param lesser: Version or other object to compare against.
+    :param expected: Expected result of greater > lesser.
+    """
     assert (greater > lesser) == expected
 
 
@@ -745,7 +868,13 @@ def test_version_comparison_greater_than(
 )
 def test_version_comparison_greater_than_or_equal_to(
     first: Version, second: Version, expected: bool
-):
+) -> None:
+    """Compare Version objects with greater-than-or-equal operator.
+
+    :param first: First Version to compare.
+    :param second: Second Version to compare against.
+    :param expected: Expected result of first >= second.
+    """
     assert (first >= second) == expected
 
 
@@ -797,8 +926,14 @@ def test_version_comparison_greater_than_or_equal_to(
     ],
 )
 def test_version_comparison_less_than(
-    lesser: Version, greater: Version, expected: bool
-):
+    lesser: Version, greater: Version | str | int, expected: bool
+) -> None:
+    """Compare Version objects with less-than operator.
+
+    :param lesser: Version expected to be lesser.
+    :param greater: Version or other object to compare against.
+    :param expected: Expected result of lesser < greater.
+    """
     assert (lesser < greater) == expected
 
 
@@ -875,11 +1010,18 @@ def test_version_comparison_less_than(
 )
 def test_version_comparison_less_than_or_equal_to(
     first: Version, second: Version, expected: bool
-):
+) -> None:
+    """Compare Version objects with less-than-or-equal operator.
+
+    :param first: First Version to compare.
+    :param second: Second Version to compare against.
+    :param expected: Expected result of first <= second.
+    """
     assert (first <= second) == expected
 
 
-def test_different_version_strings():
+def test_different_version_strings() -> None:
+    """Parse various Version string formats and reject invalid ones."""
     v = Version("2.1.0-dev0+build8.7ee86bf8")
     assert v.major == 2 and v.minor == 1 and v.patch == 0
     v = Version("2.1.0dev0+build8.7ee86bf8")
@@ -906,7 +1048,14 @@ def test_import_lab_rejects_offline_argument(
     mocked_session: MagicMock,
     tmp_path: Path,
     test_data_dir: Path,
-):
+) -> None:
+    """import_lab with offline=True emits deprecation warning.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :param tmp_path: Temporary directory fixture.
+    :param test_data_dir: Path to test data fixtures.
+    """
     _ = client_library_server_current, mocked_session, tmp_path
     client_library = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     topology_file_path = test_data_dir / "sample_topology.json"
@@ -918,7 +1067,12 @@ def test_import_lab_rejects_offline_argument(
 
 def test_convergence_parametrization(
     client_library_server_current: MagicMock, mocked_session: MagicMock
-):
+) -> None:
+    """Convergence wait params flow from client to lab and override on call.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
     _ = client_library_server_current, mocked_session
     max_iter = 2
     max_time = 1
@@ -958,7 +1112,13 @@ def test_convergence_parametrization(
 @pytest.mark.parametrize("valid", [True, False])
 def test_get_diagnostics_paths(
     client_library: ClientLibrary, categories: list[DiagnosticsCategory], valid: bool
-):
+) -> None:
+    """get_diagnostics returns data per category; handles valid and invalid responses.
+
+    :param client_library: ClientLibrary instance with mocked lab API.
+    :param categories: Diagnostics categories to request.
+    :param valid: Whether API returns 200 (True) or 404 (False).
+    """
     data = {"data": "sample"}
     if valid:
         return_value = httpx.Response(200, json=data)
@@ -990,7 +1150,11 @@ def test_get_diagnostics_requires_categories(client_library: ClientLibrary):
 @respx.mock
 def test_system_management_controller_triggers_compute_load(
     client_library_server_current: MagicMock,
-):
+) -> None:
+    """system_management.controller returns connector host from compute_hosts.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
     respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
     respx.get("https://localhost/api/v0/authentication").respond(

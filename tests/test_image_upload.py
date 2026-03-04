@@ -79,7 +79,11 @@ to_extend += [
 # then locally run test_image_upload_file, and this will generate all the files
 # in the expected_pass_list into test_data.
 @pytest.fixture
-def create_test_files(test_data_dir: pathlib.Path):
+def create_test_files(test_data_dir: pathlib.Path) -> None:
+    """Create test files in test_data_dir for manual validation of EXPECTED_PASS_LIST.
+
+    :param test_data_dir: Directory for test data fixtures.
+    """
     for file_path in EXPECTED_PASS_LIST:
         path = test_data_dir / file_path
         path.write_text("test")
@@ -87,6 +91,11 @@ def create_test_files(test_data_dir: pathlib.Path):
 
 @contextlib.contextmanager
 def windows_path(path: str) -> Iterator[None]:
+    """Use PureWindowsPath when path contains backslash for cross-platform tests.
+
+    :param path: Path string; if it contains backslash, Path is temporarily Windows.
+    :yields: None.
+    """
     if "\\" in path:
         orig = pathlib.Path
         pathlib.Path = pathlib.PureWindowsPath
@@ -118,7 +127,15 @@ def windows_path(path: str) -> Iterator[None]:
     "test_string",
     WRONG_FORMAT_LIST + NOT_SUPPORTED_LIST + EXPECTED_PASS_LIST,
 )
-def test_image_upload_file(rename: str | None, test_string: str, test_path: str):
+def test_image_upload_file(
+    rename: str | None, test_string: str, test_path: str
+) -> None:
+    """Parametrized test for upload_image_file validation and path handling.
+
+    :param rename: Optional rename suffix; if set, appended to test_string.
+    :param test_string: Filename or extension from WRONG_FORMAT/NOT_SUPPORTED/PASS lists.
+    :param test_path: Path prefix (empty, root, relative, absolute, Windows-style).
+    """
     session = MagicMock()
     nid = NodeImageDefinitions(session)
     filename = test_path + test_string

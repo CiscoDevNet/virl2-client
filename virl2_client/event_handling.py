@@ -42,7 +42,7 @@ if os_name == "nt":
 
 
 class Event:
-    def __init__(self, event_dict: dict[str, Any]):
+    def __init__(self, event_dict: dict[str, Any]) -> None:
         """
         An event object, stores parsed info about the event it represents.
 
@@ -58,7 +58,11 @@ class Event:
         self.lab: Lab | None = None
         self.element: Node | Interface | Link | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a concise string representation of the event.
+
+        :returns: Human-readable event summary.
+        """
         return (
             f"Event type: {self.type}, "
             f"Subtype: {self.subtype}, "
@@ -67,7 +71,7 @@ class Event:
 
 
 class EventHandlerBase(ABC):
-    def __init__(self, client_library: ClientLibrary = None):
+    def __init__(self, client_library: ClientLibrary | None = None) -> None:
         """
         Abstract base class for event handlers.
 
@@ -83,6 +87,7 @@ class EventHandlerBase(ABC):
         Parse and handle the given event.
 
         :param event: An Event object representing the event to be parsed.
+        :returns: ``None``.
         """
         if event.type == "lab_event":
             self._handle_lab(event)
@@ -98,6 +103,7 @@ class EventHandlerBase(ABC):
         Handle lab events.
 
         :param event: An Event object representing the lab event.
+        :returns: ``None``.
         """
         if event.subtype == "created":
             self._handle_lab_created(event)
@@ -152,6 +158,7 @@ class EventHandlerBase(ABC):
         Handle lab element events.
 
         :param event: An Event object representing the lab element event.
+        :returns: ``None``.
         """
         if event.element_type in ("annotation", "connectormapping"):
             # These are not used in this client library
@@ -208,6 +215,7 @@ class EventHandlerBase(ABC):
         Handle other events.
 
         :param event: An Event object representing the other event.
+        :returns: ``None``.
         """
         # All other events are useless to the client, but in case some handling
         # needs to be done on them, this method can be overridden
@@ -222,6 +230,13 @@ class EventHandler(EventHandlerBase):
     """
 
     def handle_event(self, event: Event) -> None:
+        """Handle an incoming event and update local model state.
+
+        :param event: Parsed event payload.
+        :returns: ``None``.
+        :raises ElementNotFound: If a non-created element event targets a missing
+            element and the event subtype is not ``deleted``.
+        """
         if event.type in ("lab_stats", "system_stats") or (
             event.element_type in ("annotation", "connectormapping")
         ):
@@ -256,20 +271,45 @@ class EventHandler(EventHandlerBase):
         super().handle_event(event)
 
     def _handle_lab_created(self, event: Event) -> None:
+        """Ignore lab-created events for non-joined labs.
+
+        :param event: Parsed lab-created event.
+        :returns: ``None``.
+        """
         # we don't care about labs the user hasn't joined,
         # so we don't need the lab creation event
         pass
 
     def _handle_lab_modified(self, event: Event) -> None:
+        """Apply lab property updates.
+
+        :param event: Parsed lab-modified event.
+        :returns: ``None``.
+        """
         event.lab.update_lab_properties(event.data)
 
     def _handle_lab_deleted(self, event: Event) -> None:
+        """Remove a locally joined lab after deletion.
+
+        :param event: Parsed lab-deleted event.
+        :returns: ``None``.
+        """
         self._client_library._remove_lab_local(event.lab)
 
     def _handle_lab_state(self, event: Event) -> None:
+        """Update cached lab state.
+
+        :param event: Parsed lab-state event.
+        :returns: ``None``.
+        """
         event.lab._state = event.data["state"]
 
     def _handle_element_created(self, event: Event) -> None:
+        """Import newly created lab elements into local topology.
+
+        :param event: Parsed element-created event.
+        :returns: ``None``.
+        """
         new_element: Node | Interface | Link
         existing_elements: dict = getattr(event.lab, f"_{event.element_type}s", {})
         if event.element_id in existing_elements:
@@ -304,6 +344,11 @@ class EventHandler(EventHandlerBase):
         new_element._state = event.data.get("state")
 
     def _handle_element_modified(self, event: Event) -> None:
+        """Apply updates for known elements.
+
+        :param event: Parsed element-modified event.
+        :returns: ``None``.
+        """
         if event.element_type == "node":
             event.element._update(
                 event.data, exclude_configurations=False, push_to_server=False
@@ -322,6 +367,11 @@ class EventHandler(EventHandlerBase):
             _LOGGER.warning(f"Received an invalid event. {event}")
 
     def _handle_element_deleted(self, event: Event) -> None:
+        """Remove local element references after deletion.
+
+        :param event: Parsed element-deleted event.
+        :returns: ``None``.
+        """
         if event.element_type == "node":
             event.lab._remove_node_local(event.element)
 
@@ -337,4 +387,9 @@ class EventHandler(EventHandlerBase):
             _LOGGER.warning(f"Received an invalid event. {event}")
 
     def _handle_state_change(self, event: Event) -> None:
+        """Update cached element state.
+
+        :param event: Parsed state-change event.
+        :returns: ``None``.
+        """
         event.element._state = event.subtype_original

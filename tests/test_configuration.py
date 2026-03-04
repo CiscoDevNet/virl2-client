@@ -30,6 +30,11 @@ _TEST_ENV = {
 
 @pytest.fixture
 def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
+    """Create a .virlrc in tmp_path and chdir there for the test.
+
+    :param tmp_path: Pytest tmp_path fixture providing a temporary directory.
+    :yields: Path to the created .virlrc file.
+    """
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
     with path.open("w") as f:
         for name, value in _TEST_ENV.items():
@@ -44,6 +49,11 @@ def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
 
 @pytest.fixture
 def home_virlrc(tmp_path: Path) -> Iterator[Path]:
+    """Create a .virlrc in tmp_path and set HOME to that directory.
+
+    :param tmp_path: Pytest tmp_path fixture providing a temporary directory.
+    :yields: Path to the created .virlrc file.
+    """
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
     with path.open("w") as f:
         for name, value in _TEST_ENV.items():
@@ -59,7 +69,14 @@ def home_virlrc(tmp_path: Path) -> Iterator[Path]:
     os.remove(path)
 
 
-def test_local_virlrc(client_library_server_current: MagicMock, cwd_virlrc: Path):
+def test_local_virlrc(
+    client_library_server_current: MagicMock, cwd_virlrc: Path
+) -> None:
+    """ClientLibrary loads credentials from .virlrc in current working directory.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param cwd_virlrc: Fixture providing .virlrc in cwd.
+    """
     _ = client_library_server_current, cwd_virlrc
     cl = ClientLibrary(ssl_verify=False)
     assert cl.is_system_ready()
@@ -71,7 +88,13 @@ def test_local_virlrc(client_library_server_current: MagicMock, cwd_virlrc: Path
 
 def test_export_credentials(
     client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
-):
+) -> None:
+    """Load credentials from ``VIRL2_*`` environment variables.
+
+    :param client_library_server_current: Patched system-info fixture.
+    :param monkeypatch: Fixture for temporary environment mutation.
+    :returns: ``None``.
+    """
     _ = client_library_server_current
     for name, value in _TEST_ENV.items():
         monkeypatch.setenv(name, value)
@@ -86,7 +109,13 @@ def test_export_credentials(
 
 def test_home_directory_virlrc(
     client_library_server_current: MagicMock, home_virlrc: Path
-):
+) -> None:
+    """Load credentials from ``~/.virlrc`` when present.
+
+    :param client_library_server_current: Patched system-info fixture.
+    :param home_virlrc: Temporary user-home ``.virlrc`` fixture path.
+    :returns: ``None``.
+    """
     _ = client_library_server_current, home_virlrc
     cl = ClientLibrary(ssl_verify=False)
     assert cl.is_system_ready()
@@ -96,13 +125,24 @@ def test_home_directory_virlrc(
     assert cl.jwtoken == _TEST_ENV["VIRL2_JWT"]
 
 
-def test_read_from_stdin(client_library_server_current: MagicMock):
+def test_read_from_stdin(client_library_server_current: MagicMock) -> None:
+    """ClientLibrary raises OSError when reading from stdin in non-TTY context.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
     with pytest.raises(OSError, match="reading from stdin"):
         _ = ClientLibrary(ssl_verify=False)
 
 
-def test_get_configuration_uses_jwt_from_env(monkeypatch: pytest.MonkeyPatch):
+def test_config_jwt_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use ``VIRL2_JWT`` from environment when provided.
+
+    :param monkeypatch: Fixture for temporary environment mutation.
+    :returns: ``None``.
+    """
     monkeypatch.setenv("VIRL2_URL", _TEST_ENV["VIRL2_URL"])
     monkeypatch.setenv("VIRL2_JWT", _TEST_ENV["VIRL2_JWT"])
 
@@ -118,7 +158,11 @@ def test_get_configuration_uses_jwt_from_env(monkeypatch: pytest.MonkeyPatch):
 
 def test_get_configuration_uses_ca_bundle_for_ssl_verify(
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
+    """ClientConfig uses CA_BUNDLE for ssl_verify when set in environment.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
     monkeypatch.setenv("VIRL2_URL", _TEST_ENV["VIRL2_URL"])
     monkeypatch.setenv("VIRL2_USER", _TEST_ENV["VIRL2_USER"])
     monkeypatch.setenv("VIRL2_PASS", _TEST_ENV["VIRL2_PASS"])
@@ -133,7 +177,12 @@ def test_get_configuration_uses_ca_bundle_for_ssl_verify(
 
 def test_get_configuration_uses_cml_verify_cert_for_ssl_verify(
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
+    """Use ``CML_VERIFY_CERT`` env var for ``ssl_verify`` when present.
+
+    :param monkeypatch: Fixture for temporary environment mutation.
+    :returns: ``None``.
+    """
     monkeypatch.setenv("VIRL2_URL", _TEST_ENV["VIRL2_URL"])
     monkeypatch.setenv("VIRL2_USER", _TEST_ENV["VIRL2_USER"])
     monkeypatch.setenv("VIRL2_PASS", _TEST_ENV["VIRL2_PASS"])
@@ -182,7 +231,13 @@ def test_client_library_config(
     client_library_server_current: MagicMock,
     mocked_session: MagicMock,
     config: ClientConfig,
-):
+) -> None:
+    """ClientLibrary respects ClientConfig options when make_client() is called.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :param config: ClientConfig instance to test.
+    """
     _ = client_library_server_current
     mock_client = mocked_session.return_value
     mock_client.get.return_value.json.return_value = {
@@ -244,7 +299,7 @@ def test_client_library_config(
 @pytest.mark.parametrize("allow_inputs", [True, False, None])
 def test_deprecation_warning(
     monkeypatch: pytest.MonkeyPatch, config_kwargs: dict, allow_inputs: bool | None
-):
+) -> None:
     """Verify deprecation warning and interactive input behavior for allow_inputs.
 
     - When allow_inputs is None and stdin is not a TTY, a DeprecationWarning
@@ -253,6 +308,11 @@ def test_deprecation_warning(
       interactive prompts should be used.
     - When allow_inputs is True, no warning should be emitted but interactive
       prompts should be used.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param config_kwargs: Incomplete config dict that triggers InitializationError.
+    :param allow_inputs: Whether to allow interactive credential prompts.
+    :returns: ``None``.
     """
     # Treat stdin as non-interactive to exercise the deprecation path when
     # allow_inputs is None.
@@ -263,12 +323,22 @@ def test_deprecation_warning(
     calls: dict[str, int] = {"input": 0, "getpass": 0}
 
     def _fake_input(prompt: str) -> str:
+        """Return mocked interactive input values.
+
+        :param prompt: Prompt shown by input handler.
+        :returns: Mocked response value.
+        """
         calls["input"] += 1
         if "IP / hostname" in prompt:
             return config_kwargs["url"] or ""
         return config_kwargs["username"] or ""
 
     def _fake_getpass(_: str) -> str:
+        """Return mocked password input value.
+
+        :param _: Prompt text (unused).
+        :returns: Mocked password value.
+        """
         calls["getpass"] += 1
         return config_kwargs["password"] or ""
 
@@ -294,9 +364,12 @@ def test_deprecation_warning(
 
     orig_get_configuration = ClientConfig.get_configuration.__func__
 
-    def patched_get_configuration(*_):
-        # Always forward the parametrized allow_inputs from this test,
-        # regardless of what the caller passes (or omits).
+    def patched_get_configuration(*args: object) -> ClientConfig:
+        """Forward parametrized ``allow_inputs`` while ignoring caller args.
+
+        :param args: Positional parameters ignored by this patch helper.
+        :returns: Patched ``ClientConfig`` instance from original implementation.
+        """
         return orig_get_configuration(
             ClientConfig, **config_kwargs, allow_inputs=allow_inputs
         )

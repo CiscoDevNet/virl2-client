@@ -18,13 +18,17 @@
 # limitations under the License.
 #
 
+"""Tests for node and image definition upload validation."""
+
+from typing import Any
+
 import pytest
 
 from virl2_client.exceptions import InvalidContentType
 from virl2_client.virl2_client import ClientLibrary
 
 # everything except str or dict is invalid
-INVALID_DEFINITIONS = {
+INVALID_DEFINITIONS: dict[str, Any] = {
     "none": None,
     "bool": True,
     "int": 22,
@@ -41,21 +45,34 @@ INVALID_DEFINITIONS = {
 
 
 @pytest.fixture(params=list(INVALID_DEFINITIONS))
-def invalid_definition(request):
+def invalid_definition(request: pytest.FixtureRequest) -> Any:
+    """Provide an invalid definition value for parametrized tests.
+
+    :param request: Pytest fixture request; param selects the invalid type.
+    :returns: An invalid value (not str or dict) for definition upload.
+    """
     return INVALID_DEFINITIONS[request.param]
 
 
 def test_upload_node_definition_invalid_body(
-    client_library: ClientLibrary, invalid_definition
-):
-    """Try adding an invalid Node Definition"""
+    client_library: ClientLibrary, invalid_definition: Any
+) -> None:
+    """Try adding an invalid Node Definition.
+
+    :param client_library: Client library fixture.
+    :param invalid_definition: Invalid definition value (parametrized).
+    """
     with pytest.raises(InvalidContentType):
         client_library.definitions.upload_node_definition(invalid_definition)
 
 
 def test_upload_image_definition_invalid_body(
-    client_library: ClientLibrary, invalid_definition
-):
-    """Try adding an invalid Image Definition"""
+    client_library: ClientLibrary, invalid_definition: Any
+) -> None:
+    """Try adding an invalid Image Definition.
+
+    :param client_library: Client library fixture.
+    :param invalid_definition: Invalid definition value (parametrized).
+    """
     with pytest.raises(InvalidContentType):
         client_library.definitions.upload_image_definition(invalid_definition)

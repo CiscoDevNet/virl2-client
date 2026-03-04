@@ -78,7 +78,10 @@ class ClPyats:
 
     @property
     def hostname(self) -> str | None:
-        """Return the forced hostname/IP and port terminal server setting."""
+        """Return the forced hostname/IP and port terminal server setting.
+
+        :returns: Terminal server host override, or ``None`` when unset.
+        """
         return self._hostname
 
     @hostname.setter
@@ -107,6 +110,9 @@ class ClPyats:
         Disable all templating features of PyATS markup processor.
         Also disable extensions loading (which still uses all the templating)
         https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
+
+        :param testbed_yaml: Testbed document in YAML format.
+        :returns: Parsed pyATS testbed object.
         """
         processor = _PyatsTMProcessor(
             reference=True,
@@ -174,6 +180,7 @@ class ClPyats:
         :param username: The username to be set.
         :param password: The password to be set.
         :param key_path: The SSH key path to be set.
+        :param ssh_options: SSH options passed to terminal server connection.
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()
@@ -191,8 +198,8 @@ class ClPyats:
         self,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
-        **params: str,
-    ) -> dict:
+        **params: Any,
+    ) -> dict[str, Any]:
         """
         Prepare a dictionary of optional parameters to be executed before a command.
         None means that default commands will be executed. If you want no commands
@@ -200,6 +207,7 @@ class ClPyats:
 
         :param init_exec_commands: A list of exec commands to be executed.
         :param init_config_commands: A list of config commands to be executed.
+        :param params: Additional PyATS parameters to pass through.
         :returns: A dictionary of optional parameters to be executed with a command.
         """
         if init_exec_commands is not None:
@@ -209,7 +217,11 @@ class ClPyats:
         return params
 
     def _is_connected(self, pyats_device: "Device") -> bool:
-        """Helper method to see if the device appears connected"""
+        """Check whether a pyATS device is currently connected.
+
+        :param pyats_device: Device instance to inspect.
+        :returns: ``True`` when the device has an active CLI spawn handle.
+        """
         if pyats_device not in self._connections or not pyats_device.is_connected():
             return False
         try:
@@ -218,8 +230,12 @@ class ClPyats:
         except (TypeError, AttributeError):
             return False
 
-    def _reconnect(self, pyats_device: "Device", params: dict) -> None:
-        """Helper method to reconnect a PyATS device with proper cleanup."""
+    def _reconnect(self, pyats_device: "Device", params: dict[str, Any]) -> None:
+        """Reconnect a pyATS device with cleanup around connect calls.
+
+        :param pyats_device: Device instance to reconnect.
+        :param params: Connect/init command parameters.
+        """
         if self._is_connected(pyats_device):
             return
         self._destroy_device(pyats_device, raise_exc=False)
@@ -254,10 +270,12 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
-        :param pyats_params: Additional PyATS call parameters
+        :param _retry_attempted: Internal guard to avoid infinite reconnect retries.
+        :param pyats_params: Additional PyATS call parameters.
         :returns: The output from the device.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         :raises PyatsNotInstalled: If pyATS is not installed.
+        :raises RuntimeError: If the pyATS testbed is not initialized.
         """
         self._check_pyats_installed()
 
@@ -384,7 +402,12 @@ class ClPyats:
         if pyats_device in self._connections:
             self._destroy_device(pyats_device)
 
-    def _destroy_device(self, pyats_device: "Device", raise_exc=True) -> None:
+    def _destroy_device(self, pyats_device: "Device", raise_exc: bool = True) -> None:
+        """Destroy a device connection and forget local tracking state.
+
+        :param pyats_device: Device instance to destroy.
+        :param raise_exc: Re-raise destroy exceptions when ``True``.
+        """
         try:
             pyats_device.destroy()
         except Exception:
@@ -395,6 +418,11 @@ class ClPyats:
 
 
 def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
+    """Classify command failures to decide whether retry is safe.
+
+    :param exc: Exception raised during command execution.
+    :returns: Tuple ``(should_raise, retry_reason)``.
+    """
     should_raise = True
     retry_reason = None
 
@@ -410,7 +438,10 @@ def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
 
 
 def _remove_unicon_loggers(pyats_device: "Device") -> None:
-    """Prevent unicon logger instances and placeholders from accummulating"""
+    """Prevent unicon logger instances and placeholders from accumulating.
+
+    :param pyats_device: Device with active/previous unicon connections.
+    """
     loggers = logging.root.manager.loggerDict
     try:
         names = {

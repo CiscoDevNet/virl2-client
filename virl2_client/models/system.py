@@ -51,7 +51,7 @@ class SystemManagement:
         session: httpx.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
-    ):
+    ) -> None:
         """
         Manage the underlying controller software and the host system where it runs.
 
@@ -70,19 +70,22 @@ class SystemManagement:
         self._maintenance_mode = False
         self._maintenance_notice: SystemNotice | None = None
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: Any) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
     def compute_hosts(self) -> dict[str, ComputeHost]:
-        """Return a dictionary of compute hosts."""
+        """Return a dictionary of compute hosts.
+
+        :returns: Mapping of compute ID to ComputeHost.
+        """
         self.sync_compute_hosts_if_outdated()
         return self._compute_hosts.copy()
 
@@ -102,32 +105,47 @@ class SystemManagement:
 
     @property
     def system_notices(self) -> dict[str, SystemNotice]:
-        """Return a dictionary of system notices."""
+        """Return a dictionary of system notices.
+
+        :returns: Mapping of notice ID to SystemNotice.
+        """
         self.sync_system_notices_if_outdated()
         return self._system_notices.copy()
 
     @property
     def maintenance_mode(self) -> bool:
-        """Return the maintenance mode status."""
+        """Return the maintenance mode status.
+
+        :returns: Whether maintenance mode is enabled.
+        """
         self.sync_system_notices_if_outdated()
         return self._maintenance_mode
 
     @maintenance_mode.setter
     def maintenance_mode(self, value: bool) -> None:
-        """Set the maintenance mode status."""
+        """Set the maintenance mode status.
+
+        :param value: Whether maintenance mode is enabled.
+        """
         url = self._url_for("maintenance_mode")
         self._session.patch(url, json={"maintenance_mode": value})
         self._maintenance_mode = value
 
     @property
     def maintenance_notice(self) -> SystemNotice | None:
-        """Return the current maintenance notice."""
+        """Return the current maintenance notice.
+
+        :returns: The current maintenance notice, or None if none set.
+        """
         self.sync_system_notices_if_outdated()
         return self._maintenance_notice
 
     @maintenance_notice.setter
     def maintenance_notice(self, notice: SystemNotice | None) -> None:
-        """Set the maintenance notice."""
+        """Set the maintenance notice.
+
+        :param notice: The notice to set, or None to clear.
+        """
         url = self._url_for("maintenance_mode")
         notice_id = None if notice is None else notice.id
         result: dict = self._session.patch(url, json={"notice": notice_id}).json()
@@ -142,28 +160,40 @@ class SystemManagement:
 
     @property
     def telemetry(self) -> dict[str, OptInStatus | str]:
-        """Return the telemetry state."""
+        """Return the telemetry state.
+
+        :returns: The telemetry configuration (opt_in and related fields).
+        """
         url = self._url_for("telemetry")
         return self._session.get(url).json()
 
     @property
     def telemetry_state(self) -> OptInStatus:
-        """Return the telemetry state."""
+        """Return the telemetry state.
+
+        :returns: The current telemetry opt-in status.
+        """
         return OptInStatus(self.telemetry["opt_in"])
 
     @telemetry_state.setter
     def telemetry_state(self, mode: OptInStatus) -> None:
-        """Set the telemetry state."""
+        """Set the telemetry state.
+
+        :param mode: The telemetry opt-in status to set.
+        """
         url = self._url_for("telemetry")
         self._session.put(url, json={"opt_in": mode.name})
 
     def get_telemetry_events(self) -> list[dict[str, Any]]:
-        """Return the list of telemetry events."""
+        """Return the list of telemetry events.
+
+        :returns: List of telemetry event dictionaries.
+        """
         url = self._url_for("telemetry_events")
         return self._session.get(url).json()
 
     def sync_compute_hosts_if_outdated(self) -> None:
-        """Synchronize compute hosts if they are outdated."""
+        """Synchronize compute hosts if the auto sync interval has elapsed."""
         timestamp = time.time()
         if (
             self.auto_sync
@@ -172,7 +202,7 @@ class SystemManagement:
             self.sync_compute_hosts()
 
     def sync_system_notices_if_outdated(self) -> None:
-        """Synchronize system notices if they are outdated."""
+        """Synchronize system notices if the auto sync interval has elapsed."""
         timestamp = time.time()
         if (
             self.auto_sync
@@ -181,7 +211,10 @@ class SystemManagement:
             self.sync_system_notices()
 
     def sync_compute_hosts(self) -> None:
-        """Synchronize compute hosts from the server."""
+        """Synchronize compute hosts from the server.
+
+        Fetches the current compute host list and updates local state.
+        """
         url = self._url_for("compute_hosts")
         compute_hosts = self._session.get(url).json()
         compute_host_ids = []
@@ -204,7 +237,10 @@ class SystemManagement:
         self._last_sync_compute_host_time = time.time()
 
     def sync_system_notices(self) -> None:
-        """Synchronize system notices from the server."""
+        """Synchronize system notices from the server.
+
+        Fetches notices and maintenance mode state, updates local cache.
+        """
         url = self._url_for("notices")
         system_notices = self._session.get(url).json()
         system_notice_ids = []
@@ -238,9 +274,9 @@ class SystemManagement:
         Get the list of external connectors present on the controller.
         Device names or tags are used as External Connector nodes' configuration.
 
-        :param sync: Admin only. A boolean indicating whether to refresh the cached list
-            from host state. If sync is False, the state is retrieved;
-            if True, configuration is applied back into the controller host.
+        :param sync: Admin only. Whether to refresh the cached list from host state.
+            If False, the state is retrieved; if True, configuration is applied
+            back into the controller host. If None, a simple GET is performed.
         :returns: A list of objects with the device name and label.
         """
         url = self._url_for("external_connectors")
@@ -282,11 +318,9 @@ class SystemManagement:
         return self._session.get(url).json()
 
     def set_web_session_timeout(self, timeout: int) -> None:
-        """
-        Set the web session timeout in seconds.
+        """Set the web session timeout in seconds.
 
         :param timeout: The timeout value in seconds.
-        :returns: None
         """
         url = f"{self._url_for('web_session_timeout')}/{timeout}"
         self._session.patch(url)
@@ -325,7 +359,7 @@ class SystemManagement:
         node_counts: dict[str, int],
     ) -> ComputeHost:
         """
-        Add a compute host locally.
+        Add a compute host to the local cache.
 
         :param compute_id: The ID of the compute host.
         :param hostname: The hostname of the compute host.
@@ -406,7 +440,7 @@ class ComputeHost:
         is_synced: bool,
         admission_state: str,
         node_counts: dict[str, int],
-    ):
+    ) -> None:
         """
         A compute host, which hosts some of the nodes of the simulation.
 
@@ -433,15 +467,19 @@ class ComputeHost:
         self._admission_state = admission_state
         self._node_counts = node_counts
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return user-friendly compute-host description.
+
+        :returns: Compute-host hostname string.
+        """
         return f"Compute host: {self._hostname}"
 
-    def _url_for(self, endpoint, **kwargs) -> str:
+    def _url_for(self, endpoint: str, **kwargs: Any) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["compute_id"] = self._compute_id
@@ -449,58 +487,88 @@ class ComputeHost:
 
     @property
     def compute_id(self) -> str:
-        """Return the ID of the compute host."""
+        """Return the ID of the compute host.
+
+        :returns: The compute host ID.
+        """
         return self._compute_id
 
     @property
     def hostname(self) -> str:
-        """Return the hostname of the compute host."""
+        """Return the hostname of the compute host.
+
+        :returns: The hostname.
+        """
         self._system.sync_compute_hosts_if_outdated()
         return self._hostname
 
     @property
     def server_address(self) -> str:
-        """Return the server address of the compute host."""
+        """Return the server address of the compute host.
+
+        :returns: The server address.
+        """
         self._system.sync_compute_hosts_if_outdated()
         return self._server_address
 
     @property
     def is_connector(self) -> bool:
-        """Return whether the compute host is a connector."""
+        """Return whether the compute host is a connector.
+
+        :returns: True if this host is the controller/connector.
+        """
         return self._is_connector
 
     @property
     def is_simulator(self) -> bool:
-        """Return whether the compute host is a simulator."""
+        """Return whether the compute host is a simulator.
+
+        :returns: True if this host runs simulations.
+        """
         return self._is_simulator
 
     @property
     def is_connected(self) -> bool:
-        """Return whether the compute host is connected."""
+        """Return whether the compute host is connected.
+
+        :returns: True if the host is connected.
+        """
         self._system.sync_compute_hosts_if_outdated()
         return self._is_connected
 
     @property
     def is_synced(self) -> bool:
-        """Return whether the compute host is synced."""
+        """Return whether the compute host is synced.
+
+        :returns: True if the host is synced.
+        """
         self._system.sync_compute_hosts_if_outdated()
         return self._is_synced
 
     @property
     def node_counts(self) -> dict[str, int]:
-        """Return the counts of deployed and running nodes and orphans."""
+        """Return the counts of deployed and running nodes and orphans.
+
+        :returns: Mapping of count type to count.
+        """
         self._system.sync_compute_hosts_if_outdated()
         return self._node_counts
 
     @property
     def admission_state(self) -> str:
-        """Return the admission state of the compute host."""
+        """Return the admission state of the compute host.
+
+        :returns: The admission state.
+        """
         self._system.sync_compute_hosts_if_outdated()
         return self._admission_state
 
     @admission_state.setter
     def admission_state(self, value: str) -> None:
-        """Set the admission state of the compute host."""
+        """Set the admission state of the compute host.
+
+        :param value: The admission state to set.
+        """
         self._set_compute_host_property("admission_state", value)
         self._admission_state = value
 
@@ -511,16 +579,14 @@ class ComputeHost:
         self._session.delete(url)
 
     def update(self, host_data: dict[str, Any]) -> None:
-        """
-        Update the compute host with the given data.
+        """Update the compute host with the given data.
 
         :param host_data: The data to update the compute host.
         """
         self._update(host_data, push_to_server=True)
 
     def _update(self, host_data: dict[str, Any], push_to_server: bool = True) -> None:
-        """
-        Update the compute host with the given data.
+        """Update the compute host with the given data.
 
         :param host_data: The data to update the compute host.
         :param push_to_server: Whether to push the changes to the server.
@@ -533,8 +599,7 @@ class ComputeHost:
             setattr(self, f"_{key}", value)
 
     def _set_compute_host_property(self, key: str, val: Any) -> None:
-        """
-        Set a specific property of the compute host.
+        """Set a specific property of the compute host.
 
         :param key: The property key.
         :param val: The new value for the property.
@@ -543,8 +608,7 @@ class ComputeHost:
         self._set_compute_host_properties({key: val})
 
     def _set_compute_host_properties(self, host_data: dict[str, Any]) -> None:
-        """
-        Set multiple properties of the compute host.
+        """Set multiple properties of the compute host.
 
         :param host_data: The data to set as properties of the compute host.
         """
@@ -566,7 +630,7 @@ class SystemNotice:
         enabled: bool,
         acknowledged: dict[str, bool],
         groups: list[str] | None = None,
-    ):
+    ) -> None:
         """
         A system notice, which notifies users of maintenance or other events.
 
@@ -589,12 +653,12 @@ class SystemNotice:
         self._acknowledged = acknowledged
         self._groups = groups
 
-    def _url_for(self, endpoint, **kwargs) -> str:
+    def _url_for(self, endpoint: str, **kwargs: Any) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["notice_id"] = self._id
@@ -602,42 +666,63 @@ class SystemNotice:
 
     @property
     def id(self) -> str:
-        """Return the ID of the system notice."""
+        """Return the ID of the system notice.
+
+        :returns: The system notice ID.
+        """
         return self._id
 
     @property
     def level(self) -> str:
-        """Return the level of the system notice."""
+        """Return the level of the system notice.
+
+        :returns: The notice level.
+        """
         self._system.sync_system_notices_if_outdated()
         return self._level
 
     @property
     def label(self) -> str:
-        """Return the label of the system notice."""
+        """Return the label of the system notice.
+
+        :returns: The notice label.
+        """
         self._system.sync_system_notices_if_outdated()
         return self._label
 
     @property
     def content(self) -> str:
-        """Return the content of the system notice."""
+        """Return the content of the system notice.
+
+        :returns: The notice content.
+        """
         self._system.sync_system_notices_if_outdated()
         return self._content
 
     @property
     def enabled(self) -> bool:
-        """Return whether the system notice is enabled."""
+        """Return whether the system notice is enabled.
+
+        :returns: True if the notice is enabled.
+        """
         self._system.sync_system_notices_if_outdated()
         return self._enabled
 
     @property
     def acknowledged(self) -> dict[str, bool]:
-        """Return the acknowledgement status of the system notice."""
+        """Return the acknowledgement status of the system notice.
+
+        :returns: Mapping of user ID to acknowledgement status.
+        """
         self._system.sync_system_notices_if_outdated()
         return self._acknowledged
 
     @property
     def groups(self) -> list[str] | None:
-        """Return the groups associated with the system notice."""
+        """Return the groups associated with the system notice.
+
+        :returns: List of group names, or None.
+        """
         self._system.sync_system_notices_if_outdated()
         return self._groups
 
@@ -648,16 +733,14 @@ class SystemNotice:
         self._session.delete(url)
 
     def update(self, notice_data: dict[str, Any]) -> None:
-        """
-        Update the system notice with the given data.
+        """Update the system notice with the given data.
 
         :param notice_data: The data to update the system notice with.
         """
         self._update(notice_data, push_to_server=True)
 
     def _update(self, notice_data: dict[str, Any], push_to_server: bool = True) -> None:
-        """
-        Update the system notice with the given data.
+        """Update the system notice with the given data.
 
         :param notice_data: The data to update the system notice with.
         :param push_to_server: Whether to push the changes to the server.
@@ -670,8 +753,7 @@ class SystemNotice:
             setattr(self, f"_{key}", value)
 
     def _set_notice_property(self, key: str, val: Any) -> None:
-        """
-        Set a specific property of the system notice.
+        """Set a specific property of the system notice.
 
         :param key: The property key.
         :param val: The new value for the property.
@@ -680,8 +762,7 @@ class SystemNotice:
         self._set_notice_properties({key: val})
 
     def _set_notice_properties(self, notice_data: dict[str, Any]) -> None:
-        """
-        Set multiple properties of the system notice.
+        """Set multiple properties of the system notice.
 
         :param notice_data: The data to set as properties of the system notice.
         """

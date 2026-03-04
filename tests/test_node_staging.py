@@ -17,6 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Tests for lab node staging and node priority."""
+
+from __future__ import annotations
+
+from typing import Any
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -24,10 +29,16 @@ import pytest
 from virl2_client.models import Lab
 from virl2_client.models.node import Node
 
-RESOURCE_POOL_MANAGER = Mock()
+RESOURCE_POOL_MANAGER: Mock = Mock()
 
 
-def conditional_side_effect(*args, **kwargs):
+def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
+    """Side effect that validates node_staging and priority in patch payload; raises ValueError if invalid.
+
+    :param args: Unused positional arguments.
+    :param kwargs: Keyword args; ``json`` key holds the PATCH payload.
+    :raises ValueError: When enabled, abort_on_failure, start_remaining, or priority are invalid.
+    """
     _ = args
     resp = kwargs.get("json", {})
     if node_staging := resp.get("node_staging"):
@@ -42,7 +53,7 @@ def conditional_side_effect(*args, **kwargs):
             raise ValueError("Invalid value for priority")
 
 
-def test_node_staging_initial_values():
+def test_node_staging_initial_values() -> None:
     """Test that new lab has correct initial node staging values."""
     session = MagicMock()
     lab = Lab(
@@ -75,7 +86,7 @@ def test_node_staging_initial_values():
     assert node.priority is None
 
 
-def test_lab_node_staging_setter():
+def test_lab_node_staging_setter() -> None:
     """Test setting the node_staging parameter on a Lab instance."""
     session = MagicMock()
 
@@ -121,7 +132,7 @@ def test_lab_node_staging_setter():
     assert node.priority == 5
 
 
-def test_lab_node_staging_setter_invalid():
+def test_lab_node_staging_setter_invalid() -> None:
     """Test setting invalid node_staging parameters raises ValueError."""
     session = MagicMock()
     session.patch.side_effect = conditional_side_effect
@@ -155,7 +166,7 @@ def test_lab_node_staging_setter_invalid():
         node.priority = 10001
 
 
-def test_lab_node_staging_setter_no_change():
+def test_lab_node_staging_setter_no_change() -> None:
     """Test that setting node_staging to the same value does not trigger an API call."""
     session = MagicMock()
     lab = Lab(
@@ -210,8 +221,11 @@ def test_lab_node_staging_setter_no_change():
     )
 
 
-def test_lab_node_staging_setter_partial_update():
-    """Test that setting only some node_staging parameters updates correctly."""
+def test_lab_node_staging_setter_partial_update() -> None:
+    """Test that setting only some node_staging parameters updates correctly.
+
+    :returns: None.
+    """
     session = MagicMock()
     lab = Lab(
         title="Test Lab",

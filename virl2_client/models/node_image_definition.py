@@ -24,7 +24,7 @@ import os
 import pathlib
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from ..exceptions import InvalidContentType, InvalidImageFile
 from ..utils import get_url_from_template
@@ -61,17 +61,17 @@ class NodeImageDefinitions:
         """
         self._session = session
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: Any) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def node_definitions(self) -> list[dict]:
+    def node_definitions(self) -> list[dict[str, Any]]:
         """
         Return all node definitions.
 
@@ -80,7 +80,7 @@ class NodeImageDefinitions:
         url = self._url_for("node_defs")
         return self._session.get(url).json()
 
-    def image_definitions(self) -> list[dict]:
+    def image_definitions(self) -> list[dict[str, Any]]:
         """
         Return all image definitions.
 
@@ -89,7 +89,9 @@ class NodeImageDefinitions:
         url = self._url_for("image_defs")
         return self._session.get(url).json()
 
-    def image_definitions_for_node_definition(self, definition_id: str) -> list[dict]:
+    def image_definitions_for_node_definition(
+        self, definition_id: str
+    ) -> list[dict[str, Any]]:
         """
         Return all image definitions for a given node definition.
 
@@ -101,7 +103,7 @@ class NodeImageDefinitions:
 
     def set_image_definition_read_only(
         self, definition_id: str, read_only: bool
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Set the read-only attribute of the image definition with the given ID.
 
@@ -114,7 +116,7 @@ class NodeImageDefinitions:
 
     def set_node_definition_read_only(
         self, definition_id: str, read_only: bool
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Set the read-only attribute of the node definition with the given ID.
 
@@ -197,6 +199,7 @@ class NodeImageDefinitions:
 
         :param filename: The path of the image to upload.
         :param rename: Optional filename to rename to.
+        :returns: ``None``.
         """
         url = self._url_for("upload")
 
@@ -235,14 +238,25 @@ class NodeImageDefinitions:
 
         def callback_read_factory(
             callback_file: BinaryIO, callback: Callable[[int, int, float], None]
-        ):
+        ) -> Callable[[int], bytes]:
+            """Create a read wrapper that invokes callback with progress.
+
+            :param callback_file: The file object to wrap.
+            :param callback: Progress callback (current, total, start_time).
+            :returns: A read function that wraps the original and calls callback.
+            """
             original_read = callback_file.read
             callback_file.seek(0, os.SEEK_END)
             size = callback_file.tell()
             callback_file.seek(0)
             start_time = time.time()
 
-            def callback_read(__n):
+            def callback_read(__n: int) -> bytes:
+                """Read chunk and report progress.
+
+                :param __n: Number of bytes to read.
+                :returns: Bytes read from the file.
+                """
                 callback(callback_file.tell(), size, start_time)
                 return original_read(__n)
 
@@ -304,7 +318,9 @@ class NodeImageDefinitions:
         self._session.delete(url)
 
 
-def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> None:
+def print_progress_bar(
+    cur: int, total: int, start_time: float, length: int = 50
+) -> None:
     """
     Print a progress bar.
 
@@ -327,7 +343,7 @@ def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> No
         print()
 
 
-def _is_json_content(content: dict | str) -> bool:
+def _is_json_content(content: dict[str, Any] | str) -> bool:
     """
     Check if the content is JSON.
 

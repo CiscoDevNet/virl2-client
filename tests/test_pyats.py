@@ -1,3 +1,5 @@
+"""Tests for pyATS credential handling on Node."""
+
 #
 # This file is part of VIRL 2
 # Copyright (c) 2019-2026, Cisco Systems, Inc.
@@ -30,7 +32,10 @@ RESOURCE_POOL_MANAGER = Mock()
 
 @pytest.fixture
 def session() -> MagicMock:
-    """Mocked HTTP session used by Lab/Node instances."""
+    """Return a mocked HTTP session used by Lab/Node instances.
+
+    :returns: Mocked HTTP session object.
+    """
     return MagicMock()
 
 
@@ -40,8 +45,11 @@ def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
 
     The parametrized value for this fixture (via ``indirect=["node"]``)
     is interpreted as the initial ``pyats`` dict or ``None``.
-    """
 
+    :param request: Fixture request object with optional parametrized payload.
+    :param session: Mocked HTTP session fixture.
+    :returns: Node instance bound to a synthetic lab.
+    """
     initial_pyats: dict | None = getattr(request, "param", None)
     lab = Lab(
         "test_lab",
@@ -156,7 +164,14 @@ def test_node_pyats_credentials_parametrized(
     initial_pyats: dict[str, str | None],
     expected_pyats: dict[str, str | None],
 ) -> None:
-    """Verify pyATS credential updates, including None handling, in one place."""
+    """Verify pyATS credential updates, including ``None`` handling.
+
+    :param session: Mocked HTTP session fixture.
+    :param node: Parametrized node fixture.
+    :param initial_pyats: Input pyATS credential update mapping.
+    :param expected_pyats: Expected node pyATS state after update.
+    :returns: ``None``.
+    """
     if initial_pyats:
         node.set_pyats_credentials(**initial_pyats)
 

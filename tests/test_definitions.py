@@ -17,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 """Tests for node and image definition upload validation."""
 
 from typing import Any
@@ -54,25 +53,20 @@ def invalid_definition(request: pytest.FixtureRequest) -> Any:
     return INVALID_DEFINITIONS[request.param]
 
 
-def test_upload_node_definition_invalid_body(
-    client_library: ClientLibrary, invalid_definition: Any
+@pytest.mark.parametrize(
+    "upload_method",
+    ["upload_node_definition", "upload_image_definition"],
+)
+def test_upload_definition_invalid_body(
+    client_library: ClientLibrary, invalid_definition: Any, upload_method: str
 ) -> None:
-    """Try adding an invalid Node Definition.
+    """Upload rejects non-str/dict definition bodies with InvalidContentType.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param client_library: Client library fixture.
     :param invalid_definition: Invalid definition value (parametrized).
+    :param upload_method: Upload method name to call.
     """
     with pytest.raises(InvalidContentType):
-        client_library.definitions.upload_node_definition(invalid_definition)
-
-
-def test_upload_image_definition_invalid_body(
-    client_library: ClientLibrary, invalid_definition: Any
-) -> None:
-    """Try adding an invalid Image Definition.
-
-    :param client_library: Client library fixture.
-    :param invalid_definition: Invalid definition value (parametrized).
-    """
-    with pytest.raises(InvalidContentType):
-        client_library.definitions.upload_image_definition(invalid_definition)
+        getattr(client_library.definitions, upload_method)(invalid_definition)

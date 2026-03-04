@@ -3,7 +3,8 @@
 # Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
-import os
+"""Tests for ClientLibrary configuration loading (env vars, .virlrc files, params)."""
+
 import warnings
 from collections.abc import Iterator
 from pathlib import Path
@@ -29,10 +30,14 @@ _TEST_ENV = {
 
 
 @pytest.fixture
-def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
+def cwd_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Create a .virlrc in tmp_path and chdir there for the test.
 
+    Uses monkeypatch.chdir so the working directory is restored automatically
+    even if the test fails.
+
     :param tmp_path: Pytest tmp_path fixture providing a temporary directory.
+    :param monkeypatch: Pytest monkeypatch fixture for safe state mutation.
     :yields: Path to the created .virlrc file.
     """
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
@@ -40,18 +45,19 @@ def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    os.chdir(path.parent)
-
+    monkeypatch.chdir(path.parent)
     yield path
-
-    os.remove(path)
 
 
 @pytest.fixture
-def home_virlrc(tmp_path: Path) -> Iterator[Path]:
+def home_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Create a .virlrc in tmp_path and set HOME to that directory.
 
+    Uses monkeypatch.setenv so the environment variable is restored
+    automatically even if the test fails.
+
     :param tmp_path: Pytest tmp_path fixture providing a temporary directory.
+    :param monkeypatch: Pytest monkeypatch fixture for safe state mutation.
     :yields: Path to the created .virlrc file.
     """
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
@@ -59,14 +65,8 @@ def home_virlrc(tmp_path: Path) -> Iterator[Path]:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    HOME = "HOME"
-    home = os.environ.get(HOME)
-    os.environ[HOME] = str(path.parent)
-
+    monkeypatch.setenv("HOME", str(path.parent))
     yield path
-
-    os.environ[HOME] = home
-    os.remove(path)
 
 
 def test_local_virlrc(
@@ -89,11 +89,10 @@ def test_local_virlrc(
 def test_export_credentials(
     client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Load credentials from ``VIRL2_*`` environment variables.
+    """Load credentials from VIRL2_* environment variables.
 
     :param client_library_server_current: Patched system-info fixture.
     :param monkeypatch: Fixture for temporary environment mutation.
-    :returns: ``None``.
     """
     _ = client_library_server_current
     for name, value in _TEST_ENV.items():
@@ -110,11 +109,10 @@ def test_export_credentials(
 def test_home_directory_virlrc(
     client_library_server_current: MagicMock, home_virlrc: Path
 ) -> None:
-    """Load credentials from ``~/.virlrc`` when present.
+    """Load credentials from ~/.virlrc when present.
 
     :param client_library_server_current: Patched system-info fixture.
-    :param home_virlrc: Temporary user-home ``.virlrc`` fixture path.
-    :returns: ``None``.
+    :param home_virlrc: Temporary user-home .virlrc fixture path.
     """
     _ = client_library_server_current, home_virlrc
     cl = ClientLibrary(ssl_verify=False)
@@ -138,10 +136,9 @@ def test_read_from_stdin(client_library_server_current: MagicMock) -> None:
 def test_config_jwt_from_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Use ``VIRL2_JWT`` from environment when provided.
+    """Use VIRL2_JWT from environment when provided.
 
     :param monkeypatch: Fixture for temporary environment mutation.
-    :returns: ``None``.
     """
     monkeypatch.setenv("VIRL2_URL", _TEST_ENV["VIRL2_URL"])
     monkeypatch.setenv("VIRL2_JWT", _TEST_ENV["VIRL2_JWT"])
@@ -156,10 +153,12 @@ def test_config_jwt_from_env(
     assert config.password is None
 
 
-def test_get_configuration_uses_ca_bundle_for_ssl_verify(
+def test_config_ca_bundle_ssl_verify(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """ClientConfig uses CA_BUNDLE for ssl_verify when set in environment.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
@@ -175,13 +174,14 @@ def test_get_configuration_uses_ca_bundle_for_ssl_verify(
     assert config.ssl_verify == _TEST_ENV["CA_BUNDLE"]
 
 
-def test_get_configuration_uses_cml_verify_cert_for_ssl_verify(
+def test_config_cml_verify_cert_ssl_verify(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Use ``CML_VERIFY_CERT`` env var for ``ssl_verify`` when present.
+    """Use CML_VERIFY_CERT env var for ssl_verify when present.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param monkeypatch: Fixture for temporary environment mutation.
-    :returns: ``None``.
     """
     monkeypatch.setenv("VIRL2_URL", _TEST_ENV["VIRL2_URL"])
     monkeypatch.setenv("VIRL2_USER", _TEST_ENV["VIRL2_USER"])
@@ -267,109 +267,102 @@ def test_client_library_config(
     ]
 
 
-@pytest.mark.parametrize(
-    "config_kwargs",
-    [
-        # Missing URL
-        {
-            "url": None,
-            "username": "user",
-            "password": "pass",
-            "jwtoken": None,
-            "ssl_verify": False,
-        },
-        # Missing authentication (no username/password and no JWT)
-        {
-            "url": "https://somehost",
-            "username": None,
-            "password": None,
-            "jwtoken": None,
-            "ssl_verify": False,
-        },
-        # Username without password and no JWT
-        {
-            "url": "https://somehost",
-            "username": "user",
-            "password": None,
-            "jwtoken": None,
-            "ssl_verify": False,
-        },
-    ],
-)
+_DEPRECATION_CONFIG_KWARGS = [
+    {
+        "url": None,
+        "username": "user",
+        "password": "pass",
+        "jwtoken": None,
+        "ssl_verify": False,
+    },
+    {
+        "url": "https://somehost",
+        "username": None,
+        "password": None,
+        "jwtoken": None,
+        "ssl_verify": False,
+    },
+    {
+        "url": "https://somehost",
+        "username": "user",
+        "password": None,
+        "jwtoken": None,
+        "ssl_verify": False,
+    },
+]
+
+
+def _setup_deprecation_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+    config_kwargs: dict,
+) -> dict[str, int]:
+    """Setup stdin/input/getpass mocks for deprecation tests.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param config_kwargs: Config dict for mock return values.
+    :returns: Mutable call counter dict.
+    """
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    calls: dict[str, int] = {"input": 0, "getpass": 0}
+
+    def _fake_input(prompt: str) -> str:
+        calls["input"] += 1
+        if "IP / hostname" in prompt:
+            return config_kwargs.get("url") or ""
+        return config_kwargs.get("username") or ""
+
+    def _fake_getpass(_: str) -> str:
+        calls["getpass"] += 1
+        return config_kwargs.get("password") or ""
+
+    monkeypatch.setattr("builtins.input", _fake_input)
+    monkeypatch.setattr("getpass.getpass", _fake_getpass)
+    return calls
+
+
+@pytest.mark.parametrize("config_kwargs", _DEPRECATION_CONFIG_KWARGS)
 @pytest.mark.parametrize("allow_inputs", [True, False, None])
-def test_deprecation_warning(
+def test_get_config_deprecation(
     monkeypatch: pytest.MonkeyPatch, config_kwargs: dict, allow_inputs: bool | None
 ) -> None:
-    """Verify deprecation warning and interactive input behavior for allow_inputs.
+    """get_configuration with allow_inputs emits deprecation when None.
 
-    - When allow_inputs is None and stdin is not a TTY, a DeprecationWarning
-      should be emitted and interactive prompts should be used.
-    - When allow_inputs is False, no warning should be emitted and no
-      interactive prompts should be used.
-    - When allow_inputs is True, no warning should be emitted but interactive
-      prompts should be used.
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     :param config_kwargs: Incomplete config dict that triggers InitializationError.
     :param allow_inputs: Whether to allow interactive credential prompts.
-    :returns: ``None``.
     """
-    # Treat stdin as non-interactive to exercise the deprecation path when
-    # allow_inputs is None.
-    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
-
-    # Mock input() and getpass.getpass() so we don't actually read from stdin
-    # under pytest, while still tracking whether they were called.
-    calls: dict[str, int] = {"input": 0, "getpass": 0}
-
-    def _fake_input(prompt: str) -> str:
-        """Return mocked interactive input values.
-
-        :param prompt: Prompt shown by input handler.
-        :returns: Mocked response value.
-        """
-        calls["input"] += 1
-        if "IP / hostname" in prompt:
-            return config_kwargs["url"] or ""
-        return config_kwargs["username"] or ""
-
-    def _fake_getpass(_: str) -> str:
-        """Return mocked password input value.
-
-        :param _: Prompt text (unused).
-        :returns: Mocked password value.
-        """
-        calls["getpass"] += 1
-        return config_kwargs["password"] or ""
-
-    monkeypatch.setattr("builtins.input", _fake_input)
-    monkeypatch.setattr("getpass.getpass", _fake_getpass)
-
-    # Capture warnings while invoking get_configuration with the given
-    # allow_inputs setting. Some combinations still result in an
-    # InitializationError; that's fine for this test.
+    calls = _setup_deprecation_mocks(monkeypatch, config_kwargs)
     with warnings.catch_warnings(record=True) as caught:
         with pytest.raises(InitializationError):
             ClientConfig.get_configuration(**config_kwargs, allow_inputs=allow_inputs)
-
     got_deprecation = any(issubclass(w.category, DeprecationWarning) for w in caught)
     assert got_deprecation == (allow_inputs is None)
-
-    # Interactive prompts should only be used when allow_inputs is not False.
     if allow_inputs is False:
         assert calls["input"] == 0
         assert calls["getpass"] == 0
     else:
         assert calls["input"] + calls["getpass"] > 0
 
+
+@pytest.mark.parametrize("config_kwargs", _DEPRECATION_CONFIG_KWARGS)
+@pytest.mark.parametrize("allow_inputs", [True, False, None])
+def test_make_client_deprecation(
+    monkeypatch: pytest.MonkeyPatch, config_kwargs: dict, allow_inputs: bool | None
+) -> None:
+    """make_client with allow_inputs emits deprecation when None.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param config_kwargs: Incomplete config dict that triggers InitializationError.
+    :param allow_inputs: Whether to allow interactive credential prompts.
+    """
+    calls = _setup_deprecation_mocks(monkeypatch, config_kwargs)
     orig_get_configuration = ClientConfig.get_configuration.__func__
 
     def patched_get_configuration(*args: object) -> ClientConfig:
-        """Forward parametrized ``allow_inputs`` while ignoring caller args.
-
-        :param args: Positional parameters ignored by this patch helper.
-        :returns: Patched ``ClientConfig`` instance from original implementation.
-        """
         return orig_get_configuration(
             ClientConfig, **config_kwargs, allow_inputs=allow_inputs
         )
@@ -379,17 +372,12 @@ def test_deprecation_warning(
         "get_configuration",
         classmethod(patched_get_configuration),
     )
-
-    calls = {"input": 0, "getpass": 0}
-
     config = ClientConfig(**config_kwargs)
     with warnings.catch_warnings(record=True) as caught:
         with pytest.raises(InitializationError):
             config.make_client()
-
     got_deprecation = any(issubclass(w.category, DeprecationWarning) for w in caught)
     assert got_deprecation == (allow_inputs is None)
-
     if allow_inputs is False:
         assert calls["input"] == 0
         assert calls["getpass"] == 0

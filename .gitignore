@@ -8,6 +8,10 @@ dist
 .built
 */__pycache__
 .pytest_cache
+.coverage
+coverage.json
+coverage.xml
+htmlcov/
 docs/build
 docs/source/api
 *.pyc

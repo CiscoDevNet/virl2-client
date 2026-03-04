@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Parametrized tests for upload_image_file validation and path handling."""
+
 from __future__ import annotations
 
 import contextlib
@@ -72,21 +74,6 @@ to_extend += [
     ".file.",
     "file.qcow.",
 ]
-
-
-# This fixture is not meant to be used in tests - rather, it's here to easily manually
-# update files when the expected_pass_list is changed. Just change autouse to True,
-# then locally run test_image_upload_file, and this will generate all the files
-# in the expected_pass_list into test_data.
-@pytest.fixture
-def create_test_files(test_data_dir: pathlib.Path) -> None:
-    """Create test files in test_data_dir for manual validation of EXPECTED_PASS_LIST.
-
-    :param test_data_dir: Directory for test data fixtures.
-    """
-    for file_path in EXPECTED_PASS_LIST:
-        path = test_data_dir / file_path
-        path.write_text("test")
 
 
 @contextlib.contextmanager

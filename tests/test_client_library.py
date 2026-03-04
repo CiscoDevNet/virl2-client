@@ -17,23 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Tests for ClientLibrary initialization, authentication, versioning, and lab management."""
 
 from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, call, patch
 
 import httpx
 import pytest
 import respx
 
-from virl2_client.exceptions import APIError
+from virl2_client.exceptions import APIError, LabNotFound
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
+    ClientConfig,
     ClientLibrary,
     DiagnosticsCategory,
     InitializationError,
@@ -44,13 +45,11 @@ CURRENT_VERSION = ClientLibrary.VERSION.version_str
 FAKE_URL = "https://0.0.0.0/fake_url/"
 
 
-# TODO: split into multiple test modules, by feature.
 @pytest.fixture
 def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Clear VIRL2-related environment variables for isolated init tests.
 
     :param monkeypatch: Pytest monkeypatch fixture.
-    :returns: None.
     """
     env_vars = [
         "VIRL2_URL",
@@ -66,61 +65,35 @@ def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(key, raising=False)
 
 
+@pytest.mark.parametrize("title", [None, "new_title"], ids=["default", "custom_title"])
 def test_import_lab_from_path_virl(
     client_library_server_current: MagicMock,
     mocked_session: MagicMock,
     tmp_path: Path,
+    title: str | None,
 ) -> None:
-    """Import lab from .virl file path and verify POST to import/virl-1x.
+    """Import lab from .virl file path; optional title as query param.
 
     :param client_library_server_current: Patched system_info fixture.
     :param mocked_session: Mocked HTTP session fixture.
     :param tmp_path: Temporary directory fixture.
+    :param title: Optional lab title for import.
     """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
-    Lab.sync = Mock()
-
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    lab = cl.import_lab_from_path(path=(tmp_path / "topology.virl").as_posix())
-
+    kwargs = {"title": title} if title is not None else {}
+    with patch.object(Lab, "sync"):
+        lab = cl.import_lab_from_path(
+            path=(tmp_path / "topology.virl").as_posix(),
+            **kwargs,
+        )
     assert lab.title is not None
     assert lab._url_for("lab").startswith("labs/")
-
+    expected_params = {"title": title} if title else None
     cl._session.post.assert_called_once_with(
         "import/virl-1x",
-        params=None,
-        content="<?xml version='1.0' encoding='UTF-8'?>",
-    )
-    cl._session.post.assert_called_once()
-
-
-def test_import_lab_from_path_virl_title(
-    client_library_server_current: MagicMock,
-    mocked_session: MagicMock,
-    tmp_path: Path,
-) -> None:
-    """Import lab with custom title passed as query parameter.
-
-    :param client_library_server_current: Patched current-version fixture.
-    :param mocked_session: Mocked HTTP session fixture.
-    :param tmp_path: Temporary directory for generated VIRL file.
-    :returns: ``None``.
-    """
-    _ = client_library_server_current, mocked_session
-    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
-    Lab.sync = Mock()
-    new_title = "new_title"
-    (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-    lab = cl.import_lab_from_path(
-        path=(tmp_path / "topology.virl").as_posix(), title=new_title
-    )
-    assert lab.title is not None
-    assert lab._url_for("lab").startswith("labs/")
-
-    cl._session.post.assert_called_once_with(
-        "import/virl-1x",
-        params={"title": new_title},
+        params=expected_params,
         content="<?xml version='1.0' encoding='UTF-8'?>",
     )
 
@@ -132,7 +105,6 @@ def test_ssl_certificate(
 
     :param client_library_server_current: Patched current-version fixture.
     :param mocked_session: Mocked HTTP session fixture.
-    :returns: ``None``.
     """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(
@@ -152,12 +124,11 @@ def test_ssl_certificate_from_env_variable(
     monkeypatch: pytest.MonkeyPatch,
     mocked_session: MagicMock,
 ) -> None:
-    """Use ``CA_BUNDLE`` environment variable for SSL verification.
+    """Use CA_BUNDLE environment variable for SSL verification.
 
     :param client_library_server_current: Patched current-version fixture.
     :param monkeypatch: Fixture for temporary environment mutation.
     :param mocked_session: Mocked HTTP session fixture.
-    :returns: ``None``.
     """
     _ = client_library_server_current, mocked_session
     monkeypatch.setenv("CA_BUNDLE", "/home/user/cert.pem")
@@ -271,9 +242,15 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
 
 
 @respx.mock
-def test_jwt_only_valid_token_does_not_call_password_auth(
+def test_jwt_valid_token_skips_auth(
     client_library_server_current: MagicMock,
-):
+) -> None:
+    """Skip password auth when a valid JWT token is provided.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
 
     auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
@@ -299,9 +276,15 @@ def test_jwt_only_valid_token_does_not_call_password_auth(
 
 
 @respx.mock
-def test_jwt_expired_with_credentials_reauths_using_password_auth(
+def test_jwt_expired_reauths(
     client_library_server_current: MagicMock,
-):
+) -> None:
+    """Re-authenticate with username/password when JWT is expired.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
     _ = client_library_server_current
 
     auth_route = respx.get(f"{FAKE_URL}api/v0/authentication")
@@ -339,10 +322,17 @@ def test_jwt_expired_with_credentials_reauths_using_password_auth(
 
 
 @respx.mock
-def test_jwt_reauth_without_credentials_fails_cleanly(
+def test_jwt_reauth_no_creds_fails(
     client_library_server_current: MagicMock,
     reset_env: None,
-):
+) -> None:
+    """Raise APIError when expired JWT cannot be refreshed without credentials.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param reset_env: Fixture clearing VIRL2 env vars.
+    """
     _ = client_library_server_current, reset_env
 
     auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
@@ -402,18 +392,22 @@ def test_client_library_init_allow_http(
     assert cl.password == "virl2"
 
 
-def test_client_library_init_disallow_http(
+@pytest.mark.parametrize("allow_http", [None, False], ids=["default", "explicit_false"])
+def test_init_disallow_http(
     client_library_server_current: MagicMock,
+    allow_http: bool | None,
 ) -> None:
-    """Client raises InitializationError for http:// when allow_http=False.
+    """Client raises InitializationError for http:// when allow_http disallows.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param client_library_server_current: Patched system_info fixture.
+    :param allow_http: Value for allow_http (None = omit kwarg).
     """
     _ = client_library_server_current
+    kwargs = {} if allow_http is None else {"allow_http": allow_http}
     with pytest.raises(InitializationError, match="must be https"):
-        ClientLibrary("http://somehost", "virl2", "virl2")
-    with pytest.raises(InitializationError, match="must be https"):
-        ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
+        ClientLibrary("http://somehost", "virl2", "virl2", **kwargs)
 
 
 @respx.mock
@@ -533,9 +527,8 @@ def test_client_library_init_url(
                 allow_http=True,
                 raise_for_auth_failure=True,
             )
-        if isinstance(err, OSError):
-            pattern = "(reading from stdin)"
-            assert re.match(pattern, str(err.value))
+        if isinstance(err.value, OSError):
+            assert "reading from stdin" in str(err.value)
     else:
         cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
         url_parts = cl._session.base_url
@@ -586,9 +579,8 @@ def test_client_library_init_user(
     if fail:
         with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username=user, password="virl2")
-        if isinstance(err, OSError):
-            pattern = "(reading from stdin)"
-            assert re.match(pattern, str(err.value))
+        if isinstance(err.value, OSError):
+            assert "reading from stdin" in str(err.value)
     else:
         cl = ClientLibrary(url, username=user, password="virl2")
         assert cl.username == params[1]
@@ -634,9 +626,8 @@ def test_client_library_init_password(
     if fail:
         with pytest.raises((OSError, InitializationError)) as err:
             ClientLibrary(url=url, username="virl2", password=password)
-        if isinstance(err, OSError):
-            pattern = "(reading from stdin)"
-            assert re.match(pattern, str(err.value))
+        if isinstance(err.value, OSError):
+            assert "reading from stdin" in str(err.value)
     else:
         cl = ClientLibrary(url, username="virl2", password=password)
         assert cl.username == "virl2"
@@ -673,10 +664,12 @@ def test_incompatible_version(
     )
 
 
-def test_client_minor_version_gt_nowarn(
+def test_exact_version_no_warn(
     client_library_server_current: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """No version warning when client minor is greater than controller.
+    """No version warning when client and controller versions match.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param client_library_server_current: Patched system_info fixture.
     :param caplog: Pytest log capture fixture.
@@ -684,10 +677,7 @@ def test_client_minor_version_gt_nowarn(
     _ = client_library_server_current
     with caplog.at_level(logging.WARNING):
         ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
-    )
+    assert "Please ensure the client version is compatible" not in caplog.text
 
 
 def test_client_minor_version_lt_warn(
@@ -707,21 +697,27 @@ def test_client_minor_version_lt_warn(
     )
 
 
-def test_exact_version_no_warn(
-    client_library_server_current: MagicMock, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        pytest.param(Version("2.0.0"), Version("2.0.0"), True, id="equal"),
+        pytest.param(Version("2.0.0"), Version("2.0.1"), False, id="differ"),
+        pytest.param(Version("2.0.0"), "2.0.0", False, id="string"),
+        pytest.param(Version("2.0.0"), 200, False, id="int"),
+    ],
+)
+def test_version_comparison_eq(
+    a: Version, b: Version | str | int, expected: bool
 ) -> None:
-    """No version warning when client and controller versions match.
+    """Compare Version objects with equality operator.
 
-    :param client_library_server_current: Patched system_info fixture.
-    :param caplog: Pytest log capture fixture.
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param a: First operand.
+    :param b: Second operand.
+    :param expected: Expected result of a == b.
     """
-    _ = client_library_server_current
-    with caplog.at_level(logging.WARNING):
-        ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        f"Please ensure the client version is compatible with the controller version. "
-        f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
-    )
+    assert (a == b) == expected
 
 
 @pytest.mark.parametrize(
@@ -777,10 +773,12 @@ def test_exact_version_no_warn(
         ),
     ],
 )
-def test_version_comparison_greater_than(
+def test_version_comparison_gt(
     greater: Version, lesser: Version | str | int, expected: bool
 ) -> None:
     """Compare Version objects with greater-than operator.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param greater: Version expected to be greater.
     :param lesser: Version or other object to compare against.
@@ -866,10 +864,12 @@ def test_version_comparison_greater_than(
         ),
     ],
 )
-def test_version_comparison_greater_than_or_equal_to(
+def test_version_comparison_gte(
     first: Version, second: Version, expected: bool
 ) -> None:
     """Compare Version objects with greater-than-or-equal operator.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param first: First Version to compare.
     :param second: Second Version to compare against.
@@ -925,10 +925,12 @@ def test_version_comparison_greater_than_or_equal_to(
         ),
     ],
 )
-def test_version_comparison_less_than(
+def test_version_comparison_lt(
     lesser: Version, greater: Version | str | int, expected: bool
 ) -> None:
     """Compare Version objects with less-than operator.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param lesser: Version expected to be lesser.
     :param greater: Version or other object to compare against.
@@ -1008,10 +1010,12 @@ def test_version_comparison_less_than(
         ),
     ],
 )
-def test_version_comparison_less_than_or_equal_to(
+def test_version_comparison_lte(
     first: Version, second: Version, expected: bool
 ) -> None:
     """Compare Version objects with less-than-or-equal operator.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param first: First Version to compare.
     :param second: Second Version to compare against.
@@ -1020,27 +1024,45 @@ def test_version_comparison_less_than_or_equal_to(
     assert (first <= second) == expected
 
 
-def test_different_version_strings() -> None:
-    """Parse various Version string formats and reject invalid ones."""
-    v = Version("2.1.0-dev0+build8.7ee86bf8")
-    assert v.major == 2 and v.minor == 1 and v.patch == 0
-    v = Version("2.1.0dev0+build8.7ee86bf8")
-    assert v.major == 2 and v.minor == 1 and v.patch == 0
-    v = Version("2.1.0--dev0+build8.7ee86bf8")
-    assert v.major == 2 and v.minor == 1 and v.patch == 0
-    v = Version("2.1.0_dev0+build8.7ee86bf8")
-    assert v.major == 2 and v.minor == 1 and v.patch == 0
-    v = Version("2.1.0")
-    assert v.major == 2 and v.minor == 1 and v.patch == 0
-    v = Version("2.1.0-")
+@pytest.mark.parametrize(
+    "version_str",
+    [
+        "2.1.0-dev0+build8.7ee86bf8",
+        "2.1.0dev0+build8.7ee86bf8",
+        "2.1.0--dev0+build8.7ee86bf8",
+        "2.1.0_dev0+build8.7ee86bf8",
+        "2.1.0",
+        "2.1.0-",
+    ],
+)
+def test_version_parse_valid(version_str: str) -> None:
+    """Parse valid Version string formats into expected components.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param version_str: Version string to parse.
+    """
+    v = Version(version_str)
     assert v.major == 2 and v.minor == 1 and v.patch == 0
 
+
+@pytest.mark.parametrize(
+    "version_str",
+    [
+        "2.1-dev0+build8.7ee86bf8",
+        "2-dev0+build8.7ee86bf8",
+        "54dev0+build8.7ee86bf8",
+    ],
+)
+def test_version_parse_invalid(version_str: str) -> None:
+    """Reject malformed version strings with ValueError.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param version_str: Invalid version string.
+    """
     with pytest.raises(ValueError):
-        Version("2.1-dev0+build8.7ee86bf8")
-    with pytest.raises(ValueError):
-        Version("2-dev0+build8.7ee86bf8")
-    with pytest.raises(ValueError):
-        Version("54dev0+build8.7ee86bf8")
+        Version(version_str)
 
 
 def test_import_lab_rejects_offline_argument(
@@ -1065,10 +1087,12 @@ def test_import_lab_rejects_offline_argument(
             client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
 
 
-def test_convergence_parametrization(
+def test_convergence_params_to_lab(
     client_library_server_current: MagicMock, mocked_session: MagicMock
 ) -> None:
-    """Convergence wait params flow from client to lab and override on call.
+    """Convergence params flow from client to lab.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param client_library_server_current: Patched system_info fixture.
     :param mocked_session: Mocked HTTP session fixture.
@@ -1083,21 +1107,59 @@ def test_convergence_parametrization(
         convergence_wait_max_iter=max_iter,
         convergence_wait_time=max_time,
     )
-    # check that passing of value from client to lab is working
     lab = cl.create_lab()
     assert lab.wait_max_iterations == max_iter
     assert lab.wait_time == max_time
+
+
+def test_convergence_timeout(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """wait_until_lab_converged raises RuntimeError when max tries exceeded.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(
+        url=FAKE_URL,
+        username="test",
+        password="pa$$",
+        convergence_wait_max_iter=2,
+        convergence_wait_time=1,
+    )
+    lab = cl.create_lab()
     with patch.object(Lab, "has_converged", return_value=False):
         with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged()
-        assert (
-            "has not converged, maximum tries %s exceeded" % max_iter
-        ) in err.value.args[0]
+        assert "has not converged, maximum tries 2 exceeded" in err.value.args[0]
 
-        # try to override values on function
+
+def test_convergence_override(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """wait_until_lab_converged accepts max_iterations override on call.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(
+        url=FAKE_URL,
+        username="test",
+        password="pa$$",
+        convergence_wait_max_iter=2,
+        convergence_wait_time=1,
+    )
+    lab = cl.create_lab()
+    with patch.object(Lab, "has_converged", return_value=False):
         with pytest.raises(RuntimeError) as err:
             lab.wait_until_lab_converged(max_iterations=1)
-        assert ("has not converged, maximum tries %s exceeded" % 1) in err.value.args[0]
+        assert "has not converged, maximum tries 1 exceeded" in err.value.args[0]
 
 
 @pytest.mark.parametrize(
@@ -1142,16 +1204,43 @@ def test_get_diagnostics_paths(
         assert diagnostics_data[category.value] == data
 
 
-def test_get_diagnostics_requires_categories(client_library: ClientLibrary):
+def test_get_diagnostics_requires_categories(client_library: ClientLibrary) -> None:
+    """Raise ValueError when no diagnostics category is provided.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library: ClientLibrary instance with mocked lab API.
+    """
     with pytest.raises(ValueError, match="No diagnostics category provided"):
         client_library.get_diagnostics()
 
 
+def test_get_diagnostics_warns_user_list(
+    client_library: ClientLibrary,
+) -> None:
+    """get_diagnostics emits deprecation warning for USER_LIST category.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library: ClientLibrary instance with mocked lab API.
+    """
+    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
+        respx_mock.get("diagnostics/user_list").respond(200, json={"users": []})
+        with pytest.deprecated_call(match="DiagnosticsCategory.USER_LIST"):
+            diagnostics_data = client_library.get_diagnostics(
+                DiagnosticsCategory.USER_LIST
+            )
+
+    assert diagnostics_data["user_list"] == {"users": []}
+
+
 @respx.mock
-def test_system_management_controller_triggers_compute_load(
+def test_system_controller_compute_load(
     client_library_server_current: MagicMock,
 ) -> None:
     """system_management.controller returns connector host from compute_hosts.
+
+    NOTE: LLM-generated test -- verify for correctness.
 
     :param client_library_server_current: Patched system_info fixture.
     """
@@ -1194,3 +1283,291 @@ def test_system_management_controller_triggers_compute_load(
 
     assert controller.is_connector is True
     assert controller.hostname == "controller-host"
+
+
+def test_create_lab_missing_id_raises_key_error(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """create_lab raises KeyError when API returns no lab ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :raises KeyError: If the API response does not include id.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl._session.post.return_value.json.return_value = {"lab_title": "no-id"}
+
+    with pytest.raises(KeyError, match="id"):
+        cl.create_lab(title="broken")
+
+
+def test_import_lab_from_path_missing_file_raises(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """import_lab_from_path raises FileNotFoundError for missing path.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    with pytest.raises(FileNotFoundError):
+        cl.import_lab_from_path("/definitely/missing/topology.virl")
+
+
+def test_get_lab_list_show_all_sends_query_param(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """get_lab_list with show_all=True passes query param to API.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl._session.get.return_value.json.return_value = ["lab-a"]
+
+    result = cl.get_lab_list(show_all=True)
+
+    assert result == ["lab-a"]
+    cl._session.get.assert_called_with("labs", params={"show_all": True})
+
+
+def test_check_controller_version_major_mismatch(
+    client_library_server_current: MagicMock,
+    mocked_session: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Raise when controller major version is incompatible.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    :param monkeypatch: Fixture for temporary attribute patching.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    monkeypatch.setattr(cl, "system_info", lambda: {"version": "99.0.0"})
+
+    with pytest.raises(InitializationError, match="Major version mismatch"):
+        cl.check_controller_version()
+
+
+@respx.mock
+def test_join_existing_lab_404_not_found(
+    client_library_server_current: MagicMock,
+) -> None:
+    """Raise LabNotFound when joining a missing lab returns 404.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :raises LabNotFound: When the requested lab is not found on the server.
+    """
+    _ = client_library_server_current
+    lab_id = "missing-lab"
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "admin": True,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "error": None,
+        },
+    )
+    respx.get(f"{FAKE_URL}api/v0/labs/{lab_id}/topology").respond(
+        status_code=404, text=f"Lab not found: {lab_id}"
+    )
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    with pytest.raises(LabNotFound):
+        cl.join_existing_lab(lab_id)
+
+
+def test_version_diff_helpers() -> None:
+    """Version helper methods return True when versions differ.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    v1 = Version("2.10.3")
+    v2 = Version("3.11.4")
+    assert v1.major_differs(v2) is True
+    assert v1.minor_differs(v2) is True
+    assert v1.patch_differs(v2) is True
+    assert v1.minor_or_patch_differs(v2) is True
+
+
+def test_config_get_from_file(tmp_path: Path) -> None:
+    """ClientConfig._get_from_file reads property from .virlrc.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Temporary directory fixture.
+    """
+    config_file = tmp_path / ".virlrc"
+    config_file.write_text('VIRL2_URL="https://from-file"\n')
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_URL") == "https://from-file"
+
+
+def test_config_get_prop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ClientConfig._get_prop walks directory tree to find .virlrc.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Temporary directory fixture.
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    config_file = tmp_path / ".virlrc"
+    config_file.write_text('VIRL2_URL="https://from-file"\n')
+    nested = tmp_path / "a" / "b"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    assert ClientConfig._get_prop("VIRL2_URL") == "https://from-file"
+
+
+def test_config_populate_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ClientConfig._populate_from_inputs stores JWT from interactive input.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    conf = {
+        "url": None,
+        "username": None,
+        "password": None,
+        "jwtoken": None,
+        "ssl_verify": True,
+    }
+    monkeypatch.setattr(
+        "builtins.input",
+        MagicMock(side_effect=["https://server.local", "x" * 40]),
+    )
+    ClientConfig._populate_from_inputs(conf)
+    assert conf["jwtoken"] == "x" * 40
+
+
+def test_client_uuid(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """Client uuid property returns X-Client-UUID header value.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Session fixture setup.
+    :param mocked_session: Session mock fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl._session.headers = {"X-Client-UUID": "uuid-1"}
+    assert cl.uuid == "uuid-1"
+
+
+def test_client_logout(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """Client logout returns True when auth.logout succeeds.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Session fixture setup.
+    :param mocked_session: Session mock fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl._session.auth = MagicMock()
+    cl._session.auth.logout.return_value = True
+    assert cl.logout(clear_all_sessions=True) is True
+
+
+def test_client_get_host(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """Client get_host returns hostname from base URL.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Session fixture setup.
+    :param mocked_session: Session mock fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl._session.base_url = httpx.URL("https://demo.local:443/api/v0/")
+    assert cl.get_host() == "demo.local"
+
+
+def test_create_lab_options(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """create_lab passes autostart and node_staging in payload.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Session fixture setup.
+    :param mocked_session: Session mock fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl._session.post.return_value.json.return_value = {
+        "id": "new1",
+        "lab_title": "L1",
+        "lab_description": "",
+        "lab_notes": "",
+        "lab_owner": "user-1",
+    }
+    cl.create_lab(autostart={"enabled": True}, node_staging={"enabled": True})
+    body = cl._session.post.call_args.kwargs["json"]
+    assert body["autostart"] == {"enabled": True}
+    assert body["node_staging"] == {"enabled": True}
+
+
+def test_check_version_skip_paths(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """Skip version check when check_version is False.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Session fixture setup.
+    :param mocked_session: Session mock fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    cl.check_version = False
+    with patch.object(cl, "system_info", return_value={"version": "2.0.0"}):
+        assert cl.check_controller_version() is None
+    with patch.object(cl, "system_info", return_value={"version": object()}):
+        assert cl.check_controller_version() is None
+
+
+def test_join_lab_propagates_error(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """join_existing_lab propagates HTTPStatusError on 500.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Session fixture setup.
+    :param mocked_session: Session mock fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+    request = httpx.Request("GET", "https://x")
+    cl._session.get.side_effect = httpx.HTTPStatusError(
+        "boom",
+        request=request,
+        response=httpx.Response(status_code=500, request=request),
+    )
+    with pytest.raises(httpx.HTTPStatusError):
+        cl.join_existing_lab("missing", sync_lab=True)

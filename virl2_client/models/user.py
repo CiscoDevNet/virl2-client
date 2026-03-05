@@ -39,7 +39,7 @@ class UserManagement:
     def __init__(self, session: httpx.Client) -> None:
         self._session = session
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
@@ -77,7 +77,7 @@ class UserManagement:
         url = self._url_for("user", user_id=user_id)
         self._session.delete(url)
 
-    def create_user(self, username: str, pwd: str, **kwargs: dict[str, Any]) -> dict:
+    def create_user(self, username: str, pwd: str, **kwargs: Any) -> dict:
         """
         Create a new user.
 
@@ -104,7 +104,7 @@ class UserManagement:
         url = self._url_for("users")
         return self._session.post(url, json=data).json()
 
-    def update_user(self, user_id: str, **kwargs: dict[str, Any]) -> dict:
+    def update_user(self, user_id: str, **kwargs: Any) -> dict:
         """
         Update an existing user.
 

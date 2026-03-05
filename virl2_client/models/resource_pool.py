@@ -36,6 +36,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ResourcePoolManagement:
+    """Manage and synchronize resource pools with the server.
+
+    The list of all pools is updatable in both the client and its lab objects,
+    so labs can receive IDs of resource pools that were created after the last
+    client sync.
+    """
+
     # The problem this is solving is that we need this list of all pools to be
     # updatable in both the client itself and its lab objects, as otherwise
     # the lab might receive the ID of a resource pool that doesn't exist yet
@@ -45,7 +52,12 @@ class ResourcePoolManagement:
         "resource_pools_data": "resource_pools?data=true",
     }
 
-    def __init__(self, session: httpx.Client, auto_sync=True, auto_sync_interval=1.0):
+    def __init__(
+        self,
+        session: httpx.Client,
+        auto_sync: bool = True,
+        auto_sync_interval: float = 1.0,
+    ) -> None:
         """
         Manage and synchronize resource pools.
 
@@ -59,24 +71,30 @@ class ResourcePoolManagement:
         self._last_sync_resource_pool_time = 0.0
         self._resource_pools: ResourcePools = {}
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
     def resource_pools(self) -> ResourcePools:
-        """Return all resource pools."""
+        """Return all resource pools.
+
+        :returns: Dict mapping pool ID to ResourcePool.
+        """
         self.sync_resource_pools_if_outdated()
         return self._resource_pools
 
     def sync_resource_pools_if_outdated(self) -> None:
-        """Synchronize resource pools if they are outdated."""
+        """Synchronize resource pools if they are outdated.
+
+        No-op if auto_sync is disabled or interval has not elapsed.
+        """
         timestamp = time.time()
         if (
             self.auto_sync
@@ -85,7 +103,10 @@ class ResourcePoolManagement:
             self.sync_resource_pools()
 
     def sync_resource_pools(self) -> None:
-        """Synchronize the resource pools with the server."""
+        """Synchronize the resource pools with the server.
+
+        Fetches current pool data and updates local cache.
+        """
         url = self._url_for("resource_pools_data")
         res_pools = self._session.get(url).json()
         res_pool_ids = []
@@ -106,7 +127,7 @@ class ResourcePoolManagement:
 
     def get_resource_pools_by_ids(
         self, resource_pool_ids: str | Iterable[str]
-    ) -> ResourcePool | ResourcePools:
+    ) -> ResourcePool | dict[str, ResourcePool | None]:
         """
         Get resource pools by their IDs.
 
@@ -129,7 +150,7 @@ class ResourcePoolManagement:
     def create_resource_pool(
         self,
         label: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> ResourcePool:
         """
         Create a resource pool with the given parameters.
@@ -149,7 +170,7 @@ class ResourcePoolManagement:
         self,
         label: str,
         users: list[str],
-        **kwargs,
+        **kwargs: Any,
     ) -> list[ResourcePool]:
         """
         Create a list of resource pools with the given parameters.
@@ -190,7 +211,22 @@ class ResourcePoolManagement:
         users: list[str] | None = None,
         user_pools: list[str] | None = None,
     ) -> ResourcePool:
-        """Helper method to add resource pool locally."""
+        """
+        Add a resource pool locally without server round-trip.
+
+        :param pool_id: The ID of the resource pool.
+        :param label: The label of the resource pool.
+        :param description: Optional description.
+        :param template: Optional template pool ID.
+        :param licenses: Optional license count.
+        :param ram: Optional RAM amount.
+        :param cpus: Optional CPU count.
+        :param disk_space: Optional disk space amount.
+        :param external_connectors: Optional list of external connectors.
+        :param users: Optional list of user IDs.
+        :param user_pools: Optional list of user pool IDs.
+        :returns: The created ResourcePool instance.
+        """
         new_resource_pool = ResourcePool(
             self,
             pool_id,
@@ -210,6 +246,8 @@ class ResourcePoolManagement:
 
 
 class ResourcePool:
+    """A single resource pool with limits and usage."""
+
     _URL_TEMPLATES = {
         "resource_pool": "resource_pools/{pool_id}",
         "resource_pool_usage": "resource_pool_usage/{pool_id}",
@@ -229,7 +267,7 @@ class ResourcePool:
         external_connectors: list[str] | None,
         users: list[str] | None,
         user_pools: list[str] | None,
-    ):
+    ) -> None:
         """
         Initialize a resource pool.
 
@@ -260,10 +298,18 @@ class ResourcePool:
         self._users = users if users is not None else []
         self._user_pools = user_pools if user_pools is not None else []
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return user-friendly resource-pool description.
+
+        :returns: Resource-pool label display string.
+        """
         return f"Resource pool: {self._label}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return debug representation for this resource pool.
+
+        :returns: Representation containing id, label, and template.
+        """
         return (
             f"{self.__class__.__name__}("
             f"{self._id!r}, "
@@ -271,12 +317,12 @@ class ResourcePool:
             f"{self._template!r})"
         )
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["pool_id"] = self.id
@@ -284,94 +330,142 @@ class ResourcePool:
 
     @property
     def id(self) -> str:
-        """Return the ID of the resource pool."""
+        """Return the ID of the resource pool.
+
+        :returns: The pool ID.
+        """
         return self._id
 
     @property
     def label(self) -> str:
-        """Set the label of the resource pool."""
+        """Return the label of the resource pool.
+
+        :returns: The pool label.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return self._label
 
     @label.setter
-    def label(self, value: str):
-        """Set the label of the resource pool."""
+    def label(self, value: str) -> None:
+        """Set the label of the resource pool.
+
+        :param value: The new label.
+        """
         self._set_resource_pool_property("label", value)
         self._label = value
 
     @property
-    def description(self) -> str:
-        """Return the description of the resource pool."""
+    def description(self) -> str | None:
+        """Return the description of the resource pool.
+
+        :returns: The pool description or None.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return self._description
 
     @description.setter
-    def description(self, value: str):
-        """Set the description of the resource pool."""
+    def description(self, value: str | None) -> None:
+        """Set the description of the resource pool.
+
+        :param value: The new description.
+        """
         self._set_resource_pool_property("description", value)
         self._description = value
 
     @property
-    def template(self) -> str:
-        """Return the template of the resource pool."""
+    def template(self) -> str | None:
+        """Return the template of the resource pool.
+
+        :returns: The template pool ID or None for templates.
+        """
         return self._template
 
     @property
     def is_template(self) -> bool:
-        """Return whether the resource pool is a template."""
+        """Return whether the resource pool is a template.
+
+        :returns: True if template is None (this pool is a template).
+        """
         return self._template is None
 
     @property
     def licenses(self) -> int:
-        """Return the number of licenses in the resource pool."""
+        """Return the number of licenses in the resource pool.
+
+        :returns: License count.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return self._licenses
 
     @licenses.setter
-    def licenses(self, value: int):
-        """Set the number of licenses in the resource pool."""
+    def licenses(self, value: int) -> None:
+        """Set the number of licenses in the resource pool.
+
+        :param value: The new license count.
+        """
         self._set_resource_pool_property("licenses", value)
         self._licenses = value
 
     @property
     def ram(self) -> int:
-        """Return the amount of RAM in the resource pool."""
+        """Return the amount of RAM in the resource pool.
+
+        :returns: RAM amount.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return self._ram
 
     @ram.setter
-    def ram(self, value: int):
-        """Set the amount of RAM in the resource pool."""
+    def ram(self, value: int) -> None:
+        """Set the amount of RAM in the resource pool.
+
+        :param value: The new RAM amount.
+        """
         self._set_resource_pool_property("ram", value)
         self._ram = value
 
     @property
     def cpus(self) -> int:
-        """Return the number of CPUs in the resource pool."""
+        """Return the number of CPUs in the resource pool.
+
+        :returns: CPU count.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return self._cpus
 
     @cpus.setter
-    def cpus(self, value: int):
-        """Set the number of CPUs in the resource pool."""
+    def cpus(self, value: int) -> None:
+        """Set the number of CPUs in the resource pool.
+
+        :param value: The new CPU count.
+        """
         self._set_resource_pool_property("cpus", value)
         self._cpus = value
 
     @property
     def disk_space(self) -> int:
-        """Return the amount of disk space in the resource pool."""
+        """Return the amount of disk space in the resource pool.
+
+        :returns: Disk space amount.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return self._disk_space
 
     @disk_space.setter
-    def disk_space(self, value: int):
-        """Set the amount of disk space in the resource pool."""
+    def disk_space(self, value: int) -> None:
+        """Set the amount of disk space in the resource pool.
+
+        :param value: The new disk space amount.
+        """
         self._set_resource_pool_property("disk_space", value)
         self._disk_space = value
 
     @property
     def external_connectors(self) -> list[str] | None:
-        """Return a list of external connectors in the resource pool."""
+        """Return a list of external connectors in the resource pool.
+
+        :returns: Copy of connector list or None.
+        """
         self._resource_pools.sync_resource_pools_if_outdated()
         return (
             self._external_connectors.copy()
@@ -380,14 +474,21 @@ class ResourcePool:
         )
 
     @external_connectors.setter
-    def external_connectors(self, value: list[str] | None):
-        """Set the external connectors in the resource pool."""
+    def external_connectors(self, value: list[str] | None) -> None:
+        """Set the external connectors in the resource pool.
+
+        :param value: The new list of external connectors.
+        """
         self._set_resource_pool_property("external_connectors", value)
         self._external_connectors = value
 
     @property
     def users(self) -> list[str]:
-        """Return the list of users in the resource pool."""
+        """Return the list of users in the resource pool.
+
+        :returns: List of user IDs.
+        :raises InvalidProperty: If this pool is a template (templates have no users).
+        """
         if self.is_template:
             raise InvalidProperty("A template does not have the 'users' property.")
         self._resource_pools.sync_resource_pools_if_outdated()
@@ -395,7 +496,11 @@ class ResourcePool:
 
     @property
     def user_pools(self) -> list[str]:
-        """Return the list of user pools in the template."""
+        """Return the list of user pools in the template.
+
+        :returns: List of user pool IDs.
+        :raises InvalidProperty: If this pool is not a template.
+        """
         if not self.is_template:
             raise InvalidProperty(
                 "A resource pool does not have the 'user_pools' property."
@@ -404,7 +509,10 @@ class ResourcePool:
         return self._user_pools
 
     def get_usage(self) -> ResourcePoolUsage:
-        """Get the usage stats of the resource pool."""
+        """Get the usage stats of the resource pool.
+
+        :returns: ResourcePoolUsage with limit and usage data.
+        """
         url = self._url_for("resource_pool_usage")
         result = self._session.get(url).json()
         limit = ResourcePoolUsageBase(**result["limit"])
@@ -439,12 +547,21 @@ class ResourcePool:
             setattr(self, f"_{key}", value)
 
     def _set_resource_pool_property(self, key: str, val: Any) -> None:
-        """Helper method to set a property on the server."""
+        """
+        Set a single property on the server.
+
+        :param key: The property name.
+        :param val: The value to set.
+        """
         _LOGGER.debug(f"Setting resource pool property {self} {key}: {val}")
         self._set_resource_pool_properties({key: val})
 
     def _set_resource_pool_properties(self, resource_pool_data: dict[str, Any]) -> None:
-        """Helper method to set multiple properties on the server."""
+        """
+        Set multiple properties on the server.
+
+        :param resource_pool_data: Dict of property names to values.
+        """
         # drop unmodifiable properties
         resource_pool_data_post = {
             key: resource_pool_data[key]
@@ -460,14 +577,29 @@ ResourcePools = dict[str, ResourcePool]
 
 @dataclass
 class ResourcePoolUsage:
+    """Usage statistics for a resource pool.
+
+    :param limit: The configured limits for the pool.
+    :param usage: The current usage of the pool.
+    """
+
     limit: ResourcePoolUsageBase
     usage: ResourcePoolUsageBase
 
 
 @dataclass
 class ResourcePoolUsageBase:
+    """Base usage or limit data for a resource pool.
+
+    :param licenses: License count.
+    :param cpus: CPU count.
+    :param ram: RAM amount.
+    :param disk_space: Disk space amount.
+    :param external_connectors: List of external connector IDs.
+    """
+
     licenses: int
     cpus: int
     ram: int
     disk_space: int
-    external_connectors: list
+    external_connectors: list[str]

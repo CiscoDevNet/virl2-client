@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
@@ -38,6 +38,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Link:
+    """A VIRL2 network link connecting two interfaces on different nodes."""
+
     _URL_TEMPLATES = {
         "link": "{lab}/links/{id}",
         "check_if_converged": "{lab}/links/{id}/check_if_converged",
@@ -88,10 +90,18 @@ class Link:
             "writepackets": 0,
         }
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return user-friendly link description.
+
+        :returns: Link label with stale marker when applicable.
+        """
         return f"Link: {self._label}{' (STALE)' if self._stale else ''}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return debug representation for this link.
+
+        :returns: Representation containing lab, id, and label.
+        """
         return (
             f"{self.__class__.__name__}("
             f"{str(self._lab)!r}, "
@@ -99,20 +109,29 @@ class Link:
             f"{self._label!r})"
         )
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
+        """Compare links by identifier.
+
+        :param other: Object to compare against.
+        :returns: True when other is a link with same id.
+        """
         if not isinstance(other, Link):
             return False
         return self._id == other._id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Return hash based on link identifier.
+
+        :returns: Stable hash value for this link id.
+        """
         return hash(self._id)
 
-    def _url_for(self, endpoint: str, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         if endpoint.startswith("pcap"):
@@ -124,28 +143,48 @@ class Link:
 
     @property
     def lab(self) -> Lab:
-        """Return the lab of the link."""
+        """
+        Return the lab of the link.
+
+        :returns: The Lab instance this link belongs to.
+        """
         return self._lab
 
     @property
     def id(self) -> str:
-        """Return the ID of the link."""
+        """
+        Return the ID of the link.
+
+        :returns: The link ID.
+        """
         return self._id
 
     @property
     def interface_a(self) -> Interface:
-        """Return the first interface of the link."""
+        """
+        Return the first interface of the link.
+
+        :returns: The first Interface of the link.
+        """
         return self._interface_a
 
     @property
     def interface_b(self) -> Interface:
-        """Return the second interface of the link."""
+        """
+        Return the second interface of the link.
+
+        :returns: The second Interface of the link.
+        """
         return self._interface_b
 
     @property
     @locked
     def state(self) -> str | None:
-        """Return the current state of the link."""
+        """
+        Return the current state of the link.
+
+        :returns: The link state, or None if unknown.
+        """
         self._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("link")
@@ -154,53 +193,89 @@ class Link:
 
     @property
     def readbytes(self) -> int:
-        """Return the number of read bytes on the link."""
+        """
+        Return the number of read bytes on the link.
+
+        :returns: The number of read bytes.
+        """
         self._lab.sync_statistics_if_outdated()
         return self.statistics["readbytes"]
 
     @property
     def readpackets(self) -> int:
-        """Return the number of read packets on the link."""
+        """
+        Return the number of read packets on the link.
+
+        :returns: The number of read packets.
+        """
         self._lab.sync_statistics_if_outdated()
         return self.statistics["readpackets"]
 
     @property
     def writebytes(self) -> int:
-        """Return the number of written bytes on the link."""
+        """
+        Return the number of written bytes on the link.
+
+        :returns: The number of written bytes.
+        """
         self._lab.sync_statistics_if_outdated()
         return self.statistics["writebytes"]
 
     @property
     def writepackets(self) -> int:
-        """Return the number of written packets on the link."""
+        """
+        Return the number of written packets on the link.
+
+        :returns: The number of written packets.
+        """
         self._lab.sync_statistics_if_outdated()
         return self.statistics["writepackets"]
 
     @property
     def node_a(self) -> Node:
-        """Return the first node connected to the link."""
+        """
+        Return the first node connected to the link.
+
+        :returns: The first Node connected to the link.
+        """
         return self.interface_a.node
 
     @property
     def node_b(self) -> Node:
-        """Return the second node connected to the link."""
+        """
+        Return the second node connected to the link.
+
+        :returns: The second Node connected to the link.
+        """
         return self.interface_b.node
 
     @property
     @locked
     def nodes(self) -> tuple[Node, Node]:
-        """Return the nodes connected by the link."""
+        """
+        Return the nodes connected by the link.
+
+        :returns: Tuple of (node_a, node_b).
+        """
         return self.node_a, self.node_b
 
     @property
     @locked
     def interfaces(self) -> tuple[Interface, Interface]:
-        """Return the interfaces connected by the link."""
+        """
+        Return the interfaces connected by the link.
+
+        :returns: Tuple of (interface_a, interface_b).
+        """
         return self.interface_a, self.interface_b
 
     @property
     def label(self) -> str | None:
-        """Return the label of the link."""
+        """
+        Return the label of the link.
+
+        :returns: The link label, or None if unset.
+        """
         return self._label
 
     @locked
@@ -216,12 +291,19 @@ class Link:
             "interface_b": self.interface_b.id,
         }
 
-    def remove(self):
-        """Remove the link from the lab."""
+    def remove(self) -> None:
+        """
+        Remove the link from the lab.
+
+        """
         self._lab.remove_link(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
+        """
+        Remove the link on the server.
+
+        """
         _LOGGER.info(f"Removing link {self}")
         url = self._url_for("link")
         self._session.delete(url)
@@ -233,7 +315,7 @@ class Link:
         Wait until the link has converged.
 
         :param max_iterations: The maximum number of iterations to wait for convergence.
-        :param wait_time: The time to wait between iterations.
+        :param wait_time: The time to wait between iterations in seconds.
         :raises RuntimeError: If the link does not converge within the specified number
             of iterations.
         """
@@ -303,7 +385,7 @@ class Link:
         latency: int | None | _Sentinel = UNCHANGED,
         jitter: int | None | _Sentinel = UNCHANGED,
         loss: float | None | _Sentinel = UNCHANGED,
-        **kwargs: dict[str, float | int | bool | None],
+        **kwargs: float | int | bool | None,
     ) -> None:
         """
         Set the conditioning parameters for the link.
@@ -356,7 +438,7 @@ class Link:
         self._session.patch(url, json=data)
 
     @check_stale
-    def get_condition(self) -> dict:
+    def get_condition(self) -> dict[str, Any]:
         """
         Get the current conditioning parameters for the link.
 
@@ -367,14 +449,19 @@ class Link:
 
     @check_stale
     def remove_condition(self) -> None:
-        """Remove the link conditioning."""
+        """
+        Remove the link conditioning.
+
+        """
         url = self._url_for("condition")
         self._session.delete(url)
 
     def set_condition_by_name(self, name: str) -> None:
         """
-        A convenience function to provide
-        some commonly used link condition settings for various link types.
+        Apply predefined link condition settings by name.
+
+        A convenience function to provide commonly used link condition settings
+        for various link types.
 
         Inspired by:  https://github.com/tylertreat/comcast
 
@@ -427,7 +514,7 @@ class Link:
         maxtime: int | None = None,
         bpfilter: str | None = None,
         encap: str = "ethernet",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Start a packet capture on this link.
 
@@ -454,13 +541,14 @@ class Link:
     def stop_capture(self) -> None:
         """
         Stop the packet capture on this link.
+
         """
         url = self._url_for("capture_stop")
         _LOGGER.info(f"Stopping packet capture on link {self._id}")
         self._session.put(url)
 
     @check_stale
-    def capture_status(self) -> dict:
+    def capture_status(self) -> dict[str, Any]:
         """
         Get the current packet capture status for this link.
 
@@ -479,7 +567,7 @@ class Link:
         _LOGGER.info(f"Downloading PCAP for link {self._id}")
         return self._session.get(url).content
 
-    def get_capture_packets(self) -> list[dict]:
+    def get_capture_packets(self) -> list[dict[str, Any]]:
         """
         Get a list of all captured packets in decoded format from last capture.
 
@@ -489,7 +577,7 @@ class Link:
         _LOGGER.info(f"Getting packet list for link {self._id}")
         return self._session.get(url).json()
 
-    def get_capture_packet(self, packet_id: int) -> dict:
+    def get_capture_packet(self, packet_id: int) -> dict[str, Any]:
         """
         Get a specific packet from the last capture in decoded format.
 

@@ -27,8 +27,11 @@ from virl2_client.models.link import Link
 
 
 @pytest.fixture
-def mock_link():
-    """Create a mock link with mocked session for testing."""
+def mock_link() -> Link:
+    """Create a mock Link with mocked session for testing.
+
+    :returns: A Link instance with mocked lab, interfaces, and session.
+    """
     mock_session = Mock()
     mock_lab = Mock()
     mock_lab._url_for.return_value = "labs/test-lab"
@@ -40,7 +43,7 @@ def mock_link():
     return link
 
 
-def test_url_templates_exist():
+def test_url_templates_exist() -> None:
     """Test that all required URL templates are defined."""
     required_templates = ["capture_start", "capture_stop", "capture_status"]
 
@@ -50,8 +53,11 @@ def test_url_templates_exist():
 
 
 @respx.mock
-def test_start_capture_with_params(mock_link):
-    """Test start_capture with explicit parameters."""
+def test_start_capture_with_params(mock_link: Link) -> None:
+    """Test start_capture with explicit parameters.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     expected_response = {
         "config": {
             "link_capture_key": mock_link.id,
@@ -72,8 +78,11 @@ def test_start_capture_with_params(mock_link):
 
 
 @respx.mock
-def test_start_capture_defaults(mock_link):
-    """Test start_capture without parameters uses server defaults."""
+def test_start_capture_defaults(mock_link: Link) -> None:
+    """Test start_capture without parameters uses server defaults.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     expected_response = {
         "config": {
             "link_capture_key": mock_link.id,
@@ -96,8 +105,11 @@ def test_start_capture_defaults(mock_link):
 
 
 @respx.mock
-def test_capture_status(mock_link):
-    """Test capture_status with mocked HTTP call."""
+def test_capture_status(mock_link: Link) -> None:
+    """Test capture_status with mocked HTTP call.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     expected_status = {
         "config": {
             "link_capture_key": mock_link.id,
@@ -118,8 +130,11 @@ def test_capture_status(mock_link):
 
 
 @respx.mock
-def test_stop_capture(mock_link):
-    """Test stop_capture with mocked HTTP call."""
+def test_stop_capture(mock_link: Link) -> None:
+    """Test stop_capture with mocked HTTP call.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     mock_link._session.put.return_value = Mock()
 
     result = mock_link.stop_capture()
@@ -129,8 +144,11 @@ def test_stop_capture(mock_link):
 
 
 @respx.mock
-def test_download_capture(mock_link):
-    """Test download_capture."""
+def test_download_capture(mock_link: Link) -> None:
+    """Test download_capture.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     expected_content = b"PCAP file content"
     mock_link._session.get.return_value.content = expected_content
 
@@ -141,8 +159,11 @@ def test_download_capture(mock_link):
 
 
 @respx.mock
-def test_get_capture_packets(mock_link):
-    """Test get_capture_packets with mocked HTTP call."""
+def test_get_capture_packets(mock_link: Link) -> None:
+    """Test get_capture_packets with mocked HTTP call.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     expected_packets = [
         {"packet": {"timestamp": "2026-01-12T10:00:01Z", "size": 64}},
         {"packet": {"timestamp": "2026-01-12T10:00:02Z", "size": 128}},
@@ -156,8 +177,11 @@ def test_get_capture_packets(mock_link):
 
 
 @respx.mock
-def test_get_capture_packet(mock_link):
-    """Test download_capture_packet with mocked HTTP call."""
+def test_get_capture_packet(mock_link: Link) -> None:
+    """Test download_capture_packet with mocked HTTP call.
+
+    :param mock_link: Link fixture with mocked session.
+    """
     # the actual PDML is rather large
     expected_packet_data = {"proto": []}
     mock_link._session.get.return_value.json.return_value = expected_packet_data

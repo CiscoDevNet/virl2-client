@@ -40,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EventListener:
-    def __init__(self, client_library: ClientLibrary):
+    def __init__(self, client_library: ClientLibrary) -> None:
         """
         Initialize an EventListener instance.
         EventListener creates and listens to a websocket connection to the server.
@@ -66,7 +66,11 @@ class EventListener:
         self._event_handler = EventHandler(client_library)
         self._init_ws_connection_data(client_library)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
+        """Report whether the listener is currently active.
+
+        :returns: True if actively listening, else False.
+        """
         return self._listening
 
     def _init_ws_connection_data(self, client_library: ClientLibrary) -> None:
@@ -100,7 +104,7 @@ class EventListener:
             "client_uuid": client_library.uuid,
         }
 
-    def start_listening(self):
+    def start_listening(self) -> None:
         """Start listening for events."""
         if self._listening:
             return
@@ -113,7 +117,7 @@ class EventListener:
         )
         self._thread.start()
 
-    def stop_listening(self):
+    def stop_listening(self) -> None:
         """Stop listening for events."""
         if not self._listening:
             return
@@ -127,7 +131,11 @@ class EventListener:
         self._ws_connected_event = None
         self._listening = False
 
-    async def _listen(self):
+    async def _listen(self) -> list[None]:
+        """Run websocket client and parser tasks.
+
+        :returns: Gathered task results.
+        """
         _LOGGER.info("Starting listening")
         self._queue = asyncio.Queue()
         self._ws_close_event = asyncio.Event()
@@ -141,7 +149,8 @@ class EventListener:
         _LOGGER.info("Listening over")
         return result
 
-    async def _parse(self):
+    async def _parse(self) -> None:
+        """Parse queue messages into events and dispatch them."""
         close_wait = asyncio.create_task(self._ws_close_event.wait())
         while True:
             queue_get = asyncio.create_task(self._queue.get())
@@ -158,7 +167,8 @@ class EventListener:
             self._event_handler.handle_event(event)
             self._queue.task_done()
 
-    async def _ws_client(self):
+    async def _ws_client(self) -> None:
+        """Run websocket client loop and enqueue received messages."""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(

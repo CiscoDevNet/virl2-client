@@ -31,7 +31,7 @@ from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -56,6 +56,8 @@ cached = lru_cache(maxsize=None)  # cache results forever
 
 
 class Version:
+    """Represents a semantic version string (major.minor.patch)."""
+
     __slots__ = ("version_str", "major", "minor", "patch")
 
     def __init__(self, version_str: str) -> None:
@@ -66,14 +68,20 @@ class Version:
         self.patch = int(version_tuple[2])
 
     @staticmethod
-    def parse_version_str(version_str: str) -> str:
+    def parse_version_str(version_str: str) -> tuple[str, str, str, str]:
+        """Parse a version string into its components.
+
+        :param version_str: A version string in the form major.minor.patch[extra].
+        :returns: A 4-tuple of (major, minor, patch, extra) as strings.
+        :raises ValueError: If the version string does not match the expected format.
+        """
         regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")
         return res[0]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.version_str
 
     def __eq__(self, other):
@@ -236,7 +244,7 @@ class ClientConfig(NamedTuple):
             config["password"] = getpass.getpass("Please enter your password: ")
 
     @classmethod
-    def _validate(cls, config: dict, final=False) -> bool:
+    def _validate(cls, config: dict[str, Any], final: bool = False) -> bool:
         message = None
         if not config["url"]:
             message = "No URL provided."
@@ -291,6 +299,8 @@ class ClientConfig(NamedTuple):
 
 
 class DiagnosticsCategory(Enum):
+    """Categories of diagnostics data that can be retrieved from the controller."""
+
     ALL = "all"
     COMPUTES = "computes"
     LABS = "labs"
@@ -338,7 +348,7 @@ class ClientLibrary:
         convergence_wait_max_iter: int = 500,
         convergence_wait_time: int | float = 5,
         events: bool = False,
-        client_type: str = None,
+        client_type: str | None = None,
         check_version: bool = True,
     ) -> None:
         client_config = ClientConfig.get_configuration(
@@ -358,9 +368,9 @@ class ClientLibrary:
             _LOGGER.warning("SSL Verification disabled")
 
         self.auto_sync = True
-        """`auto_sync` automatically syncs data with the backend after a specific
+        """auto_sync automatically syncs data with the backend after a specific
         time. The default expiry time is 1.0s. This time can be configured by
-        setting the `auto_sync_interval`."""
+        setting the auto_sync_interval."""
         self.auto_sync_interval = 1.0  # seconds
 
         self.convergence_wait_max_iter = convergence_wait_max_iter
@@ -416,13 +426,13 @@ class ClientLibrary:
             self.auto_sync = False
             self.start_event_listening()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.url!r})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.__class__.__name__} URL: {self._session.base_url}"
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
@@ -494,13 +504,12 @@ class ClientLibrary:
     def check_controller_version(self) -> Version | None:
         """
         Check remote controller version against current client version
-        (specified in `self.VERSION` and support last 3 minor versions).
+        (specified in self.VERSION and support last 3 minor versions).
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
-        These all are disabled if `self.check_version` attribute is set to False.
+        These all are disabled if self.check_version attribute is set to False.
 
         :raises InitializationError: If the controller version is incompatible.
-        :returns: None
         """
         controller_version_str = self.system_info().get("version", "")
         try:
@@ -574,19 +583,17 @@ class ClientLibrary:
         return False
 
     @locked
-    def start_event_listening(self):
+    def start_event_listening(self) -> None:
         """
         Start listening for and parsing websocket events.
 
         To replace the default event handling mechanism,
-        subclass `event_handling.EventHandler` (or `EventHandlerBase` if necessary),
+        subclass EventHandler (or EventHandlerBase if necessary),
         then do::
-        from .event_listening import EventListener
-        custom_listener = EventListener()
-        custom_listener._event_handler = CustomHandler(client_library)
-        client_library.event_listener = custom_listener
-
-        :returns:
+            from .event_listening import EventListener
+            custom_listener = EventListener()
+            custom_listener._event_handler = CustomHandler(client_library)
+            client_library.event_listener = custom_listener
         """
         from .event_listening import EventListener
 
@@ -597,7 +604,7 @@ class ClientLibrary:
             self.event_listener.start_listening()
 
     @locked
-    def stop_event_listening(self):
+    def stop_event_listening(self) -> None:
         """Stop listening for and parsing websocket events."""
         if self.event_listener:
             self._session.lock = None
@@ -631,7 +638,7 @@ class ClientLibrary:
         topology: str,
         title: str | None = None,
         virl_1x: bool = False,
-    ):
+    ) -> Lab:
         if virl_1x:
             url = self._url_for("import_1x")
         else:
@@ -812,7 +819,7 @@ class ClientLibrary:
 
         Use this method with caution as it permanently deletes the specified lab.
 
-        If you have the lab object, you can also do ``lab.remove()``.
+        If you have the lab object, you can also do lab.remove().
 
         :param lab_id: The ID or Lab object representing the lab to be removed.
         """
@@ -848,7 +855,7 @@ class ClientLibrary:
         """
         Join a lab that exists on the server and make it accessible locally.
 
-        If `sync_lab` is set to True, the current lab will be synchronized by applying
+        If sync_lab is set to True, the current lab will be synchronized by applying
         any changes that were made in the UI or in another ClientLibrary session.
 
         Example::
@@ -985,7 +992,7 @@ class ClientLibrary:
         Get the list of all lab IDs.
 
         :param show_all: Whether to include labs owned by all users (True) or only labs
-            owned by the admin (False).
+            owned by the authenticated user (False).
         :returns: A list of lab IDs.
         """
         url: dict[str, str | dict] = {"url": self._url_for("labs")}

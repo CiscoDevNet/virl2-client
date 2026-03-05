@@ -40,6 +40,11 @@ FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 
 
 def client_library_patched_system_info(version: str) -> Iterator[MagicMock]:
+    """Patch ClientLibrary.system_info to return a fixed version.
+
+    :param version: Version string to return from system_info.
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     with patch.object(
         ClientLibrary, "system_info", return_value={"version": version, "ready": True}
     ) as cl:
@@ -48,44 +53,65 @@ def client_library_patched_system_info(version: str) -> Iterator[MagicMock]:
 
 @pytest.fixture
 def client_library_server_current() -> Iterator[MagicMock]:
+    """Simulate a controller running the current CML version.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version=CURRENT_VERSION)
 
 
 @pytest.fixture
 def client_library_server_2_0_0() -> Iterator[MagicMock]:
+    """Simulate a controller running CML version 2.0.0.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version="2.0.0")
 
 
 @pytest.fixture
 def client_library_server_2_19_0() -> Iterator[MagicMock]:
+    """Simulate a controller running CML version 2.19.0.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version="2.19.0")
 
 
 @pytest.fixture
 def client_library_server_2_9_0() -> Iterator[MagicMock]:
-    """Simulate a controller running CML version 2.9.0."""
+    """Simulate a controller running CML version 2.9.0.
 
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version="2.9.0")
 
 
 @pytest.fixture
 def mocked_session() -> Iterator[MagicMock]:
+    """Patch authentication.CustomClient for tests that need a mock HTTP session.
+
+    :yields: The patched CustomClient class (MagicMock).
+    """
     with patch.object(authentication, "CustomClient", autospec=True) as session:
         yield session
 
 
 @pytest.fixture(scope="session")
 def test_data_dir() -> Path:
+    """Path to the test_data directory containing JSON fixtures.
+
+    :returns: Path to the test_data directory.
+    """
     return Path(__file__).parent / "test_data"
 
 
 def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Response:
-    """
-    A callback that returns the contents of a file based on the request.
+    """Return response body from a file based on the request URL path.
 
-    :param request: The request that contains the title to search for
-    :returns: A Response that has `content` set to the contents of a file
-        that corresponds to a response body for the request.
+    :param test_data_dir: Directory containing JSON fixture files.
+    :param request: The HTTP request; URL path determines which file to load.
+    :returns: An httpx.Response with content set to the matching fixture file.
     """
     endpoint_parts = request.url.path.split("/")[3:]
     filename = "not initialized"
@@ -99,11 +125,14 @@ def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Re
 
 
 @pytest.fixture
-def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path):
-    """
-    A test fixture that provides basic lab data with respx_mock so that unit tests can
-    call ``client.all_labs`` or ``client.join_existing_lab``.  The sample data includes
-    some runtime data, like node states and simulation_statistics.
+def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
+    """Provide basic lab data with respx_mock for unit tests.
+
+    Enables tests to call ``client.all_labs`` or ``client.join_existing_lab``.
+    Sample data includes runtime data (node states, simulation_statistics).
+
+    :param respx_mock: The respx mock router to configure.
+    :param test_data_dir: Directory containing JSON fixture files.
     """
     respx_mock.get(FAKE_HOST_API + "system_information").respond(
         json={"version": CURRENT_VERSION, "ready": True, "oui": "52:54:00:00:00:00"},
@@ -185,7 +214,12 @@ def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path):
 
 
 @pytest.fixture
-def client_library(respx_mock_with_labs: MockRouter) -> Iterator[ClientLibrary]:
+def client_library(respx_mock_with_labs: None) -> Iterator[ClientLibrary]:
+    """Provide a ClientLibrary instance with mocked lab API responses.
+
+    :param respx_mock_with_labs: Fixture that configures respx (consumed for setup).
+    :yields: A ClientLibrary connected to FAKE_HOST with test credentials.
+    """
     _ = respx_mock_with_labs
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
     yield client

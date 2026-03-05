@@ -66,6 +66,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Lab:
+    """A VIRL2 lab network topology containing nodes, links, and interfaces."""
+
     _URL_TEMPLATES = {
         "lab": "labs/{lab_id}",
         "nodes": "labs/{lab_id}/nodes?{CONFIG_MODE}",
@@ -154,27 +156,27 @@ class Lab:
         self._nodes: dict[str, Node] = {}
         """
         Dictionary containing all nodes in the lab.
-        It maps node identifier to `models.Node`.
+        It maps node identifier to models.Node.
         """
         self._links: dict[str, Link] = {}
         """
         Dictionary containing all links in the lab.
-        It maps link identifier to `models.Link`.
+        It maps link identifier to models.Link.
         """
         self._interfaces: dict[str, Interface] = {}
         """
         Dictionary containing all interfaces in the lab.
-        It maps interface identifier to `models.Interface`.
+        It maps interface identifier to models.Interface.
         """
         self._annotations: dict[str, Annotation] = {}
         """
         Dictionary containing all annotations in the lab.
-        It maps annotation identifier to `models.Annotation`.
+        It maps annotation identifier to models.Annotation.
         """
         self._smart_annotations: dict[str, SmartAnnotation] = {}
         """
         Dictionary containing all smart annotations in the lab.
-        It maps smart annotations identifier to `models.SmartAnnotation`.
+        It maps smart annotations identifier to models.SmartAnnotation.
         """
         self.events: list = []
         self.pyats = ClPyats(self, hostname)
@@ -203,13 +205,25 @@ class Lab:
         self._stale = False
         self._synced_configs = True
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return number of nodes currently tracked in this lab.
+
+        :returns: Count of nodes stored in the lab.
+        """
         return len(self._nodes)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return user-friendly lab description.
+
+        :returns: Lab title with stale marker when applicable.
+        """
         return f"Lab: {self._title}{' (STALE)' if self._stale else ''}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return debug representation of this lab instance.
+
+        :returns: Representation containing id, title, and base path.
+        """
         return (
             f"{self.__class__.__name__}("
             f"{self._id!r}, "
@@ -217,12 +231,12 @@ class Lab:
             f"{self._session.base_url.path!r})"
         )
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["lab_id"] = self._id
@@ -232,12 +246,12 @@ class Lab:
         """
         Check if waiting is required.
 
-        If `local_wait` is `None`, return the value of `wait_for_convergence`.
-        If `local_wait` is not a boolean, raise a `ValueError`.
+        If local_wait is None, return the value of wait_for_convergence.
+        If local_wait is not a boolean, raise a ValueError.
 
         :param local_wait: Local wait flag.
         :returns: True if waiting is required, False otherwise.
-        :raises ValueError: If `local_wait` is not a boolean or None.
+        :raises ValueError: If local_wait is not a boolean or None.
         """
         if local_wait is None:
             return self.wait_for_convergence
@@ -248,7 +262,10 @@ class Lab:
     @check_stale
     @locked
     def sync_statistics_if_outdated(self) -> None:
-        """Sync statistics if they are outdated."""
+        """
+        Sync statistics if they are outdated.
+
+        """
         timestamp = time.time()
         if (
             self.auto_sync
@@ -259,7 +276,10 @@ class Lab:
     @check_stale
     @locked
     def sync_states_if_outdated(self) -> None:
-        """Sync states if they are outdated."""
+        """
+        Sync states if they are outdated.
+
+        """
         timestamp = time.time()
         if (
             self.auto_sync
@@ -270,7 +290,10 @@ class Lab:
     @check_stale
     @locked
     def sync_l3_addresses_if_outdated(self) -> None:
-        """Sync L3 addresses if they are outdated."""
+        """
+        Sync L3 addresses if they are outdated.
+
+        """
         timestamp = time.time()
         if (
             self.auto_sync
@@ -280,8 +303,12 @@ class Lab:
 
     @check_stale
     @locked
-    def sync_topology_if_outdated(self, exclude_configurations=True) -> None:
-        """Sync the topology if it is outdated."""
+    def sync_topology_if_outdated(self, exclude_configurations: bool = True) -> None:
+        """
+        Sync the topology if it is outdated.
+
+        :param exclude_configurations: Whether to exclude configurations from sync.
+        """
         timestamp = time.time()
         if not (exclude_configurations or self._synced_configs):
             self._sync_topology(exclude_configurations=False)
@@ -295,7 +322,10 @@ class Lab:
     @check_stale
     @locked
     def sync_operational_if_outdated(self) -> None:
-        """Sync the operational data if it is outdated."""
+        """
+        Sync the operational data if it is outdated.
+
+        """
         timestamp = time.time()
         if (
             self.auto_sync
@@ -305,45 +335,77 @@ class Lab:
 
     @property
     def id(self) -> str:
-        """Return the ID of the lab (a 6 digit hex string)."""
+        """
+        Return the ID of the lab.
+
+        :returns: The lab ID (a 6 digit hex string).
+        """
         return self._id
 
     @property
     def title(self) -> str | None:
-        """Return the title of the lab."""
+        """
+        Return the title of the lab.
+
+        :returns: The lab title, or None if unset.
+        """
         self.sync_topology_if_outdated()
         return self._title
 
     @title.setter
     def title(self, value: str) -> None:
-        """Set the title of the lab."""
+        """
+        Set the title of the lab.
+
+        :param value: The new title.
+        """
         self._set_property("title", value)
 
     @property
     def notes(self) -> str:
-        """Return the notes of the lab."""
+        """
+        Return the notes of the lab.
+
+        :returns: The lab notes.
+        """
         self.sync_topology_if_outdated()
         return self._notes
 
     @notes.setter
     def notes(self, value: str) -> None:
-        """Set the notes of the lab."""
+        """
+        Set the notes of the lab.
+
+        :param value: The new notes.
+        """
         self._set_property("notes", value)
 
     @property
     def description(self) -> str:
-        """Return the description of the lab."""
+        """
+        Return the description of the lab.
+
+        :returns: The lab description.
+        """
         self.sync_topology_if_outdated()
         return self._description
 
     @description.setter
     def description(self, value: str) -> None:
-        """Set the description of the lab."""
+        """
+        Set the description of the lab.
+
+        :param value: The new description.
+        """
         self._set_property("description", value)
 
     @property
     def autostart(self) -> dict[str, Any]:
-        """Return the autostart configuration as a dict."""
+        """
+        Return the autostart configuration as a dict.
+
+        :returns: The autostart configuration dictionary.
+        """
         self.sync_topology_if_outdated()
         return self._autostart.copy()
 
@@ -373,7 +435,11 @@ class Lab:
 
     @property
     def node_staging(self) -> dict[str, bool]:
-        """Return the node staging configuration as a dict."""
+        """
+        Return the node staging configuration as a dict.
+
+        :returns: The node staging configuration dictionary.
+        """
         self.sync_topology_if_outdated()
         return self._node_staging.copy()
 
@@ -401,7 +467,7 @@ class Lab:
             self._node_staging.update(node_staging)
             self._set_property("node_staging", self._node_staging)
 
-    def _set_property(self, prop: str, value: Any):
+    def _set_property(self, prop: str, value: Any) -> None:
         """
         Set the value of a lab property both locally and on the server.
 
@@ -416,7 +482,7 @@ class Lab:
         """
         Set multiple properties of the lab.
 
-        :param node_data: A dictionary containing the properties to set.
+        :param lab_data: A dictionary containing the properties to set.
         """
         url = self._url_for("lab")
         self._session.patch(url, json=lab_data)
@@ -425,13 +491,21 @@ class Lab:
 
     @property
     def owner(self) -> str:
-        """Return the owner of the lab."""
+        """
+        Return the owner of the lab.
+
+        :returns: The lab owner username.
+        """
         self.sync_topology_if_outdated()
         return self._owner
 
     @property
     def resource_pools(self) -> list[ResourcePool]:
-        """Return the list of resource pools this lab's nodes belong to."""
+        """
+        Return the list of resource pools this lab's nodes belong to.
+
+        :returns: List of ResourcePool objects.
+        """
         self.sync_operational_if_outdated()
         return self._resource_pools
 
@@ -465,7 +539,10 @@ class Lab:
     @check_stale
     @locked
     def sync_interfaces_operational(self) -> None:
-        """Synchronize the operational state of all interfaces in the lab."""
+        """
+        Synchronize the operational state of all interfaces in the lab.
+
+        """
         url = self._url_for("interfaces")
         response = self._session.get(url).json()
 
@@ -497,7 +574,7 @@ class Lab:
 
     @property
     @locked
-    def statistics(self) -> dict:
+    def statistics(self) -> dict[str, int]:
         """
         Return lab statistics.
 
@@ -629,7 +706,7 @@ class Lab:
         y: int = 0,
         wait: bool | None = None,
         populate_interfaces: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> Node:
         """
         Create a node in the lab with the given parameters.
@@ -704,9 +781,17 @@ class Lab:
 
     @locked
     def _create_node_local(
-        self, node_id: str, label: str, node_definition: str, **kwargs
+        self, node_id: str, label: str, node_definition: str, **kwargs: Any
     ) -> Node:
-        """Helper function to add a node to the client library."""
+        """
+        Add a node to the lab's local state.
+
+        :param node_id: The node identifier.
+        :param label: The node label.
+        :param node_definition: The node definition.
+        :param kwargs: Additional node properties.
+        :returns: The created Node object.
+        """
         node = Node(self, node_id, label, node_definition, **kwargs)
         self._nodes[node_id] = node
         return node
@@ -736,7 +821,11 @@ class Lab:
 
     @locked
     def _remove_node_local(self, node: Node) -> None:
-        """Helper function to remove a node from the client library."""
+        """
+        Remove a node from the lab's local state.
+
+        :param node: The node to remove.
+        """
         for iface in tuple(self._interfaces.values()):
             if iface._node is node:
                 self._remove_interface_local(iface)
@@ -790,7 +879,11 @@ class Lab:
 
     @locked
     def _remove_link_local(self, link: Link) -> None:
-        """Helper function to remove a link from the client library."""
+        """
+        Remove a link from the lab's local state.
+
+        :param link: The link to remove.
+        """
         try:
             del self._links[link._id]
             link._stale = True
@@ -827,7 +920,11 @@ class Lab:
 
     @locked
     def _remove_interface_local(self, iface: Interface) -> None:
-        """Helper function to remove an interface from the client library."""
+        """
+        Remove an interface from the lab's local state.
+
+        :param iface: The interface to remove.
+        """
         for link in tuple(self._links.values()):
             if iface in link.interfaces:
                 self._remove_link_local(link)
@@ -864,7 +961,11 @@ class Lab:
 
     @locked
     def _remove_annotation_local(self, annotation: Annotation) -> None:
-        """Helper function to remove an annotation from the client library."""
+        """
+        Remove an annotation from the lab's local state.
+
+        :param annotation: The annotation to remove.
+        """
         try:
             del self._annotations[annotation._id]
             annotation._stale = True
@@ -899,7 +1000,11 @@ class Lab:
 
     @locked
     def _remove_smart_annotation_local(self, annotation: SmartAnnotation) -> None:
-        """Helper function to remove a smart annotation from the client library."""
+        """
+        Remove a smart annotation from the lab's local state.
+
+        :param annotation: The smart annotation to remove.
+        """
         try:
             del self._smart_annotations[annotation._id]
             annotation._stale = True
@@ -910,14 +1015,20 @@ class Lab:
 
     @locked
     def remove_annotations(self) -> None:
-        """Remove all annotations from the lab."""
+        """
+        Remove all annotations from the lab.
+
+        """
         for ann in tuple(self._annotations.values()):
             self.remove_annotation(ann)
         _LOGGER.debug("all annotations removed from lab %s", self._id)
 
     @locked
     def remove_smart_annotations(self) -> None:
-        """Remove all smart annotations from the lab."""
+        """
+        Remove all smart annotations from the lab.
+
+        """
         for ann in tuple(self._smart_annotations.values()):
             self.remove_smart_annotation(ann)
         _LOGGER.debug("all smart annotations removed from lab %s", self._id)
@@ -961,7 +1072,15 @@ class Lab:
     def _create_link_local(
         self, i1: Interface, i2: Interface, link_id: str, label: str | None = None
     ) -> Link:
-        """Helper function to create a link in the client library."""
+        """
+        Create a link in the lab's local state.
+
+        :param i1: The first interface.
+        :param i2: The second interface.
+        :param link_id: The link identifier.
+        :param label: Optional label for the link.
+        :returns: The created Link object.
+        """
         link = Link(self, link_id, i1, i2, label)
         self._links[link_id] = link
         return link
@@ -1039,7 +1158,17 @@ class Lab:
         iface_type: str = "physical",
         mac_address: str | None = None,
     ) -> Interface:
-        """Helper function to create an interface in the client library."""
+        """
+        Create an interface in the lab's local state.
+
+        :param iface_id: The interface identifier.
+        :param label: The interface label.
+        :param node: The node this interface belongs to.
+        :param slot: The slot number.
+        :param iface_type: The interface type (default: physical).
+        :param mac_address: Optional MAC address.
+        :returns: The created or updated Interface object.
+        """
         if iface_id not in self._interfaces:
             iface = Interface(iface_id, node, label, slot, iface_type, mac_address)
             self._interfaces[iface_id] = iface
@@ -1054,7 +1183,7 @@ class Lab:
 
     @check_stale
     @locked
-    def create_annotation(self, annotation_type: str, **kwargs) -> AnnotationType:
+    def create_annotation(self, annotation_type: str, **kwargs: Any) -> AnnotationType:
         """
         Create a lab annotation.
 
@@ -1088,9 +1217,17 @@ class Lab:
     @check_stale
     @locked
     def _create_annotation_local(
-        self, annotation_id: str, _type: str, **kwargs
+        self, annotation_id: str, _type: str, **kwargs: Any
     ) -> AnnotationType:
-        """Helper function to create an annotation in the client library."""
+        """
+        Create an annotation in the lab's local state.
+
+        :param annotation_id: The annotation identifier.
+        :param _type: The annotation type (rectangle, ellipse, line, or text).
+        :param kwargs: Additional annotation property values.
+        :returns: The created Annotation object.
+        :raises InvalidAnnotationType: If the annotation type is invalid.
+        """
         if _type == "rectangle":
             annotation_class = AnnotationRectangle
         elif _type == "ellipse":
@@ -1109,7 +1246,7 @@ class Lab:
     @check_stale
     @locked
     def create_smart_annotation(
-        self, tag: str, nodes: list[str | Node], **kwargs
+        self, tag: str, nodes: list[str | Node], **kwargs: Any
     ) -> SmartAnnotation:
         """
         Create a smart annotation in the lab. Smart annotations are automatically
@@ -1120,7 +1257,7 @@ class Lab:
         :param tag: Tag which the smart annotation will be bound to.
         :param nodes: Nodes to which to add the tag and smart annotation.
         :param kwargs: Keyword arguments with annotation property values.
-            See `models.SmartAnnotation` for available properties.
+            See models.SmartAnnotation for available properties.
         :returns: The created annotation.
         """
         assert nodes
@@ -1138,9 +1275,15 @@ class Lab:
     @check_stale
     @locked
     def _create_smart_annotation_local(
-        self, annotation_id: str, **kwargs
+        self, annotation_id: str, **kwargs: Any
     ) -> SmartAnnotation:
-        """Helper function to create a smart annotation in the client library."""
+        """
+        Create a smart annotation in the lab's local state.
+
+        :param annotation_id: The smart annotation identifier.
+        :param kwargs: Smart annotation property values.
+        :returns: The created SmartAnnotation object.
+        """
         annotation = SmartAnnotation(self, annotation_id, annotation_data=kwargs)
         self._smart_annotations[annotation_id] = annotation
         return annotation
@@ -1148,9 +1291,18 @@ class Lab:
     @check_stale
     @locked
     def sync_statistics(self) -> None:
-        """Retrieve the simulation statistic data from the back end server."""
+        """
+        Retrieve the simulation statistic data from the backend server.
+        """
 
-        def _get_element_from_data(data: dict, element: str) -> int:
+        def _get_element_from_data(data: dict[str, Any], element: str) -> int:
+            """
+            Extract an integer element from a data dictionary.
+
+            :param data: Dictionary containing numeric values.
+            :param element: Key of the element to extract.
+            :returns: The integer value, or 0 if missing or invalid.
+            """
             try:
                 return int(data[element])
             except (TypeError, KeyError):
@@ -1199,7 +1351,10 @@ class Lab:
     @check_stale
     @locked
     def sync_states(self) -> None:
-        """Sync all the states of the various elements with the backend server."""
+        """
+        Sync all the states of the various elements with the backend server.
+
+        """
         url = self._url_for("lab_element_state")
         states: dict[str, dict[str, str]] = self._session.get(url).json()
         for node_id, node_state in states["nodes"].items():
@@ -1227,7 +1382,8 @@ class Lab:
         Wait until the lab converges.
 
         :param max_iterations: The maximum number of iterations to wait.
-        :param wait_time: The time to wait between iterations.
+        :param wait_time: The time to wait between iterations in seconds.
+        :raises RuntimeError: If the lab has not converged after max_iterations.
         """
         max_iter = (
             self.wait_max_iterations if max_iterations is None else max_iterations
@@ -1345,7 +1501,12 @@ class Lab:
         _LOGGER.debug(f"wiped lab: {self._id}")
 
     def remove(self) -> None:
-        """Remove the lab from the server. The lab must be stopped and wiped first."""
+        """
+        Remove the lab from the server.
+
+        The lab must be stopped and wiped first.
+
+        """
         url = self._url_for("lab")
         response = self._session.delete(url)
         _LOGGER.debug(f"Removed lab: {response.text}")
@@ -1370,6 +1531,7 @@ class Lab:
         """
         Build basic configurations for all nodes in the lab that do not
         already have a configuration and support configuration building.
+
         """
         url = self._url_for("bootstrap")
         self._session.get(url)
@@ -1380,7 +1542,7 @@ class Lab:
     @locked
     def sync(
         self,
-        topology_only=True,
+        topology_only: bool = True,
         exclude_configurations: bool | None = False,
     ) -> None:
         """
@@ -1400,7 +1562,13 @@ class Lab:
 
     @locked
     def _sync_topology(self, exclude_configurations: bool | None = False) -> None:
-        """Helper function to sync topologies from the backend server."""
+        """
+        Sync topology from the backend server.
+
+        :param exclude_configurations: Whether to exclude configurations.
+        :raises LabNotFound: If the lab is not found on the server.
+        :raises HTTPStatusError: If the topology request fails.
+        """
         url = self._url_for("topology")
         params = {"exclude_configurations": exclude_configurations}
         try:
@@ -1792,6 +1960,7 @@ class Lab:
         :param removed_links: Iterable of link IDs to be removed.
         :param removed_interfaces: Iterable of interface IDs to be removed.
         :param removed_annotations: Iterable of annotation IDs to be removed.
+        :param removed_smart_annotations: Iterable of smart annotation IDs to be removed.
         """
         for link_id in removed_links:
             link = self._links.pop(link_id)
@@ -1983,7 +2152,7 @@ class Lab:
                 lab_annotation._update(annotation, push_to_server=False)
 
     @locked
-    def update_lab_properties(self, properties: dict[str, Any]):
+    def update_lab_properties(self, properties: dict[str, Any]) -> None:
         """
         Update lab properties. Will not modify unspecified properties.
         Is not compatible with schema version 0.0.5.
@@ -2127,17 +2296,26 @@ class Lab:
 
     @check_stale
     def sync_pyats(self) -> None:
-        """Sync the pyATS testbed."""
+        """
+        Sync the pyATS testbed.
+
+        """
         self.pyats.sync_testbed(self.username, self.password)
 
     def cleanup_pyats_connections(self) -> None:
-        """Close and clean up connection that pyATS might still hold."""
+        """
+        Close and clean up connection that pyATS might still hold.
+
+        """
         self.pyats.cleanup()
 
     @check_stale
     @locked
     def sync_layer3_addresses(self) -> None:
-        """Sync all layer 3 IP addresses from the backend server."""
+        """
+        Sync all layer 3 IP addresses from the backend server.
+
+        """
         url = self._url_for("layer3_addresses")
         result: dict[str, dict] = self._session.get(url).json()
 
@@ -2149,7 +2327,10 @@ class Lab:
         self._last_sync_l3_address_time = time.time()
 
     def clear_discovered_addresses(self) -> None:
-        """Clear all discovered L3 addresses for all nodes in this lab from snooper."""
+        """
+        Clear all discovered L3 addresses for all nodes in this lab from snooper.
+
+        """
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
         for node in self.nodes():
@@ -2196,10 +2377,10 @@ class Lab:
         """
         Retrieve lab's external connector mappings.
 
-        Returns a list of mappings; each mapping has a key, which is used
-        as the configuration of external connector nodes, and a device name,
-        used to uniquely identify the controller host's bridge to use.
-        If unset, the mapping is invalid and nodes using it cannot start.
+        :returns: List of mappings; each mapping has a key, which is used
+            as the configuration of external connector nodes, and a device name,
+            used to uniquely identify the controller host's bridge to use.
+            If unset, the mapping is invalid and nodes using it cannot start.
         """
         url = self._url_for("connector_mappings")
         return self._session.get(url).json()
@@ -2210,11 +2391,11 @@ class Lab:
         """
         Update lab's external connector mappings.
 
-        Accepts a list of mappings, each with a key to add or modify,
-        and the associated device name (bridge) of the controller host.
-        If no running external connector node uses this key, the device_name
-        value may be None to disassociate the bridge from the key; if no node
-        uses this key in its configuration, the mapping entry is removed.
+        :param updates: List of mappings, each with a key to add or modify,
+            and the associated device name (bridge) of the controller host.
+            If no running external connector node uses this key, the device_name
+            value may be None to disassociate the bridge from the key; if no node
+            uses this key in its configuration, the mapping entry is removed.
 
         :returns: All connector mappings after updates were applied.
         """
@@ -2224,7 +2405,10 @@ class Lab:
     @check_stale
     @locked
     def sync_operational(self) -> None:
-        """Sync the operational status of the lab."""
+        """
+        Sync the operational status of the lab.
+
+        """
         url = self._url_for("resource_pools")
         response = self._session.get(url).json()
         res_pools = self._resource_pool_manager.get_resource_pools_by_ids(response)

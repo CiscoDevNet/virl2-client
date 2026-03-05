@@ -18,6 +18,8 @@
 # limitations under the License.
 #
 
+from __future__ import annotations
+
 import time
 from unittest.mock import MagicMock
 
@@ -33,6 +35,11 @@ from virl2_client.models.resource_pool import ResourcePool
 
 
 def make_auth_management(settings: dict) -> tuple[AuthManagement, MagicMock]:
+    """Create AuthManagement instance with mocked session and given settings.
+
+    :param settings: Auth configuration dict (method, ldap/radius settings).
+    :returns: Tuple of (AuthManagement, mocked session).
+    """
     session = MagicMock()
     auth_management = AuthManagement(session, auto_sync=False)
     auth_management._settings = settings.copy()
@@ -46,20 +53,29 @@ def make_auth_management(settings: dict) -> tuple[AuthManagement, MagicMock]:
         ("radius", RADIUSManager),
     ],
 )
-def test_manager_returns_expected_manager(method: str, manager_cls):
+def test_manager_returns_expected_manager(
+    method: str, manager_cls: type[LDAPManager] | type[RADIUSManager]
+) -> None:
+    """Manager property returns LDAPManager or RADIUSManager based on method.
+
+    :param method: Auth method ("ldap" or "radius").
+    :param manager_cls: Expected manager class.
+    """
     auth_management, _ = make_auth_management({"method": method})
 
     assert isinstance(auth_management.manager, manager_cls)
 
 
-def test_update_settings_no_args_raises():
+def test_update_settings_no_args_raises() -> None:
+    """update_settings with no args raises TypeError."""
     auth_management, _ = make_auth_management({"method": "ldap"})
 
     with pytest.raises(TypeError, match="No settings to update"):
         auth_management.update_settings()
 
 
-def test_sync_updates_settings_and_timestamp():
+def test_sync_updates_settings_and_timestamp() -> None:
+    """Sync fetches config from server and updates _last_sync_time."""
     auth_management, session = make_auth_management({"method": "ldap"})
     session.get.return_value.json.return_value = {"method": "local"}
 
@@ -73,7 +89,11 @@ def test_sync_updates_settings_and_timestamp():
 
 
 @pytest.mark.parametrize("search_filter", [None, "(cn=admins)"])
-def test_get_ldap_groups(search_filter: str | None):
+def test_get_ldap_groups(search_filter: str | None) -> None:
+    """get_ldap_groups returns groups, optionally filtered.
+
+    :param search_filter: Optional LDAP filter string.
+    """
     auth_management, session = make_auth_management({"method": "ldap"})
     session.get.return_value.json.return_value = ["group-1", "group-2"]
 
@@ -88,7 +108,8 @@ def test_get_ldap_groups(search_filter: str | None):
         )
 
 
-def test_refresh_ldap_groups():
+def test_refresh_ldap_groups() -> None:
+    """refresh_ldap_groups sends PUT to system/auth/refresh."""
     auth_management, session = make_auth_management({"method": "ldap"})
 
     auth_management.refresh_ldap_groups()
@@ -96,7 +117,8 @@ def test_refresh_ldap_groups():
     session.put.assert_called_once_with("system/auth/refresh")
 
 
-def test_test_auth_with_user_credentials():
+def test_auth_with_user_credentials() -> None:
+    """test_auth with username/password sends auth-data in request."""
     auth_management, session = make_auth_management({"method": "ldap"})
     session.post.return_value.json.return_value = {"auth_ok": True}
 
@@ -114,7 +136,8 @@ def test_test_auth_with_user_credentials():
     )
 
 
-def test_test_auth_with_group_name():
+def test_auth_with_group_name() -> None:
+    """test_auth with group_name sends group-data in request."""
     auth_management, session = make_auth_management({"method": "ldap"})
     session.post.return_value.json.return_value = {"auth_ok": True}
 
@@ -132,7 +155,8 @@ def test_test_auth_with_group_name():
     )
 
 
-def test_test_current_auth_includes_manager_password():
+def test_current_auth_includes_manager_password() -> None:
+    """test_current_auth includes manager_password in auth-config."""
     auth_management, session = make_auth_management(
         {"method": "ldap", "verify_tls": True}
     )
@@ -183,7 +207,12 @@ def test_test_current_auth_includes_manager_password():
         ("verify_tls", False),
     ],
 )
-def test_ldap_settings_update(setting: str, value):
+def test_ldap_settings_update(setting: str, value: str | bool | float) -> None:
+    """LDAP manager setter PATCHes config with setting and value.
+
+    :param setting: LDAP setting name.
+    :param value: Value to set.
+    """
     auth_management, session = make_auth_management({"method": "ldap", setting: value})
     manager = auth_management._managers["ldap"]
 
@@ -195,14 +224,19 @@ def test_ldap_settings_update(setting: str, value):
     assert auth_management._settings[setting] == value
 
 
-def test_ldap_timeout_inactive_method_raises():
+def test_ldap_timeout_inactive_method_raises() -> None:
+    """Accessing LDAP timeout when method is local raises MethodNotActive.
+
+    :raises MethodNotActive: When LDAP is not the active auth method.
+    """
     auth_management, _ = make_auth_management({"method": "local", "timeout": 5})
 
     with pytest.raises(MethodNotActive):
         _ = auth_management._managers["ldap"].timeout
 
 
-def test_ldap_resource_pool_accepts_resource_pool_instance():
+def test_ldap_resource_pool_accepts_instance() -> None:
+    """LDAP resource_pool setter accepts ResourcePool instance, uses its id."""
     auth_management, session = make_auth_management(
         {"method": "ldap", "resource_pool": "old"}
     )
@@ -240,7 +274,12 @@ def test_ldap_resource_pool_accepts_resource_pool_instance():
         ("resource_pool", "pool-id"),
     ],
 )
-def test_radius_settings_update(setting: str, value):
+def test_radius_settings_update(setting: str, value: str | int | float) -> None:
+    """RADIUS manager setter PATCHes config with setting and value.
+
+    :param setting: RADIUS setting name.
+    :param value: Value to set.
+    """
     auth_management, session = make_auth_management(
         {"method": "radius", setting: value}
     )
@@ -254,7 +293,8 @@ def test_radius_settings_update(setting: str, value):
     assert auth_management._settings[setting] == value
 
 
-def test_radius_secret_setter_updates_setting():
+def test_radius_secret_setter_updates_setting() -> None:
+    """RADIUS secret setter PATCHes config."""
     auth_management, session = make_auth_management({"method": "radius"})
     manager = auth_management._managers["radius"]
 
@@ -265,14 +305,19 @@ def test_radius_secret_setter_updates_setting():
     )
 
 
-def test_radius_timeout_inactive_method_raises():
+def test_radius_timeout_inactive_method_raises() -> None:
+    """Accessing RADIUS timeout when method is local raises MethodNotActive.
+
+    :raises MethodNotActive: When RADIUS is not the active auth method.
+    """
     auth_management, _ = make_auth_management({"method": "local", "timeout": 5})
 
     with pytest.raises(MethodNotActive):
         _ = auth_management._managers["radius"].timeout
 
 
-def test_radius_resource_pool_accepts_resource_pool_instance():
+def test_radius_resource_pool_accepts_instance() -> None:
+    """RADIUS resource_pool setter accepts ResourcePool instance, uses its id."""
     auth_management, session = make_auth_management(
         {"method": "radius", "resource_pool": "old"}
     )
@@ -300,7 +345,8 @@ def test_radius_resource_pool_accepts_resource_pool_instance():
     assert auth_management._settings["resource_pool"] == "pool-456"
 
 
-def test_ldap_manager_password_setter_updates_setting():
+def test_ldap_manager_password_setter_updates() -> None:
+    """LDAP manager_password setter PATCHes config."""
     auth_management, session = make_auth_management({"method": "ldap"})
     manager = auth_management._managers["ldap"]
 
@@ -311,7 +357,8 @@ def test_ldap_manager_password_setter_updates_setting():
     )
 
 
-def test_update_settings_precedence_and_sync_called():
+def test_update_settings_precedence_and_sync() -> None:
+    """Keyword args override dict args; sync fetches updated config."""
     auth_management, session = make_auth_management({"method": "ldap"})
     session.get.return_value.json.return_value = {"method": "ldap", "verify_tls": False}
 
@@ -324,7 +371,11 @@ def test_update_settings_precedence_and_sync_called():
     assert auth_management._settings["verify_tls"] is False
 
 
-def test_sync_if_outdated_triggers_sync(monkeypatch: pytest.MonkeyPatch):
+def test_sync_if_outdated_triggers_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    """sync_if_outdated triggers sync when interval exceeded.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
     auth_management, session = make_auth_management({"method": "ldap"})
     session.get.return_value.json.return_value = {"method": "ldap"}
     auth_management.auto_sync = True
@@ -338,7 +389,11 @@ def test_sync_if_outdated_triggers_sync(monkeypatch: pytest.MonkeyPatch):
     session.get.assert_called_once_with("system/auth/config")
 
 
-def test_sync_if_outdated_skips_when_recent(monkeypatch: pytest.MonkeyPatch):
+def test_sync_if_outdated_skips_when_recent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """sync_if_outdated skips sync when within interval.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
     auth_management, session = make_auth_management({"method": "ldap"})
     auth_management.auto_sync = True
     auth_management.auto_sync_interval = 10.0
@@ -351,7 +406,11 @@ def test_sync_if_outdated_skips_when_recent(monkeypatch: pytest.MonkeyPatch):
     session.get.assert_not_called()
 
 
-def test_accessing_wrong_manager_raises():
+def test_accessing_wrong_manager_raises() -> None:
+    """Accessing RADIUS manager when LDAP is active raises MethodNotActive.
+
+    :raises MethodNotActive: When the requested manager is not active.
+    """
     auth_management, _ = make_auth_management({"method": "ldap"})
 
     with pytest.raises(MethodNotActive):

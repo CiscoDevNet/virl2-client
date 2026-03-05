@@ -36,6 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Interface:
+    """A CML 2 network interface, part of a node."""
+
     _URL_TEMPLATES = {
         "interface": "{lab}/interfaces/{id}",
         "state": "{lab}/interfaces/{id}/state",
@@ -85,15 +87,28 @@ class Interface:
         }
         self._operational: dict[str, Any] = {}
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        """Compare interfaces by ID.
+
+        :param other: Object to compare against.
+        :returns: True if other is an Interface with the same ID.
+        """
         if not isinstance(other, Interface):
             return False
         return self._id == other._id
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a human-readable representation of the interface.
+
+        :returns: Label with optional STALE suffix.
+        """
         return f"Interface: {self._label}{' (STALE)' if self._stale else ''}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a developer-oriented representation of the interface.
+
+        :returns: Constructor-style string with node, id, label, slot.
+        """
         return (
             f"{self.__class__.__name__}("
             f"{self._node!r}, "
@@ -102,15 +117,19 @@ class Interface:
             f"{self._slot!r})"
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Return hash based on interface ID.
+
+        :returns: Hash of the interface ID.
+        """
         return hash(self._id)
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["lab"] = self.node._lab._url_for("lab")
@@ -119,56 +138,87 @@ class Interface:
 
     @property
     def id(self) -> str:
-        """Return the ID of the interface."""
+        """Return the ID of the interface.
+
+        :returns: The interface ID.
+        """
         return self._id
 
     @property
     def node(self) -> Node:
-        """Return the node object to which the interface belongs."""
+        """Return the node object to which the interface belongs.
+
+        :returns: The parent node.
+        """
         return self._node
 
     @property
     def type(self) -> str:
-        """Return the type of the interface."""
+        """Return the type of the interface.
+
+        :returns: The interface type (e.g. physical, loopback).
+        """
         return self._type
 
     @property
     def label(self) -> str:
-        """Return the label of the interface."""
+        """Return the label of the interface.
+
+        :returns: The interface label.
+        """
         return self._label
 
     @property
     def slot(self) -> int | None:
-        """Return the slot of the interface."""
+        """Return the slot of the interface.
+
+        :returns: The slot number or None.
+        """
         return self._slot
 
     @property
     def physical(self) -> bool:
-        """Check if the interface is physical."""
+        """Check if the interface is physical.
+
+        :returns: True if physical, False otherwise.
+        """
         return self.type == "physical"
 
     @property
     def mac_address(self) -> str | None:
         """Return the MAC address set to the interface.
-        This is the address that will be used when the device is started."""
+
+        This is the address that will be used when the device is started.
+
+        :returns: The MAC address or None.
+        """
         self.node._lab.sync_topology_if_outdated()
         return self._mac_address
 
     @mac_address.setter
     @locked
     def mac_address(self, value: str | None) -> None:
-        """Set the MAC address of the node to the given value."""
+        """Set the MAC address of the node to the given value.
+
+        :param value: The MAC address to set, or None.
+        """
         self._set_interface_property("mac_address", value)
         self._mac_address = value
 
     @property
     def connected(self) -> bool:
-        """Check if the interface is connected to a link."""
+        """Check if the interface is connected to a link.
+
+        :returns: True if connected to a link.
+        """
         return self.link is not None
 
     @property
     def state(self) -> str | None:
-        """Return the state of the interface."""
+        """Return the state of the interface.
+
+        :returns: The interface state (e.g. up, down) or None.
+        """
         self.node._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("state")
@@ -177,7 +227,10 @@ class Interface:
 
     @property
     def link(self) -> Link | None:
-        """Get the link if the interface is connected, otherwise None."""
+        """Get the link if the interface is connected, otherwise None.
+
+        :returns: The connected link or None.
+        """
         self.node._lab.sync_topology_if_outdated()
         for link in self.node._lab.links():
             if self in link.interfaces:
@@ -186,7 +239,10 @@ class Interface:
 
     @property
     def peer_interface(self) -> Interface | None:
-        """Return the peer interface connected to the interface."""
+        """Return the peer interface connected to the interface.
+
+        :returns: The peer interface or None if not connected.
+        """
         link = self.link
         if link is None:
             return None
@@ -197,31 +253,46 @@ class Interface:
 
     @property
     def peer_node(self) -> Node | None:
-        """Return the node to which the peer interface belongs."""
+        """Return the node to which the peer interface belongs.
+
+        :returns: The peer node or None if not connected.
+        """
         peer_interface = self.peer_interface
         return peer_interface.node if peer_interface is not None else None
 
     @property
     def readbytes(self) -> int:
-        """Return the number of bytes read by the interface."""
+        """Return the number of bytes read by the interface.
+
+        :returns: Bytes read count.
+        """
         self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["readbytes"])
 
     @property
     def readpackets(self) -> int:
-        """Return the number of packets read by the interface."""
+        """Return the number of packets read by the interface.
+
+        :returns: Packets read count.
+        """
         self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["readpackets"])
 
     @property
     def writebytes(self) -> int:
-        """Return the number of bytes written by the interface."""
+        """Return the number of bytes written by the interface.
+
+        :returns: Bytes written count.
+        """
         self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["writebytes"])
 
     @property
     def writepackets(self) -> int:
-        """Return the number of packets written by the interface."""
+        """Return the number of packets written by the interface.
+
+        :returns: Packets written count.
+        """
         self.node._lab.sync_statistics_if_outdated()
         return int(self.statistics["writepackets"])
 
@@ -230,42 +301,62 @@ class Interface:
         """
         Return the discovered MAC, IPv4 and IPv6 addresses
         of the interface in a dictionary.
+
+        :returns: Dict with mac_address, ipv4, ipv6 keys.
         """
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info.copy()
 
     @property
     def discovered_mac_address(self) -> str | None:
-        """Return the discovered MAC address of the interface."""
+        """Return the discovered MAC address of the interface.
+
+        :returns: Discovered MAC or None.
+        """
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["mac_address"]
 
     @property
     def discovered_ipv4(self) -> list[str] | None:
-        """Return the discovered IPv4 addresses of the interface."""
+        """Return the discovered IPv4 addresses of the interface.
+
+        :returns: List of IPv4 addresses or None.
+        """
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv4"]
 
     @property
     def discovered_ipv6(self) -> list[str] | None:
-        """Return the discovered IPv6 addresses of the interface."""
+        """Return the discovered IPv6 addresses of the interface.
+
+        :returns: List of IPv6 addresses or None.
+        """
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv6"]
 
     @property
     def deployed_mac_address(self) -> str | None:
-        """Return the deployed MAC address of the interface."""
+        """Return the deployed MAC address of the interface.
+
+        :returns: Deployed MAC or None.
+        """
         self._lab.sync_operational_if_outdated()
         return self._operational.get("mac_address")
 
     @property
     def operational(self) -> dict[str, Any]:
-        """Return the operational data for this interface."""
+        """Return the operational data for this interface.
+
+        :returns: Copy of operational data dict.
+        """
         self._lab.sync_operational_if_outdated()
         return self._operational.copy()
 
     def as_dict(self) -> dict[str, str | dict]:
-        """Convert the interface to a dictionary representation."""
+        """Convert the interface to a dictionary representation.
+
+        :returns: Dict with id, node, data keys.
+        """
         return {
             "id": self.id,
             "node": self.node.id,
@@ -354,7 +445,7 @@ class Interface:
         """
         Set multiple properties of the interface.
 
-        :param node_data: A dictionary containing the properties to set.
+        :param interface_data: A dictionary containing the properties to set.
         """
         url = self._url_for("interface")
         self._session.patch(url, json=interface_data)

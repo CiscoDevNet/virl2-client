@@ -48,6 +48,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Node:
+    """A VIRL2 node representing a virtual machine (router, switch, or server)."""
+
     _URL_TEMPLATES = {
         "node": "{lab}/nodes/{id}?{CONFIG_MODE}",
         "state": "{lab}/nodes/{id}/state",
@@ -67,7 +69,12 @@ class Node:
     }
 
     def __init__(
-        self, lab: Lab, nid: str, label: str, node_definition: str, **kwargs
+        self,
+        lab: Lab,
+        nid: str,
+        label: str,
+        node_definition: str,
+        **kwargs: Any,
     ) -> None:
         """
         A VIRL2 node object representing a virtual machine that serves
@@ -140,10 +147,18 @@ class Node:
             "disk_write": 0,
         }
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the node.
+
+        :returns: A string like Node: <label> or Node: <label> (STALE).
+        """
         return f"Node: {self._label}{' (STALE)' if self._stale else ''}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return an unambiguous string representation for debugging.
+
+        :returns: A string like Node(lab, id, label, node_definition).
+        """
         return (
             f"{self.__class__.__name__}("
             f"{str(self._lab)!r}, "
@@ -152,20 +167,29 @@ class Node:
             f"{self._node_definition!r})"
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        """Compare this node with another for equality by ID.
+
+        :param other: The object to compare with.
+        :returns: True if other is a Node with the same ID, False otherwise.
+        """
         if not isinstance(other, Node):
             return False
         return self._id == other._id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Return a hash of the node ID for use in sets and dicts.
+
+        :returns: The hash of the node's ID.
+        """
         return hash(self._id)
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["lab"] = self._lab._url_for("lab")
@@ -174,12 +198,16 @@ class Node:
 
     @property
     def lab(self) -> Lab:
-        """Return the lab of the node."""
+        """Return the lab of the node.
+
+        :returns: The Lab instance this node belongs to.
+        """
         return self._lab
 
     @check_stale
     @locked
     def sync_l3_addresses_if_outdated(self) -> None:
+        """Sync layer 3 addresses from the controller if auto_sync is enabled and stale."""
         timestamp = time.time()
         if (
             self._lab.auto_sync
@@ -191,6 +219,7 @@ class Node:
     @check_stale
     @locked
     def sync_operational_if_outdated(self) -> None:
+        """Sync operational state from the controller if auto_sync is enabled and stale."""
         timestamp = time.time()
         if (
             self._lab.auto_sync
@@ -202,6 +231,7 @@ class Node:
     @check_stale
     @locked
     def sync_interface_operational_if_outdated(self) -> None:
+        """Sync interface operational state if auto_sync is enabled and stale."""
         timestamp = time.time()
         if (
             self._lab.auto_sync
@@ -213,7 +243,10 @@ class Node:
     @property
     @locked
     def state(self) -> str | None:
-        """Return the state of the node."""
+        """Return the state of the node.
+
+        :returns: The node state (e.g. STARTED, STOPPED) or None if unknown.
+        """
         self._lab.sync_states_if_outdated()
         if self._state is None:
             url = self._url_for("state")
@@ -223,13 +256,19 @@ class Node:
     @check_stale
     @locked
     def interfaces(self) -> list[Interface]:
-        """Return a list of interfaces on the node."""
+        """Return a list of interfaces on the node.
+
+        :returns: All interfaces attached to this node.
+        """
         self._lab.sync_topology_if_outdated()
         return [iface for iface in self._lab.interfaces() if iface.node is self]
 
     @locked
     def physical_interfaces(self) -> list[Interface]:
-        """Return a list of physical interfaces on the node."""
+        """Return a list of physical interfaces on the node.
+
+        :returns: Physical (non-loopback) interfaces on this node.
+        """
         self._lab.sync_topology_if_outdated()
         return [iface for iface in self.interfaces() if iface.physical]
 
@@ -268,7 +307,10 @@ class Node:
 
     @locked
     def peer_interfaces(self) -> list[Interface]:
-        """Return a list of interfaces connected to this node."""
+        """Return a list of interfaces connected to this node.
+
+        :returns: Interfaces on other nodes that are linked to this node's interfaces.
+        """
         peer_ifaces = []
         for iface in self.interfaces():
             peer_iface = iface.peer_interface
@@ -278,158 +320,226 @@ class Node:
 
     @locked
     def peer_nodes(self) -> list[Node]:
-        """Return a list of nodes connected to this node."""
+        """Return a list of nodes connected to this node.
+
+        :returns: Nodes that share at least one link with this node.
+        """
         return list({iface.node for iface in self.peer_interfaces()})
 
     @locked
     def links(self) -> list[Link]:
-        """Return a list of links connected to this node."""
+        """Return a list of links connected to this node.
+
+        :returns: All links that have an interface on this node.
+        """
         return list(
             {link for iface in self.interfaces() if (link := iface.link) is not None}
         )
 
     @locked
     def degree(self) -> int:
-        """Return the degree of the node."""
+        """Return the degree of the node (number of links).
+
+        :returns: The number of links connected to this node.
+        """
         self._lab.sync_topology_if_outdated()
         return len(self.links())
 
     @property
     def id(self) -> str:
-        """Return the ID of the node."""
+        """Return the ID of the node.
+
+        :returns: The unique node identifier.
+        """
         return self._id
 
     @property
     def label(self) -> str:
-        """Return the label of the node."""
+        """Return the label of the node.
+
+        :returns: The human-readable label of the node.
+        """
         self._lab.sync_topology_if_outdated()
         return self._label
 
     @label.setter
     @locked
     def label(self, value: str) -> None:
-        """Set the label of the node to the given value."""
+        """Set the label of the node to the given value.
+
+        :param value: The new label.
+        """
         self._set_node_property("label", value)
         self._label = value
 
     @property
     def x(self) -> int:
-        """Return the X coordinate of the node."""
+        """Return the X coordinate of the node.
+
+        :returns: The X position on the topology canvas.
+        """
         self._lab.sync_topology_if_outdated()
         return self._x
 
     @x.setter
     @locked
     def x(self, value: int) -> None:
-        """Set the X coordinate of the node to the given value."""
+        """Set the X coordinate of the node to the given value.
+
+        :param value: The new X position.
+        """
         self._set_node_property("x", value)
         self._x = value
 
     @property
     def y(self) -> int:
-        """Return the Y coordinate of the node."""
+        """Return the Y coordinate of the node.
+
+        :returns: The Y position on the topology canvas.
+        """
         self._lab.sync_topology_if_outdated()
         return self._y
 
     @y.setter
     @locked
     def y(self, value: int) -> None:
-        """Set the Y coordinate of the node to the given value."""
+        """Set the Y coordinate of the node to the given value.
+
+        :param value: The new Y position.
+        """
         self._set_node_property("y", value)
         self._y = value
 
     @property
-    def ram(self) -> int:
-        """Return the RAM size of the node in bytes."""
+    def ram(self) -> int | None:
+        """Return the RAM size of the node in MiB.
+
+        :returns: RAM in MiB, or None if not applicable.
+        """
         self._lab.sync_topology_if_outdated()
         return self._ram
 
     @ram.setter
     @locked
     def ram(self, value: int) -> None:
-        """Set the RAM size of the node to the given value in bytes."""
+        """Set the RAM size of the node to the given value in MiB.
+
+        :param value: The new RAM size in MiB.
+        """
         self._set_node_property("ram", value)
         self._ram = value
 
     @property
-    def cpus(self) -> int:
-        """Return the number of CPUs assigned to the node."""
+    def cpus(self) -> int | None:
+        """Return the number of CPUs assigned to the node.
+
+        :returns: CPU count, or None if not applicable.
+        """
         self._lab.sync_topology_if_outdated()
         return self._cpus
 
     @cpus.setter
     @locked
     def cpus(self, value: int) -> None:
-        """Set the number of CPUs assigned to the node."""
+        """Set the number of CPUs assigned to the node.
+
+        :param value: The new CPU count.
+        """
         self._set_node_property("cpus", value)
         self._cpus = value
 
     @property
-    def cpu_limit(self) -> int:
-        """Return the CPU limit of the node."""
+    def cpu_limit(self) -> int | None:
+        """Return the CPU limit of the node.
+
+        :returns: CPU limit percentage or None.
+        """
         self._lab.sync_topology_if_outdated()
         return self._cpu_limit
 
     @cpu_limit.setter
     @locked
     def cpu_limit(self, value: int) -> None:
-        """Set the CPU limit of the node."""
+        """Set the CPU limit of the node.
+
+        :param value: The new CPU limit.
+        """
         self._set_node_property("cpu_limit", value)
         self._cpu_limit = value
 
     @property
-    def data_volume(self) -> int:
-        """Return the size (in GiB) of the second HDD."""
+    def data_volume(self) -> int | None:
+        """Return the size (in GiB) of the second HDD.
+
+        :returns: Size in GiB, or None if no second disk.
+        """
         self._lab.sync_topology_if_outdated()
         return self._data_volume
 
     @data_volume.setter
     @locked
     def data_volume(self, value: int) -> None:
-        """Set the size (in GiB) of the second HDD."""
+        """Set the size (in GiB) of the second HDD.
+
+        :param value: The new data volume size in GiB.
+        """
         self._set_node_property("data_volume", value)
         self._data_volume = value
 
     @property
     def hide_links(self) -> bool:
-        """
-        Return a flag indicating whether the node's links should be hidden
-        in UI visualization.
+        """Return whether the node's links should be hidden in UI visualization.
+
+        :returns: True if links are hidden, False otherwise.
         """
         self._lab.sync_topology_if_outdated()
         return self._hide_links
 
     @hide_links.setter
     def hide_links(self, value: bool) -> None:
-        """
-        Set the flag indicating whether the node's links should be hidden
-        in UI visualization.
+        """Set whether the node's links should be hidden in UI visualization.
+
+        :param value: True to hide links, False to show them.
         """
         self._set_node_property("hide_links", value)
         self._hide_links = value
 
     @property
-    def boot_disk_size(self) -> int:
-        """Return the size of the boot disk in GiB."""
+    def boot_disk_size(self) -> int | None:
+        """Return the size of the boot disk in GiB.
+
+        :returns: Boot disk size in GiB, or None if not set.
+        """
         self._lab.sync_topology_if_outdated()
         return self._boot_disk_size
 
     @boot_disk_size.setter
     @locked
     def boot_disk_size(self, value: int) -> None:
-        """Set the size of the boot disk in GiB (will expand to this size)."""
+        """Set the size of the boot disk in GiB (will expand to this size).
+
+        :param value: The new boot disk size in GiB.
+        """
         self._set_node_property("boot_disk_size", value)
         self._boot_disk_size = value
 
     @property
     def configuration(self) -> str | None:
-        """Return the contents of the main configuration file."""
+        """Return the contents of the main configuration file.
+
+        :returns: Main config content, or None if no configuration.
+        """
         self._lab.sync_topology_if_outdated(exclude_configurations=False)
         return self._configuration[0].get("content") if self._configuration else None
 
     @configuration.setter
-    def configuration(self, value: str | list | dict | None) -> None:
-        """Set the configuration."""
+    def configuration(
+        self, value: str | list[dict[str, str]] | dict[str, str] | None
+    ) -> None:
+        """Set the configuration.
+
+        :param value: Configuration as a string, list of dicts, or dict.
+        """
         self._set_node_property("configuration", value)
         self._set_configuration(value)
 
@@ -438,11 +548,12 @@ class Node:
         Set the content of:
          - the main configuration file if passed a string,
          - one configuration file if passed a dictionary in the format of
-        `{"name": "filename.txt", "content": "<file content>"}`,
+        {"name": "filename.txt", "content": "<file content>"},
          - or multiple configuration files if passed a list of above dictionaries.
         Can also use "Main" in place of the filename of the main configuration file.
 
         :param value: The configuration data in one of three formats.
+        :raises TypeError: If value has an unhandled type.
         """
         if self._configuration is None:
             self._configuration = []
@@ -467,16 +578,19 @@ class Node:
 
     @property
     def configuration_files(self) -> list[dict[str, str]] | None:
-        """
-        Return all configuration files, in a list in the following format:
-        `[{"name": "filename.txt", "content": "<file content>"}]`
+        """Return all configuration files.
+
+        :returns: A list of dicts with "name" and "content" keys, or None.
         """
         self._lab.sync_topology_if_outdated(exclude_configurations=False)
         return deepcopy(self._configuration)
 
     @property
-    def parameters(self) -> dict:
-        """Return node parameters."""
+    def parameters(self) -> dict[str, Any]:
+        """Return node parameters.
+
+        :returns: A dictionary of parameter names to values.
+        """
         self._lab.sync_topology_if_outdated()
         return self._parameters
 
@@ -484,8 +598,10 @@ class Node:
     def pyats_credentials(self) -> dict[str, str | None]:
         """Return pyATS credentials for this node, if configured.
 
-        The value is expected to be a mapping with "username" and "password" keys,
-        as provided by the backend (for example via the node's node definition).
+        The value is expected to be a mapping with "username", "password", and
+        "enable_password" keys, as provided by the backend.
+
+        :returns: A dict with username, password, enable_password (values may be None).
         """
         self._lab.sync_topology_if_outdated()
         return self._pyats
@@ -503,7 +619,7 @@ class Node:
         :param password: The password to set, or None to clear it.
         :param enable_password: The enable password to set, or None to clear it.
 
-        This updates the node on the controller with a ``pyats`` field whose
+        This updates the node on the controller with a pyats field whose
         structure matches the backend expectation, typically::
 
             {
@@ -522,11 +638,13 @@ class Node:
         self._set_node_property("pyats", pyats)
         self._pyats = pyats
 
-    def update_parameters(self, new_params: dict) -> None:
-        """
-        Update node parameters.
+    def update_parameters(self, new_params: dict[str, Any]) -> None:
+        """Update node parameters.
+
         If parameter doesn't exist it will be created. Existing nodes will be updated.
         To delete parameter set its value to None.
+
+        :param new_params: Dictionary of parameter names to values. Use None to delete.
         """
         self._session.patch(self._url_for("node"), json={"parameters": new_params})
         self._parameters.update(new_params)
@@ -536,86 +654,128 @@ class Node:
 
     @property
     def image_definition(self) -> str | None:
-        """Return the definition of the image used by this node."""
+        """Return the definition of the image used by this node.
+
+        :returns: The image definition identifier, or None.
+        """
         self._lab.sync_topology_if_outdated()
         return self._image_definition
 
     @image_definition.setter
     @locked
     def image_definition(self, value: str) -> None:
-        """Set the definition of the image used by this node."""
+        """Set the definition of the image used by this node.
+
+        :param value: The new image definition identifier.
+        """
         self._set_node_property("image_definition", value)
         self._image_definition = value
 
     @property
     def node_definition(self) -> str:
-        """Return the definition of this node."""
+        """Return the definition of this node.
+
+        :returns: The node definition identifier (e.g. iosv, server).
+        """
         self._lab.sync_topology_if_outdated()
         return self._node_definition
 
     @property
     def pinned_compute_id(self) -> str | None:
-        """Return the ID of the compute this node is pinned to."""
+        """Return the ID of the compute this node is pinned to.
+
+        :returns: Compute ID or None if not pinned.
+        """
         return self._pinned_compute_id
 
     @pinned_compute_id.setter
-    def pinned_compute_id(self, value) -> None:
-        """Set the ID of the compute this node should be pinned to."""
+    def pinned_compute_id(self, value: str | None) -> None:
+        """Set the ID of the compute this node should be pinned to.
+
+        :param value: The compute ID, or None to unpin.
+        """
         self._set_node_property("pinned_compute_id", value)
         self._pinned_compute_id = value
 
     @property
     def priority(self) -> int | None:
-        """Return the priority of the node."""
+        """Return the priority of the node.
+
+        :returns: Launch priority (0-10000), or None.
+        """
         self._lab.sync_topology_if_outdated()
         return self._priority
 
     @priority.setter
     @locked
     def priority(self, value: int | None) -> None:
-        """Set the priority of the node (0-10000, or None)."""
+        """Set the priority of the node (0-10000, or None).
+
+        :param value: The new launch priority, or None.
+        """
         self._set_node_property("priority", value)
         self._priority = value
 
     @property
     def smart_annotations(self) -> dict[str, SmartAnnotation]:
-        """Return the tags on this node and their corresponding smart annotations."""
+        """Return the tags on this node and their corresponding smart annotations.
+
+        :returns: A mapping of tag name to SmartAnnotation.
+        """
         self._lab.sync_topology_if_outdated()
         return {tag: self._lab.get_smart_annotation_by_tag(tag) for tag in self._tags}
 
     @property
-    def compute_id(self):
-        """Return the ID of the compute this node is assigned to."""
+    def compute_id(self) -> str | None:
+        """Return the ID of the compute this node is assigned to.
+
+        :returns: Compute ID or None if not yet assigned.
+        """
         self._lab.sync_operational_if_outdated()
         return self._operational.get("compute_id")
 
     @property
-    def resource_pool(self) -> str:
-        """Return the ID of the resource pool if the node is part of a resource pool."""
+    def resource_pool(self) -> str | None:
+        """Return the ID of the resource pool if the node is part of a resource pool.
+
+        :returns: Resource pool ID or None.
+        """
         self._lab.sync_operational_if_outdated()
         return self._operational.get("resource_pool")
 
     @property
     def operational(self) -> dict[str, Any]:
-        """Return the full operational data as a dictionary."""
+        """Return the full operational data as a dictionary.
+
+        :returns: A copy of the operational data dict.
+        """
         self._lab.sync_operational_if_outdated()
         return self._operational.copy()
 
     @property
     def cpu_usage(self) -> int | float:
-        """Return the CPU usage of this node."""
+        """Return the CPU usage of this node.
+
+        :returns: CPU usage percentage (capped at 100).
+        """
         self._lab.sync_statistics_if_outdated()
         return min(self.statistics["cpu_usage"], 100)
 
     @property
     def disk_read(self) -> int:
-        """Return the amount of disk read by this node."""
+        """Return the amount of disk read by this node.
+
+        :returns: Disk read in MiB (rounded).
+        """
         self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_read"] / 1048576)
 
     @property
     def disk_write(self) -> int:
-        """Return the amount of disk write by this node."""
+        """Return the amount of disk write by this node.
+
+        :returns: Disk write in MiB (rounded).
+        """
         self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
 
@@ -720,7 +880,7 @@ class Node:
         return self._session.get(url).json()
 
     @check_stale
-    def start(self, wait=False) -> None:
+    def start(self, wait: bool = False) -> None:
         """
         Start the node.
 
@@ -732,7 +892,7 @@ class Node:
             self.wait_until_converged()
 
     @check_stale
-    def stop(self, wait=False) -> None:
+    def stop(self, wait: bool = False) -> None:
         """
         Stop the node.
 
@@ -745,7 +905,7 @@ class Node:
             self.wait_until_converged()
 
     @check_stale
-    def wipe(self, wait=False) -> None:
+    def wipe(self, wait: bool = False) -> None:
         """
         Wipe the node's disks.
 
@@ -757,21 +917,26 @@ class Node:
             self.wait_until_converged()
 
     @check_stale
-    def clone_image(self) -> dict:
+    def clone_image(self) -> dict[str, Any]:
         """
         Clone the node's disks into a new Image definition.
+
+        :returns: The new image definition data from the server.
         """
         url = self._url_for("clone_image")
         return self._session.put(url).json()
 
     @check_stale
     def extract_configuration(self) -> None:
-        """Update the configuration from the running node."""
+        """Update the configuration from the running node.
+
+        Fetches the current configuration from the device and updates the local state.
+        """
         url = self._url_for("extract_configuration")
         self._session.put(url)
 
     @check_stale
-    def console_logs(self, console_id: int, lines: int | None = None) -> dict:
+    def console_logs(self, console_id: int, lines: int | None = None) -> dict[str, Any]:
         """
         Get the console logs of the node.
 
@@ -786,34 +951,34 @@ class Node:
         return self._session.get(url).json()
 
     @check_stale
-    def console_key(self, console_number: int = 0) -> str:
+    def console_key(self, console_number: int = 0) -> dict[str, Any]:
         """
         Get the console key of the node.
 
         :param console_number: The console number (defaults to 0).
-        :returns: The console key.
+        :returns: The console key data from the API.
         """
         params = {"line": console_number}
         url = self._url_for("console_key")
         return self._session.get(url, params=params).json()
 
     @check_stale
-    def vnc_key(self) -> str:
+    def vnc_key(self) -> dict[str, Any]:
         """
         Get the VNC key of the node.
 
-        :returns: The VNC key.
+        :returns: The VNC key data from the API.
         """
         url = self._url_for("vnc_key")
         return self._session.get(url).json()
 
     def remove(self) -> None:
-        """Remove the node from the system."""
+        """Remove the node from the lab and the system."""
         self._lab.remove_node(self)
 
     @check_stale
     def _remove_on_server(self) -> None:
-        """Helper function to remove the node from the server."""
+        """Remove the node from the server via the API."""
         _LOGGER.info(f"Removing node {self}")
         url = self._url_for("node")
         self._session.delete(url)
@@ -830,8 +995,7 @@ class Node:
 
     @locked
     def add_tag(self, tag: str) -> None:
-        """
-        Add a tag to this node.
+        """Add a tag to this node.
 
         :param tag: The tag to add.
         """
@@ -848,8 +1012,7 @@ class Node:
 
     @locked
     def remove_tag(self, tag: str) -> None:
-        """
-        Remove a tag from this node.
+        """Remove a tag from this node.
 
         :param tag: The tag to remove.
         """
@@ -870,29 +1033,30 @@ class Node:
             return
         self._lab._remove_smart_annotation_local(annotation)
 
-    def _remove_tag_on_server(self, tag) -> None:
-        """Helper function to remove the tag from the node on the server."""
+    def _remove_tag_on_server(self, tag: str) -> None:
+        """Remove the tag from the node on the server.
+
+        :param tag: The tag to remove.
+        """
         current = self.tags()
         current.remove(tag)
         self._set_node_property("tags", current)
 
     def run_pyats_command(self, command: str, **pyats_params: Any) -> str:
-        """
-        Run a pyATS command in exec mode on the node.
+        """Run a pyATS command in exec mode on the node.
 
         :param command: The command to run (e.g. "show version").
-        :param pyats_params: Custom command dialog parameters for PyATS
+        :param pyats_params: Custom command dialog parameters for PyATS.
         :returns: The output from the device.
         """
         label = self.label
         return self._lab.pyats.run_command(label, command, **pyats_params)
 
     def run_pyats_config_command(self, command: str, **pyats_params: Any) -> str:
-        """
-        Run a pyATS command in config mode on the node.
+        """Run a pyATS command in config mode on the node.
 
         :param command: The command to run (e.g. "interface gi0").
-        :param pyats_params: Custom command dialog parameters for PyATS
+        :param pyats_params: Custom command dialog parameters for PyATS.
         :returns: The output from the device.
         """
         label = self.label
@@ -901,8 +1065,7 @@ class Node:
     @check_stale
     @locked
     def sync_layer3_addresses(self) -> None:
-        """
-        Acquire all layer 3 addresses from the controller.
+        """Acquire all layer 3 addresses from the controller.
 
         For this to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
@@ -957,7 +1120,10 @@ class Node:
         self._last_sync_l3_address_time = time.time()
 
     def clear_discovered_addresses(self) -> None:
-        """Clear all discovered L3 addresses for this node from the snooper."""
+        """Clear all discovered L3 addresses for this node from the snooper.
+
+        Removes snooped IP addresses from the controller and clears local cache.
+        """
         url = self._url_for("layer3_addresses")
         self._session.delete(url)
         self.map_l3_addresses_to_interfaces({})
@@ -980,7 +1146,7 @@ class Node:
     @check_stale
     @locked
     def sync_interface_operational(self) -> None:
-        """Synchronize the operational state of the node's interfaces."""
+        """Synchronize the operational state of the node's interfaces from the API."""
         url = self._url_for("interface_operational")
         response = self._session.get(url).json()
         self._lab.sync_topology_if_outdated()
@@ -989,11 +1155,7 @@ class Node:
             interface._operational = interface_data.get("operational") or {}
         self._last_sync_operational_time = time.time()
 
-    def update(
-        self,
-        node_data: dict[str, Any],
-        exclude_configurations: bool,
-    ) -> None:
+    def update(self, node_data: dict[str, Any], exclude_configurations: bool) -> None:
         """
         Update the node with the provided data.
 

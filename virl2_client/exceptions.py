@@ -17,92 +17,138 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Exception hierarchy for the virl2_client package."""
+
 import httpx
 
 
 class VirlException(Exception):
+    """Base exception for all virl2_client errors."""
+
     pass
 
 
 class InitializationError(VirlException):
+    """Raised when the client library cannot be initialized."""
+
     pass
 
 
 class ElementAlreadyExists(VirlException, FileExistsError):
+    """Raised when attempting to create an element that already exists."""
+
     pass
 
 
 class ElementNotFound(VirlException, KeyError):
+    """Raised when a requested element does not exist."""
+
     pass
 
 
 class AnnotationNotFound(ElementNotFound):
+    """Raised when a requested annotation does not exist."""
+
     pass
 
 
 class SmartAnnotationNotFound(ElementNotFound):
+    """Raised when a requested smart annotation does not exist."""
+
     pass
 
 
 class NodeNotFound(ElementNotFound):
+    """Raised when a requested node does not exist."""
+
     pass
 
 
 class LinkNotFound(ElementNotFound):
+    """Raised when a requested link does not exist."""
+
     pass
 
 
 class InterfaceNotFound(ElementNotFound):
+    """Raised when a requested interface does not exist."""
+
     pass
 
 
 class LabNotFound(ElementNotFound):
+    """Raised when a requested lab does not exist."""
+
     pass
 
 
 class LabRepositoryNotFound(ElementNotFound):
+    """Raised when a requested lab repository does not exist."""
+
     pass
 
 
 class InvalidContentType(VirlException):
+    """Raised when an unsupported content type is encountered."""
+
     pass
 
 
 class InvalidImageFile(VirlException):
+    """Raised when an image file is invalid or has an unsupported format."""
+
     pass
 
 
 class InvalidAnnotationType(VirlException):
+    """Raised when an unsupported annotation type is used."""
+
     pass
 
 
 class InvalidProperty(VirlException):
+    """Raised when an invalid property is set on a model object."""
+
     pass
 
 
 class InvalidTopologySchema(VirlException):
+    """Raised when a topology definition does not match the expected schema."""
+
     pass
 
 
 class MethodNotActive(VirlException):
+    """Raised when a method is called that is not currently active or enabled."""
+
     pass
 
 
 class PyatsException(Exception):
+    """Base exception for pyATS integration errors."""
+
     pass
 
 
 class PyatsNotInstalled(PyatsException):
+    """Raised when pyATS is required but not installed."""
+
     pass
 
 
 class PyatsDeviceNotFound(PyatsException):
+    """Raised when a requested pyATS device does not exist."""
+
     pass
 
 
 class ControllerNotFound(VirlException):
+    """Raised when no CML controller node is found in the topology."""
+
     message = "Controller not found"
 
 
 class APIError(VirlException, httpx.HTTPStatusError):
+    """Raised when the CML REST API returns an HTTP error response."""
+
     pass

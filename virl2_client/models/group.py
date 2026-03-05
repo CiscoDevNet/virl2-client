@@ -38,19 +38,24 @@ class GroupManagement:
     }
 
     def __init__(self, session: httpx.Client) -> None:
+        """
+        Initialize group management.
+
+        :param session: The httpx-based HTTP client for this session with the server.
+        """
         self._session = session
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def groups(self) -> list:
+    def groups(self) -> list[dict[str, Any]]:
         """
         Get the list of available groups.
 
@@ -59,7 +64,7 @@ class GroupManagement:
         url = self._url_for("groups")
         return self._session.get(url).json()
 
-    def get_group(self, group_id: str) -> dict:
+    def get_group(self, group_id: str) -> dict[str, Any]:
         """
         Get information for the specified group.
 
@@ -78,7 +83,7 @@ class GroupManagement:
         url = self._url_for("group", group_id=group_id)
         self._session.delete(url)
 
-    def create_group(self, name: str, **kwargs: Any) -> dict:
+    def create_group(self, name: str, **kwargs: Any) -> dict[str, Any]:
         """
         Create a group.
 
@@ -97,7 +102,7 @@ class GroupManagement:
         url = self._url_for("groups")
         return self._session.post(url, json=data).json()
 
-    def update_group(self, group_id: str, **kwargs: Any) -> dict:
+    def update_group(self, group_id: str, **kwargs: Any) -> dict[str, Any]:
         """
         Update a group.
 
@@ -124,7 +129,16 @@ class GroupManagement:
         description: str | None = None,
         members: list[str] | None = None,
         associations: list[dict[str, list[str]]] | None = None,
-    ):
+    ) -> None:
+        """
+        Populate data dict with provided optional group fields.
+
+        :param data: The dict to populate (modified in place).
+        :param name: Optional group name.
+        :param description: Optional group description.
+        :param members: Optional list of member IDs.
+        :param associations: Optional list of lab associations.
+        """
         optional_data = {
             "name": name,
             "description": description,
@@ -155,7 +169,7 @@ class GroupManagement:
 
     def update_associations(
         self, group_id: str, associations: list[dict[str, list[str]]]
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Update the lab associations for a group.
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Generator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import httpx
@@ -39,13 +39,17 @@ if TYPE_CHECKING:
 _AUTH_URL = "authenticate"
 
 
-def raise_for_status(response: httpx.Response):
+def raise_for_status(response: httpx.Response) -> None:
     """
+    Ensure response body is read before raising for status.
+
     https://github.com/encode/httpx/discussions/2224#discussioncomment-2732372
 
     When raising for status from certain places, if response is unread, the stream is
     automatically closed, and we then cannot read the response in later error handling.
     We thus need to check if the response is 4/500 and read it preemptively if so.
+
+    :param response: The httpx response to check.
     """
     if response.status_code // 100 in (4, 5):
         response.read()
@@ -64,7 +68,7 @@ class TokenAuth(httpx.Auth):
 
     requires_response_body = True
 
-    def __init__(self, client_library: ClientLibrary):
+    def __init__(self, client_library: ClientLibrary) -> None:
         """
         Initialize the TokenAuth object with a client library instance.
 
@@ -77,6 +81,8 @@ class TokenAuth(httpx.Auth):
         """
         Return the authentication token. If the token has not been set, it is obtained
         from the server.
+
+        :returns: The JWT token or None.
         """
         if self.client_library.jwtoken:
             return self.client_library.jwtoken
@@ -115,7 +121,7 @@ class TokenAuth(httpx.Auth):
         Implement the authentication flow for the token-based authentication.
 
         :param request: The request object to authenticate.
-        :returns: A generator of the authenticated request and response objects.
+        :yields: The authenticated request and response in sequence.
         """
         request.headers["Authorization"] = f"Bearer {self.token}"
         response = yield request
@@ -136,7 +142,7 @@ class TokenAuth(httpx.Auth):
 
         raise_for_status(response)
 
-    def logout(self, clear_all_sessions=False) -> bool:
+    def logout(self, clear_all_sessions: bool = False) -> bool:
         """
         Log out the user (invalidate the current token).
 
@@ -148,29 +154,47 @@ class TokenAuth(httpx.Auth):
 
 
 class BlankAuth(httpx.Auth):
-    """A class that implements an httpx Auth object that does nothing."""
+    """An httpx Auth implementation that performs no authentication."""
 
     def auth_flow(
         self, request: httpx.Request
     ) -> Generator[httpx.Request, httpx.Response, None]:
+        """
+        Pass through the request without adding authentication headers.
+
+        :param request: The request to send.
+        :yields: The request and response in sequence.
+        """
         response = yield request
         raise_for_status(response)
 
 
 class CustomClient(httpx.Client):
+    """httpx Client that raises APIError with server description on HTTP errors."""
+
     _ERROR_PREFIX = {4: "Client error - ", 5: "Server error - "}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Initialize the custom client, wrapping request to raise APIError on failures.
+
+        :param args: Positional arguments passed to httpx.Client.
+        :param kwargs: Keyword arguments passed to httpx.Client.
+        """
         super().__init__(*args, **kwargs)
         self._original_request = self.request
         self.request = self._request
 
-    def _request(self, *args, **kwargs):
+    def _request(self, *args: Any, **kwargs: Any) -> httpx.Response:
         """
-        httpx.Client.request modified to raise an exception if the response
-        has an HTTP status error and replace the useless link
-        to httpstatuses.com with error description.
+        Override httpx.Client.request to raise APIError with server description.
 
+        Replaces the default httpx HTTPStatusError with APIError containing
+        the server's error description when available.
+
+        :param args: Positional arguments passed to the underlying request.
+        :param kwargs: Keyword arguments passed to the underlying request.
+        :returns: The HTTP response on success.
         :raises APIError: If the response has an HTTP status error.
         """
         try:
@@ -197,7 +221,7 @@ def make_session(
     and SSL verification setting.
 
     Note: The base URL is automatically prepended to all HTTP calls. This means you
-    should use ``_session.get("labs")`` rather than ``_session.get(base_url + "labs")``.
+    should use _session.get("labs") rather than _session.get(base_url + "labs").
 
     :param base_url: The base URL for the client.
     :param ssl_verify: Whether to perform SSL verification.

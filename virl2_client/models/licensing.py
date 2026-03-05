@@ -57,32 +57,40 @@ class Licensing:
         Manage licensing.
 
         :param session: The httpx-based HTTP client for this session with the server.
-        :param is_cert_deprecated: Whether the certificate supported is deprecated.
         """
         self._session = session
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     def status(self) -> dict[str, Any]:
-        """Return current licensing configuration and status."""
+        """Return current licensing configuration and status.
+
+        :returns: Licensing configuration and status dictionary.
+        """
         url = self._url_for("licensing")
         return self._session.get(url).json()
 
     def tech_support(self) -> str:
-        """Return current licensing tech support."""
+        """Return current licensing tech support.
+
+        :returns: Tech support information as text.
+        """
         url = self._url_for("tech_support")
         return self._session.get(url).text
 
     def renew_authorization(self) -> bool:
-        """Renew licensing authorization with the backend."""
+        """Renew licensing authorization with the backend.
+
+        :returns: True if the renewal was scheduled (HTTP 204).
+        """
         url = self._url_for("authorization_renew")
         response = self._session.put(url)
         _LOGGER.info("The agent has scheduled an authorization renewal.")
@@ -94,7 +102,13 @@ class Licensing:
         proxy_server: str | None = None,
         proxy_port: int | None = None,
     ) -> bool:
-        """Setup licensing transport configuration."""
+        """Setup licensing transport configuration.
+
+        :param ssms: The Smart Software Licensing server URL.
+        :param proxy_server: Optional proxy server hostname.
+        :param proxy_port: Optional proxy server port.
+        :returns: True if the configuration was accepted (HTTP 204).
+        """
         url = self._url_for("transport")
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
         response = self._session.put(url, json=data)
@@ -102,7 +116,10 @@ class Licensing:
         return response.status_code == 204
 
     def set_default_transport(self) -> bool:
-        """Setup licensing transport configuration to default values."""
+        """Setup licensing transport configuration to default values.
+
+        :returns: True if the configuration was accepted (HTTP 204).
+        """
         default_ssms = self.status()["transport"]["default_ssms"]
         return self.set_transport(
             ssms=default_ssms,
@@ -111,14 +128,23 @@ class Licensing:
         )
 
     def set_product_license(self, product_license: str) -> bool:
-        """Setup a product license."""
+        """Setup a product license.
+
+        :param product_license: The product license string to install.
+        :returns: True if the license was accepted (HTTP 204).
+        """
         url = self._url_for("product_license")
         response = self._session.put(url, json=product_license)
         _LOGGER.info("Product license was accepted by the agent.")
         return response.status_code == 204
 
-    def register(self, token: str, reregister=False) -> bool:
-        """Setup licensing registration."""
+    def register(self, token: str, reregister: bool = False) -> bool:
+        """Setup licensing registration.
+
+        :param token: The registration token.
+        :param reregister: Whether to re-register if already registered.
+        :returns: True if the request was accepted (HTTP 204).
+        """
         url = self._url_for("registration")
         response = self._session.post(
             url, json={"token": token, "reregister": reregister}
@@ -127,16 +153,24 @@ class Licensing:
         return response.status_code == 204
 
     def register_renew(self) -> bool:
-        """Request a renewal of licensing registration against current SSMS."""
+        """Request a renewal of licensing registration against current SSMS.
+
+        :returns: True if the request was accepted (HTTP 204).
+        """
         url = self._url_for("registration_renew")
         response = self._session.put(url)
         _LOGGER.info("The renewal request was accepted by the agent.")
         return response.status_code == 204
 
-    def register_wait(self, token: str, reregister=False) -> bool:
+    def register_wait(self, token: str, reregister: bool = False) -> bool:
         """
         Setup licensing registrations and wait for registration status
         to be COMPLETED and authorization status to be IN_COMPLIANCE.
+
+        :param token: The registration token.
+        :param reregister: Whether to re-register if already registered.
+        :returns: True if the initial registration request was accepted.
+        :raises RuntimeError: If the status does not reach the target within timeout.
         """
         res = self.register(token=token, reregister=reregister)
         self.wait_for_status("registration", "COMPLETED")
@@ -144,7 +178,10 @@ class Licensing:
         return res
 
     def deregister(self) -> int:
-        """Request deregistration from the current SSMS."""
+        """Request deregistration from the current SSMS.
+
+        :returns: The HTTP status code (e.g. 202 or 204).
+        """
         url = self._url_for("deregistration")
         response = self._session.delete(url)
         if response.status_code == 202:
@@ -160,12 +197,14 @@ class Licensing:
             )
         return response.status_code
 
-    def features(self) -> list[dict[str, str | int]]:
+    def features(self) -> list[dict[str, str | int]] | None:
         """
-        DEPRECATED: Use `.status()` instead.
+        DEPRECATED: Use .status() instead.
         (Reason: dropped in favor of single call to get the whole licensing status)
 
         Get current licensing features.
+
+        :returns: List of feature definitions from the licensing status.
         """
         warnings.warn(
             "'Licensing.features()' is deprecated. "
@@ -175,12 +214,18 @@ class Licensing:
         return self.status().get("features")
 
     def update_features(self, features: dict[str, int] | list[dict[str, int]]) -> None:
-        """Update licensing feature's explicit count in reservation mode."""
+        """Update licensing feature's explicit count in reservation mode.
+
+        :param features: Feature names to counts, or list of such mappings.
+        """
         url = self._url_for("features")
         self._session.patch(url, json=features)
 
     def reservation_mode(self, data: bool) -> None:
-        """Enable or disable reservation mode in unregistered agent."""
+        """Enable or disable reservation mode in unregistered agent.
+
+        :param data: True to enable, False to disable.
+        """
         url = self._url_for("reservation_action", action="mode")
         self._session.put(url, json=data)
         msg = "enabled" if data else "disabled"
@@ -194,38 +239,54 @@ class Licensing:
         """Disable reservation mode in unregistered agent."""
         return self.reservation_mode(data=False)
 
-    def request_reservation(self) -> str:
-        """Initiate reservation by generating request code and message to the user."""
+    def request_reservation(self) -> Any:
+        """Initiate reservation by generating request code and message to the user.
+
+        :returns: The reservation request code and message from the server.
+        """
         url = self._url_for("reservation_action", action="request")
         response = self._session.post(url)
         _LOGGER.info("Reservation request code received.")
         return response.json()
 
-    def complete_reservation(self, authorization_code: str) -> str:
-        """Complete reservation by installing authorization code from SSMS."""
+    def complete_reservation(self, authorization_code: str) -> Any:
+        """Complete reservation by installing authorization code from SSMS.
+
+        :param authorization_code: The authorization code from SSMS.
+        :returns: The confirmation code from the server.
+        """
         url = self._url_for("reservation_action", action="complete")
         response = self._session.post(url, json=authorization_code)
         _LOGGER.info("The confirmation code of completed reservation received.")
         return response.json()
 
     def cancel_reservation(self) -> bool:
-        """Cancel reservation request without completing it."""
+        """Cancel reservation request without completing it.
+
+        :returns: True if the cancellation was successful (HTTP 204).
+        """
         url = self._url_for("reservation_action", action="cancel")
         response = self._session.delete(url)
         _LOGGER.info("The reservation request has been cancelled.")
         return response.status_code == 204
 
-    def release_reservation(self) -> str:
-        """Return a completed reservation."""
+    def release_reservation(self) -> Any:
+        """Return a completed reservation.
+
+        :returns: The return code from the server.
+        """
         url = self._url_for("reservation_action", action="release")
         response = self._session.delete(url)
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
-    def discard_reservation(self, data: str) -> str:
+    def discard_reservation(self, data: str) -> Any:
         """
         Discard a reservation authorization code for an already cancelled
         reservation request.
+
+        :param data: The discard code or data to submit.
+        :returns: The response from the server.
         """
         url = self._url_for("reservation_action", action="discard")
         response = self._session.post(url, json=data)
@@ -234,29 +295,41 @@ class Licensing:
         )
         return response.json()
 
-    def get_reservation_confirmation_code(self) -> str:
-        """Get the reservation confirmation code."""
+    def get_reservation_confirmation_code(self) -> Any:
+        """Get the reservation confirmation code.
+
+        :returns: The confirmation code from the server.
+        """
         url = self._url_for("reservation_action", action="confirmation_code")
         response = self._session.get(url)
         _LOGGER.info("The confirmation code of the completed reservation received.")
         return response.json()
 
     def delete_reservation_confirmation_code(self) -> bool:
-        """Remove the reservation confirmation code."""
+        """Remove the reservation confirmation code.
+
+        :returns: True if the removal was successful (HTTP 204).
+        """
         url = self._url_for("reservation_action", action="confirmation_code")
         response = self._session.delete(url)
         _LOGGER.info("The confirmation code has been removed.")
         return response.status_code == 204
 
-    def get_reservation_return_code(self) -> str:
-        """Get the reservation return code."""
+    def get_reservation_return_code(self) -> Any:
+        """Get the reservation return code.
+
+        :returns: The return code from the server.
+        """
         url = self._url_for("reservation_action", action="return_code")
         response = self._session.get(url)
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
     def delete_reservation_return_code(self) -> bool:
-        """Remove the reservation return code."""
+        """Remove the reservation return code.
+
+        :returns: True if the removal was successful (HTTP 204).
+        """
         url = self._url_for("reservation_action", action="return_code")
         response = self._session.delete(url)
         _LOGGER.info("The return code has been removed.")
@@ -266,6 +339,7 @@ class Licensing:
         """
         Repeatedly check licensing registration or authorization status,
         until status matches one of the expected statuses or timeout is reached.
+
         :param what: "registration", "authorization" or other status in licensing API.
         :param target_status: One or more expected statuses.
         :raises RuntimeError: When timeout is reached.

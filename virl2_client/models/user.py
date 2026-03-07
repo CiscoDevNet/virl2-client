@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import time
 import warnings
 from typing import TYPE_CHECKING, Any
 
@@ -36,8 +37,17 @@ class UserManagement:
         "user_id": "users/{username}/id",
     }
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(
+        self,
+        session: httpx.Client,
+        auto_sync: bool = True,
+        auto_sync_interval: float = 1.0,
+    ) -> None:
         self._session = session
+        self.auto_sync = auto_sync
+        self.auto_sync_interval = auto_sync_interval
+        self._last_sync_users_time = 0.0
+        self._users_by_id: dict[str, dict] = {}
 
     def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
@@ -57,6 +67,36 @@ class UserManagement:
         """
         url = self._url_for("users")
         return self._session.get(url).json()
+
+    def sync_users(self) -> None:
+        """Fetch all users from the server and store them locally."""
+        user_list = self.users()
+        self._users_by_id = {user["id"]: user for user in user_list}
+        self._last_sync_users_time = time.time()
+
+    def sync_users_if_outdated(self) -> None:
+        """Synchronize the user list if the auto-sync interval has elapsed."""
+        timestamp = time.time()
+        if (
+            self.auto_sync
+            and timestamp - self._last_sync_users_time > self.auto_sync_interval
+        ):
+            self.sync_users()
+
+    def get_username(self, user_id: str) -> str | None:
+        """Look up a username by user ID from the locally synced user list.
+
+        Triggers a sync if the local list is outdated. Returns ``None`` if
+        the *user_id* is not found.
+
+        :param user_id: User UUID4.
+        :returns: The username, or ``None`` if not found.
+        """
+        self.sync_users_if_outdated()
+        user = self._users_by_id.get(user_id)
+        if user is not None:
+            return user["username"]
+        return None
 
     def get_user(self, user_id: str) -> dict:
         """

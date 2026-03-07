@@ -392,7 +392,11 @@ class ClientLibrary:
 
         self.definitions = NodeImageDefinitions(self._session)
         self.licensing = Licensing(self._session)
-        self.user_management = UserManagement(self._session)
+        self.user_management = UserManagement(
+            self._session,
+            auto_sync=self.auto_sync,
+            auto_sync_interval=self.auto_sync_interval,
+        )
         self.group_management = GroupManagement(self._session)
         self.system_management = SystemManagement(
             self._session,
@@ -658,6 +662,7 @@ class ClientLibrary:
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
             resource_pool_manager=self.resource_pool_management,
+            user_management=self.user_management,
         )
 
     @locked
@@ -807,6 +812,7 @@ class ClientLibrary:
             wait_max_iterations=self.convergence_wait_max_iter,
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
+            user_management=self.user_management,
         )
         lab._import_lab(result, created=True)
         self._labs[lab_id] = lab
@@ -894,10 +900,12 @@ class ClientLibrary:
             wait_max_iterations=self.convergence_wait_max_iter,
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
+            user_management=self.user_management,
         )
         if sync_lab:
             lab.import_lab(topology)
             lab._initialized = True
+            lab._last_sync_topology_time = time.time()
         else:
             lab._owner = None
         self._labs[lab_id] = lab

@@ -24,15 +24,21 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
-from ..utils import property_s as property
+from virl2_client.utils import (
+    UNCHANGED,
+    _Sentinel,
+    check_stale,
+    get_url_from_template,
+    locked,
+)
+from virl2_client.utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx
 
-    from .interface import Interface
-    from .lab import Lab
-    from .node import Node
+    from virl2_client.models.interface import Interface
+    from virl2_client.models.lab import Lab
+    from virl2_client.models.node import Node
 
 _LOGGER = logging.getLogger(__name__)
 

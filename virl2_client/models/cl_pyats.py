@@ -42,13 +42,13 @@ else:
     _PyatsProcessor.argv.clear()
 
 
-from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
+from virl2_client.exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
     from genie.libs.conf.device import Device
     from genie.libs.conf.testbed import Testbed
 
-    from .lab import Lab
+    from virl2_client.models.lab import Lab
 
 
 _LOGGER = logging.getLogger(__name__)

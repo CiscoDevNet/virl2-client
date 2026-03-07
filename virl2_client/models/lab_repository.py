@@ -26,11 +26,11 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ..exceptions import LabRepositoryNotFound
-from ..utils import get_url_from_template
+from virl2_client.exceptions import LabRepositoryNotFound
+from virl2_client.utils import get_url_from_template
 
 if TYPE_CHECKING:
-    from .system import SystemManagement
+    from virl2_client.models.system import SystemManagement
 
 _LOGGER = logging.getLogger(__name__)
 

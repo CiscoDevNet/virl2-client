@@ -23,7 +23,7 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from ..utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
+from virl2_client.utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx

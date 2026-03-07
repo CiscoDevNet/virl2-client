@@ -26,11 +26,11 @@ from abc import ABC, abstractmethod
 from os import name as os_name
 from typing import TYPE_CHECKING, Any
 
-from .exceptions import ElementNotFound, LabNotFound
+from virl2_client.exceptions import ElementNotFound, LabNotFound
 
 if TYPE_CHECKING:
-    from ..virl2_client import ClientLibrary
-    from .models import Interface, Lab, Link, Node
+    from virl2_client.models import Interface, Lab, Link, Node
+    from virl2_client.virl2_client import ClientLibrary
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -31,10 +31,10 @@ from urllib.parse import urlparse
 
 import aiohttp
 
-from .event_handling import Event, EventHandler
+from virl2_client.event_handling import Event, EventHandler
 
 if TYPE_CHECKING:
-    from .virl2_client import ClientLibrary
+    from virl2_client.virl2_client import ClientLibrary
 
 _LOGGER = logging.getLogger(__name__)
 

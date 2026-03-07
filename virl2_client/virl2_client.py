@@ -36,8 +36,8 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
-from .exceptions import InitializationError, LabNotFound
-from .models import (
+from virl2_client.exceptions import InitializationError, LabNotFound
+from virl2_client.models import (
     AuthManagement,
     GroupManagement,
     Lab,
@@ -48,8 +48,8 @@ from .models import (
     TokenAuth,
     UserManagement,
 )
-from .models.authentication import make_session
-from .utils import get_url_from_template, locked
+from virl2_client.models.authentication import make_session
+from virl2_client.utils import get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
@@ -590,12 +590,14 @@ class ClientLibrary:
         To replace the default event handling mechanism,
         subclass EventHandler (or EventHandlerBase if necessary),
         then do::
-            from .event_listening import EventListener
+            from virl2_client.event_listening import EventListener
             custom_listener = EventListener()
             custom_listener._event_handler = CustomHandler(client_library)
             client_library.event_listener = custom_listener
+
+        :returns:
         """
-        from .event_listening import EventListener
+        from virl2_client.event_listening import EventListener
 
         if self.event_listener is None:
             self.event_listener = EventListener(self)

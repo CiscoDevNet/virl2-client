@@ -23,9 +23,9 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
-from ..exceptions import MethodNotActive
-from ..utils import get_url_from_template
-from .resource_pool import ResourcePool
+from virl2_client.exceptions import MethodNotActive
+from virl2_client.models.resource_pool import ResourcePool
+from virl2_client.utils import get_url_from_template
 
 if TYPE_CHECKING:
     from httpx import Client

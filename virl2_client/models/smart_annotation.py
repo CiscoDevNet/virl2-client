@@ -23,14 +23,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..exceptions import InvalidProperty
-from ..utils import check_stale, get_url_from_template, locked
-from ..utils import property_s as property
+from virl2_client.exceptions import InvalidProperty
+from virl2_client.utils import check_stale, get_url_from_template, locked
+from virl2_client.utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx
 
-    from .lab import Lab
+    from virl2_client.models.lab import Lab
 
 _LOGGER = logging.getLogger(__name__)
 _SMART_ANNOTATION_DEFAULTS = {

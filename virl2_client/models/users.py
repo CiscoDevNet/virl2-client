@@ -19,7 +19,7 @@
 #
 import warnings
 
-from .user import *  # noqa
+from virl2_client.models.user import *  # noqa
 
 warnings.warn(
     "The module name 'virl2_client.models.users' is deprecated. "

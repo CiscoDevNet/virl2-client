@@ -25,7 +25,7 @@ import time
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from ..utils import get_url_from_template
+from virl2_client.utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx

@@ -26,8 +26,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ..exceptions import InvalidProperty
-from ..utils import get_url_from_template
+from virl2_client.exceptions import InvalidProperty
+from virl2_client.utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx

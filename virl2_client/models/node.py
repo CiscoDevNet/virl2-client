@@ -28,21 +28,21 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
-from ..utils import (
+from virl2_client.exceptions import InterfaceNotFound, SmartAnnotationNotFound
+from virl2_client.utils import (
     UNCHANGED,
     _Sentinel,
     check_stale,
     get_url_from_template,
     locked,
 )
-from ..utils import property_s as property
+from virl2_client.utils import property_s as property
 
 if TYPE_CHECKING:
-    from .interface import Interface
-    from .lab import Lab
-    from .link import Link
-    from .smart_annotation import SmartAnnotation
+    from virl2_client.models.interface import Interface
+    from virl2_client.models.lab import Lab
+    from virl2_client.models.link import Link
+    from virl2_client.models.smart_annotation import SmartAnnotation
 
 _LOGGER = logging.getLogger(__name__)
 

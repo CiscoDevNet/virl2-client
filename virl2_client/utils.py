@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, Type, TypeVar, cast
 
 import httpx
 
-from .exceptions import (
+from virl2_client.exceptions import (
     AnnotationNotFound,
     ElementNotFound,
     InterfaceNotFound,
@@ -41,7 +41,14 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from .models import Annotation, Interface, Lab, Link, Node, SmartAnnotation
+    from virl2_client.models import (
+        Annotation,
+        Interface,
+        Lab,
+        Link,
+        Node,
+        SmartAnnotation,
+    )
 
     Element = Lab | Node | Interface | Link | Annotation | SmartAnnotation
 

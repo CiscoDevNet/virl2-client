@@ -19,8 +19,13 @@
 #
 """Python client library for the Cisco Modeling Labs (CML) REST API."""
 
-from .exceptions import InterfaceNotFound, LabNotFound, LinkNotFound, NodeNotFound
-from .virl2_client import ClientConfig, ClientLibrary, InitializationError
+from virl2_client.exceptions import (
+    InterfaceNotFound,
+    LabNotFound,
+    LinkNotFound,
+    NodeNotFound,
+)
+from virl2_client.virl2_client import ClientConfig, ClientLibrary, InitializationError
 
 __all__ = [
     "InterfaceNotFound",

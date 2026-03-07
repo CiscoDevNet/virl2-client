@@ -19,7 +19,7 @@
 #
 import warnings
 
-from .group import *  # noqa
+from virl2_client.models.group import *  # noqa
 
 warnings.warn(
     "The module name 'virl2_client.models.groups' is deprecated. "

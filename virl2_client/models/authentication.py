@@ -28,12 +28,12 @@ from uuid import uuid4
 
 import httpx
 
-from ..exceptions import APIError
+from virl2_client.exceptions import APIError
 
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ..virl2_client import ClientLibrary
+    from virl2_client.virl2_client import ClientLibrary
 
 
 _AUTH_URL = "authenticate"

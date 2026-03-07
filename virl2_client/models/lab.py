@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from httpx import HTTPStatusError
 
-from ..exceptions import (
+from virl2_client.exceptions import (
     AnnotationNotFound,
     ElementAlreadyExists,
     InterfaceNotFound,
@@ -40,26 +40,32 @@ from ..exceptions import (
     SmartAnnotationNotFound,
     VirlException,
 )
-from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
-from ..utils import property_s as property
-from .annotation import (
+from virl2_client.models.annotation import (
     Annotation,
     AnnotationEllipse,
     AnnotationLine,
     AnnotationRectangle,
     AnnotationText,
 )
-from .cl_pyats import ClPyats
-from .interface import Interface
-from .link import Link
-from .node import Node
-from .smart_annotation import SmartAnnotation
+from virl2_client.models.cl_pyats import ClPyats
+from virl2_client.models.interface import Interface
+from virl2_client.models.link import Link
+from virl2_client.models.node import Node
+from virl2_client.models.smart_annotation import SmartAnnotation
+from virl2_client.utils import (
+    UNCHANGED,
+    _Sentinel,
+    check_stale,
+    get_url_from_template,
+    locked,
+)
+from virl2_client.utils import property_s as property
 
 if TYPE_CHECKING:
     import httpx
 
-    from .annotation import AnnotationType
-    from .resource_pool import ResourcePool, ResourcePoolManagement
+    from virl2_client.models.annotation import AnnotationType
+    from virl2_client.models.resource_pool import ResourcePool, ResourcePoolManagement
 
 
 _LOGGER = logging.getLogger(__name__)

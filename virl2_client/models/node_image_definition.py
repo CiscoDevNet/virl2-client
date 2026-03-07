@@ -26,8 +26,8 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, BinaryIO
 
-from ..exceptions import InvalidContentType, InvalidImageFile
-from ..utils import get_url_from_template
+from virl2_client.exceptions import InvalidContentType, InvalidImageFile
+from virl2_client.utils import get_url_from_template
 
 if TYPE_CHECKING:
     import httpx

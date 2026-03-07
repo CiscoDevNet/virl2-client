@@ -25,8 +25,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
-
-from ..utils import OptInStatus, get_url_from_template
+from virl2_client.utils import OptInStatus, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx

@@ -84,43 +84,33 @@ class Version:
     def __repr__(self) -> str:
         return self.version_str
 
-    def __eq__(self, other):
-        return (
-            isinstance(other, self.__class__)
-            and self.major == other.major
-            and self.minor == other.minor
-            and self.patch == other.patch
-        )
+    def _as_tuple(self) -> tuple[int, int, int]:
+        return (self.major, self.minor, self.patch)
 
-    def __gt__(self, other):
-        if isinstance(other, self.__class__):
-            if self.major > other.major:
-                return True
-            elif self.major == other.major:
-                if self.minor > other.minor:
-                    return True
-                elif self.minor == other.minor:
-                    if self.patch > other.patch:
-                        return True
-        return False
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() == other._as_tuple()
 
-    def __ge__(self, other):
-        return self == other or self > other
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() > other._as_tuple()
 
-    def __lt__(self, other):
-        if isinstance(other, self.__class__):
-            if self.major < other.major:
-                return True
-            elif self.major == other.major:
-                if self.minor < other.minor:
-                    return True
-                elif self.minor == other.minor:
-                    if self.patch < other.patch:
-                        return True
-        return False
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() >= other._as_tuple()
 
-    def __le__(self, other):
-        return self == other or self < other
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() < other._as_tuple()
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() <= other._as_tuple()
 
     def major_differs(self, other: Version) -> bool:
         return self.major != other.major
@@ -995,10 +985,8 @@ class ClientLibrary:
             owned by the authenticated user (False).
         :returns: A list of lab IDs.
         """
-        url: dict[str, str | dict] = {"url": self._url_for("labs")}
-        if show_all:
-            url["params"] = {"show_all": True}
-        return self._session.get(**url).json()
+        params = {"show_all": True} if show_all else None
+        return self._session.get(self._url_for("labs"), params=params).json()
 
 
 def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:

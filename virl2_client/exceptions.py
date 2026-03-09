@@ -124,7 +124,7 @@ class MethodNotActive(VirlException):
     pass
 
 
-class PyatsException(Exception):
+class PyatsException(VirlException):
     """Base exception for pyATS integration errors."""
 
     pass
@@ -145,7 +145,8 @@ class PyatsDeviceNotFound(PyatsException):
 class ControllerNotFound(VirlException):
     """Raised when no CML controller node is found in the topology."""
 
-    message = "Controller not found"
+    def __init__(self) -> None:
+        super().__init__("Controller not found")
 
 
 class APIError(VirlException, httpx.HTTPStatusError):

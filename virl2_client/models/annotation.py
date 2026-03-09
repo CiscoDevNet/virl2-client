@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
     from .lab import Lab
 
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
-    AnnotationType = (
-        "Annotation"
-        | "AnnotationRectangle"
-        | "AnnotationEllipse"
-        | "AnnotationLine"
-        | "AnnotationText"
-    )
+    AnnotationType = Union[
+        "Annotation",
+        "AnnotationRectangle",
+        "AnnotationEllipse",
+        "AnnotationLine",
+        "AnnotationText",
+    ]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -122,6 +122,20 @@ class Annotation:
         "annotations": "labs/{lab_id}/annotations",
         "annotation": "labs/{lab_id}/annotations/{annotation_id}",
     }
+
+    _VALID_KEYS: frozenset[str] = frozenset(
+        {
+            "id",
+            "type",
+            "border_color",
+            "border_style",
+            "color",
+            "thickness",
+            "x1",
+            "y1",
+            "z_index",
+        }
+    )
 
     def __init__(
         self,
@@ -387,12 +401,14 @@ class Annotation:
         :param _property: The property name to validate.
         :returns: True if the property is valid for the given type, False otherwise.
         """
-        try:
-            assert annotation_type in _ANNOTATION_TYPES
-            assert _property in ANNOTATION_PROPERTY_MAP
-        except AssertionError:
+        if (
+            annotation_type not in _ANNOTATION_TYPES
+            or _property not in ANNOTATION_PROPERTY_MAP
+        ):
             return False
-        return ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[_property] > 0
+        return (
+            ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[_property]
+        ) > 0
 
     @locked
     def as_dict(self) -> dict[str, Any]:
@@ -449,9 +465,8 @@ class Annotation:
             raise ValueError("Can't change annotation type.")
 
         # make sure all properties we want to update are valid
-        existing_keys = dir(self)
         for key in annotation_data:
-            if key not in existing_keys:
+            if key not in self._VALID_KEYS:
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:
@@ -492,6 +507,10 @@ class AnnotationRectangle(Annotation):
     """
     Annotation class representing rectangle annotation.
     """
+
+    _VALID_KEYS = Annotation._VALID_KEYS | frozenset(
+        {"border_radius", "x2", "y2", "rotation"}
+    )
 
     def __init__(
         self,
@@ -600,6 +619,8 @@ class AnnotationEllipse(Annotation):
     Annotation class representing ellipse annotation.
     """
 
+    _VALID_KEYS = Annotation._VALID_KEYS | frozenset({"x2", "y2", "rotation"})
+
     def __init__(
         self,
         lab: Lab,
@@ -686,6 +707,10 @@ class AnnotationLine(Annotation):
     """
     Annotation class representing line annotation.
     """
+
+    _VALID_KEYS = Annotation._VALID_KEYS | frozenset(
+        {"x2", "y2", "line_start", "line_end"}
+    )
 
     def __init__(
         self,
@@ -793,6 +818,20 @@ class AnnotationText(Annotation):
     """
     Annotation class representing text annotation.
     """
+
+    _VALID_KEYS = Annotation._VALID_KEYS | frozenset(
+        {
+            "x2",
+            "y2",
+            "rotation",
+            "text_bold",
+            "text_content",
+            "text_font",
+            "text_italic",
+            "text_size",
+            "text_unit",
+        }
+    )
 
     def __init__(
         self,

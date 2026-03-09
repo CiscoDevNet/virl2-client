@@ -1357,8 +1357,18 @@ class Lab:
         """
         url = self._url_for("lab_element_state")
         states: dict[str, dict[str, str]] = self._session.get(url).json()
+
+        nodes = self._nodes.copy()
         for node_id, node_state in states["nodes"].items():
-            self._nodes[node_id]._state = node_state
+            try:
+                node = nodes.pop(node_id)
+            except KeyError:
+                pass
+            else:
+                node._state = node_state
+        for stale_node in nodes.values():
+            stale_node._stale = True
+
         ifaces = self._interfaces.copy()
         for interface_id, interface_state in states["interfaces"].items():
             try:
@@ -1367,10 +1377,19 @@ class Lab:
                 pass
             else:
                 iface._state = interface_state
-        for stale_iface in ifaces:
-            ifaces[stale_iface]._stale = True
+        for stale_iface in ifaces.values():
+            stale_iface._stale = True
+
+        links = self._links.copy()
         for link_id, link_state in states["links"].items():
-            self._links[link_id]._state = link_state
+            try:
+                link = links.pop(link_id)
+            except KeyError:
+                pass
+            else:
+                link._state = link_state
+        for stale_link in links.values():
+            stale_link._stale = True
 
         self._last_sync_state_time = time.time()
 
@@ -1714,7 +1733,7 @@ class Lab:
             iface_b_id = link["interface_b"]
             label = link.get("label")
 
-            self._import_link(link_id, iface_b_id, iface_a_id, label)
+            self._import_link(link_id, iface_a_id, iface_b_id, label)
 
     @locked
     def _handle_import_annotations(self, topology: dict) -> None:
@@ -1749,16 +1768,16 @@ class Lab:
     def _import_link(
         self,
         link_id: str,
-        iface_b_id: str,
         iface_a_id: str,
+        iface_b_id: str,
         label: str | None = None,
     ) -> Link:
         """
         Import a link with the given parameters.
 
         :param link_id: The ID of the link.
-        :param iface_b_id: The ID of the second interface.
         :param iface_a_id: The ID of the first interface.
+        :param iface_b_id: The ID of the second interface.
         :param label: The label of the link.
         :returns: The imported Link object.
         """
@@ -2069,7 +2088,7 @@ class Lab:
             iface_a_id = link_data["interface_a"]
             iface_b_id = link_data["interface_b"]
             label = link_data.get("label")
-            link = self._import_link(link_id, iface_b_id, iface_a_id, label)
+            link = self._import_link(link_id, iface_a_id, iface_b_id, label)
             _LOGGER.info(f"Added link {link}")
 
     @locked

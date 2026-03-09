@@ -437,7 +437,7 @@ class Interface:
         :param key: The key of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting node property {self} {key}: {val}")
+        _LOGGER.debug(f"Setting interface property {self} {key}: {val}")
         self._set_interface_properties({key: val})
 
     @check_stale

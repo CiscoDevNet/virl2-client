@@ -57,7 +57,7 @@ def test_url_template_exists(template: str) -> None:
 
 
 def test_start_capture_with_params(link: Link) -> None:
-    """start_capture passes maxpackets and returns the server response.
+    """start_capture passes maxpackets, maxtime, and bpfilter to the server.
 
     NOTE: LLM-generated test -- verify for correctness.
 
@@ -67,6 +67,8 @@ def test_start_capture_with_params(link: Link) -> None:
         "config": {
             "link_capture_key": link.id,
             "maxpackets": 100,
+            "maxtime": 300,
+            "bpfilter": "tcp port 80",
             "encap": "ethernet",
         },
         "starttime": "2026-01-12T10:00:00Z",
@@ -75,11 +77,16 @@ def test_start_capture_with_params(link: Link) -> None:
 
     link._session.put.return_value.json.return_value = expected_response
 
-    result = link.start_capture(maxpackets=100)
+    result = link.start_capture(maxpackets=100, maxtime=300, bpfilter="tcp port 80")
 
     assert result == expected_response
-    assert result["config"]["maxpackets"] == 100
-    assert result["config"]["link_capture_key"] == link.id
+    link._session.put.assert_called_once()
+    call_kwargs = link._session.put.call_args
+    payload = call_kwargs.kwargs["json"]
+    assert payload["maxpackets"] == 100
+    assert payload["maxtime"] == 300
+    assert payload["bpfilter"] == "tcp port 80"
+    assert payload["encap"] == "ethernet"
 
 
 def test_start_capture_defaults(link: Link) -> None:

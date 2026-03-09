@@ -3,7 +3,21 @@
 # Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
-"""Tests for ClientLibrary configuration loading (env vars, .virlrc files, params)."""
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+"""Tests for ClientLibrary configuration, SSL options, and credential loading."""
 
 import warnings
 from collections.abc import Iterator
@@ -15,6 +29,8 @@ import pytest
 from virl2_client import ClientLibrary
 from virl2_client.exceptions import InitializationError
 from virl2_client.virl2_client import ClientConfig
+
+FAKE_URL = "https://0.0.0.0/fake_url/"
 
 _TEST_ENV = {
     "VIRL2_URL": "0.0.0.0",
@@ -383,3 +399,94 @@ def test_make_client_deprecation(
         assert calls["getpass"] == 0
     else:
         assert calls["input"] + calls["getpass"] > 0
+
+
+def test_ssl_certificate(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+) -> None:
+    """Use constructor-provided SSL CA bundle path for requests.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(
+        url=FAKE_URL,
+        username="test",
+        password="pa$$",
+        ssl_verify="/home/user/cert.pem",
+    )
+    cl.is_system_ready(wait=True)
+
+    assert cl._ssl_verify == "/home/user/cert.pem"
+    assert cl._session.mock_calls[0] == call.get("authentication")
+
+
+def test_ssl_certificate_from_env_variable(
+    client_library_server_current: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    mocked_session: MagicMock,
+) -> None:
+    """Use CA_BUNDLE environment variable for SSL verification.
+
+    :param client_library_server_current: Patched current-version fixture.
+    :param monkeypatch: Fixture for temporary environment mutation.
+    :param mocked_session: Mocked HTTP session fixture.
+    """
+    _ = client_library_server_current, mocked_session
+    monkeypatch.setenv("CA_BUNDLE", "/home/user/cert.pem")
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert cl.is_system_ready()
+    assert cl._ssl_verify == "/home/user/cert.pem"
+    assert cl._session.mock_calls[0] == call.get("authentication")
+
+
+def test_config_get_from_file(tmp_path: Path) -> None:
+    """ClientConfig._get_from_file reads property from .virlrc.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Temporary directory fixture.
+    """
+    config_file = tmp_path / ".virlrc"
+    config_file.write_text('VIRL2_URL="https://from-file"\n')
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_URL") == "https://from-file"
+
+
+def test_config_get_prop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ClientConfig._get_prop walks directory tree to find .virlrc.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Temporary directory fixture.
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    config_file = tmp_path / ".virlrc"
+    config_file.write_text('VIRL2_URL="https://from-file"\n')
+    nested = tmp_path / "a" / "b"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    assert ClientConfig._get_prop("VIRL2_URL") == "https://from-file"
+
+
+def test_config_populate_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ClientConfig._populate_from_inputs stores JWT from interactive input.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    conf = {
+        "url": None,
+        "username": None,
+        "password": None,
+        "jwtoken": None,
+        "ssl_verify": True,
+    }
+    monkeypatch.setattr(
+        "builtins.input",
+        MagicMock(side_effect=["https://server.local", "x" * 40]),
+    )
+    ClientConfig._populate_from_inputs(conf)
+    assert conf["jwtoken"] == "x" * 40

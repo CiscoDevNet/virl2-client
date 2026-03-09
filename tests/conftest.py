@@ -36,6 +36,26 @@ FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 
 
+@pytest.fixture
+def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear VIRL2-related environment variables for isolated init tests.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    env_vars = [
+        "VIRL2_URL",
+        "VIRL_HOST",
+        "VIRL2_USER",
+        "VIRL_USERNAME",
+        "VIRL2_PASS",
+        "VIRL_PASSWORD",
+        "VIRL2_JWT",
+    ]
+
+    for key in env_vars:
+        monkeypatch.delenv(key, raising=False)
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _patch_stdin_isatty() -> Iterator[None]:
     """Suppress DeprecationWarning for non-TTY stdin across the whole session.

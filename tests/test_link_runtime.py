@@ -1,3 +1,22 @@
+#
+# This file is part of VIRL 2
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
+# All rights reserved.
+#
+# Python bindings for the Cisco VIRL 2 Network Simulation Platform
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 """Link runtime tests for properties, conditions and packet capture APIs."""
 
 from __future__ import annotations
@@ -117,68 +136,6 @@ def test_link_remove_condition() -> None:
     link = _new_link()
     link.remove_condition()
     link._session.delete.assert_called_once()
-
-
-def test_link_start_capture() -> None:
-    """start_capture with params returns capture status.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    link = _new_link()
-    link._session.put.return_value.json.return_value = {"capture": "started"}
-    assert link.start_capture(maxpackets=10, maxtime=5, bpfilter="tcp") == {
-        "capture": "started"
-    }
-
-
-def test_link_stop_capture() -> None:
-    """stop_capture calls put.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    link = _new_link()
-    link.stop_capture()
-    link._session.put.assert_called_once()
-
-
-def test_link_capture_status() -> None:
-    """capture_status returns packet list.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    link = _new_link()
-    link._session.get.return_value.json.return_value = [{"packet": 1}]
-    assert link.capture_status() == [{"packet": 1}]
-
-
-def test_link_download_capture() -> None:
-    """download_capture returns raw pcap content.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    link = _new_link()
-    link._session.get.return_value.content = b"pcap"
-    assert link.download_capture() == b"pcap"
-
-
-def test_link_get_capture_packets() -> None:
-    """get_capture_packets returns packet list.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    link = _new_link()
-    link._session.get.return_value.json.return_value = [{"id": 1}]
-    assert link.get_capture_packets() == [{"id": 1}]
-
-
-def test_link_get_capture_packet() -> None:
-    """get_capture_packet returns single packet by id.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    link = _new_link()
-    link._session.get.return_value.json.return_value = [{"id": 1}]
-    assert link.get_capture_packet(1) == [{"id": 1}]
 
 
 def test_link_eq_other_type() -> None:

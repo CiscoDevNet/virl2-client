@@ -115,6 +115,71 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
 _ANNOTATION_TYPES = ["text", "line", "ellipse", "rectangle"]
 
 
+class _CoordinateXY2Mixin:
+    """Mixin providing x2/y2 coordinate properties for annotation subclasses."""
+
+    @property
+    def x2(self) -> int:
+        """X2 coordinate.
+
+        :returns: The x2 coordinate value.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._x2
+
+    @x2.setter
+    @locked
+    def x2(self, value: int) -> None:
+        """Set x2 coordinate.
+
+        :param value: The x2 coordinate value to set.
+        """
+        self._set_annotation_property("x2", value)
+        self._x2 = value
+
+    @property
+    def y2(self) -> int:
+        """Y2 coordinate.
+
+        :returns: The y2 coordinate value.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._y2
+
+    @y2.setter
+    @locked
+    def y2(self, value: int) -> None:
+        """Set y2 coordinate.
+
+        :param value: The y2 coordinate value to set.
+        """
+        self._set_annotation_property("y2", value)
+        self._y2 = value
+
+
+class _RotationMixin:
+    """Mixin providing rotation property for annotation subclasses."""
+
+    @property
+    def rotation(self) -> int:
+        """Rotation of an object, in degrees.
+
+        :returns: The rotation value in degrees.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._rotation
+
+    @rotation.setter
+    @locked
+    def rotation(self, value: int) -> None:
+        """Set rotation of an object, in degrees.
+
+        :param value: The rotation value in degrees to set.
+        """
+        self._set_annotation_property("rotation", value)
+        self._rotation = value
+
+
 class Annotation:
     """Base class for VIRL2 lab annotations (text, line, ellipse, rectangle)."""
 
@@ -380,7 +445,7 @@ class Annotation:
         for ppty in ANNOTATION_PROPERTY_MAP:
             if ppty == "type":
                 continue
-            if not ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[ppty]:
+            if not cls._is_property_valid_for_type(annotation_type, ppty):
                 continue
             ppty_default = ANNOTATION_PROPERTIES_DEFAULTS[ppty]
             if isinstance(ppty_default, dict):
@@ -401,14 +466,19 @@ class Annotation:
         :param _property: The property name to validate.
         :returns: True if the property is valid for the given type, False otherwise.
         """
-        if (
-            annotation_type not in _ANNOTATION_TYPES
-            or _property not in ANNOTATION_PROPERTY_MAP
-        ):
-            return False
         return (
+            annotation_type in _ANNOTATION_TYPES
+            and _property in ANNOTATION_PROPERTY_MAP
+            and cls._is_property_valid_for_type(annotation_type, _property)
+        )
+
+    @classmethod
+    def _is_property_valid_for_type(
+        cls, annotation_type: AnnotationTypeString, _property: str
+    ) -> bool:
+        return bool(
             ANNOTATION_MAP[annotation_type] & ANNOTATION_PROPERTY_MAP[_property]
-        ) > 0
+        )
 
     @locked
     def as_dict(self) -> dict[str, Any]:
@@ -503,7 +573,7 @@ class Annotation:
 # ~~~~~< Annotation subclasses >~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-class AnnotationRectangle(Annotation):
+class AnnotationRectangle(_CoordinateXY2Mixin, _RotationMixin, Annotation):
     """
     Annotation class representing rectangle annotation.
     """
@@ -556,65 +626,8 @@ class AnnotationRectangle(Annotation):
         self._set_annotation_property("border_radius", value)
         self._border_radius = value
 
-    @property
-    def x2(self) -> int:
-        """X2 coordinate.
 
-        :returns: The x2 coordinate value.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._x2
-
-    @x2.setter
-    @locked
-    def x2(self, value: int) -> None:
-        """Set x2 coordinate.
-
-        :param value: The x2 coordinate value to set.
-        """
-        self._set_annotation_property("x2", value)
-        self._x2 = value
-
-    @property
-    def y2(self) -> int:
-        """Y2 coordinate.
-
-        :returns: The y2 coordinate value.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._y2
-
-    @y2.setter
-    @locked
-    def y2(self, value: int) -> None:
-        """Set y2 coordinate.
-
-        :param value: The y2 coordinate value to set.
-        """
-        self._set_annotation_property("y2", value)
-        self._y2 = value
-
-    @property
-    def rotation(self) -> int:
-        """Rotation of an object, in degrees.
-
-        :returns: The rotation value in degrees.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._rotation
-
-    @rotation.setter
-    @locked
-    def rotation(self, value: int) -> None:
-        """Set rotation of an object, in degrees.
-
-        :param value: The rotation value in degrees to set.
-        """
-        self._set_annotation_property("rotation", value)
-        self._rotation = value
-
-
-class AnnotationEllipse(Annotation):
+class AnnotationEllipse(_CoordinateXY2Mixin, _RotationMixin, Annotation):
     """
     Annotation class representing ellipse annotation.
     """
@@ -645,65 +658,8 @@ class AnnotationEllipse(Annotation):
         if annotation_data:
             self._update(annotation_data, push_to_server=False)
 
-    @property
-    def x2(self) -> int:
-        """X2 coordinate.
 
-        :returns: The x2 coordinate value.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._x2
-
-    @x2.setter
-    @locked
-    def x2(self, value: int) -> None:
-        """Set x2 coordinate.
-
-        :param value: The x2 coordinate value to set.
-        """
-        self._set_annotation_property("x2", value)
-        self._x2 = value
-
-    @property
-    def y2(self) -> int:
-        """Y2 coordinate.
-
-        :returns: The y2 coordinate value.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._y2
-
-    @y2.setter
-    @locked
-    def y2(self, value: int) -> None:
-        """Set y2 coordinate.
-
-        :param value: The y2 coordinate value to set.
-        """
-        self._set_annotation_property("y2", value)
-        self._y2 = value
-
-    @property
-    def rotation(self) -> int:
-        """Rotation of an object, in degrees.
-
-        :returns: The rotation value in degrees.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._rotation
-
-    @rotation.setter
-    @locked
-    def rotation(self, value: int) -> None:
-        """Set rotation of an object, in degrees.
-
-        :param value: The rotation value in degrees to set.
-        """
-        self._set_annotation_property("rotation", value)
-        self._rotation = value
-
-
-class AnnotationLine(Annotation):
+class AnnotationLine(_CoordinateXY2Mixin, Annotation):
     """
     Annotation class representing line annotation.
     """
@@ -736,44 +692,6 @@ class AnnotationLine(Annotation):
         self._line_end = None
         if annotation_data:
             self._update(annotation_data, push_to_server=False)
-
-    @property
-    def x2(self) -> int:
-        """X2 coordinate.
-
-        :returns: The x2 coordinate value.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._x2
-
-    @x2.setter
-    @locked
-    def x2(self, value: int) -> None:
-        """Set x2 coordinate.
-
-        :param value: The x2 coordinate value to set.
-        """
-        self._set_annotation_property("x2", value)
-        self._x2 = value
-
-    @property
-    def y2(self) -> int:
-        """Y2 coordinate.
-
-        :returns: The y2 coordinate value.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._y2
-
-    @y2.setter
-    @locked
-    def y2(self, value: int) -> None:
-        """Set y2 coordinate.
-
-        :param value: The y2 coordinate value to set.
-        """
-        self._set_annotation_property("y2", value)
-        self._y2 = value
 
     @property
     def line_start(self) -> str | None:
@@ -814,7 +732,7 @@ class AnnotationLine(Annotation):
         self._line_end = value
 
 
-class AnnotationText(Annotation):
+class AnnotationText(_RotationMixin, Annotation):
     """
     Annotation class representing text annotation.
     """
@@ -862,25 +780,6 @@ class AnnotationText(Annotation):
         self._text_unit = "pt"
         if annotation_data:
             self._update(annotation_data, push_to_server=False)
-
-    @property
-    def rotation(self) -> int:
-        """Rotation of an object, in degrees.
-
-        :returns: The rotation value in degrees.
-        """
-        self._lab.sync_topology_if_outdated()
-        return self._rotation
-
-    @rotation.setter
-    @locked
-    def rotation(self, value: int) -> None:
-        """Set rotation of an object, in degrees.
-
-        :param value: The rotation value in degrees to set.
-        """
-        self._set_annotation_property("rotation", value)
-        self._rotation = value
 
     @property
     def text_bold(self) -> bool:

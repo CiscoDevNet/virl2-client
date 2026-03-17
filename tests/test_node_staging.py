@@ -30,6 +30,7 @@ from virl2_client.models import Lab
 from virl2_client.models.node import Node
 
 RESOURCE_POOL_MANAGER: Mock = Mock()
+USER_MANAGEMENT: Mock = Mock()
 
 
 def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
@@ -64,6 +65,7 @@ def test_node_staging_initial_values() -> None:
         "pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node = Node(
         lab,
@@ -98,6 +100,7 @@ def test_lab_node_staging_setter() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node = Node(
         lab,
@@ -144,6 +147,7 @@ def test_lab_node_staging_setter_invalid() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node = Node(
         lab,
@@ -177,6 +181,7 @@ def test_lab_node_staging_setter_no_change() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab._node_staging = {
         "enabled": True,
@@ -235,6 +240,7 @@ def test_lab_node_staging_setter_partial_update() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     lab.set_node_staging(enabled=True)

@@ -60,6 +60,7 @@ if TYPE_CHECKING:
 
     from .annotation import AnnotationType
     from .resource_pool import ResourcePool, ResourcePoolManagement
+    from .user import UserManagement
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,7 +94,6 @@ class Lab:
         "connector_mappings": "labs/{lab_id}/connector_mappings",
         "resource_pools": "labs/{lab_id}/resource_pools",
         "annotations": "labs/{lab_id}/annotations",
-        "user_list": "users",
     }
 
     def __init__(
@@ -110,6 +110,7 @@ class Lab:
         wait_time: int | float = 5,
         hostname: str | None = None,
         resource_pool_manager: ResourcePoolManagement | None = None,
+        user_management: UserManagement | None = None,
     ) -> None:
         """
         A VIRL2 lab network topology.
@@ -129,6 +130,8 @@ class Lab:
         :param hostname: Hostname/IP and port for pyATS console terminal server.
         :param resource_pool_manager: ResourcePoolManagement object shared
             with parent ClientLibrary.
+        :param user_management: UserManagement object shared with parent
+            ClientLibrary for resolving user IDs to usernames.
         :raises VirlException: If the lab object is created without
             a resource pool manager.
         """
@@ -201,6 +204,12 @@ class Lab:
                 "because it is missing a resource pool manager."
             )
         self._resource_pool_manager = resource_pool_manager
+        if user_management is None:
+            raise VirlException(
+                f"Lab object for lab {title or lab_id} cannot be created "
+                "because it is missing a user management."
+            )
+        self._user_management = user_management
         self._resource_pools = []
         self._stale = False
         self._synced_configs = True
@@ -2458,10 +2467,7 @@ class Lab:
         :param user_name: Username.
         """
         if user_id:
-            url = self._url_for("user_list")
-            users = self._session.get(url).json()
-            for user in users:
-                if user["id"] == user_id:
-                    user_name = user["username"]
-                    break
+            resolved = self._user_management.get_username(user_id)
+            if resolved is not None:
+                user_name = resolved
         self._owner = user_name

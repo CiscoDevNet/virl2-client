@@ -30,6 +30,7 @@ from virl2_client.models.node import Node
 from virl2_client.virl2_client import ClientLibrary
 
 RESOURCE_POOL_MANAGER = Mock()
+USER_MANAGEMENT = Mock()
 
 
 def test_topology_creation_and_removal():
@@ -43,6 +44,7 @@ def test_topology_creation_and_removal():
         password,
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node_a = lab._create_node_local("0", "node A", "nd")
     node_b = lab._create_node_local("1", "node B", "nd")
@@ -157,6 +159,7 @@ def test_need_to_wait1():
         auto_sync=False,
         wait=True,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert lab.need_to_wait(None) is True
     assert lab.need_to_wait(False) is False
@@ -175,6 +178,7 @@ def test_need_to_wait2():
         auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert lab.need_to_wait(None) is False
     assert lab.need_to_wait(False) is False
@@ -193,6 +197,7 @@ def test_str_and_repr():
         auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert str(lab) == "Lab: laboratory"
     assert repr(lab) == "Lab('1', 'laboratory', '/')"
@@ -210,6 +215,7 @@ def test_create_node():
         auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node = lab.create_node("testnode", "server")
     assert node.node_definition == "server"
@@ -238,6 +244,7 @@ def test_create_link(respx_mock: MockRouter, connect_two_nodes: bool):
         auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node1 = lab.create_node("testnode", "server")
     node2 = lab.create_node("testnode", "server")
@@ -278,6 +285,7 @@ def test_sync_stats(respx_mock: MockRouter):
         auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab.sync_statistics()
     respx_mock.assert_all_called()
@@ -294,6 +302,7 @@ def test_tags():
         password,
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab.get_smart_annotation_by_tag = MagicMock()
     node_a = lab._create_node_local("0", "node A", "nd")
@@ -332,6 +341,7 @@ def test_find_by_label():
         password,
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     lab._create_node_local("n0", "server-a", "nd")
@@ -358,6 +368,7 @@ def test_next_free_interface():
         password,
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node_a = lab._create_node_local("0", "node A", "nd")
     node_b = lab._create_node_local("1", "node B", "nd")
@@ -413,6 +424,7 @@ def test_sync_interfaces_operational(respx_mock: MockRouter):
         "pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab._interfaces = {"iface1": MagicMock()}
 
@@ -437,6 +449,7 @@ def test_lab_clear_discovered_addresses(respx_mock: MockRouter):
         "pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     lab.clear_discovered_addresses()
@@ -459,6 +472,7 @@ def test_node_clear_discovered_addresses(respx_mock: MockRouter):
         "pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     node = Node(lab, "n1", "test", "iosv")

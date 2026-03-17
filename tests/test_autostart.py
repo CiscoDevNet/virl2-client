@@ -29,6 +29,7 @@ import pytest
 from virl2_client.models import Lab
 
 RESOURCE_POOL_MANAGER = Mock()
+USER_MANAGEMENT = Mock()
 
 
 def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
@@ -61,6 +62,7 @@ def test_autostart_initial_values() -> None:
         "pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert lab._autostart == {"enabled": False, "priority": None, "delay": None}
 
@@ -76,6 +78,7 @@ def test_lab_autostart_setter() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     lab.set_autostart(enabled=True, priority=5, delay=10)
@@ -97,6 +100,7 @@ def test_lab_autostart_setter_invalid() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     with pytest.raises(ValueError):
@@ -126,6 +130,7 @@ def test_lab_autostart_setter_no_change() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab._autostart = {"enabled": True, "priority": 5, "delay": 10}
 
@@ -147,6 +152,7 @@ def test_lab_autostart_setter_partial_update() -> None:
         password="pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab._autostart = {"enabled": False, "priority": None, "delay": None}
 

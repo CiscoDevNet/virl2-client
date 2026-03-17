@@ -28,6 +28,7 @@ from virl2_client.models import Lab
 from virl2_client.models.node import Node
 
 RESOURCE_POOL_MANAGER = Mock()
+USER_MANAGEMENT = Mock()
 
 
 @pytest.fixture
@@ -59,6 +60,7 @@ def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
         "pass",
         auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node_kwargs = {"pyats": initial_pyats} if initial_pyats is not None else {}
     return Node(

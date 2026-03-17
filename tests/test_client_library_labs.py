@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,12 +21,16 @@
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from respx import MockRouter
 
 from virl2_client.exceptions import NodeNotFound
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
+from virl2_client.models.node import Node
+from virl2_client.virl2_client import ClientLibrary
 
 RESOURCE_POOL_MANAGER = Mock()
+USER_MANAGEMENT = Mock()
 
 
 def test_topology_creation_and_removal():
@@ -38,8 +42,9 @@ def test_topology_creation_and_removal():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node_a = lab._create_node_local("0", "node A", "nd")
     node_b = lab._create_node_local("1", "node B", "nd")
@@ -151,9 +156,10 @@ def test_need_to_wait1():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=True,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert lab.need_to_wait(None) is True
     assert lab.need_to_wait(False) is False
@@ -169,9 +175,10 @@ def test_need_to_wait2():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert lab.need_to_wait(None) is False
     assert lab.need_to_wait(False) is False
@@ -187,9 +194,10 @@ def test_str_and_repr():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     assert str(lab) == "Lab: laboratory"
     assert repr(lab) == "Lab('1', 'laboratory', '/')"
@@ -204,9 +212,10 @@ def test_create_node():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node = lab.create_node("testnode", "server")
     assert node.node_definition == "server"
@@ -215,7 +224,7 @@ def test_create_node():
 
 
 @pytest.mark.parametrize("connect_two_nodes", [True, False])
-def test_create_link(respx_mock, connect_two_nodes):
+def test_create_link(respx_mock: MockRouter, connect_two_nodes: bool):
     respx_mock.post("mock://mock/labs/1/nodes").respond(json={"id": "n0"})
     respx_mock.post("mock://mock/labs/1/interfaces").respond(
         json={"id": "i0", "label": "eth0", "slot": 0}
@@ -232,9 +241,10 @@ def test_create_link(respx_mock, connect_two_nodes):
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node1 = lab.create_node("testnode", "server")
     node2 = lab.create_node("testnode", "server")
@@ -259,7 +269,7 @@ def test_create_link(respx_mock, connect_two_nodes):
     respx_mock.assert_all_called()
 
 
-def test_sync_stats(respx_mock):
+def test_sync_stats(respx_mock: MockRouter):
     respx_mock.get("mock://mock/labs/1/simulation_stats").respond(
         json={"nodes": {}, "links": {}}
     )
@@ -272,9 +282,10 @@ def test_sync_stats(respx_mock):
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         wait=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab.sync_statistics()
     respx_mock.assert_all_called()
@@ -289,8 +300,9 @@ def test_tags():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     lab.get_smart_annotation_by_tag = MagicMock()
     node_a = lab._create_node_local("0", "node A", "nd")
@@ -327,8 +339,9 @@ def test_find_by_label():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
 
     lab._create_node_local("n0", "server-a", "nd")
@@ -353,8 +366,9 @@ def test_next_free_interface():
         session,
         username,
         password,
-        auto_sync=0,
+        auto_sync=False,
         resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
     )
     node_a = lab._create_node_local("0", "node A", "nd")
     node_b = lab._create_node_local("1", "node B", "nd")
@@ -373,7 +387,7 @@ def test_next_free_interface():
     assert nf is None
 
 
-def test_join_existing_lab(client_library):
+def test_join_existing_lab(client_library: ClientLibrary):
     lab = client_library.join_existing_lab("444a78d1-575c-4746-8469-696e580f17b6")
     assert lab.title == "IOSv Feature Tests"
     assert lab.statistics == {
@@ -385,7 +399,7 @@ def test_join_existing_lab(client_library):
     }
 
 
-def test_all_labs(client_library):
+def test_all_labs(client_library: ClientLibrary):
     all_labs = client_library.all_labs()
     assert len(all_labs) == 4
     iosv_labs = client_library.find_labs_by_title("IOSv Feature Tests")
@@ -393,3 +407,106 @@ def test_all_labs(client_library):
     lab: Lab = iosv_labs[0]
     node = lab.get_node_by_label("csr1000v-0")
     assert node.compute_id == "99c887f5-052e-4864-a583-49fa7c4b68a9"
+
+
+def test_sync_interfaces_operational(respx_mock: MockRouter):
+    """Test Lab.sync_interfaces_operational() uses bulk interfaces endpoint."""
+    respx_mock.get("mock://mock/labs/1/interfaces").respond(
+        json=[{"id": "iface1", "operational": {"mac_address": "aa:bb:cc:dd:ee:ff"}}]
+    )
+    session = make_session("mock://mock")
+    session.lock = MagicMock()
+    lab = Lab(
+        "test",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
+    )
+    lab._interfaces = {"iface1": MagicMock()}
+
+    lab.sync_interfaces_operational()
+
+    respx_mock.assert_all_called()
+    assert lab._interfaces["iface1"]._operational == {
+        "mac_address": "aa:bb:cc:dd:ee:ff"
+    }
+
+
+def test_lab_clear_discovered_addresses(respx_mock: MockRouter):
+    """Test Lab.clear_discovered_addresses() calls API."""
+    respx_mock.delete("mock://mock/labs/1/layer3_addresses").respond(status_code=204)
+    session = make_session("mock://mock")
+    session.lock = MagicMock()
+    lab = Lab(
+        "test",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
+    )
+
+    lab.clear_discovered_addresses()
+
+    respx_mock.assert_all_called()
+
+
+def test_node_clear_discovered_addresses(respx_mock: MockRouter):
+    """Test Node.clear_discovered_addresses()"""
+    respx_mock.delete("mock://mock/labs/1/nodes/n1/layer3_addresses").respond(
+        status_code=204
+    )
+    session = make_session("mock://mock")
+    session.lock = MagicMock()
+    lab = Lab(
+        "test",
+        "1",
+        session,
+        "user",
+        "pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
+    )
+
+    node = Node(lab, "n1", "test", "iosv")
+
+    interface1 = Interface("if1", node, "eth0", 0)
+    interface1._ip_snooped_info = {
+        "ipv4": ["192.168.1.1/24", "10.0.0.1/8"],
+        "ipv6": [],
+        "mac_address": None,
+    }
+    interface2 = Interface("if2", node, "eth1", 1)
+    interface2._ip_snooped_info = {
+        "ipv4": ["192.168.2.1/24"],
+        "ipv6": [],
+        "mac_address": None,
+    }
+
+    lab._interfaces = {"if1": interface1, "if2": interface2}
+    lab._nodes = {"n1": node}
+
+    assert interface1.discovered_ipv4 == ["192.168.1.1/24", "10.0.0.1/8"]
+    assert interface2.discovered_ipv4 == ["192.168.2.1/24"]
+    assert interface1.discovered_ipv6 == []
+    assert interface2.discovered_ipv6 == []
+    assert interface1.discovered_mac_address is None
+    assert interface2.discovered_mac_address is None
+
+    node.clear_discovered_addresses()
+
+    assert interface1.discovered_ipv4 is None
+    assert interface2.discovered_ipv4 is None
+    assert interface1.discovered_ipv6 is None
+    assert interface2.discovered_ipv6 is None
+    assert interface1.discovered_mac_address is None
+    assert interface2.discovered_mac_address is None
+
+    respx_mock.assert_all_called()

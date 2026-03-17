@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -60,6 +60,10 @@ class LabNotFound(ElementNotFound):
     pass
 
 
+class LabRepositoryNotFound(ElementNotFound):
+    pass
+
+
 class InvalidContentType(VirlException):
     pass
 
@@ -76,11 +80,15 @@ class InvalidProperty(VirlException):
     pass
 
 
+class InvalidTopologySchema(VirlException):
+    pass
+
+
 class MethodNotActive(VirlException):
     pass
 
 
-class PyatsException(Exception):
+class PyatsException(VirlException):
     pass
 
 
@@ -93,8 +101,13 @@ class PyatsDeviceNotFound(PyatsException):
 
 
 class ControllerNotFound(VirlException):
-    message = "Controller not found"
+    def __init__(self) -> None:
+        super().__init__("Controller not found")
 
 
 class APIError(VirlException, httpx.HTTPStatusError):
+    pass
+
+
+class FeatureNotSupported(VirlException):
     pass

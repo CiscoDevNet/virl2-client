@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -20,9 +20,11 @@
 
 from __future__ import annotations
 
+import time
+import warnings
 from typing import TYPE_CHECKING, Any
 
-from ..utils import UNCHANGED, _Sentinel, get_url_from_template
+from ..utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -35,8 +37,17 @@ class UserManagement:
         "user_id": "users/{username}/id",
     }
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(
+        self,
+        session: httpx.Client,
+        auto_sync: bool = True,
+        auto_sync_interval: float = 1.0,
+    ) -> None:
         self._session = session
+        self.auto_sync = auto_sync
+        self.auto_sync_interval = auto_sync_interval
+        self._last_sync_users_time = 0.0
+        self._users_by_id: dict[str, dict] = {}
 
     def _url_for(self, endpoint, **kwargs):
         """
@@ -57,6 +68,36 @@ class UserManagement:
         url = self._url_for("users")
         return self._session.get(url).json()
 
+    def sync_users(self) -> None:
+        """Fetch all users from the server and store them locally."""
+        user_list = self.users()
+        self._users_by_id = {user["id"]: user for user in user_list}
+        self._last_sync_users_time = time.time()
+
+    def sync_users_if_outdated(self) -> None:
+        """Synchronize the user list if the auto-sync interval has elapsed."""
+        timestamp = time.time()
+        if (
+            self.auto_sync
+            and timestamp - self._last_sync_users_time > self.auto_sync_interval
+        ):
+            self.sync_users()
+
+    def get_username(self, user_id: str) -> str | None:
+        """Look up a username by user ID from the locally synced user list.
+
+        Triggers a sync if the local list is outdated. Returns None if
+        the *user_id* is not found.
+
+        :param user_id: User UUID4.
+        :returns: The username, or None if not found.
+        """
+        self.sync_users_if_outdated()
+        user = self._users_by_id.get(user_id)
+        if user is not None:
+            return user["username"]
+        return None
+
     def get_user(self, user_id: str) -> dict:
         """
         Get user information.
@@ -76,7 +117,7 @@ class UserManagement:
         url = self._url_for("user", user_id=user_id)
         self._session.delete(url)
 
-    def create_user(self, username: str, pwd: str, **kwargs: Any) -> dict:
+    def create_user(self, username: str, pwd: str, **kwargs: dict[str, Any]) -> dict:
         """
         Create a new user.
 
@@ -103,7 +144,7 @@ class UserManagement:
         url = self._url_for("users")
         return self._session.post(url, json=data).json()
 
-    def update_user(self, user_id: str, **kwargs: Any) -> dict:
+    def update_user(self, user_id: str, **kwargs: dict[str, Any]) -> dict:
         """
         Update an existing user.
 
@@ -142,9 +183,9 @@ class UserManagement:
         password_dict: dict[str, str] | None = None,
         pubkey: str | None = None,
         resource_pool: str | None | _Sentinel = UNCHANGED,
-        opt_in: bool | None | _Sentinel = UNCHANGED,
+        opt_in: OptInStatus | bool | None | _Sentinel = UNCHANGED,
         tour_version: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> None:
         optional_data = {
             "fullname": fullname,
             "description": description,
@@ -156,16 +197,28 @@ class UserManagement:
             "pubkey": pubkey,
             "tour_version": tour_version,
         }
-        sentinel_data = {
-            "resource_pool": resource_pool,
-            "opt_in": opt_in,
-        }
         for key, value in optional_data.items():
             if value is not None:
                 data[key] = value
-        for key, value in sentinel_data.items():
-            if value != UNCHANGED:
-                data[key] = value
+        if resource_pool is not UNCHANGED:
+            data["resource_pool"] = resource_pool
+        if opt_in is UNCHANGED:
+            return
+
+        if not isinstance(opt_in, OptInStatus):
+            warnings.warn(
+                "Using boolean or None values for opt_in are deprecated. "
+                f"Use one of {[str(status) for status in OptInStatus]} instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if opt_in is None:
+                opt_in = OptInStatus.UNSET
+            elif opt_in is False:
+                opt_in = OptInStatus.DECLINED
+            else:
+                opt_in = OptInStatus.ACCEPTED
+        data["opt_in"] = opt_in.value
 
     def user_groups(self, user_id: str) -> list[str]:
         """

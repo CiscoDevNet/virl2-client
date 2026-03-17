@@ -1,7 +1,7 @@
 #
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -23,17 +23,24 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
-from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
+from ..utils import (
+    UNCHANGED,
+    _deprecated_argument,
+    _requires_version,
+    _Sentinel,
+    check_stale,
+    get_url_from_template,
+    locked,
+)
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
-
     from .interface import Interface
     from .lab import Lab
     from .link import Link
@@ -58,7 +65,7 @@ class Node:
         "vnc_key": "{lab}/nodes/{id}/keys/vnc",
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
         "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
-        "inteface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
+        "interface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
     }
 
     def __init__(
@@ -92,6 +99,9 @@ class Node:
                 of a resource pool.
             - pinned_compute_id: The ID of the compute this node is pinned to.
                 The node will not run on any other compute.
+            - priority: The launch priority of the node (0-10000, or None).
+                The higher the priority, the sooner the node will be started.
+            - pyats: PyATS credentials for this node (if applicable).
         """
         self._lab: Lab = lab
         self._id: str = nid
@@ -113,14 +123,18 @@ class Node:
         self._hide_links: bool = kwargs.get("hide_links", False)
         self._tags: list[str] = kwargs.get("tags", [])
         self._parameters: dict = kwargs.get("parameters", {})
+        self._pyats: dict[str, str | None] = kwargs.get(
+            "pyats", {"username": None, "password": None, "enable_password": None}
+        )
         self._pinned_compute_id: str | None = kwargs.get("pinned_compute_id")
+        self._priority: int | None = kwargs.get("priority")
         self._operational: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
         self._session: httpx.Client = lab._session
         self._stale = False
         self._last_sync_l3_address_time = 0.0
-        self._last_sync_interface_operational_time = 0.0
+        self._last_sync_operational_time = 0.0
 
         self.statistics: dict[str, int | float] = {
             "cpu_usage": 0,
@@ -157,7 +171,7 @@ class Node:
         :returns: The formatted URL.
         """
         kwargs["lab"] = self._lab._url_for("lab")
-        kwargs["id"] = self.id
+        kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -178,11 +192,22 @@ class Node:
 
     @check_stale
     @locked
+    def sync_operational_if_outdated(self) -> None:
+        timestamp = time.time()
+        if (
+            self._lab.auto_sync
+            and timestamp - self._last_sync_operational_time
+            > self._lab.auto_sync_interval
+        ):
+            self.sync_operational()
+
+    @check_stale
+    @locked
     def sync_interface_operational_if_outdated(self) -> None:
         timestamp = time.time()
         if (
             self._lab.auto_sync
-            and timestamp - self._last_sync_interface_operational_time
+            and timestamp - self._last_sync_operational_time
             > self._lab.auto_sync_interval
         ):
             self.sync_interface_operational()
@@ -238,7 +263,7 @@ class Node:
         :returns: An available physical interface or None if all existing
             ones are connected.
         """
-        for _, iface in enumerate(self.interfaces(), index):
+        for iface in self.interfaces()[index:]:
             if not iface.connected and iface.physical:
                 return iface
         return None
@@ -452,37 +477,52 @@ class Node:
         return deepcopy(self._configuration)
 
     @property
-    def config(self) -> str | None:
-        """
-        DEPRECATED: Use `.configuration` instead.
-        (Reason: consistency with API)
-
-        Return the initial configuration of this node.
-        """
-        warnings.warn(
-            "'Node.config' is deprecated. Use '.configuration' instead.",
-        )
-        return self.configuration
-
-    @config.setter
-    @locked
-    def config(self, value: str) -> None:
-        """
-        DEPRECATED: Use `.configuration` instead.
-        (Reason: consistency with API)
-
-        Set the initial configuration of this node.
-        """
-        warnings.warn(
-            "'Node.config' is deprecated. Use '.configuration' instead.",
-        )
-        self.configuration = value
-
-    @property
     def parameters(self) -> dict:
         """Return node parameters."""
         self._lab.sync_topology_if_outdated()
         return self._parameters
+
+    @property
+    def pyats_credentials(self) -> dict[str, str | None]:
+        """Return pyATS credentials for this node, if configured.
+
+        The value is expected to be a mapping with "username" and "password" keys,
+        as provided by the backend (for example via the node's node definition).
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._pyats
+
+    @locked
+    def set_pyats_credentials(
+        self,
+        username: str | None | _Sentinel = UNCHANGED,
+        password: str | None | _Sentinel = UNCHANGED,
+        enable_password: str | None | _Sentinel = UNCHANGED,
+    ) -> None:
+        """Set pyATS credentials for this node.
+
+        :param username: The username to set, or None to clear it.
+        :param password: The password to set, or None to clear it.
+        :param enable_password: The enable password to set, or None to clear it.
+
+        This updates the node on the controller with a ``pyats`` field whose
+        structure matches the backend expectation, typically::
+
+            {
+                "username": "<user>",
+                "password": "<pass>",
+                "enable_password": "<enable_password_pass>"
+            }
+        """
+        pyats = self._pyats.copy()
+        if username is not UNCHANGED:
+            pyats["username"] = username
+        if password is not UNCHANGED:
+            pyats["password"] = password
+        if enable_password is not UNCHANGED:
+            pyats["enable_password"] = enable_password
+        self._set_node_property("pyats", pyats)
+        self._pyats = pyats
 
     def update_parameters(self, new_params: dict) -> None:
         """
@@ -525,6 +565,19 @@ class Node:
         """Set the ID of the compute this node should be pinned to."""
         self._set_node_property("pinned_compute_id", value)
         self._pinned_compute_id = value
+
+    @property
+    def priority(self) -> int | None:
+        """Return the priority of the node."""
+        self._lab.sync_topology_if_outdated()
+        return self._priority
+
+    @priority.setter
+    @locked
+    def priority(self, value: int | None) -> None:
+        """Set the priority of the node (0-10000, or None)."""
+        self._set_node_property("priority", value)
+        self._priority = value
 
     @property
     def smart_annotations(self) -> dict[str, SmartAnnotation]:
@@ -633,7 +686,7 @@ class Node:
         :raises RuntimeError: If the node does not converge within the specified number
             of iterations.
         """
-        _LOGGER.info(f"Waiting for node {self.id} to converge.")
+        _LOGGER.info("Waiting for node %s to converge.", self._id)
         max_iter = (
             self._lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -641,16 +694,18 @@ class Node:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info(f"Node {self.id} has converged.")
+                _LOGGER.info("Node %s has converged.", self._id)
                 return
 
             if index % 10 == 0:
                 _LOGGER.info(
-                    f"Node has not converged, attempt {index}/{max_iter}, waiting..."
+                    "Node has not converged, attempt %s/%s, waiting...",
+                    index,
+                    max_iter,
                 )
             time.sleep(wait_time)
 
-        msg = f"Node {self.id} has not converged, maximum tries {max_iter} exceeded."
+        msg = f"Node {self._id} has not converged, maximum tries {max_iter} exceeded."
         _LOGGER.error(msg)
         # after maximum retries are exceeded and node has not converged
         # error must be raised - it makes no sense to just log info
@@ -689,6 +744,7 @@ class Node:
         """
         url = self._url_for("stop")
         self._session.put(url)
+        self._lab.pyats.cleanup(self.label)
         if self._lab.need_to_wait(wait):
             self.wait_until_converged()
 
@@ -705,9 +761,14 @@ class Node:
             self.wait_until_converged()
 
     @check_stale
-    def clone_image(self) -> dict:
+    @_requires_version("2.9.0")
+    def clone_image(self) -> dict[str, Any]:
         """
         Clone the node's disks into a new Image definition.
+
+        Requires CML server >= 2.9.
+
+        :returns: The new image definition data from the server.
         """
         url = self._url_for("clone_image")
         return self._session.put(url).json()
@@ -734,14 +795,16 @@ class Node:
         return self._session.get(url).json()
 
     @check_stale
-    def console_key(self) -> str:
+    def console_key(self, console_number: int = 0) -> str:
         """
         Get the console key of the node.
 
+        :param console_number: The console number (defaults to 0).
         :returns: The console key.
         """
+        params = {"line": console_number}
         url = self._url_for("console_key")
-        return self._session.get(url).json()
+        return self._session.get(url, params=params).json()
 
     @check_stale
     def vnc_key(self) -> str:
@@ -759,23 +822,10 @@ class Node:
 
     @check_stale
     def _remove_on_server(self) -> None:
-        """Helper function to remove the node from the server."""
-        _LOGGER.info(f"Removing node {self}")
+        """Remove the node from the server via the API."""
+        _LOGGER.info("Removing node %s", self)
         url = self._url_for("node")
         self._session.delete(url)
-
-    def remove_on_server(self) -> None:
-        """
-        DEPRECATED: Use `.remove()` instead.
-        (Reason: was never meant to be public, removing only on server is not useful)
-
-        Remove the node on the server.
-        """
-        warnings.warn(
-            "'Node.remove_on_server()' is deprecated. Use '.remove()' instead.",
-        )
-        # To not change behavior of scripts, this will still remove on server only.
-        self._remove_on_server()
 
     @check_stale
     def tags(self) -> list[str]:
@@ -865,10 +915,14 @@ class Node:
 
         For this to work, the device has to be attached to the external network
         in bridge mode and must run DHCP to acquire an IP address.
+
+        If the node is not running or there's an error fetching L3 addresses,
+        this method will silently clear the discovered addresses rather than
+        raising an exception.
         """
         url = self._url_for("layer3_addresses")
         result = self._session.get(url).json()
-        interfaces = result.get("interfaces", {})
+        interfaces = result.get("interfaces") or {}
         self.map_l3_addresses_to_interfaces(interfaces)
 
     @check_stale
@@ -879,23 +933,43 @@ class Node:
         """
         Map layer 3 addresses to interfaces.
 
+        This method updates all loaded interfaces on this node:
+        - Interfaces present in the mapping get updated with new L3 address info
+        - Interfaces NOT present in the mapping get their L3 addresses cleared
+
         :param mapping: A dictionary mapping MAC addresses to interface information.
         """
-        for mac_address, entry in mapping.items():
-            if not (label := entry.get("label")):
+        node_interfaces = self.interfaces()
+
+        id_to_mapping = {
+            entry["id"]: (mac_address, entry)
+            for mac_address, entry in mapping.items()
+            if entry.get("id")
+        }
+
+        for iface in node_interfaces:
+            if iface.id not in id_to_mapping:
+                iface._ip_snooped_info = {
+                    "mac_address": None,
+                    "ipv4": None,
+                    "ipv6": None,
+                }
                 continue
-            try:
-                iface = self.get_interface_by_label(label)
-            except InterfaceNotFound:
-                continue
-            ipv4 = entry.get("ip4")
-            ipv6 = entry.get("ip6")
+
+            mac_address, entry = id_to_mapping[iface.id]
             iface._ip_snooped_info = {
                 "mac_address": mac_address,
-                "ipv4": ipv4,
-                "ipv6": ipv6,
+                "ipv4": entry.get("ip4"),
+                "ipv6": entry.get("ip6"),
             }
+
         self._last_sync_l3_address_time = time.time()
+
+    def clear_discovered_addresses(self) -> None:
+        """Clear all discovered L3 addresses for this node from the snooper."""
+        url = self._url_for("layer3_addresses")
+        self._session.delete(url)
+        self.map_l3_addresses_to_interfaces({})
 
     @check_stale
     @locked
@@ -910,19 +984,19 @@ class Node:
         if response is None:
             url = self._url_for("operational")
             response = self._session.get(url).json()
-        self._operational = response.get("operational")
+        self._operational = response.get("operational") or {}
 
     @check_stale
     @locked
     def sync_interface_operational(self) -> None:
         """Synchronize the operational state of the node's interfaces."""
-        url = self._url_for("inteface_operational")
+        url = self._url_for("interface_operational")
         response = self._session.get(url).json()
         self._lab.sync_topology_if_outdated()
         for interface_data in response:
             interface = self._lab._interfaces[interface_data["id"]]
-            interface._operational = interface_data.get("operational")
-        self._last_sync_interface_operational_time = time.time()
+            interface._operational = interface_data.get("operational") or {}
+        self._last_sync_operational_time = time.time()
 
     def update(
         self,
@@ -962,6 +1036,8 @@ class Node:
             node_data = node_data["data"]
 
         for key, value in node_data.items():
+            if key == "id":
+                continue
             if key == "configuration":
                 if not exclude_configurations:
                     self._set_configuration(value)
@@ -995,7 +1071,7 @@ class Node:
         :param key: The key of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting node property {self} {key}: {val}")
+        _LOGGER.debug("Setting node property %s %s: %s", self, key, val)
         self._set_node_properties({key: val})
 
     @check_stale

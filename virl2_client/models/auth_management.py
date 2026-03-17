@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -55,6 +55,7 @@ class AuthManagement:
         self._managers = {
             "local": None,
             "ldap": LDAPManager(self),
+            "radius": RADIUSManager(self),
         }
 
     def _url_for(self, endpoint, **kwargs):
@@ -458,9 +459,19 @@ class LDAPManager(AuthMethodManager):
         """Set the manager DN."""
         self._update_setting("manager_dn", value)
 
+    @property
+    def timeout(self) -> float:
+        """Return the LDAP request timeout in seconds."""
+        return self._get_setting("timeout")
+
+    @timeout.setter
+    def timeout(self, value: float) -> None:
+        """Set the LDAP request timeout in seconds."""
+        self._update_setting("timeout", value)
+
     def manager_password(self, value: str) -> None:
         """Set the manager password."""
-        self._update_setting("display_attribute", value)
+        self._update_setting("manager_password", value)
 
     # manager password can't be retrieved, only set, so we only provide a setter
     manager_password = property(fset=manager_password)
@@ -494,6 +505,76 @@ class LDAPManager(AuthMethodManager):
     def email_address_attribute(self, value: str) -> None:
         """Set the email address LDAP attribute."""
         self._update_setting("email_address_attribute", value)
+
+    @property
+    def resource_pool(self) -> str:
+        """Return the resource pool a new user will be added to."""
+        return self._get_setting("resource_pool")
+
+    @resource_pool.setter
+    def resource_pool(self, value: str | ResourcePool) -> None:
+        """Set the resource pool a new user will be added to."""
+        if isinstance(value, ResourcePool):
+            value = value.id
+        self._update_setting("resource_pool", value)
+
+
+class RADIUSManager(AuthMethodManager):
+    """
+    Manages RADIUS authentication settings.
+
+    Extends the AuthMethodManager class and provides properties
+    for retrieving and updating RADIUS settings.
+    """
+
+    METHOD = "radius"
+
+    @property
+    def server_hosts(self) -> str:
+        """Return the RADIUS server hosts."""
+        return self._get_setting("server_hosts")
+
+    @server_hosts.setter
+    def server_hosts(self, value: str) -> None:
+        """Set the RADIUS server hosts."""
+        self._update_setting("server_hosts", value)
+
+    @property
+    def port(self) -> int:
+        """Return the default RADIUS server port."""
+        return self._get_setting("port")
+
+    @port.setter
+    def port(self, value: int) -> None:
+        """Set the default RADIUS server port."""
+        self._update_setting("port", value)
+
+    @property
+    def timeout(self) -> float:
+        """Return the RADIUS request timeout in seconds."""
+        return self._get_setting("timeout")
+
+    @timeout.setter
+    def timeout(self, value: float) -> None:
+        """Set the RADIUS request timeout in seconds."""
+        self._update_setting("timeout", value)
+
+    @property
+    def nas_identifier(self) -> str:
+        """Return the NAS-Identifier used in requests."""
+        return self._get_setting("nas_identifier")
+
+    @nas_identifier.setter
+    def nas_identifier(self, value: str | None) -> None:
+        """Set the NAS-Identifier used in requests."""
+        self._update_setting("nas_identifier", value)
+
+    def secret(self, value: str) -> None:
+        """Set the shared secret for the RADIUS server(s)."""
+        self._update_setting("secret", value)
+
+    # secret can't be retrieved, only set, so we only provide a setter
+    secret = property(fset=secret)
 
     @property
     def resource_pool(self) -> str:

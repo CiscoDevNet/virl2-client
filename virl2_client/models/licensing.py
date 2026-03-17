@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -43,7 +43,6 @@ class Licensing:
         "authorization_renew": "licensing/authorization/renew",
         "transport": "licensing/transport",
         "product_license": "licensing/product_license",
-        "certificate": "licensing/certificate",
         "registration": "licensing/registration",
         "registration_renew": "licensing/registration/renew",
         "deregistration": "licensing/deregistration",
@@ -53,7 +52,7 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, session: httpx.Client, is_cert_deprecated: bool) -> None:
+    def __init__(self, session: httpx.Client) -> None:
         """
         Manage licensing.
 
@@ -61,7 +60,6 @@ class Licensing:
         :param is_cert_deprecated: Whether the certificate supported is deprecated.
         """
         self._session = session
-        self._is_cert_deprecated = is_cert_deprecated
 
     def _url_for(self, endpoint, **kwargs):
         """
@@ -100,7 +98,7 @@ class Licensing:
         url = self._url_for("transport")
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
         response = self._session.put(url, json=data)
-        _LOGGER.info(f"The transport configuration has been accepted. Config: {data}.")
+        _LOGGER.info("The transport configuration has been accepted. Config: %s.", data)
         return response.status_code == 204
 
     def set_default_transport(self) -> bool:
@@ -117,61 +115,6 @@ class Licensing:
         url = self._url_for("product_license")
         response = self._session.put(url, json=product_license)
         _LOGGER.info("Product license was accepted by the agent.")
-        return response.status_code == 204
-
-    def get_certificate(self) -> str | None:
-        """
-        DEPRECATED: There is no replacement as the certificate support was dropped.
-        (Reason: the certificate support was dropped in CML 2.7.0)
-
-        Get the currently installed licensing public certificate.
-        """
-        if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.get_certificate()' is deprecated.",
-            )
-            return None
-        url = self._url_for("certificate")
-        response = self._session.get(url)
-        if response.is_success:
-            _LOGGER.info("Certificate received.")
-            return response.json()
-        return None
-
-    def install_certificate(self, cert: str) -> bool:
-        """
-        DEPRECATED: There is no replacement as the certificate support was dropped.
-        (Reason: the certificate support was dropped in CML 2.7.0)
-
-        Set up a licensing public certificate for internal deployment
-        of an unregistered product instance.
-        """
-        if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.install_certificate()' is deprecated.",
-            )
-            return False
-        url = self._url_for("certificate")
-        response = self._session.post(url, content=cert)
-        _LOGGER.info("Certificate was accepted by the agent.")
-        return response.status_code == 204
-
-    def remove_certificate(self) -> bool:
-        """
-        DEPRECATED: There is no replacement as the certificate support was dropped.
-        (Reason: the certificate support was dropped in CML 2.7.0)
-
-        Clear any licensing public certificate for internal deployment
-        of an unregistered product instance.
-        """
-        if self._is_cert_deprecated:
-            warnings.warn(
-                "'Licensing.remove_certificate()' is deprecated.",
-            )
-            return False
-        url = self._url_for("certificate")
-        response = self._session.delete(url)
-        _LOGGER.info("Certificate was removed.")
         return response.status_code == 204
 
     def register(self, token: str, reregister=False) -> bool:
@@ -218,9 +161,19 @@ class Licensing:
         return response.status_code
 
     def features(self) -> list[dict[str, str | int]]:
-        """Get current licensing features."""
-        url = self._url_for("features")
-        return self._session.get(url).json()
+        """
+        DEPRECATED: Use `.status()` instead.
+        (Reason: dropped in favor of single call to get the whole licensing status)
+
+        Get current licensing features.
+        """
+        warnings.warn(
+            "'Licensing.features()' is deprecated. "
+            "Use '.status()[\"features\"]' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.status().get("features")
 
     def update_features(self, features: dict[str, int] | list[dict[str, int]]) -> None:
         """Update licensing feature's explicit count in reservation mode."""
@@ -232,7 +185,7 @@ class Licensing:
         url = self._url_for("reservation_action", action="mode")
         self._session.put(url, json=data)
         msg = "enabled" if data else "disabled"
-        _LOGGER.info(f"The reservation mode has been {msg}.")
+        _LOGGER.info("The reservation mode has been %s.", msg)
 
     def enable_reservation_mode(self) -> None:
         """Enable reservation mode in unregistered agent."""
@@ -329,5 +282,5 @@ class Licensing:
                     f"after {timeout} secs. Last status was {status}"
                 )
             status = self.status()[what]["status"]
-            _LOGGER.debug(f"{what} status: {status}")
+            _LOGGER.debug("%s status: %s", what, status)
             count += 1

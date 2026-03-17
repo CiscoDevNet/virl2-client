@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -71,7 +71,6 @@ class TokenAuth(httpx.Auth):
         :param client_library: A client library instance.
         """
         self.client_library = client_library
-        self._token: str | None = None
 
     @property
     def token(self) -> str | None:
@@ -79,14 +78,15 @@ class TokenAuth(httpx.Auth):
         Return the authentication token. If the token has not been set, it is obtained
         from the server.
         """
-        if self._token is not None:
-            return self._token
+        if self.client_library.jwtoken:
+            return self.client_library.jwtoken
 
         base_url = self.client_library._session.base_url
-        if base_url.port is not None and base_url.port != 443:
-            _LOGGER.warning(f"Not using SSL port of 443: {base_url.port:d}")
-        if base_url.scheme != "https":
-            _LOGGER.warning(f"Not using https scheme: {base_url.scheme}")
+        if not self.client_library.allow_http:
+            if base_url.port is not None and base_url.port != 443:
+                _LOGGER.warning("Not using SSL port of 443: %s", base_url.port)
+            if base_url.scheme != "https":
+                _LOGGER.warning("Not using https scheme: %s", base_url.scheme)
         data = {
             "username": self.client_library.username,
             "password": self.client_library.password,
@@ -97,8 +97,8 @@ class TokenAuth(httpx.Auth):
             auth=None,  # type: ignore
         )  # auth=None works but is missing from .post's type hint
         raise_for_status(response)
-        self._token = response.json()
-        return self._token
+        self.client_library.jwtoken = response.json()
+        return self.client_library.jwtoken
 
     @token.setter
     def token(self, value: str | None) -> None:
@@ -107,7 +107,7 @@ class TokenAuth(httpx.Auth):
 
         :param value: The value to set as the authentication token.
         """
-        self._token = value
+        self.client_library.jwtoken = value
 
     def auth_flow(
         self, request: httpx.Request
@@ -124,6 +124,14 @@ class TokenAuth(httpx.Auth):
         if response.status_code == 401:
             _LOGGER.warning("re-auth called on 401 unauthorized")
             self.token = None
+            if not (self.client_library.username and self.client_library.password):
+                raise APIError(
+                    "JWT token expired and automatic re-authentication is not "
+                    "possible because username/password are not configured. "
+                    "Set client.jwtoken, or initialize with username/password.",
+                    request=response.request,
+                    response=response,
+                )
             request.headers["Authorization"] = f"Bearer {self.token}"
             response = yield request
 
@@ -171,7 +179,7 @@ class CustomClient(httpx.Client):
         except httpx.HTTPStatusError as error:
             try:
                 error_detail = json.loads(error.response.text)["description"]
-            except (json.JSONDecodeError, IndexError, TypeError):
+            except (json.JSONDecodeError, IndexError, KeyError, TypeError):
                 error_detail = error.response.text
             prefix = self._ERROR_PREFIX.get(error.response.status_code // 100, "")
             api_error = APIError(
@@ -183,7 +191,7 @@ class CustomClient(httpx.Client):
 
 
 def make_session(
-    base_url: str, ssl_verify: bool | str = True, client_type: str = None
+    base_url: str, ssl_verify: bool | str = True, client_type: str | None = None
 ) -> httpx.Client:
     """
     Create an httpx Client object with the specified base URL

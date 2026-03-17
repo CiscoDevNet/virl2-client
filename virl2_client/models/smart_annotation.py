@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -64,7 +64,7 @@ class SmartAnnotation:
         """
         A VIRL2 lab smart annotation.
 
-        :param lab: The lab object to which the link belongs.
+        :param lab: The lab object to which the smart annotation belongs.
         :param annotation_id: The ID of the smart annotation.
         """
         self._id = annotation_id
@@ -323,7 +323,7 @@ class SmartAnnotation:
     @check_stale
     def _remove_on_server(self) -> None:
         """Remove smart annotation on the server side along with its tag."""
-        _LOGGER.info(f"Removing smart annotation {self}")
+        _LOGGER.info("Removing smart annotation %s", self)
         tag = self._tag
         nodes = self._lab.find_nodes_by_tag(tag)
         for node in nodes:
@@ -368,7 +368,7 @@ class SmartAnnotation:
         :param key: The name of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting smart annotation property {self} {key}: {val}")
+        _LOGGER.debug("Setting smart annotation property %s %s: %s", self, key, val)
         self._set_smart_annotation_properties({key: val})
 
     @check_stale

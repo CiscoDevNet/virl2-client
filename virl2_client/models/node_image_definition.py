@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -20,10 +20,10 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import time
-import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, BinaryIO
 
@@ -33,6 +33,7 @@ from ..utils import get_url_from_template
 if TYPE_CHECKING:
     import httpx
 
+_LOGGER = logging.getLogger(__name__)
 
 TARGZ = ".tar.gz"
 EXTENSION_LIST = [".qcow", ".qcow2", ".iol", ".tar", TARGZ]
@@ -126,25 +127,15 @@ class NodeImageDefinitions:
         url = f"node_definitions/{definition_id}/read_only"
         return self._session.put(url, json=read_only).json()
 
-    def upload_node_definition(
-        self, body: str | dict, update: bool = False, json: bool | None = None
-    ) -> str:
+    def upload_node_definition(self, body: str | dict, update: bool = False) -> str:
         """
         Upload a new node definition.
 
         :param body: The node definition (yaml or json).
         :param update: If creating a new node definition or updating an existing one.
-        :param json: DEPRECATED: Replaced with type check.
         :returns: "Success".
         """
         is_json = _is_json_content(body)
-        if json is not None:
-            warnings.warn(
-                "'NodeImageDefinitions.upload_node_definition()': "
-                "The argument 'json' is deprecated as the content type "
-                "is determined from the provided 'body'.",
-            )
-            is_json = True
         url = self._url_for("node_defs")
         method = "PUT" if update else "POST"
         if is_json:
@@ -153,25 +144,15 @@ class NodeImageDefinitions:
             # YAML
             return self._session.request(method, url, content=body).json()
 
-    def upload_image_definition(
-        self, body: str | dict, update: bool = False, json: bool | None = None
-    ) -> str:
+    def upload_image_definition(self, body: str | dict, update: bool = False) -> str:
         """
         Upload a new image definition.
 
         :param body: The image definition (yaml or json).
         :param update: If creating a new image definition or updating an existing one.
-        :param json: DEPRECATED: Replaced with type check.
         :returns: "Success".
         """
         is_json = _is_json_content(body)
-        if json is not None:
-            warnings.warn(
-                "'NodeImageDefinitions.upload_image_definition()': "
-                "The argument 'json' is deprecated as the content type "
-                "is determined from the provided 'body'.",
-            )
-            is_json = True
         url = self._url_for("image_defs")
         method = "PUT" if update else "POST"
         if is_json:
@@ -250,8 +231,7 @@ class NodeImageDefinitions:
         # path may be a PureWindowsPath, cannot use path.is_file
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
-        # TODO: a library should not be printing to stdout unless interactive
-        print(f"Uploading {name}")
+        _LOGGER.info("Uploading %s", name)
         headers = {"X-Original-File-Name": name}
 
         def callback_read_factory(
@@ -269,15 +249,11 @@ class NodeImageDefinitions:
 
             return callback_read
 
-        _file = open(filename, "rb")
-        try:
-            _file.read = callback_read_factory(_file, print_progress_bar)
-            files = {"field0": (name, _file)}
-
+        with open(filename, "rb") as file:
+            file.read = callback_read_factory(file, print_progress_bar)
+            files = {"field0": (name, file)}
             self._session.post(url, files=files, headers=headers)
-        finally:
-            _file.close()
-        print("Upload completed")
+        _LOGGER.info("Upload completed")
 
     def download_image_file_list(self) -> list[str]:
         """
@@ -335,17 +311,17 @@ def print_progress_bar(cur: int, total: int, start_time: float, length=50) -> No
     :param length: The length of the progress bar.
     """
     percent = f"{100 * (cur / float(total)):.1f}"
-    filled_len = int(round(length * cur / float(total)))
+    filled_len = round(length * cur / float(total))
     bar = "#" * filled_len + "-" * (length - filled_len)
     raw_elapsed = time.time() - start_time
     elapsed = time.strftime("[%H:%M:%S]", time.gmtime(raw_elapsed))
-    print(
-        "\r |{}| {}/{} {}% {}".format(bar, cur, total, percent, elapsed),
+    print(  # noqa: T201
+        f"\r |{bar}| {cur}/{total} {percent}% {elapsed}",
         end="",
         flush=True,
     )
     if cur == total:
-        print()
+        print()  # noqa: T201
 
 
 def _is_json_content(content: dict | str) -> bool:

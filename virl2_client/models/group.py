@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -165,8 +165,7 @@ class GroupManagement:
         :returns: A list of labs associated with this group.
         """
         warnings.warn(
-            "'GroupManagement.group_labs()' is deprecated."
-            "Use '.associations' instead.",
+            "'GroupManagement.group_labs()' is deprecated.Use '.associations' instead.",
         )
         return [lab["id"] for lab in self.get_group(group_id)["labs"]]
 

@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -20,16 +20,17 @@
 
 from __future__ import annotations
 
+import getpass
 import logging
 import os
-import re
+import sys
 import time
 import warnings
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
-from typing import Any, NamedTuple
+from typing import NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -47,98 +48,29 @@ from .models import (
     UserManagement,
 )
 from .models.authentication import make_session
-from .models.configuration import get_configuration
-from .utils import _deprecated_argument, get_url_from_template, locked
+from .utils import Version, _deprecated_argument, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
-
-
-class Version:
-    __slots__ = ("version_str", "major", "minor", "patch")
-
-    def __init__(self, version_str: str) -> None:
-        self.version_str = version_str
-        version_tuple = self.parse_version_str(version_str)
-        self.major = int(version_tuple[0])
-        self.minor = int(version_tuple[1])
-        self.patch = int(version_tuple[2])
-
-    @staticmethod
-    def parse_version_str(version_str: str) -> str:
-        regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
-        res = re.findall(regex, version_str)
-        if not res:
-            raise ValueError("Malformed version string.")
-        return res[0]
-
-    def __repr__(self):
-        return self.version_str
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, self.__class__)
-            and self.major == other.major
-            and self.minor == other.minor
-            and self.patch == other.patch
-        )
-
-    def __gt__(self, other):
-        if isinstance(other, self.__class__):
-            if self.major > other.major:
-                return True
-            elif self.major == other.major:
-                if self.minor > other.minor:
-                    return True
-                elif self.minor == other.minor:
-                    if self.patch > other.patch:
-                        return True
-        return False
-
-    def __ge__(self, other):
-        return self == other or self > other
-
-    def __lt__(self, other):
-        if isinstance(other, self.__class__):
-            if self.major < other.major:
-                return True
-            elif self.major == other.major:
-                if self.minor < other.minor:
-                    return True
-                elif self.minor == other.minor:
-                    if self.patch < other.patch:
-                        return True
-        return False
-
-    def __le__(self, other):
-        return self == other or self < other
-
-    def major_differs(self, other: Version) -> bool:
-        return self.major != other.major
-
-    def major_lt(self, other: Version) -> bool:
-        return self.major < other.major
-
-    def minor_differs(self, other: Version) -> bool:
-        return self.minor != other.minor
-
-    def minor_lt(self, other: Version) -> bool:
-        return self.minor < other.minor
-
-    def patch_differs(self, other: Version) -> bool:
-        return self.patch != other.patch
-
-    def minor_or_patch_differs(self, other: Version) -> bool:
-        return self.minor_differs(other) or self.patch_differs(other)
 
 
 class ClientConfig(NamedTuple):
     """Stores client library configuration, which can be used to create
     any number of identically configured instances of ClientLibrary."""
 
+    _CONFIG_FILE_NAME = ".virlrc"
+    _CONFIG_SOURCES = {
+        "url": ["VIRL2_URL", "VIRL_HOST"],
+        "username": ["VIRL2_USER", "VIRL_USERNAME"],
+        "password": ["VIRL2_PASS", "VIRL_PASSWORD"],
+        "jwtoken": ["VIRL2_JWT"],
+        "ssl_verify": ["CA_BUNDLE", "CML_VERIFY_CERT"],
+    }
+
     url: str | None = None
     username: str | None = None
     password: str | None = None
+    jwtoken: str | None = None
     ssl_verify: bool | str = True
     allow_http: bool = False
     auto_sync: float = 1.0
@@ -146,22 +78,137 @@ class ClientConfig(NamedTuple):
     raise_for_auth_failure: bool = True
     convergence_wait_max_iter: int = 500
     convergence_wait_time: int | float = 5
+    check_version: bool = True
 
     def make_client(self) -> ClientLibrary:
         client = ClientLibrary(
             url=self.url,
             username=self.username,
             password=self.password,
+            jwtoken=self.jwtoken,
             ssl_verify=self.ssl_verify,
             raise_for_auth_failure=self.raise_for_auth_failure,
             allow_http=self.allow_http,
             convergence_wait_max_iter=self.convergence_wait_max_iter,
             convergence_wait_time=self.convergence_wait_time,
+            check_version=self.check_version,
             events=self.events,
         )
         client.auto_sync_interval = self.auto_sync
         client.auto_sync = self.auto_sync >= 0.0 and not self.events
         return client
+
+    @classmethod
+    def _get_from_file(cls, virlrc_parent: Path, prop_name: str) -> str | None:
+        virlrc = virlrc_parent / cls._CONFIG_FILE_NAME
+        if virlrc.is_file():
+            with virlrc.open() as fh:
+                config = fh.readlines()
+
+            for line in config:
+                if line.startswith(prop_name):
+                    prop = line.split("=")[1].strip()
+                    if prop.startswith('"') and prop.endswith('"'):
+                        prop = prop[1:-1]
+                    return prop
+        return None
+
+    @classmethod
+    def _get_prop(cls, prop_name: str) -> str | None:
+        cwd = Path.cwd()
+        if prop := cls._get_from_file(cwd, prop_name):
+            return prop
+
+        for path in cwd.parents:
+            if prop := cls._get_from_file(path, prop_name):
+                return prop
+
+        return cls._get_from_file(Path.home(), prop_name) or None
+
+    @classmethod
+    def _populate_from_env(cls, config: dict):
+        for key, env_vars in cls._CONFIG_SOURCES.items():
+            if config[key] is not None:
+                continue
+            for env_var in env_vars:
+                if value := os.getenv(env_var):
+                    config[key] = value
+                    break
+
+    @classmethod
+    def _populate_from_rc_files(cls, config: dict):
+        for key, env_vars in cls._CONFIG_SOURCES.items():
+            if config[key] is None:
+                config[key] = cls._get_prop(env_vars[0])
+
+    @classmethod
+    def _populate_from_inputs(cls, config: dict):
+        if config["url"] is None:
+            config["url"] = input("Please enter the IP / hostname of your CML server: ")
+
+        if config["username"] is None and config["jwtoken"] is None:
+            auth_input = input("Please enter your username or JWT (if using a token): ")
+            if len(auth_input) > 32:
+                config["jwtoken"] = auth_input
+            else:
+                config["username"] = auth_input
+
+        if config["username"] is not None and config["password"] is None:
+            config["password"] = getpass.getpass("Please enter your password: ")
+
+    @classmethod
+    def _validate(cls, config: dict, final=False) -> bool:
+        message = None
+        if not config["url"]:
+            message = "No URL provided."
+        if not (config["jwtoken"] or (config["username"] and config["password"])):
+            message = "Incomplete authentication configuration."
+        ssl_verify_pending = config["ssl_verify"] is None
+        if final:
+            if message:
+                raise InitializationError(message)
+            elif ssl_verify_pending:
+                config["ssl_verify"] = True
+            return True
+        return not ssl_verify_pending and not message
+
+    @classmethod
+    def get_configuration(
+        cls,
+        url: str | None,
+        username: str | None,
+        password: str | None,
+        jwtoken: str | None,
+        ssl_verify: bool | str | None,
+        allow_inputs: bool | None = None,
+    ) -> ClientConfig:
+        config = {
+            "url": url,
+            "username": username,
+            "password": password,
+            "jwtoken": jwtoken,
+            "ssl_verify": ssl_verify,
+        }
+
+        cls._populate_from_env(config)
+        if cls._validate(config):
+            return cls(**config)
+
+        cls._populate_from_rc_files(config)
+        if cls._validate(config):
+            return cls(**config)
+
+        if allow_inputs is None and not sys.stdin.isatty():
+            warnings.warn(
+                "Interactive inputs are deprecated when stdin is not a TTY. "
+                "In the future, allow_inputs will default to False in such cases.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if allow_inputs is not False:
+            cls._populate_from_inputs(config)
+        if cls._validate(config, final=True):
+            return cls(**config)
 
 
 class DiagnosticsCategory(Enum):
@@ -181,28 +228,11 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.9.1")
-    # list of Version objects
-    INCOMPATIBLE_CONTROLLER_VERSIONS = [
-        Version("2.0.0"),
-        Version("2.0.1"),
-        Version("2.1.0"),
-        Version("2.1.1"),
-        Version("2.1.2"),
-        Version("2.2.1"),
-        Version("2.2.2"),
-        Version("2.2.3"),
-        Version("2.3.0"),
-        Version("2.3.1"),
-        Version("2.4.0"),
-        Version("2.4.1"),
-        Version("2.5.0"),
-        Version("2.5.1"),
-        Version("2.6.0"),
-        Version("2.6.1"),
-    ]
+    VERSION = Version("2.10.0")
+
     _URL_TEMPLATES = {
-        "auth_test": "authok",
+        "auth": "authentication",
+        "old_auth": "authok",
         "system_info": "system_information",
         "import": "import",
         "import_1x": "import/virl-1x",
@@ -222,66 +252,31 @@ class ClientLibrary:
         url: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        ssl_verify: bool | str = True,
+        jwtoken: str | None = None,
+        ssl_verify: bool | str | None = None,
         raise_for_auth_failure: bool = False,
         allow_http: bool = False,
         convergence_wait_max_iter: int = 500,
         convergence_wait_time: int | float = 5,
         events: bool = False,
         client_type: str = None,
+        check_version: bool = True,
     ) -> None:
-        """
-        Initialize a ClientLibrary instance. Note that ssl_verify can
-        also be a string that points to a cert (see class documentation).
-
-        :param url: URL of controller. It's also possible to pass the
-            URL via the ``VIRL2_URL`` or ``VIRL_HOST`` environment variable.
-            If no protocol scheme is provided, "https:" is used.
-        :param username: Username of the user to authenticate. It's also possible
-            to pass the username via ``VIRL2_USER`` or ``VIRL_USERNAME`` variable.
-        :param password: Password of the user to authenticate. It's also possible
-            to pass the password via ``VIRL2_PASS`` or ``VIRL_PASSWORD`` variable.
-        :param ssl_verify: Path of the SSL controller certificate, or True to load
-            from ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variable,
-            or False to disable.
-        :param raise_for_auth_failure: Raise an exception if unable to connect to
-            controller. (Use for scripting scenarios.)
-        :param allow_http: If set, a https URL will not be enforced.
-        :param convergence_wait_max_iter: Maximum number of iterations for convergence.
-        :param convergence_wait_time: Time in seconds to sleep between convergence calls
-            on the backend.
-        :param events: A flag indicating whether to enable event-based data
-            synchronization from the server. When enabled, utilizes a mechanism for
-            receiving real-time updates from the server, instead of periodically
-            requesting the data.
-        :raises InitializationError: If no URL is provided, authentication fails or host
-            can't be reached.
-        """
-        url, username, password, cert = get_configuration(
-            url, username, password, ssl_verify
+        client_config = ClientConfig.get_configuration(
+            url, username, password, jwtoken, ssl_verify
         )
-        if cert is not None:
-            ssl_verify = cert
+        self.allow_http = allow_http
+        url, base_url = _prepare_url(client_config.url, allow_http)
+        self.username: str | None = client_config.username
+        self.password: str | None = client_config.password
+        self.jwtoken: str | None = client_config.jwtoken
+        self.url: str = url
+        self.raise_for_auth_failure = raise_for_auth_failure
+        self.check_version = check_version
 
-        url, base_url = _prepare_url(url, allow_http)
-        self.username: str = username
-        self.password: str = password
-
-        if ssl_verify is False:
+        self._ssl_verify = client_config.ssl_verify
+        if client_config.ssl_verify is False and not allow_http:
             _LOGGER.warning("SSL Verification disabled")
-
-        self._ssl_verify = ssl_verify
-        try:
-            self._session = make_session(base_url, ssl_verify, client_type)
-        except httpx.InvalidURL as exc:
-            raise InitializationError(exc) from None
-        # checks version from system_info against self.VERSION
-        controller_version = self.check_controller_version()
-
-        self._session.auth = TokenAuth(self)
-        # Note: session.auth is defined in the httpx module to be of type Auth,
-        #  which has no logout function; this TokenAuth function will, therefore,
-        #  not be visible to a type checker, causing warnings.
 
         self.auto_sync = True
         """`auto_sync` automatically syncs data with the backend after a specific
@@ -292,17 +287,26 @@ class ClientLibrary:
         self.convergence_wait_max_iter = convergence_wait_max_iter
         self.convergence_wait_time = convergence_wait_time
 
-        self.allow_http = allow_http
-        self.definitions = NodeImageDefinitions(self._session)
-
-        self.url: str = url
-        self.raise_for_auth_failure = raise_for_auth_failure
         self._labs: dict[str, Lab] = {}
 
-        self.licensing = Licensing(
-            self._session, is_cert_deprecated=controller_version >= Version("2.7.0")
+        try:
+            self._session = make_session(base_url, ssl_verify, client_type)
+        except httpx.InvalidURL as exc:
+            raise InitializationError(exc) from None
+        self._session.controller_version = self.check_controller_version()
+
+        self._session.auth = TokenAuth(self)
+        # Note: session.auth is defined in the httpx module to be of type Auth,
+        #  which has no logout function; this TokenAuth function will, therefore,
+        #  not be visible to a type checker, causing warnings.
+
+        self.definitions = NodeImageDefinitions(self._session)
+        self.licensing = Licensing(self._session)
+        self.user_management = UserManagement(
+            self._session,
+            auto_sync=self.auto_sync,
+            auto_sync_interval=self.auto_sync_interval,
         )
-        self.user_management = UserManagement(self._session)
         self.group_management = GroupManagement(self._session)
         self.system_management = SystemManagement(
             self._session,
@@ -321,7 +325,9 @@ class ClientLibrary:
         )
 
         try:
-            self._make_test_auth_call()
+            self._make_test_auth_call(
+                self._session.controller_version >= Version("2.10.0")
+            )
         except InitializationError as exc:
             if raise_for_auth_failure:
                 raise
@@ -352,15 +358,15 @@ class ClientLibrary:
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
-    def _make_test_auth_call(self) -> None:
+    def _make_test_auth_call(self, new_auth: bool) -> None:
         """
         Make a call to confirm that authentication works.
 
         :raises InitializationError: If authentication fails.
         """
-        url = self._url_for("auth_test")
+        url = self._url_for("auth" if new_auth else "old_auth")
         try:
-            self._session.get(url)
+            response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
             if status_code == httpx.codes.FORBIDDEN:
@@ -371,28 +377,11 @@ class ClientLibrary:
             raise
         except httpx.HTTPError as exc:
             raise InitializationError(exc)
-
-    @staticmethod
-    def _environ_get(
-        key: str, value: Any | None = None, default: Any | None = None
-    ) -> Any | None:
-        """
-        If the value is not yet set, fetch it from the environment or return the default
-        value.
-
-        :param key: The key to fetch the value for.
-        :param value: The value to use if it is already set.
-        :param default: The default value to use if the key is not set
-            and value is None.
-        :returns: The fetched value or the default value.
-        """
-        if value is None:
-            value = os.environ.get(key)
-            if value:
-                _LOGGER.info(f"Using value {key} from environment")
-            else:
-                value = default
-        return value
+        if new_auth:
+            user_info: dict = response.json()
+            self.user_id = user_info["id"]
+            self.admin = user_info.get("admin", False)
+            self.username = user_info["username"]
 
     @property
     def uuid(self) -> str:
@@ -425,38 +414,48 @@ class ClientLibrary:
         url = self._url_for("system_info")
         return self._session.get(url).json()
 
-    def check_controller_version(self) -> Version | None:
+    def check_controller_version(self) -> Version:
         """
         Check remote controller version against current client version
-        (specified in `self.VERSION`) and against controller version
-        blacklist (specified in `self.INCOMPATIBLE_CONTROLLER_VERSIONS`).
+        (specified in `self.VERSION` and support last 3 minor versions).
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
-        """
-        controller_version = self.system_info().get("version", "")
-        try:
-            controller_version_obj = Version(controller_version)
-        except (TypeError, ValueError):
-            _LOGGER.warning(f"Invalid version detected: {controller_version}!")
-            return None
+        Compatibility validation is disabled if `self.check_version` attribute
+        is set to False, but the version is always parsed and returned.
 
-        if controller_version_obj in self.INCOMPATIBLE_CONTROLLER_VERSIONS:
+        :raises InitializationError: If the controller version is unparseable
+            or incompatible.
+        :returns: The controller version.
+        """
+        controller_version_str = self.system_info().get("version", "")
+        try:
+            controller_version = Version(controller_version_str)
+        except (TypeError, ValueError):
             raise InitializationError(
-                f"Controller version {controller_version_obj} is marked incompatible! "
-                f"List of versions marked explicitly as incompatible: "
-                f"{self.INCOMPATIBLE_CONTROLLER_VERSIONS}."
+                f"Controller returned invalid version: {controller_version_str}"
             )
-        if self.VERSION.major_lt(controller_version_obj):
+
+        if not self.check_version:
+            return controller_version
+
+        if self.VERSION.major_lt(controller_version):
             raise InitializationError(
-                f"Major version mismatch. Client {self.VERSION}, "
-                f"controller {controller_version_obj}."
+                "Major version mismatch. "
+                f"Client {self.VERSION}, controller {controller_version}."
             )
-        if self.VERSION.minor_lt(controller_version_obj):
+        if self.VERSION.minor - 3 >= controller_version.minor:
+            raise InitializationError(
+                "Unsupported minor version (only last 3 minor versions are supported). "
+                f"Client {self.VERSION}, controller {controller_version}."
+            )
+        if self.VERSION.minor_lt(controller_version):
             _LOGGER.warning(
-                f"Please ensure the client version is compatible with the controller "
-                f"version. Client {self.VERSION}, controller {controller_version_obj}."
+                "Please ensure the client version is compatible with the controller "
+                "version. Client %s, controller %s.",
+                self.VERSION,
+                controller_version,
             )
-        return controller_version_obj
+        return controller_version
 
     def is_system_ready(
         self, wait: bool = False, max_wait: int = 60, sleep: int = 5
@@ -498,9 +497,7 @@ class ClientLibrary:
         :param path: The path to check.
         :returns: Whether the file is of VIRL version 1.x.
         """
-        if path.suffix == ".virl":
-            return True
-        return False
+        return path.suffix == ".virl"
 
     @locked
     def start_event_listening(self):
@@ -510,14 +507,11 @@ class ClientLibrary:
         To replace the default event handling mechanism,
         subclass `event_handling.EventHandler` (or `EventHandlerBase` if necessary),
         then do::
-        from .event_listening import EventListener
-        custom_listener = EventListener()
-        custom_listener._event_handler = CustomHandler(client_library)
-        client_library.event_listener = custom_listener
-
-        :returns:
+            custom_listener = EventListener()
+            custom_listener._event_handler = CustomHandler(client_library)
+            client_library.event_listener = custom_listener
         """
-        from .event_listening import EventListener
+        from .event_listening import EventListener  # noqa: PLC0415
 
         if self.event_listener is None:
             self.event_listener = EventListener(self)
@@ -563,11 +557,8 @@ class ClientLibrary:
         topology: str,
         title: str | None = None,
         virl_1x: bool = False,
-    ):
-        if virl_1x:
-            url = self._url_for("import_1x")
-        else:
-            url = self._url_for("import")
+    ) -> Lab:
+        url = self._url_for("import_1x" if virl_1x else "import")
         params = {"title": title} if title else None
         result = self._session.post(url, params=params, content=topology).json()
         lab_id = result.get("id")
@@ -583,6 +574,7 @@ class ClientLibrary:
             auto_sync=self.auto_sync,
             auto_sync_interval=self.auto_sync_interval,
             resource_pool_manager=self.resource_pool_management,
+            user_management=self.user_management,
         )
 
     @locked
@@ -645,7 +637,7 @@ class ClientLibrary:
     @locked
     def _remove_stale_labs(self):
         """Remove stale labs from the client library."""
-        for lab in list(self._labs.values()):
+        for lab in tuple(self._labs.values()):
             if lab._stale:
                 self._remove_lab_local(lab)
 
@@ -680,6 +672,8 @@ class ClientLibrary:
         title: str | None = None,
         description: str | None = None,
         notes: str | None = None,
+        autostart: dict | None = None,
+        node_staging: dict | None = None,
     ) -> Lab:
         """
         Create a new lab with optional title, description, and notes.
@@ -700,10 +694,21 @@ class ClientLibrary:
         :param title: The title of the lab.
         :param description: The description of the lab.
         :param notes: The notes of the lab.
+        :param autostart: Parameter for autostart (enabled, priority, delay).
+        :param node_staging: Parameter for node staging (enabled, abort_on_failure, start_remaining).
         :returns: A Lab instance representing the created lab.
         """
         url = self._url_for("labs")
-        body = {"title": title, "description": description, "notes": notes}
+        body: dict[str, str | dict | None] = {
+            "title": title,
+            "description": description,
+            "notes": notes,
+        }
+        if autostart:
+            body["autostart"] = autostart
+        if node_staging:
+            body["node_staging"] = node_staging
+
         # exclude values left at None
         body = {k: v for k, v in body.items() if v is not None}
         result = self._session.post(url, json=body).json()
@@ -719,6 +724,7 @@ class ClientLibrary:
             wait_max_iterations=self.convergence_wait_max_iter,
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
+            user_management=self.user_management,
         )
         lab._import_lab(result, created=True)
         self._labs[lab_id] = lab
@@ -760,7 +766,7 @@ class ClientLibrary:
         """Helper function to remove an unjoined lab from the server."""
         url = self._url_for("lab", lab_id=lab_id)
         response = self._session.delete(url)
-        _LOGGER.debug(f"Removed lab: {response.text}")
+        _LOGGER.debug("Removed lab: %s", response.text)
 
     @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:
@@ -806,10 +812,12 @@ class ClientLibrary:
             wait_max_iterations=self.convergence_wait_max_iter,
             wait_time=self.convergence_wait_time,
             resource_pool_manager=self.resource_pool_management,
+            user_management=self.user_management,
         )
         if sync_lab:
             lab.import_lab(topology)
             lab._initialized = True
+            lab._last_sync_topology_time = time.time()
         else:
             lab._owner = None
         self._labs[lab_id] = lab
@@ -833,6 +841,13 @@ class ClientLibrary:
                 DeprecationWarning,
             )
             categories = [DiagnosticsCategory.ALL]
+        if DiagnosticsCategory.USER_LIST in categories:
+            warnings.warn(
+                "'DiagnosticsCategory.USER_LIST' is deprecated. "
+                "Use UserManagement.users() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if DiagnosticsCategory.ALL in categories:
             categories = list(DiagnosticsCategory)[1:]
 
@@ -906,10 +921,8 @@ class ClientLibrary:
             owned by the admin (False).
         :returns: A list of lab IDs.
         """
-        url: dict[str, str | dict] = {"url": self._url_for("labs")}
-        if show_all:
-            url["params"] = {"show_all": True}
-        return self._session.get(**url).json()
+        params = {"show_all": True} if show_all else None
+        return self._session.get(self._url_for("labs"), params=params).json()
 
 
 def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
@@ -922,7 +935,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
 
     # https://docs.python.org/3/library/urllib.parse.html
     # Following the syntax specifications in RFC 1808, urlparse recognizes
-    # a netloc only if it is properly introduced by ‘//’. Otherwise, the
+    # a netloc only if it is properly introduced by `//`. Otherwise, the
     # input is presumed to be a relative URL and thus to start with
     # a path component.
     if len(url_parts.netloc) == 0:

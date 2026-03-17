@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from virl2_client.exceptions import ControllerNotFound
 
-from ..utils import _deprecated_argument, get_url_from_template
+from ..utils import OptInStatus, _deprecated_argument, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -41,9 +41,10 @@ class SystemManagement:
         "compute_hosts": "system/compute_hosts",
         "notices": "system/notices",
         "external_connectors": "system/external_connectors",
-        "external_connector": "system/external_connectors",
         "web_session_timeout": "web_session_timeout",
         "host_configuration": "system/compute_hosts/configuration",
+        "telemetry": "telemetry",
+        "telemetry_events": "telemetry/events",
     }
 
     def __init__(
@@ -98,7 +99,7 @@ class SystemManagement:
         for compute_host in self._compute_hosts.values():
             if compute_host.is_connector:
                 return compute_host
-        raise ControllerNotFound
+        raise ControllerNotFound()
 
     @property
     def system_notices(self) -> dict[str, SystemNotice]:
@@ -132,13 +133,32 @@ class SystemManagement:
         notice_id = None if notice is None else notice.id
         result: dict = self._session.patch(url, json={"notice": notice_id}).json()
         resolved = result["resolved_notice"]
-        if resolved is None:
-            notice = None
-        else:
-            notice = self._system_notices.get(resolved["id"])
+        notice = None if resolved is None else self._system_notices.get(resolved["id"])
         if notice is not None and resolved is not None:
             notice._update(resolved, push_to_server=False)
         self._maintenance_notice = notice
+
+    @property
+    def telemetry(self) -> dict[str, OptInStatus | str]:
+        """Return the telemetry state."""
+        url = self._url_for("telemetry")
+        return self._session.get(url).json()
+
+    @property
+    def telemetry_state(self) -> OptInStatus:
+        """Return the telemetry state."""
+        return OptInStatus(self.telemetry["opt_in"])
+
+    @telemetry_state.setter
+    def telemetry_state(self, mode: OptInStatus) -> None:
+        """Set the telemetry state."""
+        url = self._url_for("telemetry")
+        self._session.put(url, json={"opt_in": mode.name})
+
+    def get_telemetry_events(self) -> list[dict[str, Any]]:
+        """Return the list of telemetry events."""
+        url = self._url_for("telemetry_events")
+        return self._session.get(url).json()
 
     def sync_compute_hosts_if_outdated(self) -> None:
         """Synchronize compute hosts if they are outdated."""
@@ -165,18 +185,18 @@ class SystemManagement:
         compute_host_ids = []
 
         for compute_host in compute_hosts:
+            compute_host.pop("nodes", None)  # removed in 2.10
             compute_id = compute_host.pop("id")
-            compute_host["compute_id"] = compute_id
             if compute_id in self._compute_hosts:
                 self._compute_hosts[compute_id]._update(
                     compute_host, push_to_server=False
                 )
             else:
-                compute_host["node_counts"] = compute_host.get("node_counts", {})
-                self.add_compute_host_local(**compute_host)
+                compute_host.setdefault("node_counts", {})
+                self.add_compute_host_local(compute_id, **compute_host)
             compute_host_ids.append(compute_id)
 
-        for compute_id in list(self._compute_hosts):
+        for compute_id in tuple(self._compute_hosts):
             if compute_id not in compute_host_ids:
                 self._compute_hosts.pop(compute_id)
         self._last_sync_compute_host_time = time.time()
@@ -188,16 +208,16 @@ class SystemManagement:
         system_notice_ids = []
 
         for system_notice in system_notices:
-            notice_id = system_notice.get("id")
+            notice_id = system_notice.pop("id")
             if notice_id in self._system_notices:
                 self._system_notices[notice_id]._update(
                     system_notice, push_to_server=False
                 )
             else:
-                self.add_system_notice_local(**system_notice)
+                self.add_system_notice_local(notice_id, **system_notice)
             system_notice_ids.append(notice_id)
 
-        for notice_id in list(self._system_notices):
+        for notice_id in tuple(self._system_notices):
             if notice_id not in system_notice_ids:
                 self._system_notices.pop(notice_id)
 
@@ -238,7 +258,7 @@ class SystemManagement:
         :param data: The data to update.
         :returns: The updated data.
         """
-        url = f"{self._url_for('external_connector')}/{connector_id}"
+        url = f"{self._url_for('external_connectors')}/{connector_id}"
         return self._session.patch(url, json=data).json()
 
     def delete_external_connector(self, connector_id: str) -> None:
@@ -247,7 +267,7 @@ class SystemManagement:
 
         :param connector_id: The ID of the connector to delete.
         """
-        url = f"{self._url_for('external_connector')}/{connector_id}"
+        url = f"{self._url_for('external_connectors')}/{connector_id}"
         self._session.delete(url)
 
     def get_web_session_timeout(self) -> int:
@@ -259,15 +279,15 @@ class SystemManagement:
         url = self._url_for("web_session_timeout")
         return self._session.get(url).json()
 
-    def set_web_session_timeout(self, timeout: int) -> str:
+    def set_web_session_timeout(self, timeout: int) -> None:
         """
         Set the web session timeout in seconds.
 
         :param timeout: The timeout value in seconds.
-        :returns: 'OK'
+        :returns: None
         """
         url = f"{self._url_for('web_session_timeout')}/{timeout}"
-        return self._session.patch(url).json()
+        self._session.patch(url)
 
     def get_new_compute_host_state(self) -> str:
         """
@@ -336,18 +356,18 @@ class SystemManagement:
 
     def add_system_notice_local(
         self,
-        id: str,
+        notice_id: str,
         level: str,
         label: str,
         content: str,
         enabled: bool,
-        acknowledged: dict[str, bool],
+        acknowledged: dict[str, bool] | None = None,
         groups: list[str] | None = None,
     ) -> SystemNotice:
         """
         Add a system notice locally.
 
-        :param id: The unique identifier of the system notice.
+        :param notice_id: The unique identifier of the system notice.
         :param level: The level of the system notice.
         :param label: The label or title of the system notice.
         :param content: The content or description of the system notice.
@@ -360,7 +380,7 @@ class SystemManagement:
         """
         new_system_notice = SystemNotice(
             self,
-            id,
+            notice_id,
             level,
             label,
             content,
@@ -368,7 +388,7 @@ class SystemManagement:
             acknowledged,
             groups,
         )
-        self._system_notices[id] = new_system_notice
+        self._system_notices[notice_id] = new_system_notice
         return new_system_notice
 
 
@@ -501,7 +521,7 @@ class ComputeHost:
 
     def remove(self) -> None:
         """Remove the compute host."""
-        _LOGGER.info(f"Removing compute host {self}")
+        _LOGGER.info("Removing compute host %s", self)
         url = self._url_for("compute_host")
         self._session.delete(url)
 
@@ -528,6 +548,8 @@ class ComputeHost:
             return
 
         for key, value in host_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_compute_host_property(self, key: str, val: Any) -> None:
@@ -537,7 +559,7 @@ class ComputeHost:
         :param key: The property key.
         :param val: The new value for the property.
         """
-        _LOGGER.debug(f"Setting compute host property {self} {key}: {val}")
+        _LOGGER.debug("Setting compute host property %s %s: %s", self, key, val)
         self._set_compute_host_properties({key: val})
 
     def _set_compute_host_properties(self, host_data: dict[str, Any]) -> None:
@@ -557,19 +579,19 @@ class SystemNotice:
     def __init__(
         self,
         system: SystemManagement,
-        id: str,
+        notice_id: str,
         level: str,
         label: str,
         content: str,
         enabled: bool,
-        acknowledged: dict[str, bool],
+        acknowledged: dict[str, bool] | None = None,
         groups: list[str] | None = None,
     ):
         """
         A system notice, which notifies users of maintenance or other events.
 
         :param system: The SystemManagement instance.
-        :param id: The ID of the system notice.
+        :param notice_id: The ID of the system notice.
         :param level: The level of the system notice.
         :param label: The label of the system notice.
         :param content: The content of the system notice.
@@ -579,12 +601,12 @@ class SystemNotice:
         """
         self._system = system
         self._session: httpx.Client = system._session
-        self._id = id
+        self._id = notice_id
         self._level = level
         self._label = label
         self._content = content
         self._enabled = enabled
-        self._acknowledged = acknowledged
+        self._acknowledged = acknowledged or {}
         self._groups = groups
 
     def _url_for(self, endpoint, **kwargs) -> str:
@@ -641,7 +663,7 @@ class SystemNotice:
 
     def remove(self) -> None:
         """Remove the system notice."""
-        _LOGGER.info(f"Removing system notice {self}")
+        _LOGGER.info("Removing system notice %s", self)
         url = self._url_for("notice")
         self._session.delete(url)
 
@@ -668,6 +690,8 @@ class SystemNotice:
             return
 
         for key, value in notice_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_notice_property(self, key: str, val: Any) -> None:
@@ -677,7 +701,7 @@ class SystemNotice:
         :param key: The property key.
         :param val: The new value for the property.
         """
-        _LOGGER.debug(f"Setting system notice property {self} {key}: {val}")
+        _LOGGER.debug("Setting system notice property %s %s: %s", self, key, val)
         self._set_notice_properties({key: val})
 
     def _set_notice_properties(self, notice_data: dict[str, Any]) -> None:

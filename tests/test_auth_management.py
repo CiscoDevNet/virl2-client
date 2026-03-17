@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Tests for AuthManagement, LDAPManager, and RADIUSManager settings and auth flows."""
 
 from __future__ import annotations
 
@@ -224,26 +225,39 @@ def test_ldap_settings_update(setting: str, value: str | bool | float) -> None:
     assert auth_management._settings[setting] == value
 
 
-def test_ldap_timeout_inactive_method_raises() -> None:
-    """Accessing LDAP timeout when method is local raises MethodNotActive.
+@pytest.mark.parametrize("method", ["ldap", "radius"])
+def test_timeout_inactive_method_raises(method: str) -> None:
+    """Accessing timeout when method is local raises MethodNotActive.
 
-    :raises MethodNotActive: When LDAP is not the active auth method.
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param method: Auth method to check (ldap or radius).
     """
     auth_management, _ = make_auth_management({"method": "local", "timeout": 5})
 
     with pytest.raises(MethodNotActive):
-        _ = auth_management._managers["ldap"].timeout
+        _ = auth_management._managers[method].timeout
 
 
-def test_ldap_resource_pool_accepts_instance() -> None:
-    """LDAP resource_pool setter accepts ResourcePool instance, uses its id."""
+@pytest.mark.parametrize(
+    "method,pool_id",
+    [("ldap", "pool-123"), ("radius", "pool-456")],
+)
+def test_resource_pool_accepts_instance(method: str, pool_id: str) -> None:
+    """resource_pool setter accepts ResourcePool instance, uses its id.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param method: Auth method (ldap or radius).
+    :param pool_id: Pool id for the ResourcePool instance.
+    """
     auth_management, session = make_auth_management(
-        {"method": "ldap", "resource_pool": "old"}
+        {"method": method, "resource_pool": "old"}
     )
-    manager = auth_management._managers["ldap"]
+    manager = auth_management._managers[method]
     resource_pool = ResourcePool(
         MagicMock(_session=MagicMock()),
-        "pool-123",
+        pool_id,
         "label",
         None,
         None,
@@ -259,9 +273,9 @@ def test_ldap_resource_pool_accepts_instance() -> None:
     manager.resource_pool = resource_pool
 
     session.patch.assert_called_once_with(
-        "system/auth/config", json={"resource_pool": "pool-123", "method": "ldap"}
+        "system/auth/config", json={"resource_pool": pool_id, "method": method}
     )
-    assert auth_management._settings["resource_pool"] == "pool-123"
+    assert auth_management._settings["resource_pool"] == pool_id
 
 
 @pytest.mark.parametrize(
@@ -293,67 +307,29 @@ def test_radius_settings_update(setting: str, value: str | int | float) -> None:
     assert auth_management._settings[setting] == value
 
 
-def test_radius_secret_setter_updates_setting() -> None:
-    """RADIUS secret setter PATCHes config."""
-    auth_management, session = make_auth_management({"method": "radius"})
-    manager = auth_management._managers["radius"]
+@pytest.mark.parametrize(
+    "method,prop,value",
+    [
+        ("ldap", "manager_password", "secret"),
+        ("radius", "secret", "secret"),
+    ],
+)
+def test_secret_setter_patches_config(method: str, prop: str, value: str) -> None:
+    """Secret-like setter PATCHes config with value.
 
-    manager.secret = "secret"
+    NOTE: LLM-generated test -- verify for correctness.
 
-    session.patch.assert_called_once_with(
-        "system/auth/config", json={"secret": "secret", "method": "radius"}
-    )
-
-
-def test_radius_timeout_inactive_method_raises() -> None:
-    """Accessing RADIUS timeout when method is local raises MethodNotActive.
-
-    :raises MethodNotActive: When RADIUS is not the active auth method.
+    :param method: Auth method (ldap or radius).
+    :param prop: Property name to set.
+    :param value: Value to set.
     """
-    auth_management, _ = make_auth_management({"method": "local", "timeout": 5})
+    auth_management, session = make_auth_management({"method": method})
+    manager = auth_management._managers[method]
 
-    with pytest.raises(MethodNotActive):
-        _ = auth_management._managers["radius"].timeout
-
-
-def test_radius_resource_pool_accepts_instance() -> None:
-    """RADIUS resource_pool setter accepts ResourcePool instance, uses its id."""
-    auth_management, session = make_auth_management(
-        {"method": "radius", "resource_pool": "old"}
-    )
-    manager = auth_management._managers["radius"]
-    resource_pool = ResourcePool(
-        MagicMock(_session=MagicMock()),
-        "pool-456",
-        "label",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
-
-    manager.resource_pool = resource_pool
+    setattr(manager, prop, value)
 
     session.patch.assert_called_once_with(
-        "system/auth/config", json={"resource_pool": "pool-456", "method": "radius"}
-    )
-    assert auth_management._settings["resource_pool"] == "pool-456"
-
-
-def test_ldap_manager_password_setter_updates() -> None:
-    """LDAP manager_password setter PATCHes config."""
-    auth_management, session = make_auth_management({"method": "ldap"})
-    manager = auth_management._managers["ldap"]
-
-    manager.manager_password = "secret"
-
-    session.patch.assert_called_once_with(
-        "system/auth/config", json={"manager_password": "secret", "method": "ldap"}
+        "system/auth/config", json={prop: value, "method": method}
     )
 
 
@@ -415,3 +391,89 @@ def test_accessing_wrong_manager_raises() -> None:
 
     with pytest.raises(MethodNotActive):
         _ = auth_management._managers["radius"].timeout
+
+
+def test_method_setter_and_current_settings() -> None:
+    """Exercise method getter/setter and _get_current_settings helper.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    auth_management, session = make_auth_management({"method": "ldap"})
+    session.get.return_value.json.return_value = {"method": "radius"}
+
+    assert auth_management.method == "ldap"
+    auth_management.method = "radius"
+    session.patch.assert_called_once_with(
+        "system/auth/config", json={"method": "radius"}
+    )
+    assert auth_management._get_current_settings() == {"method": "radius"}
+
+
+def test_ldap_all_getters() -> None:
+    """LDAP manager getters return values from local settings.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    settings = {
+        "method": "ldap",
+        "server_urls": "ldaps://ldap.example:636",
+        "verify_tls": True,
+        "cert_data_pem": "pem-data",
+        "use_ntlm": False,
+        "root_dn": "dc=example,dc=com",
+        "user_search_base": "ou=users,dc=example,dc=com",
+        "user_search_filter": "(uid={0})",
+        "admin_search_filter": "(memberOf=cn=admins,dc=example,dc=com)",
+        "group_search_base": "ou=groups,dc=example,dc=com",
+        "group_search_filter": "(cn={0})",
+        "group_via_user": True,
+        "group_user_attribute": "memberOf",
+        "group_membership_filter": "(member={0})",
+        "manager_dn": "cn=manager,dc=example,dc=com",
+        "display_attribute": "displayName",
+        "group_display_attribute": "description",
+        "email_address_attribute": "mail",
+        "resource_pool": "pool-id",
+    }
+    auth_management, _ = make_auth_management(settings)
+    manager = auth_management._managers["ldap"]
+
+    assert manager.server_urls == settings["server_urls"]
+    assert manager.verify_tls is settings["verify_tls"]
+    assert manager.cert_data_pem == settings["cert_data_pem"]
+    assert manager.use_ntlm is settings["use_ntlm"]
+    assert manager.root_dn == settings["root_dn"]
+    assert manager.user_search_base == settings["user_search_base"]
+    assert manager.user_search_filter == settings["user_search_filter"]
+    assert manager.admin_search_filter == settings["admin_search_filter"]
+    assert manager.group_search_base == settings["group_search_base"]
+    assert manager.group_search_filter == settings["group_search_filter"]
+    assert manager.group_via_user is settings["group_via_user"]
+    assert manager.group_user_attribute == settings["group_user_attribute"]
+    assert manager.group_membership_filter == settings["group_membership_filter"]
+    assert manager.manager_dn == settings["manager_dn"]
+    assert manager.display_attribute == settings["display_attribute"]
+    assert manager.group_display_attribute == settings["group_display_attribute"]
+    assert manager.email_address_attribute == settings["email_address_attribute"]
+    assert manager.resource_pool == settings["resource_pool"]
+
+
+def test_radius_all_getters() -> None:
+    """RADIUS manager getters return values from local settings.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    settings = {
+        "method": "radius",
+        "server_hosts": "radius-1 radius-2",
+        "port": 1812,
+        "nas_identifier": "cml-controller",
+        "resource_pool": "pool-rad",
+    }
+    auth_management, _ = make_auth_management(settings)
+    manager = auth_management._managers["radius"]
+
+    assert manager.server_hosts == settings["server_hosts"]
+    assert manager.port == settings["port"]
+    assert manager.nas_identifier == settings["nas_identifier"]
+    assert manager.resource_pool == settings["resource_pool"]

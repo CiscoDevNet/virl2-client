@@ -37,7 +37,7 @@ aiohttp = {version = "^3", optional = true}
 # optional pyATS package
 # (this pulls in a lot more dependencies)
 # it does not pull in genie, need to specify extras=["full"] for pyATS.
-pyats = {version = "^25", optional = true}
+pyats = {version = "^26", optional = true}
 
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
@@ -48,6 +48,7 @@ sphinx = {version="<8.2", optional = true}
 flake8 = "^7"
 pre-commit = "^4"
 pytest = "*"
+pytest-cov = "*"
 pytest-xdist = "*"
 respx = "^0.22.0"
 

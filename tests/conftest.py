@@ -31,12 +31,47 @@ from respx import MockRouter
 from virl2_client.models import authentication
 from virl2_client.virl2_client import ClientLibrary
 
-# Patch sys.stdin.isatty to simulate an interactive terminal
-sys.stdin.isatty = lambda: True
-
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
 FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
+
+
+@pytest.fixture
+def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear VIRL2-related environment variables for isolated init tests.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    env_vars = [
+        "VIRL2_URL",
+        "VIRL_HOST",
+        "VIRL2_USER",
+        "VIRL_USERNAME",
+        "VIRL2_PASS",
+        "VIRL_PASSWORD",
+        "VIRL2_JWT",
+    ]
+
+    for key in env_vars:
+        monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _patch_stdin_isatty() -> Iterator[None]:
+    """Suppress DeprecationWarning for non-TTY stdin across the whole session.
+
+    ClientLibrary emits a DeprecationWarning when sys.stdin.isatty()
+    returns False and interactive inputs are used.  Patching only the
+    isatty attribute (not the whole sys.stdin object) keeps pytest's
+    DontReadFromInput in place so tests that expect OSError from stdin
+    reads continue to work correctly.
+
+    :yields: Nothing; setup/teardown only.
+    """
+    original = sys.stdin.isatty
+    sys.stdin.isatty = lambda: True  # type: ignore[method-assign]
+    yield
+    sys.stdin.isatty = original  # type: ignore[method-assign]
 
 
 def client_library_patched_system_info(version: str) -> Iterator[MagicMock]:
@@ -114,12 +149,16 @@ def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Re
     :returns: An httpx.Response with content set to the matching fixture file.
     """
     endpoint_parts = request.url.path.split("/")[3:]
-    filename = "not initialized"
     if len(endpoint_parts) == 1:
         filename = endpoint_parts[0] + ".json"
     elif endpoint_parts[0] == "labs":
         lab_id = endpoint_parts[1]
         filename = "_".join(endpoint_parts[2:]) + "-" + lab_id + ".json"
+    else:
+        pytest.fail(
+            f"resp_body_from_file: unhandled URL path {request.url.path!r}; "
+            "add an explicit respx route or extend the path-mapping logic."
+        )
     file_path = test_data_dir / filename
     return httpx.Response(200, text=file_path.read_text())
 
@@ -128,7 +167,7 @@ def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Re
 def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
     """Provide basic lab data with respx_mock for unit tests.
 
-    Enables tests to call ``client.all_labs`` or ``client.join_existing_lab``.
+    Enables tests to call client.all_labs or client.join_existing_lab.
     Sample data includes runtime data (node states, simulation_statistics).
 
     :param respx_mock: The respx mock router to configure.

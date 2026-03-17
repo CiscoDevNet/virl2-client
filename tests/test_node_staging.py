@@ -22,22 +22,20 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
+from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 
 from virl2_client.models import Lab
 from virl2_client.models.node import Node
-
-RESOURCE_POOL_MANAGER: Mock = Mock()
-USER_MANAGEMENT: Mock = Mock()
 
 
 def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
     """Side effect that validates node_staging and priority in patch payload; raises ValueError if invalid.
 
     :param args: Unused positional arguments.
-    :param kwargs: Keyword args; ``json`` key holds the PATCH payload.
+    :param kwargs: Keyword args; json key holds the PATCH payload.
     :raises ValueError: When enabled, abort_on_failure, start_remaining, or priority are invalid.
     """
     _ = args
@@ -135,8 +133,30 @@ def test_lab_node_staging_setter() -> None:
     assert node.priority == 5
 
 
-def test_lab_node_staging_setter_invalid() -> None:
-    """Test setting invalid node_staging parameters raises ValueError."""
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param(
+            {"enabled": "yes", "abort_on_failure": True, "start_remaining": True},
+            id="enabled_str",
+        ),
+        pytest.param(
+            {"enabled": True, "abort_on_failure": "yes", "start_remaining": True},
+            id="abort_str",
+        ),
+        pytest.param(
+            {"enabled": True, "abort_on_failure": True, "start_remaining": "yes"},
+            id="remaining_str",
+        ),
+    ],
+)
+def test_staging_rejects_invalid(kwargs: dict[str, Any]) -> None:
+    """Reject invalid node_staging parameters with ValueError.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param kwargs: Keyword arguments to pass to set_node_staging.
+    """
     session = MagicMock()
     session.patch.side_effect = conditional_side_effect
     lab = Lab(
@@ -149,25 +169,42 @@ def test_lab_node_staging_setter_invalid() -> None:
         resource_pool_manager=RESOURCE_POOL_MANAGER,
         user_management=USER_MANAGEMENT,
     )
-    node = Node(
-        lab,
-        "node-id",
-        "node1",
-        "node-type",
-    )
 
     with pytest.raises(ValueError):
-        lab.set_node_staging(enabled="yes", abort_on_failure=True, start_remaining=True)
+        lab.set_node_staging(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("yes", id="string"),
+        pytest.param(-1, id="negative"),
+        pytest.param(10001, id="over_max"),
+    ],
+)
+def test_priority_rejects_invalid(value: Any) -> None:
+    """Reject invalid priority values with ValueError.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param value: Invalid priority value to set.
+    """
+    session = MagicMock()
+    session.patch.side_effect = conditional_side_effect
+    lab = Lab(
+        title="Test Lab",
+        lab_id="lab-id",
+        session=session,
+        username="user",
+        password="pass",
+        auto_sync=False,
+        resource_pool_manager=RESOURCE_POOL_MANAGER,
+        user_management=USER_MANAGEMENT,
+    )
+    node = Node(lab, "node-id", "node1", "node-type")
+
     with pytest.raises(ValueError):
-        lab.set_node_staging(enabled=True, abort_on_failure="yes", start_remaining=True)
-    with pytest.raises(ValueError):
-        lab.set_node_staging(enabled=True, abort_on_failure=True, start_remaining="yes")
-    with pytest.raises(ValueError):
-        node.priority = "yes"
-    with pytest.raises(ValueError):
-        node.priority = -1
-    with pytest.raises(ValueError):
-        node.priority = 10001
+        node.priority = value
 
 
 def test_lab_node_staging_setter_no_change() -> None:
@@ -227,10 +264,7 @@ def test_lab_node_staging_setter_no_change() -> None:
 
 
 def test_lab_node_staging_setter_partial_update() -> None:
-    """Test that setting only some node_staging parameters updates correctly.
-
-    :returns: None.
-    """
+    """Test that setting only some node_staging parameters updates correctly."""
     session = MagicMock()
     lab = Lab(
         title="Test Lab",

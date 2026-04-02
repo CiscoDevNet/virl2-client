@@ -220,6 +220,7 @@ class SystemManagement:
         compute_host_ids = []
 
         for compute_host in compute_hosts:
+            compute_host.pop("nodes", None)  # removed in 2.10
             compute_id = compute_host.pop("id")
             compute_host["compute_id"] = compute_id
             if compute_id in self._compute_hosts:

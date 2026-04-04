@@ -31,15 +31,17 @@ from virl2_client.exceptions import APIError
 from virl2_client.models.authentication import TokenAuth
 
 
-def _make_client() -> MagicMock:
+def _make_client(allow_http: bool = False) -> MagicMock:
     """Build a minimal client-library mock.
 
+    :param allow_http: Value for the allow_http attribute.
     :returns: A mocked client object compatible with TokenAuth.
     """
     client = MagicMock()
     client.jwtoken = None
     client.username = "u"
     client.password = "p"
+    client.allow_http = allow_http
     client._session.base_url = httpx.URL("http://example.local:8443/api/v0/")
     client._session.post.return_value.json.return_value = "jwt-token"
     return client
@@ -62,6 +64,25 @@ def test_token_auth_logs_insecure_url_details(
     assert token == "jwt-token"
     assert "Not using SSL port of 443: 8443" in caplog.text
     assert "Not using https scheme: http" in caplog.text
+
+
+def test_token_auth_suppresses_warnings_when_http_allowed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Suppress scheme/port warnings when allow_http is True.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param caplog: Pytest log capture fixture.
+    """
+    auth = TokenAuth(_make_client(allow_http=True))
+
+    with caplog.at_level(logging.WARNING):
+        token = auth.token
+
+    assert token == "jwt-token"
+    assert "Not using SSL port of 443" not in caplog.text
+    assert "Not using https scheme" not in caplog.text
 
 
 @pytest.mark.parametrize(

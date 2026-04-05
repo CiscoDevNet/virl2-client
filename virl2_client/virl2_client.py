@@ -275,13 +275,12 @@ class ClientConfig(NamedTuple):
         if cls._validate(config):
             return cls(**config)
 
-        if allow_inputs is None:
-            if not sys.stdin.isatty():
-                warnings.warn(
-                    "Interactive inputs are deprecated when stdin is not a TTY. "
-                    "In the future, allow_inputs will default to False in such cases.",
-                    DeprecationWarning,
-                )
+        if allow_inputs is None and not sys.stdin.isatty():
+            warnings.warn(
+                "Interactive inputs are deprecated when stdin is not a TTY. "
+                "In the future, allow_inputs will default to False in such cases.",
+                DeprecationWarning,
+            )
         if allow_inputs is not False:
             cls._populate_from_inputs(config)
         if cls._validate(config, final=True):
@@ -354,7 +353,7 @@ class ClientLibrary:
         self.check_version = check_version
 
         self._ssl_verify = client_config.ssl_verify
-        if client_config.ssl_verify is False:
+        if client_config.ssl_verify is False and not allow_http:
             _LOGGER.warning("SSL Verification disabled")
 
         self.auto_sync = True

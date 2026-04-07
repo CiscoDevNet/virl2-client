@@ -303,7 +303,9 @@ class ClPyats:
                 raise
 
             _LOGGER.info(
-                f"PyATS command failed on node {node_label}, retrying after reconnection. Reason: {retry_reason}"
+                "PyATS command failed on node %s, retrying after reconnection. Reason: %s",
+                node_label,
+                retry_reason,
             )
             return self._execute_command(
                 node_label,

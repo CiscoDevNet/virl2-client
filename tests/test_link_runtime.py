@@ -163,6 +163,7 @@ def test_link_repr() -> None:
     """
     link = _new_link()
     assert "Link(" in repr(link)
+    assert "Link:" in str(link)
 
 
 def test_link_label_none() -> None:

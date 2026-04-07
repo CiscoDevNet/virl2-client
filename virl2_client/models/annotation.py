@@ -507,7 +507,7 @@ class Annotation:
     @check_stale
     def _remove_on_server(self) -> None:
         """Remove annotation on the server side."""
-        _LOGGER.info(f"Removing annotation {self}")
+        _LOGGER.info("Removing annotation %s", self)
         url = self._url_for("annotation")
         self._session.delete(url)
 
@@ -555,7 +555,7 @@ class Annotation:
         :param key: The name of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting annotation property {self} {key}: {val}")
+        _LOGGER.debug("Setting annotation property %s %s: %s", self, key, val)
         self._set_annotation_properties({key: val})
 
     @check_stale

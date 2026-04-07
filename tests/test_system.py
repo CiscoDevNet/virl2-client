@@ -165,6 +165,7 @@ def test_compute_host_identity() -> None:
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
     host = _new_compute_host(system, "c9")
+    assert "Compute host:" in str(host)
     assert host.compute_id == "c9"
     assert system._compute_hosts.get("missing") is None
 

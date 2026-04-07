@@ -456,7 +456,9 @@ class ClientLibrary:
         if self.VERSION.minor_lt(controller_version):
             _LOGGER.warning(
                 "Please ensure the client version is compatible with the controller "
-                f"version. Client {self.VERSION}, controller {controller_version}."
+                "version. Client %s, controller %s.",
+                self.VERSION,
+                controller_version,
             )
         return controller_version
 
@@ -772,7 +774,7 @@ class ClientLibrary:
         """Helper function to remove an unjoined lab from the server."""
         url = self._url_for("lab", lab_id=lab_id)
         response = self._session.delete(url)
-        _LOGGER.debug(f"Removed lab: {response.text}")
+        _LOGGER.debug("Removed lab: %s", response.text)
 
     @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:

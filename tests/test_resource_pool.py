@@ -159,6 +159,7 @@ def test_rp_repr() -> None:
         manager, "tpl", "tpl", "d", None, 1, 2, 3, 4, None, None, []
     )
     assert "ResourcePool(" in repr(template_pool)
+    assert "Resource pool:" in str(template_pool)
     assert template_pool.template is None
 
 

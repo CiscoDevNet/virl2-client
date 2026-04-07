@@ -126,7 +126,7 @@ class LabRepository:
 
     def remove(self) -> None:
         """Remove the lab repository from the server and local cache."""
-        _LOGGER.info(f"Removing lab repository {self}")
+        _LOGGER.info("Removing lab repository %s", self)
         url = self._url_for("lab_repo")
         self._session.delete(url)
 

@@ -123,6 +123,7 @@ def test_annotation_repr() -> None:
     lab = make_lab()
     annotation = AnnotationRectangle(lab, "a9")
     assert "AnnotationRectangle(" in repr(annotation)
+    assert "AnnotationRectangle:" in str(annotation)
 
 
 def test_annotation_equality() -> None:

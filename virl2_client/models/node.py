@@ -194,7 +194,7 @@ class Node:
         :returns: The formatted URL.
         """
         kwargs["lab"] = self._lab._url_for("lab")
-        kwargs["id"] = self.id
+        kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -845,7 +845,7 @@ class Node:
         :raises RuntimeError: If the node does not converge within the specified number
             of iterations.
         """
-        _LOGGER.info(f"Waiting for node {self.id} to converge.")
+        _LOGGER.info("Waiting for node %s to converge.", self._id)
         max_iter = (
             self._lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -853,16 +853,18 @@ class Node:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info(f"Node {self.id} has converged.")
+                _LOGGER.info("Node %s has converged.", self._id)
                 return
 
             if index % 10 == 0:
                 _LOGGER.info(
-                    f"Node has not converged, attempt {index}/{max_iter}, waiting..."
+                    "Node has not converged, attempt %s/%s, waiting...",
+                    index,
+                    max_iter,
                 )
             time.sleep(wait_time)
 
-        msg = f"Node {self.id} has not converged, maximum tries {max_iter} exceeded."
+        msg = f"Node {self._id} has not converged, maximum tries {max_iter} exceeded."
         _LOGGER.error(msg)
         # after maximum retries are exceeded and node has not converged
         # error must be raised - it makes no sense to just log info
@@ -983,7 +985,7 @@ class Node:
     @check_stale
     def _remove_on_server(self) -> None:
         """Remove the node from the server via the API."""
-        _LOGGER.info(f"Removing node {self}")
+        _LOGGER.info("Removing node %s", self)
         url = self._url_for("node")
         self._session.delete(url)
 
@@ -1222,7 +1224,7 @@ class Node:
         :param key: The key of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting node property {self} {key}: {val}")
+        _LOGGER.debug("Setting node property %s %s: %s", self, key, val)
         self._set_node_properties({key: val})
 
     @check_stale

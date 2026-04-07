@@ -325,7 +325,7 @@ class ResourcePool:
         :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["pool_id"] = self.id
+        kwargs["pool_id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -521,7 +521,7 @@ class ResourcePool:
 
     def remove(self) -> None:
         """Remove the resource pool."""
-        _LOGGER.info(f"Removing resource pool {self}")
+        _LOGGER.info("Removing resource pool %s", self)
         url = self._url_for("resource_pool")
         self._session.delete(url)
 
@@ -553,7 +553,7 @@ class ResourcePool:
         :param key: The property name.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting resource pool property {self} {key}: {val}")
+        _LOGGER.debug("Setting resource pool property %s %s: %s", self, key, val)
         self._set_resource_pool_properties({key: val})
 
     def _set_resource_pool_properties(self, resource_pool_data: dict[str, Any]) -> None:

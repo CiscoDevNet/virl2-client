@@ -286,7 +286,7 @@ class Link:
         :returns: A dictionary representation of the link object.
         """
         return {
-            "id": self.id,
+            "id": self._id,
             "interface_a": self.interface_a.id,
             "interface_b": self.interface_b.id,
         }
@@ -304,7 +304,7 @@ class Link:
         Remove the link on the server.
 
         """
-        _LOGGER.info(f"Removing link {self}")
+        _LOGGER.info("Removing link %s", self)
         url = self._url_for("link")
         self._session.delete(url)
 
@@ -319,7 +319,7 @@ class Link:
         :raises RuntimeError: If the link does not converge within the specified number
             of iterations.
         """
-        _LOGGER.info(f"Waiting for link {self.id} to converge")
+        _LOGGER.info("Waiting for link %s to converge", self._id)
         max_iter = (
             self._lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -327,16 +327,18 @@ class Link:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info(f"Link {self.id} has converged")
+                _LOGGER.info("Link %s has converged", self._id)
                 return
 
             if index % 10 == 0:
                 _LOGGER.info(
-                    f"Link has not converged, attempt {index}/{max_iter}, waiting..."
+                    "Link has not converged, attempt %s/%s, waiting...",
+                    index,
+                    max_iter,
                 )
             time.sleep(wait_time)
 
-        msg = f"Link {self.id} has not converged, maximum tries {max_iter} exceeded"
+        msg = f"Link {self._id} has not converged, maximum tries {max_iter} exceeded"
         _LOGGER.error(msg)
         # after maximum retries are exceeded and link has not converged
         # error must be raised - it makes no sense to just log info
@@ -534,7 +536,7 @@ class Link:
         if bpfilter is not None:
             data["bpfilter"] = bpfilter
 
-        _LOGGER.info(f"Starting packet capture on link {self._id}")
+        _LOGGER.info("Starting packet capture on link %s", self._id)
         return self._session.put(url, json=data).json()
 
     @check_stale
@@ -544,7 +546,7 @@ class Link:
 
         """
         url = self._url_for("capture_stop")
-        _LOGGER.info(f"Stopping packet capture on link {self._id}")
+        _LOGGER.info("Stopping packet capture on link %s", self._id)
         self._session.put(url)
 
     @check_stale
@@ -564,7 +566,7 @@ class Link:
         :returns: The PCAP file content as bytes.
         """
         url = self._url_for("pcap_file")
-        _LOGGER.info(f"Downloading PCAP for link {self._id}")
+        _LOGGER.info("Downloading PCAP for link %s", self._id)
         return self._session.get(url).content
 
     def get_capture_packets(self) -> list[dict[str, Any]]:
@@ -574,7 +576,7 @@ class Link:
         :returns: List of packet dictionaries with decoded packet information.
         """
         url = self._url_for("pcap_packets")
-        _LOGGER.info(f"Getting packet list for link {self._id}")
+        _LOGGER.info("Getting packet list for link %s", self._id)
         return self._session.get(url).json()
 
     def get_capture_packet(self, packet_id: int) -> dict[str, Any]:
@@ -585,5 +587,5 @@ class Link:
         :returns: Dictionary containing the decoded packet information.
         """
         url = self._url_for("pcap_packet", packet_id=packet_id)
-        _LOGGER.info(f"Downloading packet {packet_id} for link {self._id}")
+        _LOGGER.info("Downloading packet %s for link %s", packet_id, self._id)
         return self._session.get(url).json()

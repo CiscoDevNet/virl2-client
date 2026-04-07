@@ -366,10 +366,7 @@ class ClientLibrary:
 
         :raises InitializationError: If authentication fails.
         """
-        if new_auth:
-            url = self._url_for("auth")
-        else:
-            url = self._url_for("old_auth")
+        url = self._url_for("auth" if new_auth else "old_auth")
         try:
             response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
@@ -502,9 +499,7 @@ class ClientLibrary:
         :param path: The path to check.
         :returns: Whether the file is of VIRL version 1.x.
         """
-        if path.suffix == ".virl":
-            return True
-        return False
+        return path.suffix == ".virl"
 
     @locked
     def start_event_listening(self) -> None:
@@ -514,12 +509,11 @@ class ClientLibrary:
         To replace the default event handling mechanism,
         subclass EventHandler (or EventHandlerBase if necessary),
         then do::
-            from .event_listening import EventListener
             custom_listener = EventListener()
             custom_listener._event_handler = CustomHandler(client_library)
             client_library.event_listener = custom_listener
         """
-        from .event_listening import EventListener
+        from .event_listening import EventListener  # noqa: PLC0415
 
         if self.event_listener is None:
             self.event_listener = EventListener(self)
@@ -563,10 +557,7 @@ class ClientLibrary:
         title: str | None = None,
         virl_1x: bool = False,
     ) -> Lab:
-        if virl_1x:
-            url = self._url_for("import_1x")
-        else:
-            url = self._url_for("import")
+        url = self._url_for("import_1x" if virl_1x else "import")
         params = {"title": title} if title else None
         result = self._session.post(url, params=params, content=topology).json()
         lab_id = result.get("id")
@@ -938,7 +929,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
 
     # https://docs.python.org/3/library/urllib.parse.html
     # Following the syntax specifications in RFC 1808, urlparse recognizes
-    # a netloc only if it is properly introduced by ‘//’. Otherwise, the
+    # a netloc only if it is properly introduced by `//`. Otherwise, the
     # input is presumed to be a relative URL and thus to start with
     # a path component.
     if len(url_parts.netloc) == 0:

@@ -215,7 +215,7 @@ class EventHandlerBase(ABC):
         """
         # All other events are useless to the client, but in case some handling
         # needs to be done on them, this method can be overridden
-        pass
+        return
 
 
 class EventHandler(EventHandlerBase):

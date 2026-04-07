@@ -150,10 +150,7 @@ class SystemManagement:
         notice_id = None if notice is None else notice.id
         result: dict = self._session.patch(url, json={"notice": notice_id}).json()
         resolved = result["resolved_notice"]
-        if resolved is None:
-            notice = None
-        else:
-            notice = self._system_notices.get(resolved["id"])
+        notice = None if resolved is None else self._system_notices.get(resolved["id"])
         if notice is not None and resolved is not None:
             notice._update(resolved, push_to_server=False)
         self._maintenance_notice = notice

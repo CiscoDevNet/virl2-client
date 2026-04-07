@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -1267,9 +1268,9 @@ class Lab:
         :param nodes: Nodes to which to add the tag and smart annotation.
         :param kwargs: Keyword arguments with annotation property values.
             See models.SmartAnnotation for available properties.
+        :raises SmartAnnotationNotFound: If the smart annotation is not found.
         :returns: The created annotation.
         """
-        assert nodes
         for i, node in enumerate(nodes):
             if isinstance(node, str):
                 nodes[i] = self.get_node_by_id(node)
@@ -1605,13 +1606,11 @@ class Lab:
             result = self._session.get(url, params=params)
         except HTTPStatusError as exc:
             error_msg = exc.response.text
-            try:
+            # response.text was empty, not a JSON object, or not the expected
+            # JSON schema. Use the raw result text.
+            with contextlib.suppress(ValueError, TypeError, KeyError):
                 # Get the error message from the API's JSON error object.
                 error_msg = json.loads(error_msg)["description"]
-            except (ValueError, TypeError, KeyError):
-                # response.text was empty, not a JSON object, or not the expected
-                # JSON schema. Use the raw result text.
-                pass
             if (
                 exc.response.status_code == 404
                 and f"Lab not found: {self._id}" in exc.response.text

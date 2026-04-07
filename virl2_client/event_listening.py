@@ -171,19 +171,19 @@ class EventListener:
     async def _ws_client(self) -> None:
         """Run websocket client loop and enqueue received messages."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.ws_connect(
-                    self._ws_url, ssl=self._ssl_context
-                ) as ws:
-                    await ws.send_json(self._auth_data)
-                    self._connected = True
-                    _LOGGER.info("Connected successfully")
-                    self._ws_close = ws.close()
-                    self._ws_connected_event.set()
-                    async for msg in ws:
-                        self._queue.put_nowait(msg.data)
+            async with (
+                aiohttp.ClientSession() as session,
+                session.ws_connect(self._ws_url, ssl=self._ssl_context) as ws,
+            ):
+                await ws.send_json(self._auth_data)
+                self._connected = True
+                _LOGGER.info("Connected successfully")
+                self._ws_close = ws.close()
+                self._ws_connected_event.set()
+                async for msg in ws:
+                    self._queue.put_nowait(msg.data)
         except aiohttp.ClientError:
-            _LOGGER.error("Connection closed unexpectedly", exc_info=True)
+            _LOGGER.exception("Connection closed unexpectedly")
         finally:
             if self._ws_close is not None:
                 self._ws_close.close()

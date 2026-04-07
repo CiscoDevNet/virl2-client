@@ -19,7 +19,7 @@
 #
 import warnings
 
-from .group import *  # noqa
+from .group import *  # noqa: F403
 
 warnings.warn(
     "The module name 'virl2_client.models.groups' is deprecated. "

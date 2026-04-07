@@ -19,7 +19,7 @@
 #
 import warnings
 
-from .resource_pool import *  # noqa
+from .resource_pool import *  # noqa: F403
 
 warnings.warn(
     "The module name 'virl2_client.models.resource_pools' is deprecated. "

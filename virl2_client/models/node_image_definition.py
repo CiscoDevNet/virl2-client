@@ -334,7 +334,7 @@ def print_progress_bar(
     raw_elapsed = time.time() - start_time
     elapsed = time.strftime("[%H:%M:%S]", time.gmtime(raw_elapsed))
     print(
-        "\r |{}| {}/{} {}% {}".format(bar, cur, total, percent, elapsed),
+        f"\r |{bar}| {cur}/{total} {percent}% {elapsed}",
         end="",
         flush=True,
     )

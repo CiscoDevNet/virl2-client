@@ -39,20 +39,20 @@ from .system import SystemManagement
 from .user import UserManagement
 
 __all__ = (
+    "Annotation",
+    "AuthManagement",
+    "GroupManagement",
     "Interface",
     "Lab",
     "LabRepository",
     "LabRepositoryManagement",
+    "Licensing",
     "Link",
     "Node",
     "NodeImageDefinitions",
-    "Licensing",
-    "SystemManagement",
-    "UserManagement",
-    "GroupManagement",
-    "TokenAuth",
     "ResourcePoolManagement",
-    "AuthManagement",
-    "Annotation",
     "SmartAnnotation",
+    "SystemManagement",
+    "TokenAuth",
+    "UserManagement",
 )

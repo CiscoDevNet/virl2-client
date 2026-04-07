@@ -216,7 +216,7 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
-    def _is_connected(self, pyats_device: "Device") -> bool:
+    def _is_connected(self, pyats_device: Device) -> bool:
         """Check whether a pyATS device is currently connected.
 
         :param pyats_device: Device instance to inspect.
@@ -230,7 +230,7 @@ class ClPyats:
         except (TypeError, AttributeError):
             return False
 
-    def _reconnect(self, pyats_device: "Device", params: dict[str, Any]) -> None:
+    def _reconnect(self, pyats_device: Device, params: dict[str, Any]) -> None:
         """Reconnect a pyATS device with cleanup around connect calls.
 
         :param pyats_device: Device instance to reconnect.
@@ -283,7 +283,7 @@ class ClPyats:
             raise RuntimeError("pyATS testbed is not initialized")
 
         try:
-            pyats_device: "Device" = self._testbed.devices[node_label]
+            pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
             raise PyatsDeviceNotFound(node_label)
 
@@ -398,13 +398,13 @@ class ClPyats:
         if self._testbed is None:
             return
         try:
-            pyats_device: "Device" = self._testbed.devices[node_label]
+            pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
             return
         if pyats_device in self._connections:
             self._destroy_device(pyats_device)
 
-    def _destroy_device(self, pyats_device: "Device", raise_exc: bool = True) -> None:
+    def _destroy_device(self, pyats_device: Device, raise_exc: bool = True) -> None:
         """Destroy a device connection and forget local tracking state.
 
         :param pyats_device: Device instance to destroy.
@@ -439,7 +439,7 @@ def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
     return should_raise, retry_reason
 
 
-def _remove_unicon_loggers(pyats_device: "Device") -> None:
+def _remove_unicon_loggers(pyats_device: Device) -> None:
     """Prevent unicon logger instances and placeholders from accumulating.
 
     :param pyats_device: Device with active/previous unicon connections.

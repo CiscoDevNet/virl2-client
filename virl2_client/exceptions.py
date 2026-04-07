@@ -153,3 +153,7 @@ class APIError(VirlException, httpx.HTTPStatusError):
     """Raised when the CML REST API returns an HTTP error response."""
 
     pass
+
+
+class FeatureNotSupported(VirlException):
+    pass

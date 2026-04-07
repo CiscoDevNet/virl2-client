@@ -23,7 +23,6 @@ from __future__ import annotations
 import getpass
 import logging
 import os
-import re
 import sys
 import time
 import warnings
@@ -49,86 +48,10 @@ from .models import (
     UserManagement,
 )
 from .models.authentication import make_session
-from .utils import get_url_from_template, locked
+from .utils import Version, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
 cached = lru_cache(maxsize=None)  # cache results forever
-
-
-class Version:
-    """Represents a semantic version string (major.minor.patch)."""
-
-    __slots__ = ("version_str", "major", "minor", "patch")
-
-    def __init__(self, version_str: str) -> None:
-        self.version_str = version_str
-        version_tuple = self.parse_version_str(version_str)
-        self.major = int(version_tuple[0])
-        self.minor = int(version_tuple[1])
-        self.patch = int(version_tuple[2])
-
-    @staticmethod
-    def parse_version_str(version_str: str) -> tuple[str, str, str, str]:
-        """Parse a version string into its components.
-
-        :param version_str: A version string in the form major.minor.patch[extra].
-        :returns: A 4-tuple of (major, minor, patch, extra) as strings.
-        :raises ValueError: If the version string does not match the expected format.
-        """
-        regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
-        res = re.findall(regex, version_str)
-        if not res:
-            raise ValueError("Malformed version string.")
-        return res[0]
-
-    def __repr__(self) -> str:
-        return self.version_str
-
-    def _as_tuple(self) -> tuple[int, int, int]:
-        return (self.major, self.minor, self.patch)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Version):
-            return False
-        return self._as_tuple() == other._as_tuple()
-
-    def __gt__(self, other: object) -> bool:
-        if not isinstance(other, Version):
-            return False
-        return self._as_tuple() > other._as_tuple()
-
-    def __ge__(self, other: object) -> bool:
-        if not isinstance(other, Version):
-            return False
-        return self._as_tuple() >= other._as_tuple()
-
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, Version):
-            return False
-        return self._as_tuple() < other._as_tuple()
-
-    def __le__(self, other: object) -> bool:
-        if not isinstance(other, Version):
-            return False
-        return self._as_tuple() <= other._as_tuple()
-
-    def major_differs(self, other: Version) -> bool:
-        return self.major != other.major
-
-    def major_lt(self, other: Version) -> bool:
-        return self.major < other.major
-
-    def minor_differs(self, other: Version) -> bool:
-        return self.minor != other.minor
-
-    def minor_lt(self, other: Version) -> bool:
-        return self.minor < other.minor
-
-    def patch_differs(self, other: Version) -> bool:
-        return self.patch != other.patch
-
-    def minor_or_patch_differs(self, other: Version) -> bool:
-        return self.minor_differs(other) or self.patch_differs(other)
 
 
 class ClientConfig(NamedTuple):
@@ -258,7 +181,7 @@ class ClientConfig(NamedTuple):
         jwtoken: str | None,
         ssl_verify: bool | str | None,
         allow_inputs: bool | None = None,
-    ) -> "ClientConfig":
+    ) -> ClientConfig:
         config = {
             "url": url,
             "username": username,
@@ -371,8 +294,7 @@ class ClientLibrary:
             self._session = make_session(base_url, ssl_verify, client_type)
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
-        # checks version from system_info against self.VERSION
-        controller_version = self.check_controller_version()
+        self._session.controller_version = self.check_controller_version()
 
         self._session.auth = TokenAuth(self)
         # Note: session.auth is defined in the httpx module to be of type Auth,
@@ -404,7 +326,9 @@ class ClientLibrary:
         )
 
         try:
-            self._make_test_auth_call(controller_version >= Version("2.10.0"))
+            self._make_test_auth_call(
+                self._session.controller_version >= Version("2.10.0")
+            )
         except InitializationError as exc:
             if raise_for_auth_failure:
                 raise
@@ -494,25 +418,29 @@ class ClientLibrary:
         url = self._url_for("system_info")
         return self._session.get(url).json()
 
-    def check_controller_version(self) -> Version | None:
+    def check_controller_version(self) -> Version:
         """
         Check remote controller version against current client version
         (specified in self.VERSION and support last 3 minor versions).
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
-        These all are disabled if self.check_version attribute is set to False.
+        Compatibility validation is disabled if `self.check_version` attribute
+        is set to False, but the version is always parsed and returned.
 
-        :raises InitializationError: If the controller version is incompatible.
+        :raises InitializationError: If the controller version is unparseable
+            or incompatible.
+        :returns: The controller version.
         """
         controller_version_str = self.system_info().get("version", "")
         try:
             controller_version = Version(controller_version_str)
         except (TypeError, ValueError):
-            _LOGGER.warning(f"Invalid version detected: {controller_version_str}!")
-            return None
+            raise InitializationError(
+                f"Controller returned invalid version: {controller_version_str}"
+            )
 
         if not self.check_version:
-            return None
+            return controller_version
 
         if self.VERSION.major_lt(controller_version):
             raise InitializationError(

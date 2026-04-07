@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from ..exceptions import LabRepositoryNotFound
-from ..utils import get_url_from_template
+from ..utils import _requires_version, get_url_from_template
 
 if TYPE_CHECKING:
     from .system import SystemManagement
@@ -81,7 +81,7 @@ class LabRepository:
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
-    def id(self) -> str:  # noqa: A003
+    def id(self) -> str:
         """Return the ID of the lab repository.
 
         :returns: The unique repository identifier.
@@ -205,8 +205,12 @@ class LabRepositoryManagement:
         ):
             self.sync_lab_repositories()
 
+    @_requires_version("2.9.0")
     def sync_lab_repositories(self) -> None:
-        """Synchronize lab repositories from the server."""
+        """Synchronize lab repositories from the server.
+
+        Requires CML server >= 2.9.
+        """
         url = self._url_for("lab_repos")
         lab_repositories = self._session.get(url).json()
         lab_repository_ids = []
@@ -222,18 +226,24 @@ class LabRepositoryManagement:
                 self._lab_repositories.pop(repo_id)
         self._last_sync_lab_repository_time = time.time()
 
+    @_requires_version("2.9.0")
     def get_lab_repositories(self) -> list[dict[str, Any]]:
         """
         Get the list of configured lab repositories.
+
+        Requires CML server >= 2.9.
 
         :returns: A list of lab repository objects.
         """
         url = self._url_for("lab_repos")
         return self._session.get(url).json()
 
+    @_requires_version("2.9.0")
     def add_lab_repository(self, url: str, name: str, folder: str) -> dict[str, Any]:
         """
         Add a lab repository.
+
+        Requires CML server >= 2.9.
 
         :param url: The URL of the lab repository.
         :param name: The name of the lab repository.
@@ -247,9 +257,12 @@ class LabRepositoryManagement:
         self.add_lab_repository_local(**result)
         return result
 
+    @_requires_version("2.9.0")
     def refresh_lab_repositories(self) -> dict[str, dict[str, Any]]:
         """
         Performs a git pull on each configured lab repository and returns the result.
+
+        Requires CML server >= 2.9.
 
         :returns: A dictionary containing the refresh status for each repository.
         """

@@ -38,9 +38,7 @@ import pytest
     ],
 )
 def test_deprecated_alias_warns(module_name: str) -> None:
-    """Verify importing alias modules emits UserWarning (not DeprecationWarning).
-
-    NOTE: LLM-generated test -- verify for correctness.
+    """Verify importing alias modules emits UserWarning.
 
     :param module_name: Deprecated alias module path to import.
     """

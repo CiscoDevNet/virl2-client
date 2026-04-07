@@ -203,6 +203,7 @@ class ClientConfig(NamedTuple):
                 "Interactive inputs are deprecated when stdin is not a TTY. "
                 "In the future, allow_inputs will default to False in such cases.",
                 DeprecationWarning,
+                stacklevel=2,
             )
         if allow_inputs is not False:
             cls._populate_from_inputs(config)
@@ -846,6 +847,7 @@ class ClientLibrary:
                 "'DiagnosticsCategory.USER_LIST' is deprecated. "
                 "Use UserManagement.users() instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
         if DiagnosticsCategory.ALL in categories:
             categories = list(DiagnosticsCategory)[1:]

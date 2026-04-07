@@ -210,6 +210,7 @@ class UserManagement:
                 "Using boolean or None values for opt_in are deprecated. "
                 f"Use one of {[str(status) for status in OptInStatus]} instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
             if opt_in is None:
                 opt_in = OptInStatus.UNSET

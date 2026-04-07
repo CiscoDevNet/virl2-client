@@ -368,24 +368,24 @@ def test_client_get_host_rt() -> None:
 
 
 def test_check_version_invalid_str_rt() -> None:
-    """check_controller_version returns None for invalid version string.
+    """check_controller_version raises InitializationError for invalid version string."""
+    from virl2_client.virl2_client import InitializationError
 
-    NOTE: LLM-generated test -- verify for correctness.
-    """
     client = _make_client()
     client._session.get.return_value.json.return_value = {"version": "not-a-version"}
-    assert client.check_controller_version() is None
+    with pytest.raises(InitializationError, match="invalid version"):
+        client.check_controller_version()
 
 
 def test_check_version_disabled_rt() -> None:
-    """check_controller_version skips when check_version=False.
+    """check_controller_version returns parsed Version when check_version=False."""
+    from virl2_client.utils import Version
 
-    NOTE: LLM-generated test -- verify for correctness.
-    """
     client = _make_client()
     client.check_version = False
     client._session.get.return_value.json.return_value = {"version": "2.10.0"}
-    assert client.check_controller_version() is None
+    result = client.check_controller_version()
+    assert result == Version("2.10.0")
 
 
 def test_check_version_major_mismatch_rt() -> None:

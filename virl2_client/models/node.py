@@ -31,6 +31,7 @@ import httpx
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import (
     UNCHANGED,
+    _requires_version,
     _Sentinel,
     check_stale,
     get_url_from_template,
@@ -917,9 +918,12 @@ class Node:
             self.wait_until_converged()
 
     @check_stale
+    @_requires_version("2.9.0")
     def clone_image(self) -> dict[str, Any]:
         """
         Clone the node's disks into a new Image definition.
+
+        Requires CML server >= 2.9.
 
         :returns: The new image definition data from the server.
         """

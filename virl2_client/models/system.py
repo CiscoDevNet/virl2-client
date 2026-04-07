@@ -624,7 +624,7 @@ class SystemNotice:
     def __init__(
         self,
         system: SystemManagement,
-        id: str,
+        notice_id: str,
         level: str,
         label: str,
         content: str,
@@ -636,7 +636,7 @@ class SystemNotice:
         A system notice, which notifies users of maintenance or other events.
 
         :param system: The SystemManagement instance.
-        :param id: The ID of the system notice.
+        :param notice_id: The ID of the system notice.
         :param level: The level of the system notice.
         :param label: The label of the system notice.
         :param content: The content of the system notice.
@@ -646,7 +646,7 @@ class SystemNotice:
         """
         self._system = system
         self._session: httpx.Client = system._session
-        self._id = id
+        self._id = notice_id
         self._level = level
         self._label = label
         self._content = content

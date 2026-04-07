@@ -843,9 +843,11 @@ def test_check_version_skip_paths(
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     cl.check_version = False
     with patch.object(cl, "system_info", return_value={"version": "2.0.0"}):
-        assert cl.check_controller_version() is None
+        result = cl.check_controller_version()
+        assert result == Version("2.0.0")
     with patch.object(cl, "system_info", return_value={"version": object()}):
-        assert cl.check_controller_version() is None
+        with pytest.raises(InitializationError, match="invalid version"):
+            cl.check_controller_version()
 
 
 def test_join_lab_propagates_error(

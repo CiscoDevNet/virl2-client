@@ -133,7 +133,7 @@ class Interface:
         :returns: The formatted URL.
         """
         kwargs["lab"] = self.node._lab._url_for("lab")
-        kwargs["id"] = self.id
+        kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -358,7 +358,7 @@ class Interface:
         :returns: Dict with id, node, data keys.
         """
         return {
-            "id": self.id,
+            "id": self._id,
             "node": self.node.id,
             "data": {
                 "lab_id": self.node._lab.id,
@@ -394,7 +394,7 @@ class Interface:
 
         This method is internal and should not be used directly. Use 'remove' instead.
         """
-        _LOGGER.info(f"Removing interface {self}")
+        _LOGGER.info("Removing interface %s", self)
         url = self._url_for("interface")
         self._session.delete(url)
 
@@ -437,7 +437,7 @@ class Interface:
         :param key: The key of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting interface property {self} {key}: {val}")
+        _LOGGER.debug("Setting interface property %s %s: %s", self, key, val)
         self._set_interface_properties({key: val})
 
     @check_stale

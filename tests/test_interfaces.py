@@ -204,6 +204,7 @@ def test_interface_identity() -> None:
     interface = lab._create_interface_local("if1", "eth0", node, 0)
     assert (interface == object()) is False
     assert "Interface(" in repr(interface)
+    assert "Interface:" in str(interface)
     assert hash(interface) == hash(interface.id)
 
 

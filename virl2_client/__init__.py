@@ -23,11 +23,11 @@ from .exceptions import InterfaceNotFound, LabNotFound, LinkNotFound, NodeNotFou
 from .virl2_client import ClientConfig, ClientLibrary, InitializationError
 
 __all__ = [
+    "ClientConfig",
+    "ClientLibrary",
+    "InitializationError",
     "InterfaceNotFound",
     "LabNotFound",
     "LinkNotFound",
     "NodeNotFound",
-    "ClientConfig",
-    "ClientLibrary",
-    "InitializationError",
 ]

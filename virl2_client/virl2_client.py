@@ -203,6 +203,7 @@ class ClientConfig(NamedTuple):
                 "Interactive inputs are deprecated when stdin is not a TTY. "
                 "In the future, allow_inputs will default to False in such cases.",
                 DeprecationWarning,
+                stacklevel=2,
             )
         if allow_inputs is not False:
             cls._populate_from_inputs(config)
@@ -365,10 +366,7 @@ class ClientLibrary:
 
         :raises InitializationError: If authentication fails.
         """
-        if new_auth:
-            url = self._url_for("auth")
-        else:
-            url = self._url_for("old_auth")
+        url = self._url_for("auth" if new_auth else "old_auth")
         try:
             response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
@@ -455,7 +453,9 @@ class ClientLibrary:
         if self.VERSION.minor_lt(controller_version):
             _LOGGER.warning(
                 "Please ensure the client version is compatible with the controller "
-                f"version. Client {self.VERSION}, controller {controller_version}."
+                "version. Client %s, controller %s.",
+                self.VERSION,
+                controller_version,
             )
         return controller_version
 
@@ -499,9 +499,7 @@ class ClientLibrary:
         :param path: The path to check.
         :returns: Whether the file is of VIRL version 1.x.
         """
-        if path.suffix == ".virl":
-            return True
-        return False
+        return path.suffix == ".virl"
 
     @locked
     def start_event_listening(self) -> None:
@@ -511,12 +509,11 @@ class ClientLibrary:
         To replace the default event handling mechanism,
         subclass EventHandler (or EventHandlerBase if necessary),
         then do::
-            from .event_listening import EventListener
             custom_listener = EventListener()
             custom_listener._event_handler = CustomHandler(client_library)
             client_library.event_listener = custom_listener
         """
-        from .event_listening import EventListener
+        from .event_listening import EventListener  # noqa: PLC0415
 
         if self.event_listener is None:
             self.event_listener = EventListener(self)
@@ -560,10 +557,7 @@ class ClientLibrary:
         title: str | None = None,
         virl_1x: bool = False,
     ) -> Lab:
-        if virl_1x:
-            url = self._url_for("import_1x")
-        else:
-            url = self._url_for("import")
+        url = self._url_for("import_1x" if virl_1x else "import")
         params = {"title": title} if title else None
         result = self._session.post(url, params=params, content=topology).json()
         lab_id = result.get("id")
@@ -771,7 +765,7 @@ class ClientLibrary:
         """Helper function to remove an unjoined lab from the server."""
         url = self._url_for("lab", lab_id=lab_id)
         response = self._session.delete(url)
-        _LOGGER.debug(f"Removed lab: {response.text}")
+        _LOGGER.debug("Removed lab: %s", response.text)
 
     @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:
@@ -846,6 +840,7 @@ class ClientLibrary:
                 "'DiagnosticsCategory.USER_LIST' is deprecated. "
                 "Use UserManagement.users() instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
         if DiagnosticsCategory.ALL in categories:
             categories = list(DiagnosticsCategory)[1:]
@@ -934,7 +929,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
 
     # https://docs.python.org/3/library/urllib.parse.html
     # Following the syntax specifications in RFC 1808, urlparse recognizes
-    # a netloc only if it is properly introduced by ‘//’. Otherwise, the
+    # a netloc only if it is properly introduced by `//`. Otherwise, the
     # input is presumed to be a relative URL and thus to start with
     # a path component.
     if len(url_parts.netloc) == 0:

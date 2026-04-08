@@ -96,6 +96,7 @@ def test_smart_annotation_identity() -> None:
     annotation = SmartAnnotation(lab, "s2")
     annotation._tag = "edge"
     assert "SmartAnnotation(" in repr(annotation)
+    assert "SmartAnnotation:" in str(annotation)
     assert (annotation == object()) is False
     assert annotation == SmartAnnotation(lab, "s2")
     assert hash(annotation) == hash("s2")

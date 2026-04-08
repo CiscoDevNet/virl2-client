@@ -428,7 +428,7 @@ class SmartAnnotation:
     @check_stale
     def _remove_on_server(self) -> None:
         """Remove smart annotation on the server side along with its tag."""
-        _LOGGER.info(f"Removing smart annotation {self}")
+        _LOGGER.info("Removing smart annotation %s", self)
         tag = self._tag
         nodes = self._lab.find_nodes_by_tag(tag)
         for node in nodes:
@@ -475,7 +475,7 @@ class SmartAnnotation:
         :param key: The name of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting smart annotation property {self} {key}: {val}")
+        _LOGGER.debug("Setting smart annotation property %s %s: %s", self, key, val)
         self._set_smart_annotation_properties({key: val})
 
     @check_stale

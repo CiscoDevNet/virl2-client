@@ -150,10 +150,7 @@ class SystemManagement:
         notice_id = None if notice is None else notice.id
         result: dict = self._session.patch(url, json={"notice": notice_id}).json()
         resolved = result["resolved_notice"]
-        if resolved is None:
-            notice = None
-        else:
-            notice = self._system_notices.get(resolved["id"])
+        notice = None if resolved is None else self._system_notices.get(resolved["id"])
         if notice is not None and resolved is not None:
             notice._update(resolved, push_to_server=False)
         self._maintenance_notice = notice
@@ -575,7 +572,7 @@ class ComputeHost:
 
     def remove(self) -> None:
         """Remove the compute host."""
-        _LOGGER.info(f"Removing compute host {self}")
+        _LOGGER.info("Removing compute host %s", self)
         url = self._url_for("compute_host")
         self._session.delete(url)
 
@@ -605,7 +602,7 @@ class ComputeHost:
         :param key: The property key.
         :param val: The new value for the property.
         """
-        _LOGGER.debug(f"Setting compute host property {self} {key}: {val}")
+        _LOGGER.debug("Setting compute host property %s %s: %s", self, key, val)
         self._set_compute_host_properties({key: val})
 
     def _set_compute_host_properties(self, host_data: dict[str, Any]) -> None:
@@ -729,7 +726,7 @@ class SystemNotice:
 
     def remove(self) -> None:
         """Remove the system notice."""
-        _LOGGER.info(f"Removing system notice {self}")
+        _LOGGER.info("Removing system notice %s", self)
         url = self._url_for("notice")
         self._session.delete(url)
 
@@ -759,7 +756,7 @@ class SystemNotice:
         :param key: The property key.
         :param val: The new value for the property.
         """
-        _LOGGER.debug(f"Setting system notice property {self} {key}: {val}")
+        _LOGGER.debug("Setting system notice property %s %s: %s", self, key, val)
         self._set_notice_properties({key: val})
 
     def _set_notice_properties(self, notice_data: dict[str, Any]) -> None:

@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -752,7 +753,7 @@ class Lab:
         """
         try:
             self.get_node_by_label(label)
-            _LOGGER.warning(f"Node with label {label} already exists.")
+            _LOGGER.warning("Node with label %s already exists.", label)
         except NodeNotFound:
             pass
 
@@ -826,7 +827,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"{node._id} node removed from lab {self._id}")
+        _LOGGER.debug("%s node removed from lab %s", node._id, self._id)
 
     @locked
     def _remove_node_local(self, node: Node) -> None:
@@ -861,7 +862,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"all nodes removed from lab {self._id}")
+        _LOGGER.debug("all nodes removed from lab %s", self._id)
 
     @check_stale
     @locked
@@ -884,7 +885,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"link {link._id} removed from lab {self._id}")
+        _LOGGER.debug("link %s removed from lab %s", link._id, self._id)
 
     @locked
     def _remove_link_local(self, link: Link) -> None:
@@ -925,7 +926,7 @@ class Lab:
 
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"interface {iface._id} removed from lab {self._id}")
+        _LOGGER.debug("interface %s removed from lab %s", iface._id, self._id)
 
     @locked
     def _remove_interface_local(self, iface: Interface) -> None:
@@ -1267,9 +1268,9 @@ class Lab:
         :param nodes: Nodes to which to add the tag and smart annotation.
         :param kwargs: Keyword arguments with annotation property values.
             See models.SmartAnnotation for available properties.
+        :raises SmartAnnotationNotFound: If the smart annotation is not found.
         :returns: The created annotation.
         """
-        assert nodes
         for i, node in enumerate(nodes):
             if isinstance(node, str):
                 nodes[i] = self.get_node_by_id(node)
@@ -1417,20 +1418,22 @@ class Lab:
             self.wait_max_iterations if max_iterations is None else max_iterations
         )
         local_wait_time = float(self.wait_time if wait_time is None else wait_time)
-        _LOGGER.info(f"Waiting for lab {self._id} to converge.")
+        _LOGGER.info("Waiting for lab %s to converge.", self._id)
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info(f"Lab {self._id} has booted.")
+                _LOGGER.info("Lab %s has booted.", self._id)
                 return
 
             if index % 10 == 0:
                 _LOGGER.info(
-                    f"Lab has not converged, attempt {index}/{max_iter}, waiting..."
+                    "Lab has not converged, attempt %s/%s, waiting...",
+                    index,
+                    max_iter,
                 )
             time.sleep(local_wait_time)
 
-        msg = f"Lab {self.id} has not converged, maximum tries {max_iter} exceeded."
+        msg = f"Lab {self._id} has not converged, maximum tries {max_iter} exceeded."
         _LOGGER.error(msg)
         # After maximum retries are exceeded and lab has not converged,
         # an error must be raised - it makes no sense to just log info
@@ -1461,7 +1464,7 @@ class Lab:
         self._session.put(url)
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"Started lab: {self._id}")
+        _LOGGER.debug("Started lab: %s", self._id)
 
     @check_stale
     def stop(self, wait: bool | None = None) -> None:
@@ -1476,7 +1479,7 @@ class Lab:
         self.cleanup_pyats_connections()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"Stopped lab: {self._id}")
+        _LOGGER.debug("Stopped lab: %s", self._id)
 
     @check_stale
     def state(self) -> str:
@@ -1491,7 +1494,7 @@ class Lab:
             response = self._session.get(url)
             self._state = response.json()
 
-        _LOGGER.debug(f"lab state: {self._id} -> {self._state}")
+        _LOGGER.debug("lab state: %s -> %s", self._id, self._state)
         return self._state
 
     def is_active(self) -> bool:
@@ -1511,7 +1514,7 @@ class Lab:
         """
         url = self._url_for("lab")
         response = self._session.get(url)
-        _LOGGER.debug(f"lab state: {self._id} -> {response.text}")
+        _LOGGER.debug("lab state: %s -> %s", self._id, response.text)
         return response.json()
 
     @check_stale
@@ -1526,7 +1529,7 @@ class Lab:
         self._session.put(url)
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
-        _LOGGER.debug(f"wiped lab: {self._id}")
+        _LOGGER.debug("wiped lab: %s", self._id)
 
     def remove(self) -> None:
         """
@@ -1537,7 +1540,7 @@ class Lab:
         """
         url = self._url_for("lab")
         response = self._session.delete(url)
-        _LOGGER.debug(f"Removed lab: {response.text}")
+        _LOGGER.debug("Removed lab: %s", response.text)
         self._stale = True
 
     @check_stale
@@ -1603,13 +1606,11 @@ class Lab:
             result = self._session.get(url, params=params)
         except HTTPStatusError as exc:
             error_msg = exc.response.text
-            try:
+            # response.text was empty, not a JSON object, or not the expected
+            # JSON schema. Use the raw result text.
+            with contextlib.suppress(ValueError, TypeError, KeyError):
                 # Get the error message from the API's JSON error object.
                 error_msg = json.loads(error_msg)["description"]
-            except (ValueError, TypeError, KeyError):
-                # response.text was empty, not a JSON object, or not the expected
-                # JSON schema. Use the raw result text.
-                pass
             if (
                 exc.response.status_code == 404
                 and f"Lab not found: {self._id}" in exc.response.text
@@ -1992,27 +1993,27 @@ class Lab:
         """
         for link_id in removed_links:
             link = self._links.pop(link_id)
-            _LOGGER.info(f"Removed link {link}")
+            _LOGGER.info("Removed link %s", link)
             link._stale = True
 
         for interface_id in removed_interfaces:
             interface = self._interfaces.pop(interface_id)
-            _LOGGER.info(f"Removed interface {interface}")
+            _LOGGER.info("Removed interface %s", interface)
             interface._stale = True
 
         for node_id in removed_nodes:
             node = self._nodes.pop(node_id)
-            _LOGGER.info(f"Removed node {node}")
+            _LOGGER.info("Removed node %s", node)
             node._stale = True
 
         for ann_id in removed_annotations:
             annotation = self._annotations.pop(ann_id)
-            _LOGGER.info(f"Removed annotation {annotation}")
+            _LOGGER.info("Removed annotation %s", annotation)
             annotation._stale = True
 
         for smart_ann_id in removed_smart_annotations:
             smart_annotation = self._smart_annotations.pop(smart_ann_id)
-            _LOGGER.info(f"Removed smart annotation {smart_annotation}")
+            _LOGGER.info("Removed smart annotation %s", smart_annotation)
             smart_annotation._stale = True
 
     @locked
@@ -2058,7 +2059,7 @@ class Lab:
             interfaces = node.get("interfaces") or []
             if node_id in new_nodes:
                 new_node = self._import_node(node_id, node)
-                _LOGGER.info(f"Added node {new_node}")
+                _LOGGER.info("Added node %s", new_node)
 
             if not interfaces:
                 continue
@@ -2067,7 +2068,7 @@ class Lab:
                 interface_id = interface["id"]
                 if interface_id in new_interfaces:
                     interface = self._import_interface(interface_id, node_id, interface)
-                    _LOGGER.info(f"Added interface {interface}")
+                    _LOGGER.info("Added interface %s", interface)
 
     @locked
     def _add_interfaces(self, topology: dict, new_interfaces: Iterable[str]) -> None:
@@ -2098,7 +2099,7 @@ class Lab:
             iface_b_id = link_data["interface_b"]
             label = link_data.get("label")
             link = self._import_link(link_id, iface_a_id, iface_b_id, label)
-            _LOGGER.info(f"Added link {link}")
+            _LOGGER.info("Added link %s", link)
 
     @locked
     def _add_annotations(self, topology: dict, new_annotations: Iterable[str]) -> None:
@@ -2111,7 +2112,7 @@ class Lab:
         for ann_id in new_annotations:
             annotation_data = self._find_annotation_in_topology(ann_id, topology)
             annotation = self._import_annotation(ann_id, annotation_data)
-            _LOGGER.info(f"Added annotation {annotation}")
+            _LOGGER.info("Added annotation %s", annotation)
 
     @locked
     def _add_smart_annotations(
@@ -2126,7 +2127,7 @@ class Lab:
         for ann_id in new_smart_annotations:
             annotation_data = self._find_smart_annotation_in_topology(ann_id, topology)
             annotation = self._import_smart_annotation(ann_id, annotation_data)
-            _LOGGER.info(f"Added annotation {annotation}")
+            _LOGGER.info("Added annotation %s", annotation)
 
     @locked
     def _update_elements(

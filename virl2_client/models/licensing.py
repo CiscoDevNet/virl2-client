@@ -112,7 +112,7 @@ class Licensing:
         url = self._url_for("transport")
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
         response = self._session.put(url, json=data)
-        _LOGGER.info(f"The transport configuration has been accepted. Config: {data}.")
+        _LOGGER.info("The transport configuration has been accepted. Config: %s.", data)
         return response.status_code == 204
 
     def set_default_transport(self) -> bool:
@@ -210,6 +210,7 @@ class Licensing:
             "'Licensing.features()' is deprecated. "
             "Use '.status()[\"features\"]' instead.",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.status().get("features")
 
@@ -229,7 +230,7 @@ class Licensing:
         url = self._url_for("reservation_action", action="mode")
         self._session.put(url, json=data)
         msg = "enabled" if data else "disabled"
-        _LOGGER.info(f"The reservation mode has been {msg}.")
+        _LOGGER.info("The reservation mode has been %s.", msg)
 
     def enable_reservation_mode(self) -> None:
         """Enable reservation mode in unregistered agent."""
@@ -355,5 +356,5 @@ class Licensing:
                     f"after {timeout} secs. Last status was {status}"
                 )
             status = self.status()[what]["status"]
-            _LOGGER.debug(f"{what} status: {status}")
+            _LOGGER.debug("%s status: %s", what, status)
             count += 1

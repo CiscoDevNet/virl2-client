@@ -416,6 +416,7 @@ def test_node_equality_and_repr() -> None:
 
     assert (node == object()) is False
     assert "Node(" in repr(node)
+    assert "Node:" in str(node)
     assert hash(node) == hash(node.id)
     assert node.lab is lab
     cfg_node = Node(lab, "n3", "node3", "iosv", configuration="line-1")

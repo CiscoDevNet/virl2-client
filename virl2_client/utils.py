@@ -333,6 +333,7 @@ def _deprecated_argument(
             f"{type(func.__self__).__name__}.{func.__name__}: "
             f"The argument '{argument_name}' is deprecated. Reason: {reason}",
             DeprecationWarning,
+            stacklevel=2,
         )
 
 

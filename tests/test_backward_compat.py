@@ -34,19 +34,15 @@ Tests cover:
 
 from __future__ import annotations
 
-import json
-from unittest.mock import MagicMock, Mock, patch
-
 import httpx
 import pytest
 import respx
 
-from virl2_client.exceptions import APIError, FeatureNotSupported
+from virl2_client.exceptions import FeatureNotSupported
 from virl2_client.models import Lab
-from virl2_client.models.authentication import CustomClient
 from virl2_client.models.lab_repository import LabRepositoryManagement
 from virl2_client.models.resource_pool import ResourcePoolManagement
-from virl2_client.models.system import ComputeHost, SystemManagement
+from virl2_client.models.system import SystemManagement
 from virl2_client.models.user import UserManagement
 from virl2_client.virl2_client import ClientLibrary, Version
 

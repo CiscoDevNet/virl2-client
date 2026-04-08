@@ -90,9 +90,9 @@ class TokenAuth(httpx.Auth):
         base_url = self.client_library._session.base_url
         if not self.client_library.allow_http:
             if base_url.port is not None and base_url.port != 443:
-                _LOGGER.warning(f"Not using SSL port of 443: {base_url.port:d}")
+                _LOGGER.warning("Not using SSL port of 443: %s", base_url.port)
             if base_url.scheme != "https":
-                _LOGGER.warning(f"Not using https scheme: {base_url.scheme}")
+                _LOGGER.warning("Not using https scheme: %s", base_url.scheme)
         data = {
             "username": self.client_library.username,
             "password": self.client_library.password,

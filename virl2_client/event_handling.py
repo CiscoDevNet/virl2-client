@@ -113,7 +113,7 @@ class EventHandlerBase(ABC):
             self._handle_lab_state(event)
         else:
             # There are only four subtypes, anything else is invalid
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning("Received an invalid event. %s", event)
 
     @abstractmethod
     def _handle_lab_created(self, event: Event) -> None:
@@ -159,7 +159,7 @@ class EventHandlerBase(ABC):
         """
         if event.element_type in ("annotation", "connectormapping"):
             # These are not used in this client library
-            _LOGGER.debug(f"Received an unused element type: {event.data}")
+            _LOGGER.debug("Received an unused element type: %s", event.data)
         elif event.subtype == "created":
             self._handle_element_created(event)
         elif event.subtype == "modified":
@@ -169,7 +169,7 @@ class EventHandlerBase(ABC):
         else:
             # There are only three subtypes, anything else is invalid
             # ("state" is under type "state_change", not "lab_element_event")
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning("Received an invalid event. %s", event)
 
     @abstractmethod
     def _handle_element_created(self, event: Event) -> None:
@@ -215,7 +215,7 @@ class EventHandlerBase(ABC):
         """
         # All other events are useless to the client, but in case some handling
         # needs to be done on them, this method can be overridden
-        pass
+        return
 
 
 class EventHandler(EventHandlerBase):
@@ -236,7 +236,7 @@ class EventHandler(EventHandlerBase):
             event.element_type in ("annotation", "connectormapping")
         ):
             # Some events are unused in the client library
-            _LOGGER.debug(f"Received an unused event: {event}")
+            _LOGGER.debug("Received an unused event: %s", event)
             return
 
         try:
@@ -329,7 +329,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning("Received an invalid event. %s", event)
             return
         new_element._state = event.data.get("state")
 
@@ -353,7 +353,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning("Received an invalid event. %s", event)
 
     def _handle_element_deleted(self, event: Event) -> None:
         """Remove local element references after deletion.
@@ -372,7 +372,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning("Received an invalid event. %s", event)
 
     def _handle_state_change(self, event: Event) -> None:
         """Update cached element state.

@@ -395,6 +395,22 @@ def test_node_update_excludes_config() -> None:
     assert node.label == "updated-label"
 
 
+def test_node_update_preserves_id() -> None:
+    """_update must not overwrite node ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    _lab, node = _make_lab_and_node()
+    assert node.id == "n1"
+    node._update(
+        {"data": {"id": "changed", "label": "new"}},
+        exclude_configurations=True,
+        push_to_server=False,
+    )
+    assert node.id == "n1"
+    assert node.label == "new"
+
+
 def test_node_is_active_is_booted() -> None:
     """is_active when STARTED, is_booted when BOOTED.
 

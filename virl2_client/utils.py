@@ -340,9 +340,8 @@ def _deprecated_argument(
 def _requires_version(min_version: str) -> Callable:
     """Decorator that guards a method behind a minimum CML server version.
 
-    If the controller version is older than *min_version*, a
-    ``FeatureNotSupported`` error is raised with a user-friendly message
-    *before* the HTTP call is made.
+    If the controller version is older than *min_version*, a FeatureNotSupported
+    error is raised with a user-friendly message *before* the HTTP call is made.
     """
     min_ver = Version(min_version)
 

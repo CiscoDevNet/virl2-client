@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,6 +29,32 @@ import pytest
 from virl2_client.exceptions import ControllerNotFound
 from virl2_client.models.system import ComputeHost, SystemManagement, SystemNotice
 from virl2_client.utils import OptInStatus
+
+
+def _notice_data(notice_id: str = "n1", **overrides: Any) -> dict[str, Any]:
+    """Build a notice data dict matching the API response shape.
+
+    :param notice_id: Notice identifier.
+    :param overrides: Fields to override.
+    :returns: A dict with "id" key; pop it and pass the rest as **kwargs.
+    """
+    return {
+        "id": notice_id,
+        "level": "info",
+        "label": "lbl",
+        "content": "content",
+        "enabled": True,
+        "acknowledged": {},
+        **overrides,
+    }
+
+
+def _make_notice(
+    system: SystemManagement, notice_id: str = "n1", **overrides: Any
+) -> SystemNotice:
+    """Create a SystemNotice from API-shaped data."""
+    data = _notice_data(notice_id, **overrides)
+    return SystemNotice(system, data.pop("id"), **data)
 
 
 def _new_compute_host(system: SystemManagement, compute_id: str) -> ComputeHost:
@@ -78,6 +105,32 @@ def test_compute_host_mutation() -> None:
     assert host.admission_state == "ready"
 
 
+def test_system_notice_update_preserves_id() -> None:
+    """_update must not overwrite notice ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    session = MagicMock()
+    system = SystemManagement(session, auto_sync=False)
+    notice = _make_notice(system, "n1")
+    notice._update({"id": "changed", "level": "warning"}, push_to_server=False)
+    assert notice.id == "n1"
+    assert notice._level == "warning"
+
+
+def test_compute_host_update_preserves_id() -> None:
+    """_update must not overwrite compute host ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    session = MagicMock()
+    system = SystemManagement(session, auto_sync=False)
+    host = _new_compute_host(system, "c1")
+    host._update({"id": "changed", "hostname": "new-host"}, push_to_server=False)
+    assert host.compute_id == "c1"
+    assert host._hostname == "new-host"
+
+
 def test_system_notice_mutation() -> None:
     """System notice label, content, level setters.
 
@@ -85,15 +138,7 @@ def test_system_notice_mutation() -> None:
     """
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
-    notice = SystemNotice(
-        system,
-        "n1",
-        "info",
-        "lbl",
-        "content",
-        True,
-        acknowledged={},
-    )
+    notice = _make_notice(system, "n1")
     session.patch.return_value.json.return_value = {"content": "new-content"}
     notice._set_notice_properties({"content": "new-content"})
     assert notice.content == "new-content"
@@ -106,11 +151,7 @@ def test_maintenance_mode_notice() -> None:
     """
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
-    system._system_notices = {
-        "n1": SystemNotice(
-            system, "n1", "info", "lbl", "content", True, acknowledged={}
-        )
-    }
+    system._system_notices = {"n1": _make_notice(system, "n1")}
     session.patch.return_value.json.return_value = {"resolved_notice": None}
     system.maintenance_mode = True
     assert system.maintenance_mode is True
@@ -125,11 +166,7 @@ def test_sync_notices_if_outdated() -> None:
     """
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
-    system._system_notices = {
-        "n1": SystemNotice(
-            system, "n1", "info", "lbl", "content", True, acknowledged={}
-        )
-    }
+    system._system_notices = {"n1": _make_notice(system, "n1")}
     existing = system._system_notices["n1"]
     system.auto_sync = True
     system.auto_sync_interval = 0
@@ -177,15 +214,7 @@ def test_notice_id_property() -> None:
     """
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
-    notice = SystemNotice(
-        system,
-        "n9",
-        "info",
-        "lbl",
-        "content",
-        True,
-        acknowledged={},
-    )
+    notice = _make_notice(system, "n9")
     assert notice.id == "n9"
     session.patch.return_value.json.return_value = {"label": "updated"}
     notice._set_notice_property("label", "updated")
@@ -225,9 +254,7 @@ def test_sync_notices_removes_stale() -> None:
     """
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
-    stale_notice = SystemNotice(
-        system, "stale", "info", "old", "content", True, acknowledged={}
-    )
+    stale_notice = _make_notice(system, "stale", label="old")
     system._system_notices = {"stale": stale_notice}
     session.get.side_effect = [
         MagicMock(json=MagicMock(return_value=[])),

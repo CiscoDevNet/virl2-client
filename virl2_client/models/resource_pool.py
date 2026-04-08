@@ -113,11 +113,10 @@ class ResourcePoolManagement:
         # update existing pools and add entries for new pools
         for res_pool in res_pools:
             pool_id = res_pool.pop("id")
-            res_pool["pool_id"] = pool_id
             if pool_id in self._resource_pools:
                 self._resource_pools[pool_id]._update(res_pool, push_to_server=False)
             else:
-                self._add_resource_pool_local(**res_pool)
+                self._add_resource_pool_local(pool_id, **res_pool)
             res_pool_ids.append(pool_id)
         # remove all local pools that don't exist on remove
         for local_res_pool_id in tuple(self._resource_pools):
@@ -163,8 +162,8 @@ class ResourcePoolManagement:
         kwargs["label"] = label
         url = self._url_for("resource_pools")
         response: dict = self._session.post(url, json=kwargs).json()
-        response["pool_id"] = response.pop("id")
-        return self._add_resource_pool_local(**response)
+        pool_id = response.pop("id")
+        return self._add_resource_pool_local(pool_id, **response)
 
     def create_resource_pools(
         self,
@@ -193,8 +192,8 @@ class ResourcePoolManagement:
 
         result = []
         for pool in response:
-            pool["pool_id"] = pool.pop("id")
-            result.append(self._add_resource_pool_local(**pool))
+            pool_id = pool.pop("id")
+            result.append(self._add_resource_pool_local(pool_id, **pool))
         return result
 
     def _add_resource_pool_local(
@@ -544,6 +543,8 @@ class ResourcePool:
             self._set_resource_pool_properties(pool_data)
 
         for key, value in pool_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_resource_pool_property(self, key: str, val: Any) -> None:

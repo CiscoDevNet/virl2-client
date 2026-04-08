@@ -1191,6 +1191,8 @@ class Node:
             node_data = node_data["data"]
 
         for key, value in node_data.items():
+            if key == "id":
+                continue
             if key == "configuration":
                 if not exclude_configurations:
                     self._set_configuration(value)

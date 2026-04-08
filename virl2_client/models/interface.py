@@ -428,6 +428,8 @@ class Interface:
         if "data" in interface_data:
             interface_data = interface_data["data"]
         for key, value in interface_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_interface_property(self, key: str, val: Any) -> None:

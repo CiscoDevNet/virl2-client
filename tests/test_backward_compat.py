@@ -21,7 +21,7 @@
 """Backward compatibility tests for virl2_client 2.10.
 
 These tests verify that the v2.10 client works correctly against older
-CML servers (2.8, 2.9) by mocking server responses with ``respx``.
+CML servers (2.8, 2.9) by mocking server responses with respx.
 
 Tests cover:
 - Auth flow branching (authok vs authentication endpoint)

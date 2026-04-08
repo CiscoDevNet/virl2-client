@@ -296,6 +296,31 @@ def test_rp_update_local_only() -> None:
     assert pool._description == "desc"
 
 
+def test_rp_update_preserves_id() -> None:
+    """_update must not overwrite resource pool ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    manager = ResourcePoolManagement(MagicMock(), auto_sync=False)
+    pool = ResourcePool(
+        manager,
+        pool_id="pool-1",
+        label="Pool",
+        description=None,
+        template=None,
+        licenses=None,
+        ram=None,
+        cpus=None,
+        disk_space=None,
+        external_connectors=None,
+        users=None,
+        user_pools=None,
+    )
+    pool._update({"id": "changed", "description": "new"}, push_to_server=False)
+    assert pool.id == "pool-1"
+    assert pool._description == "new"
+
+
 def test_rp_connectors_returns_copy() -> None:
     """external_connectors returns a copy; mutating it does not affect pool.
 

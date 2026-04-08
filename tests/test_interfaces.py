@@ -240,6 +240,19 @@ def test_interface_update_push() -> None:
     assert interface.label == "ethX"
 
 
+def test_interface_update_preserves_id() -> None:
+    """_update must not overwrite interface ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = make_lab()
+    node = lab._create_node_local("n1", "node1", "iosv")
+    interface = lab._create_interface_local("if1", "eth0", node, 0)
+    interface._update({"id": "changed", "label": "ethX"}, push_to_server=False)
+    assert interface.id == "if1"
+    assert interface.label == "ethX"
+
+
 def test_interface_set_prop_patches() -> None:
     """_set_interface_property triggers PATCH.
 

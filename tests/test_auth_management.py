@@ -255,20 +255,7 @@ def test_resource_pool_accepts_instance(method: str, pool_id: str) -> None:
         {"method": method, "resource_pool": "old"}
     )
     manager = auth_management._managers[method]
-    resource_pool = ResourcePool(
-        MagicMock(_session=MagicMock()),
-        pool_id,
-        "label",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
+    resource_pool = ResourcePool(MagicMock(_session=MagicMock()), pool_id, "label")
 
     manager.resource_pool = resource_pool
 

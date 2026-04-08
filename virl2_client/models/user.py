@@ -86,11 +86,11 @@ class UserManagement:
     def get_username(self, user_id: str) -> str | None:
         """Look up a username by user ID from the locally synced user list.
 
-        Triggers a sync if the local list is outdated. Returns ``None`` if
+        Triggers a sync if the local list is outdated. Returns None if
         the *user_id* is not found.
 
         :param user_id: User UUID4.
-        :returns: The username, or ``None`` if not found.
+        :returns: The username, or None if not found.
         """
         self.sync_users_if_outdated()
         user = self._users_by_id.get(user_id)

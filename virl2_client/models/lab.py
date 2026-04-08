@@ -1164,7 +1164,7 @@ class Lab:
         iface_id: str,
         label: str,
         node: Node,
-        slot: int | None,
+        slot: int | None = None,
         iface_type: str = "physical",
         mac_address: str | None = None,
     ) -> Interface:

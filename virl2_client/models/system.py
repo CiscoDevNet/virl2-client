@@ -219,14 +219,13 @@ class SystemManagement:
         for compute_host in compute_hosts:
             compute_host.pop("nodes", None)  # removed in 2.10
             compute_id = compute_host.pop("id")
-            compute_host["compute_id"] = compute_id
             if compute_id in self._compute_hosts:
                 self._compute_hosts[compute_id]._update(
                     compute_host, push_to_server=False
                 )
             else:
-                compute_host["node_counts"] = compute_host.get("node_counts", {})
-                self.add_compute_host_local(**compute_host)
+                compute_host.setdefault("node_counts", {})
+                self.add_compute_host_local(compute_id, **compute_host)
             compute_host_ids.append(compute_id)
 
         for compute_id in tuple(self._compute_hosts):
@@ -244,13 +243,13 @@ class SystemManagement:
         system_notice_ids = []
 
         for system_notice in system_notices:
-            notice_id = system_notice.get("id")
+            notice_id = system_notice.pop("id")
             if notice_id in self._system_notices:
                 self._system_notices[notice_id]._update(
                     system_notice, push_to_server=False
                 )
             else:
-                self.add_system_notice_local(**system_notice)
+                self.add_system_notice_local(notice_id, **system_notice)
             system_notice_ids.append(notice_id)
 
         for notice_id in tuple(self._system_notices):
@@ -387,18 +386,18 @@ class SystemManagement:
 
     def add_system_notice_local(
         self,
-        id: str,
+        notice_id: str,
         level: str,
         label: str,
         content: str,
         enabled: bool,
-        acknowledged: dict[str, bool],
+        acknowledged: dict[str, bool] | None = None,
         groups: list[str] | None = None,
     ) -> SystemNotice:
         """
         Add a system notice locally.
 
-        :param id: The unique identifier of the system notice.
+        :param notice_id: The unique identifier of the system notice.
         :param level: The level of the system notice.
         :param label: The label or title of the system notice.
         :param content: The content or description of the system notice.
@@ -411,7 +410,7 @@ class SystemManagement:
         """
         new_system_notice = SystemNotice(
             self,
-            id,
+            notice_id,
             level,
             label,
             content,
@@ -419,7 +418,7 @@ class SystemManagement:
             acknowledged,
             groups,
         )
-        self._system_notices[id] = new_system_notice
+        self._system_notices[notice_id] = new_system_notice
         return new_system_notice
 
 
@@ -594,6 +593,8 @@ class ComputeHost:
             return
 
         for key, value in host_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_compute_host_property(self, key: str, val: Any) -> None:
@@ -626,7 +627,7 @@ class SystemNotice:
         label: str,
         content: str,
         enabled: bool,
-        acknowledged: dict[str, bool],
+        acknowledged: dict[str, bool] | None = None,
         groups: list[str] | None = None,
     ) -> None:
         """
@@ -648,7 +649,7 @@ class SystemNotice:
         self._label = label
         self._content = content
         self._enabled = enabled
-        self._acknowledged = acknowledged
+        self._acknowledged = acknowledged or {}
         self._groups = groups
 
     def _url_for(self, endpoint: str, **kwargs: str) -> str:
@@ -748,6 +749,8 @@ class SystemNotice:
             return
 
         for key, value in notice_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_notice_property(self, key: str, val: Any) -> None:

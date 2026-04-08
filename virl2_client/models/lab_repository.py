@@ -40,24 +40,24 @@ class LabRepository:
 
     def __init__(
         self,
-        system: SystemManagement,
-        id: str,
+        manager: LabRepositoryManagement,
+        repo_id: str,
         url: str,
         name: str,
-        folder: str,
+        folder: str | None = None,
     ) -> None:
         """
         A lab repository, which provides access to lab templates and resources.
 
-        :param system: The SystemManagement instance.
-        :param id: The ID of the lab repository.
+        :param manager: The LabRepositoryManagement instance that owns this repo.
+        :param repo_id: The ID of the lab repository.
         :param url: The URL of the lab repository.
         :param name: The name of the lab repository.
         :param folder: The folder name for the lab repository.
         """
-        self._system = system
-        self._session: httpx.Client = system._session
-        self._id = id
+        self._manager = manager
+        self._session: httpx.Client = manager._session
+        self._id = repo_id
         self._url = url
         self._name = name
         self._folder = folder
@@ -94,10 +94,7 @@ class LabRepository:
 
         :returns: The repository URL. Syncs from server if needed.
         """
-        if hasattr(self._system, "sync_lab_repositories_if_outdated"):
-            self._system.sync_lab_repositories_if_outdated()
-        elif hasattr(self._system, "lab_repository_management"):
-            self._system.lab_repository_management.sync_lab_repositories_if_outdated()
+        self._manager.sync_lab_repositories_if_outdated()
         return self._url
 
     @property
@@ -106,22 +103,16 @@ class LabRepository:
 
         :returns: The repository name. Syncs from server if needed.
         """
-        if hasattr(self._system, "sync_lab_repositories_if_outdated"):
-            self._system.sync_lab_repositories_if_outdated()
-        elif hasattr(self._system, "lab_repository_management"):
-            self._system.lab_repository_management.sync_lab_repositories_if_outdated()
+        self._manager.sync_lab_repositories_if_outdated()
         return self._name
 
     @property
-    def folder(self) -> str:
+    def folder(self) -> str | None:
         """Return the folder name of the lab repository.
 
-        :returns: The folder name. Syncs from server if needed.
+        :returns: The folder name or None. Syncs from server if needed.
         """
-        if hasattr(self._system, "sync_lab_repositories_if_outdated"):
-            self._system.sync_lab_repositories_if_outdated()
-        elif hasattr(self._system, "lab_repository_management"):
-            self._system.lab_repository_management.sync_lab_repositories_if_outdated()
+        self._manager.sync_lab_repositories_if_outdated()
         return self._folder
 
     def remove(self) -> None:
@@ -129,13 +120,7 @@ class LabRepository:
         _LOGGER.info("Removing lab repository %s", self)
         url = self._url_for("lab_repo")
         self._session.delete(url)
-
-        if hasattr(self._system, "_lab_repositories"):
-            if self._id in self._system._lab_repositories:
-                del self._system._lab_repositories[self._id]
-        elif hasattr(self._system, "lab_repository_management"):
-            if self._id in self._system.lab_repository_management._lab_repositories:
-                del self._system.lab_repository_management._lab_repositories[self._id]
+        self._manager._lab_repositories.pop(self._id, None)
 
 
 class LabRepositoryManagement:
@@ -216,9 +201,9 @@ class LabRepositoryManagement:
         lab_repository_ids = []
 
         for lab_repository in lab_repositories:
-            repo_id = lab_repository.get("id")
+            repo_id = lab_repository.pop("id")
             if repo_id not in self._lab_repositories:
-                self.add_lab_repository_local(**lab_repository)
+                self.add_lab_repository_local(repo_id, **lab_repository)
             lab_repository_ids.append(repo_id)
 
         for repo_id in tuple(self._lab_repositories):
@@ -239,7 +224,9 @@ class LabRepositoryManagement:
         return self._session.get(url).json()
 
     @_requires_version("2.9.0")
-    def add_lab_repository(self, url: str, name: str, folder: str) -> dict[str, Any]:
+    def add_lab_repository(
+        self, url: str, name: str, folder: str | None = None
+    ) -> dict[str, Any]:
         """
         Add a lab repository.
 
@@ -247,14 +234,16 @@ class LabRepositoryManagement:
 
         :param url: The URL of the lab repository.
         :param name: The name of the lab repository.
-        :param folder: The folder name for the lab repository.
+        :param folder: The folder name for the lab repository. (Optional)
         :returns: The created lab repository data.
         """
         repo_url = self._url_for("lab_repos")
-        data = {"url": url, "name": name, "folder": folder}
+        data: dict[str, Any] = {"url": url, "name": name}
+        if folder is not None:
+            data["folder"] = folder
         result = self._session.post(repo_url, json=data).json()
-
-        self.add_lab_repository_local(**result)
+        repo_id = result.pop("id")
+        self.add_lab_repository_local(repo_id, **result)
         return result
 
     @_requires_version("2.9.0")
@@ -271,22 +260,22 @@ class LabRepositoryManagement:
 
     def add_lab_repository_local(
         self,
-        id: str,
+        repo_id: str,
         url: str,
         name: str,
-        folder: str,
+        folder: str | None = None,
     ) -> LabRepository:
         """
         Add a lab repository locally.
 
-        :param id: The unique identifier of the lab repository.
+        :param repo_id: The unique identifier of the lab repository.
         :param url: The URL of the lab repository.
         :param name: The name of the lab repository.
         :param folder: The folder name for the lab repository.
         :returns: The newly created lab repository object.
         """
-        new_lab_repository = LabRepository(self._system, id, url, name, folder)
-        self._lab_repositories[id] = new_lab_repository
+        new_lab_repository = LabRepository(self, repo_id, url, name, folder)
+        self._lab_repositories[repo_id] = new_lab_repository
         return new_lab_repository
 
     def get_lab_repository(self, repo_id: str) -> LabRepository:

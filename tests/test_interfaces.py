@@ -194,6 +194,17 @@ def test_interface_lifecycle_methods() -> None:
     interface.remove()
 
 
+def test_interface_slot_defaults_to_none() -> None:
+    """Interface.slot defaults to None when omitted."""
+    lab = make_lab()
+    node = lab._create_node_local("n1", "node1", "iosv")
+    iface = Interface("if1", node, "eth0")
+    assert iface._slot is None
+
+    iface_local = lab._create_interface_local("if2", "eth1", node)
+    assert iface_local._slot is None
+
+
 def test_interface_identity() -> None:
     """eq with non-Interface, repr, hash.
 
@@ -237,6 +248,19 @@ def test_interface_update_push() -> None:
     with patch.object(interface, "_set_interface_properties") as set_props:
         interface._update({"data": {"label": "ethX"}}, push_to_server=True)
         set_props.assert_called_once()
+    assert interface.label == "ethX"
+
+
+def test_interface_update_preserves_id() -> None:
+    """_update must not overwrite interface ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = make_lab()
+    node = lab._create_node_local("n1", "node1", "iosv")
+    interface = lab._create_interface_local("if1", "eth0", node, 0)
+    interface._update({"id": "changed", "label": "ethX"}, push_to_server=False)
+    assert interface.id == "if1"
     assert interface.label == "ethX"
 
 

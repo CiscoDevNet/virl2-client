@@ -40,15 +40,12 @@ def test_rp_property_setters() -> None:
         manager,
         "p1",
         "pool1",
-        "desc",
-        None,
-        10,
-        1024,
-        2,
-        20,
-        ["ec1"],
-        None,
-        [],
+        description="desc",
+        licenses=10,
+        ram=1024,
+        cpus=2,
+        disk_space=20,
+        external_connectors=["ec1"],
     )
 
     session.patch.return_value.json.return_value = {}
@@ -69,6 +66,23 @@ def test_rp_property_setters() -> None:
     assert pool.external_connectors == ["ec2"]
 
 
+def test_rp_optional_fields_default_to_none() -> None:
+    """ResourcePool optional fields default to None when omitted."""
+    session = MagicMock()
+    manager = ResourcePoolManagement(session, auto_sync=False)
+    pool = ResourcePool(manager, "p-min", "minimal-pool")
+
+    assert pool.description is None
+    assert pool.template is None
+    assert pool.licenses is None
+    assert pool.ram is None
+    assert pool.cpus is None
+    assert pool.disk_space is None
+    assert pool.external_connectors is None
+    assert pool._users == []
+    assert pool._user_pools == []
+
+
 def test_rp_get_usage() -> None:
     """get_usage returns limit and usage payload mapping.
 
@@ -80,15 +94,12 @@ def test_rp_get_usage() -> None:
         manager,
         "p1",
         "pool1",
-        "desc",
-        None,
-        10,
-        1024,
-        2,
-        20,
-        ["ec1"],
-        None,
-        [],
+        description="desc",
+        licenses=10,
+        ram=1024,
+        cpus=2,
+        disk_space=20,
+        external_connectors=["ec1"],
     )
 
     session.get.return_value.json.return_value = {
@@ -121,10 +132,24 @@ def test_rp_sync() -> None:
     manager = ResourcePoolManagement(session, auto_sync=False)
     manager._resource_pools = {
         "keep": ResourcePool(
-            manager, "keep", "old", "d", None, 1, 2, 3, 4, None, None, []
+            manager,
+            "keep",
+            "old",
+            description="d",
+            licenses=1,
+            ram=2,
+            cpus=3,
+            disk_space=4,
         ),
         "remove": ResourcePool(
-            manager, "remove", "gone", "d", None, 1, 2, 3, 4, None, None, []
+            manager,
+            "remove",
+            "gone",
+            description="d",
+            licenses=1,
+            ram=2,
+            cpus=3,
+            disk_space=4,
         ),
     }
 
@@ -156,7 +181,7 @@ def test_rp_repr() -> None:
     session = MagicMock()
     manager = ResourcePoolManagement(session, auto_sync=False)
     template_pool = ResourcePool(
-        manager, "tpl", "tpl", "d", None, 1, 2, 3, 4, None, None, []
+        manager, "tpl", "tpl", description="d", licenses=1, ram=2, cpus=3, disk_space=4
     )
     assert "ResourcePool(" in repr(template_pool)
     assert "Resource pool:" in str(template_pool)
@@ -179,11 +204,27 @@ def test_rp_invalid_property(pool_fixture: str, prop: str) -> None:
     manager = ResourcePoolManagement(session, auto_sync=False)
     if pool_fixture == "template_pool":
         pool = ResourcePool(
-            manager, "tpl", "tpl", "d", None, 1, 2, 3, 4, None, None, []
+            manager,
+            "tpl",
+            "tpl",
+            description="d",
+            licenses=1,
+            ram=2,
+            cpus=3,
+            disk_space=4,
         )
     else:
         pool = ResourcePool(
-            manager, "u1", "u1", "d", "tpl", 1, 2, 3, 4, None, ["u"], []
+            manager,
+            "u1",
+            "u1",
+            description="d",
+            template="tpl",
+            licenses=1,
+            ram=2,
+            cpus=3,
+            disk_space=4,
+            users=["u"],
         )
 
     with pytest.raises(InvalidProperty):
@@ -198,10 +239,19 @@ def test_rp_users_user_pools() -> None:
     session = MagicMock()
     manager = ResourcePoolManagement(session, auto_sync=False)
     template_pool = ResourcePool(
-        manager, "tpl", "tpl", "d", None, 1, 2, 3, 4, None, None, []
+        manager, "tpl", "tpl", description="d", licenses=1, ram=2, cpus=3, disk_space=4
     )
     user_pool = ResourcePool(
-        manager, "u1", "u1", "d", "tpl", 1, 2, 3, 4, None, ["u"], []
+        manager,
+        "u1",
+        "u1",
+        description="d",
+        template="tpl",
+        licenses=1,
+        ram=2,
+        cpus=3,
+        disk_space=4,
+        users=["u"],
     )
 
     user_pool._users = ["alice"]
@@ -218,7 +268,16 @@ def test_rp_remove() -> None:
     session = MagicMock()
     manager = ResourcePoolManagement(session, auto_sync=False)
     user_pool = ResourcePool(
-        manager, "u1", "u1", "d", "tpl", 1, 2, 3, 4, None, ["u"], []
+        manager,
+        "u1",
+        "u1",
+        description="d",
+        template="tpl",
+        licenses=1,
+        ram=2,
+        cpus=3,
+        disk_space=4,
+        users=["u"],
     )
     user_pool.remove()
     user_pool._session.delete.assert_called()
@@ -232,7 +291,16 @@ def test_rp_update() -> None:
     session = MagicMock()
     manager = ResourcePoolManagement(session, auto_sync=False)
     user_pool = ResourcePool(
-        manager, "u1", "u1", "d", "tpl", 1, 2, 3, 4, None, ["u"], []
+        manager,
+        "u1",
+        "u1",
+        description="d",
+        template="tpl",
+        licenses=1,
+        ram=2,
+        cpus=3,
+        disk_space=4,
+        users=["u"],
     )
     user_pool.update({"label": "u2"})
     assert user_pool.label == "u2"
@@ -245,18 +313,7 @@ def test_rp_filters_blocked_keys() -> None:
     """
     manager = ResourcePoolManagement(MagicMock(), auto_sync=False)
     pool = ResourcePool(
-        manager,
-        pool_id="p1",
-        label="pool",
-        description=None,
-        template=None,
-        licenses=None,
-        ram=None,
-        cpus=None,
-        disk_space=None,
-        external_connectors=["ec1"],
-        users=None,
-        user_pools=None,
+        manager, pool_id="p1", label="pool", external_connectors=["ec1"]
     )
     pool._set_resource_pool_properties(
         {
@@ -279,21 +336,22 @@ def test_rp_update_local_only() -> None:
     """
     manager = ResourcePoolManagement(MagicMock(), auto_sync=False)
     pool = ResourcePool(
-        manager,
-        pool_id="p1",
-        label="pool",
-        description=None,
-        template=None,
-        licenses=None,
-        ram=None,
-        cpus=None,
-        disk_space=None,
-        external_connectors=["ec1"],
-        users=None,
-        user_pools=None,
+        manager, pool_id="p1", label="pool", external_connectors=["ec1"]
     )
     pool._update({"description": "desc"}, push_to_server=False)
     assert pool._description == "desc"
+
+
+def test_rp_update_preserves_id() -> None:
+    """_update must not overwrite resource pool ID.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    manager = ResourcePoolManagement(MagicMock(), auto_sync=False)
+    pool = ResourcePool(manager, pool_id="pool-1", label="Pool")
+    pool._update({"id": "changed", "description": "new"}, push_to_server=False)
+    assert pool.id == "pool-1"
+    assert pool._description == "new"
 
 
 def test_rp_connectors_returns_copy() -> None:
@@ -303,18 +361,7 @@ def test_rp_connectors_returns_copy() -> None:
     """
     manager = ResourcePoolManagement(MagicMock(), auto_sync=False)
     pool = ResourcePool(
-        manager,
-        pool_id="p1",
-        label="pool",
-        description=None,
-        template=None,
-        licenses=None,
-        ram=None,
-        cpus=None,
-        disk_space=None,
-        external_connectors=["ec1"],
-        users=None,
-        user_pools=None,
+        manager, pool_id="p1", label="pool", external_connectors=["ec1"]
     )
     ext = pool.external_connectors
     assert ext == ["ec1"]

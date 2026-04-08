@@ -27,7 +27,6 @@ import respx
 
 from virl2_client.exceptions import ElementNotFound, LabRepositoryNotFound
 from virl2_client.models.lab_repository import LabRepository, LabRepositoryManagement
-from virl2_client.models.system import SystemManagement
 from virl2_client.virl2_client import ClientLibrary
 
 MOCK_LAB_REPOSITORY_1 = {
@@ -60,17 +59,6 @@ def mock_lab_repository_management() -> LabRepositoryManagement:
 
 
 @pytest.fixture
-def mock_system_management() -> SystemManagement:
-    """Create a mocked SystemManagement model.
-
-    :returns: A SystemManagement instance with mocked session.
-    """
-    session_mock = Mock()
-    system = SystemManagement(session=session_mock, auto_sync=False)
-    return system
-
-
-@pytest.fixture
 def system_with_repos(
     mock_lab_repository_management: LabRepositoryManagement,
 ) -> LabRepositoryManagement:
@@ -81,61 +69,76 @@ def system_with_repos(
     """
     lab_repo_mgmt = mock_lab_repository_management
     for repo_data in MOCK_LAB_REPOSITORIES_LIST:
-        lab_repo_mgmt.add_lab_repository_local(**repo_data)
+        data = dict(repo_data)
+        lab_repo_mgmt.add_lab_repository_local(data.pop("id"), **data)
     return lab_repo_mgmt
 
 
 def test_lab_repository_initialization(
-    mock_system_management: SystemManagement,
+    mock_lab_repository_management: LabRepositoryManagement,
 ) -> None:
     """Validate LabRepository initialization and identity fields.
 
-    :param mock_system_management: Backing system model fixture.
+    :param mock_lab_repository_management: Repository manager fixture.
     """
-    repo = LabRepository(
-        system=mock_system_management,
-        id="test-id",
-        url="https://github.com/test/repo.git",
-        name="test-repo",
-        folder="test_folder",
-    )
+    data = dict(MOCK_LAB_REPOSITORY_1)
+    repo = LabRepository(mock_lab_repository_management, data.pop("id"), **data)
 
-    assert repo.id == "test-id"
-    assert repo._url == "https://github.com/test/repo.git"
-    assert repo._name == "test-repo"
-    assert repo._folder == "test_folder"
-    assert repo._system is mock_system_management
-    assert str(repo) == "Lab repository: test-repo"
+    assert repo.id == MOCK_LAB_REPOSITORY_1["id"]
+    assert repo._url == MOCK_LAB_REPOSITORY_1["url"]
+    assert repo._name == MOCK_LAB_REPOSITORY_1["name"]
+    assert repo._folder == MOCK_LAB_REPOSITORY_1["folder"]
+    assert repo._manager is mock_lab_repository_management
+    assert str(repo) == f"Lab repository: {MOCK_LAB_REPOSITORY_1['name']}"
+
+
+def test_lab_repository_folder_defaults_to_none(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """LabRepository.folder defaults to None when omitted."""
+    repo = LabRepository(
+        mock_lab_repository_management,
+        repo_id="no-folder",
+        url="https://example.com/repo.git",
+        name="no-folder-repo",
+    )
+    assert repo._folder is None
 
 
 def test_lab_repo_properties_sync(
-    mock_system_management: SystemManagement,
+    mock_lab_repository_management: LabRepositoryManagement,
 ) -> None:
     """Validate sync behavior for id vs mutable repository properties.
 
-    :param mock_system_management: Backing system model fixture.
+    :param mock_lab_repository_management: Repository manager fixture.
     """
     repo = LabRepository(
-        system=mock_system_management,
-        id="test-id",
+        manager=mock_lab_repository_management,
+        repo_id="test-id",
         url="https://github.com/test/repo.git",
         name="test-repo",
         folder="test_folder",
     )
 
-    mock_system_management.sync_lab_repositories_if_outdated = Mock()
+    mock_lab_repository_management.sync_lab_repositories_if_outdated = Mock()
 
     _ = repo.id
-    mock_system_management.sync_lab_repositories_if_outdated.assert_not_called()
+    mock_lab_repository_management.sync_lab_repositories_if_outdated.assert_not_called()
 
     _ = repo.url
-    assert mock_system_management.sync_lab_repositories_if_outdated.call_count == 1
+    assert (
+        mock_lab_repository_management.sync_lab_repositories_if_outdated.call_count == 1
+    )
 
     _ = repo.name
-    assert mock_system_management.sync_lab_repositories_if_outdated.call_count == 2
+    assert (
+        mock_lab_repository_management.sync_lab_repositories_if_outdated.call_count == 2
+    )
 
     _ = repo.folder
-    assert mock_system_management.sync_lab_repositories_if_outdated.call_count == 3
+    assert (
+        mock_lab_repository_management.sync_lab_repositories_if_outdated.call_count == 3
+    )
 
 
 def test_lab_repository_remove(
@@ -147,8 +150,8 @@ def test_lab_repository_remove(
     """
     lab_repo_mgmt = mock_lab_repository_management
     repo = LabRepository(
-        system=lab_repo_mgmt,
-        id="test-id",
+        manager=lab_repo_mgmt,
+        repo_id="test-id",
         url="https://github.com/test/repo.git",
         name="test-repo",
         folder="test_folder",
@@ -226,7 +229,8 @@ def test_add_lab_repository_local(
     """
     lab_repo_mgmt = mock_lab_repository_management
 
-    repo = lab_repo_mgmt.add_lab_repository_local(**MOCK_LAB_REPOSITORY_1)
+    data = dict(MOCK_LAB_REPOSITORY_1)
+    repo = lab_repo_mgmt.add_lab_repository_local(data.pop("id"), **data)
 
     assert isinstance(repo, LabRepository)
     assert repo.id == "repo-123"
@@ -320,7 +324,7 @@ def test_add_lab_repository_api_call(
     lab_repo_mgmt = mock_lab_repository_management
 
     mock_response = Mock()
-    mock_response.json.return_value = MOCK_LAB_REPOSITORY_1
+    mock_response.json.return_value = dict(MOCK_LAB_REPOSITORY_1)
     lab_repo_mgmt._session.post.return_value = mock_response
 
     lab_repo_mgmt._url_for = Mock(return_value="lab_repos")
@@ -332,17 +336,20 @@ def test_add_lab_repository_api_call(
         folder="cisco_labs",
     )
 
-    assert result == MOCK_LAB_REPOSITORY_1
-    lab_repo_mgmt._url_for.assert_called_once_with("lab_repos")
     expected_data = {
         "url": "https://github.com/cisco/lab-templates.git",
         "name": "cisco-templates",
         "folder": "cisco_labs",
     }
+    assert result == expected_data
+    lab_repo_mgmt._url_for.assert_called_once_with("lab_repos")
     lab_repo_mgmt._session.post.assert_called_once_with("lab_repos", json=expected_data)
 
     lab_repo_mgmt.add_lab_repository_local.assert_called_once_with(
-        **MOCK_LAB_REPOSITORY_1
+        "repo-123",
+        url="https://github.com/cisco/lab-templates.git",
+        name="cisco-templates",
+        folder="cisco_labs",
     )
 
 
@@ -384,8 +391,10 @@ def test_sync_lab_repositories_behavior(
     mock_time.return_value = 1234567890.0
     lab_repo_mgmt = mock_lab_repository_management
 
-    lab_repo_mgmt.add_lab_repository_local(**MOCK_LAB_REPOSITORY_1)
-    lab_repo_mgmt.add_lab_repository_local(**MOCK_LAB_REPOSITORY_2)
+    data1 = dict(MOCK_LAB_REPOSITORY_1)
+    lab_repo_mgmt.add_lab_repository_local(data1.pop("id"), **data1)
+    data2 = dict(MOCK_LAB_REPOSITORY_2)
+    lab_repo_mgmt.add_lab_repository_local(data2.pop("id"), **data2)
 
     new_repo_data = {
         "id": "repo-789",
@@ -395,7 +404,7 @@ def test_sync_lab_repositories_behavior(
     }
 
     mock_response = Mock()
-    mock_response.json.return_value = [MOCK_LAB_REPOSITORY_1, new_repo_data]
+    mock_response.json.return_value = [dict(MOCK_LAB_REPOSITORY_1), new_repo_data]
     lab_repo_mgmt._session.get.return_value = mock_response
     lab_repo_mgmt._url_for = Mock(return_value="lab_repos")
 
@@ -498,7 +507,8 @@ def test_lab_repository_end_to_end_workflow() -> None:
         name="cisco-templates",
         folder="cisco_labs",
     )
-    assert result == MOCK_LAB_REPOSITORY_1
+    expected = {k: v for k, v in MOCK_LAB_REPOSITORY_1.items() if k != "id"}
+    assert result == expected
 
     repo = lab_repo_mgmt.get_lab_repository("repo-123")
     assert repo.id == "repo-123"
@@ -513,69 +523,6 @@ def test_lab_repository_end_to_end_workflow() -> None:
 
     with pytest.raises(LabRepositoryNotFound):
         lab_repo_mgmt.get_lab_repository("repo-123")
-
-
-def test_lab_repo_property_sync_fallback() -> None:
-    """Use management fallback sync path for repository properties.
-
-    NOTE: LLM-generated test -- verify for correctness.
-
-    :raises AssertionError: If fallback sync hook is not used.
-    """
-
-    class SystemWithManagement:
-        """Simple stand-in without direct sync method."""
-
-        def __init__(self) -> None:
-            """Initialize minimal system stand-in with management container."""
-            self._session = Mock()
-            self.lab_repository_management = Mock()
-
-    system = SystemWithManagement()
-    repo = LabRepository(
-        system=system,
-        id="repo-id",
-        url="https://example/repo.git",
-        name="repo-name",
-        folder="repo-folder",
-    )
-
-    assert repo.url == "https://example/repo.git"
-    assert repo.name == "repo-name"
-    assert repo.folder == "repo-folder"
-    assert (
-        system.lab_repository_management.sync_lab_repositories_if_outdated.call_count
-        == 3
-    )
-
-
-def test_lab_repo_remove_via_mgmt() -> None:
-    """Remove via management fallback uses system._session.delete.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    mgr = LabRepositoryManagement(system=Mock(), session=Mock(), auto_sync=False)
-
-    class SystemWithManagement:
-        """Simple stand-in that only exposes management container."""
-
-        def __init__(self, management: LabRepositoryManagement) -> None:
-            self._session = Mock()
-            self.lab_repository_management = management
-
-    system = SystemWithManagement(mgr)
-    repo = LabRepository(
-        system=system,
-        id="repo-id",
-        url="https://example/repo.git",
-        name="repo-name",
-        folder="repo-folder",
-    )
-    mgr._lab_repositories["repo-id"] = repo
-    repo._url_for = Mock(return_value="lab_repos/repo-id")
-    repo.remove()
-    system._session.delete.assert_called_once_with("lab_repos/repo-id")
-    assert "repo-id" not in mgr._lab_repositories
 
 
 def test_lab_repo_management_len() -> None:

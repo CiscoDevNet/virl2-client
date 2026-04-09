@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from .models import Interface, Lab, Link, Node
 
 _LOGGER = logging.getLogger(__name__)
+_INVALID_EVENT_MSG = "Received an invalid event. %s"
 
 # Fixes an arbitrary 'RuntimeError: Event loop is closed'
 # that sometimes appeared on Windows for no reason, see
@@ -113,7 +114,7 @@ class EventHandlerBase(ABC):
             self._handle_lab_state(event)
         else:
             # There are only four subtypes, anything else is invalid
-            _LOGGER.warning("Received an invalid event. %s", event)
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     @abstractmethod
     def _handle_lab_created(self, event: Event) -> None:
@@ -169,7 +170,7 @@ class EventHandlerBase(ABC):
         else:
             # There are only three subtypes, anything else is invalid
             # ("state" is under type "state_change", not "lab_element_event")
-            _LOGGER.warning("Received an invalid event. %s", event)
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     @abstractmethod
     def _handle_element_created(self, event: Event) -> None:
@@ -329,7 +330,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning("Received an invalid event. %s", event)
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
             return
         new_element._state = event.data.get("state")
 
@@ -353,7 +354,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning("Received an invalid event. %s", event)
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     def _handle_element_deleted(self, event: Event) -> None:
         """Remove local element references after deletion.
@@ -372,7 +373,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning("Received an invalid event. %s", event)
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     def _handle_state_change(self, event: Event) -> None:
         """Update cached element state.

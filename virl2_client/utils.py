@@ -62,7 +62,7 @@ class Version:
 
     @staticmethod
     def parse_version_str(version_str: str) -> str:
-        regex = r"^(\d+)\.(\d+)\.(\d+)(.*)$"
+        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})(.{0,32})$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")

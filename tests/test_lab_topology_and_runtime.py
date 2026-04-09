@@ -233,12 +233,15 @@ def test_update_lab_properties() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab, _, _ = _make_lab_context()
+    # Mock get_user to return the expected username
+    lab._user_management.get_user.return_value = {"username": "new-owner"}
     lab.update_lab_properties(
         {
             "title": "new-title",
             "description": "new-desc",
             "notes": "new-notes",
-            "owner": "new-owner",
+            "owner": "owner-id-123",
+            "owner_username": "new-owner",
             "autostart": {"enabled": True},
             "node_staging": {
                 "enabled": True,
@@ -251,6 +254,7 @@ def test_update_lab_properties() -> None:
     assert lab.description == "new-desc"
     assert lab.notes == "new-notes"
     assert lab.owner == "new-owner"
+    assert lab.owner_id == "owner-id-123"
     assert lab.autostart["enabled"] is True
     assert lab.node_staging["enabled"] is True
 

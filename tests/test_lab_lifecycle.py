@@ -413,7 +413,7 @@ def test_sync_topology_500() -> None:
 def test_import_old_schema() -> None:
     """_import_lab handles old schema path for created labs."""
     user_mgmt = MagicMock()
-    user_mgmt.get_username.return_value = "owner-1"
+    user_mgmt.get_user.return_value = {"username": "owner-1"}
     lab = make_lab(user_management=user_mgmt)
     old_schema = {
         "lab_title": "created",
@@ -430,18 +430,20 @@ def test_import_old_schema() -> None:
     lab._import_lab(old_schema, created=True)
     assert lab.title == "created"
     assert lab.owner == "owner-1"
+    assert lab.owner_id == "u1"
     assert lab.autostart["enabled"] is True
     assert lab.node_staging["enabled"] is True
-    user_mgmt.get_username.assert_called_once_with("u1")
+    user_mgmt.get_user.assert_called_once_with("u1")
 
 
 def test_owner_fallback() -> None:
     """Owner fallback when user id not resolved."""
     user_mgmt = MagicMock()
-    user_mgmt.get_username.return_value = None
+    user_mgmt.get_user.side_effect = Exception("User not found")
     lab = make_lab(user_management=user_mgmt)
     lab._set_owner(user_id="missing", user_name="fallback")
     assert lab.owner == "fallback"
+    assert lab.owner_id == "missing"
 
 
 def test_remove_elements_helper() -> None:

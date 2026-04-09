@@ -156,6 +156,7 @@ class Lab:
         self._id = lab_id
         self._session = session
         self._owner = username
+        self._owner_id = None
         self._state = None
         self._nodes: dict[str, Node] = {}
         """
@@ -508,6 +509,16 @@ class Lab:
         """
         self.sync_topology_if_outdated()
         return self._owner
+
+    @property
+    def owner_id(self) -> str | None:
+        """
+        Return the owner ID of the lab.
+
+        :returns: The lab owner user ID, or None if not set.
+        """
+        self.sync_topology_if_outdated()
+        return self._owner_id
 
     @property
     def resource_pools(self) -> list[ResourcePool]:
@@ -1658,14 +1669,19 @@ class Lab:
         default_owner = self.username if created else None
 
         if lab_dict is None:
-            # If we just created the lab, we skip the warning, since the
-            # lab post endpoint returns data in the old format
+            # Create endpoint returns data with lab_title, lab_description, etc.
+            # at the top level (old schema format)
             if not created:
                 raise InvalidTopologySchema
             self._title = topology["lab_title"]
             self._description = topology["lab_description"]
             self._notes = topology["lab_notes"]
-            self._set_owner(topology.get("lab_owner"), default_owner)
+
+            # API returns both "owner" (ID) and "owner_username"
+            owner_id = topology.get("owner") or topology.get("lab_owner")
+            owner_username = topology.get("owner_username", default_owner)
+            self._set_owner(owner_id, owner_username)
+
             if autostart := topology.get("autostart"):
                 self._autostart = autostart
             node_staging = topology.get("node_staging")
@@ -2191,7 +2207,12 @@ class Lab:
         self._title = properties.get("title", self._title)
         self._description = properties.get("description", self._description)
         self._notes = properties.get("notes", self._notes)
-        self._owner = properties.get("owner", self._owner)
+
+        if "owner" in properties:
+            owner_id = properties.get("owner")
+            owner_username = properties.get("owner_username")
+            self._set_owner(owner_id, owner_username)
+
         self._autostart.update(properties.get("autostart", {}))
 
         # Handle node staging properties
@@ -2460,15 +2481,20 @@ class Lab:
         self, user_id: str | None = None, user_name: str | None = None
     ) -> None:
         """
-        Sets the owner to the name of the user specified by the provided user_id.
-        If given ID is None/doesn't exist, we fall back to the given user_name,
-        which will usually be the name of the current user or None.
+        Sets the owner ID and username. If user_id is provided, fetches the user
+        information directly from the API to get the username. Falls back to the
+        provided user_name if the ID is None or the user doesn't exist.
 
         :param user_id: User unique identifier.
         :param user_name: Username.
         """
         if user_id:
-            resolved = self._user_management.get_username(user_id)
-            if resolved is not None:
-                user_name = resolved
+            try:
+                user_info = self._user_management.get_user(user_id)
+                user_name = user_info.get("username")
+                self._owner_id = user_id
+            except Exception:
+                self._owner_id = user_id if user_name else None
+        else:
+            self._owner_id = None
         self._owner = user_name

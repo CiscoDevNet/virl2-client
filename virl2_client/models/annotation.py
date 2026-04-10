@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
@@ -33,11 +33,8 @@ if TYPE_CHECKING:
     from .lab import Lab
 
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
-    AnnotationType = (
-        "AnnotationRectangle"
-        | "AnnotationEllipse"
-        | "AnnotationLine"
-        | "AnnotationText"
+    AnnotationType: TypeAlias = (
+        "AnnotationRectangle | AnnotationEllipse | AnnotationLine | AnnotationText"
     )
 
 _LOGGER = logging.getLogger(__name__)

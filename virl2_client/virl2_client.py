@@ -158,19 +158,19 @@ class ClientConfig(NamedTuple):
 
     @classmethod
     def _validate(cls, config: dict[str, Any], final: bool = False) -> bool:
-        message = None
+        errors: list[str] = []
         if not config["url"]:
-            message = "No URL provided."
+            errors.append("No URL provided.")
         if not (config["jwtoken"] or (config["username"] and config["password"])):
-            message = "Incomplete authentication configuration."
+            errors.append("Incomplete authentication configuration.")
         ssl_verify_pending = config["ssl_verify"] is None
         if final:
-            if message:
-                raise InitializationError(message)
-            elif ssl_verify_pending:
+            if errors:
+                raise InitializationError(" ".join(errors))
+            if ssl_verify_pending:
                 config["ssl_verify"] = True
             return True
-        return not ssl_verify_pending and not message
+        return not ssl_verify_pending and not errors
 
     @classmethod
     def get_configuration(

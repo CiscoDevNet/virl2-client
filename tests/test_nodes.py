@@ -73,6 +73,53 @@ def test_add_remove_tags() -> None:
     node_a.remove_tag("Test")
 
 
+def test_tags_returns_copy() -> None:
+    """tags() returns a copy -- mutating the returned list must not
+    mutate the node's internal tag state.
+
+    Regression guard for CMLDEV-1117.
+    """
+    lab = make_lab()
+    lab.get_smart_annotation_by_tag = MagicMock()
+    node = lab._create_node_local("0", "node A", "nd")
+    node._tags = ["alpha", "beta"]
+
+    returned = node.tags()
+    returned.append("gamma")
+
+    assert node._tags == ["alpha", "beta"]
+
+
+def test_add_tag_rolls_back_on_server_error() -> None:
+    """add_tag does not modify local _tags when the server PATCH fails.
+
+    Regression guard for CMLDEV-1117: previously the local list was
+    mutated before the PATCH, so a failed request left the local cache
+    diverged from the controller.
+    """
+    _lab, node = _make_lab_and_node()
+    node._tags = ["core"]
+    with patch.object(node, "_set_node_property", side_effect=RuntimeError("500")):
+        with pytest.raises(RuntimeError):
+            node.add_tag("edge")
+
+    assert node._tags == ["core"]
+
+
+def test_remove_tag_rolls_back_on_server_error() -> None:
+    """_remove_tag_on_server does not touch local _tags when PATCH fails.
+
+    Regression guard for CMLDEV-1117.
+    """
+    _lab, node = _make_lab_and_node()
+    node._tags = ["core", "edge"]
+    with patch.object(node, "_set_node_property", side_effect=RuntimeError("500")):
+        with pytest.raises(RuntimeError):
+            node._remove_tag_on_server("edge")
+
+    assert node._tags == ["core", "edge"]
+
+
 def test_find_nodes_by_tag() -> None:
     """Query by tag returns correct node counts.
 
@@ -369,6 +416,42 @@ def test_node_sync_operational() -> None:
     ]
     node.sync_interface_operational()
     assert i1.operational == {"mac_address": "aa"}
+
+
+def test_node_sync_operational_updates_last_sync_time() -> None:
+    """sync_operational stamps _last_sync_operational_time on completion.
+
+    Regression guard for CMLDEV-1117: previously sync_operational populated
+    self._operational but never updated _last_sync_operational_time, so a
+    subsequent sync_operational_if_outdated() would immediately re-fetch
+    the same data.
+    """
+    _lab, node = _make_lab_and_node()
+    node._last_sync_operational_time = 0.0
+    node._session.get.return_value.json.return_value = {"operational": {"k": "v"}}
+
+    node.sync_operational()
+
+    assert node._operational == {"k": "v"}
+    assert node._last_sync_operational_time > 0.0
+
+
+def test_node_sync_operational_with_response_updates_last_sync_time() -> None:
+    """sync_operational(response=...) also stamps _last_sync_operational_time.
+
+    Regression guard for CMLDEV-1117: Lab.sync_operational() fans out to
+    every node via node.sync_operational(node_data) to avoid N extra HTTP
+    calls; the per-node timestamp must be updated in that path too.
+    """
+    _lab, node = _make_lab_and_node()
+    node._last_sync_operational_time = 0.0
+
+    node.sync_operational(response={"operational": {"k": "v"}})
+
+    assert node._operational == {"k": "v"}
+    assert node._last_sync_operational_time > 0.0
+    # The API call must not have been issued because a response was supplied.
+    node._session.get.assert_not_called()
 
 
 def test_node_update_excludes_config() -> None:

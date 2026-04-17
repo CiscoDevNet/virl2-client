@@ -994,10 +994,11 @@ class Node:
         """
         Get the tags set on this node.
 
-        :returns: A list of tags.
+        :returns: A list of tags. The returned list is a copy; mutating it
+            does not affect the node's internal tag state.
         """
         self._lab.sync_topology_if_outdated()
-        return self._tags
+        return list(self._tags)
 
     @locked
     def add_tag(self, tag: str) -> None:
@@ -1008,7 +1009,11 @@ class Node:
         current = self.tags()
         if tag not in current:
             current.append(tag)
+            # Push to the server first; only update local state if the PATCH
+            # succeeds. Otherwise self._tags would drift from the server on
+            # HTTP errors.
             self._set_node_property("tags", current)
+            self._tags = current
         try:
             self._lab.get_smart_annotation_by_tag(tag)
         except SmartAnnotationNotFound:
@@ -1046,7 +1051,11 @@ class Node:
         """
         current = self.tags()
         current.remove(tag)
+        # Push to the server first; only update local state if the PATCH
+        # succeeds. Otherwise self._tags would drift from the server on
+        # HTTP errors.
         self._set_node_property("tags", current)
+        self._tags = current
 
     def run_pyats_command(self, command: str, **pyats_params: Any) -> str:
         """Run a pyATS command in exec mode on the node.
@@ -1148,6 +1157,12 @@ class Node:
             url = self._url_for("operational")
             response = self._session.get(url).json()
         self._operational = response.get("operational") or {}
+        # Mirror sync_interface_operational: record when the operational data
+        # was refreshed so sync_operational_if_outdated doesn't re-fetch it
+        # immediately. Without this, a call to Lab.sync_operational() (which
+        # populates every node via sync_operational) would be followed by one
+        # redundant per-node GET for each node touched afterward.
+        self._last_sync_operational_time = time.time()
 
     @check_stale
     @locked

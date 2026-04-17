@@ -56,6 +56,41 @@ def test_url_template_exists(template: str) -> None:
     assert "{lab}/links/{id}/capture/" in Link._URL_TEMPLATES[template]
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "expected"),
+    [
+        ("pcap_file", "pcap/test-link"),
+        ("pcap_packets", "pcap/test-link/packets"),
+    ],
+)
+def test_pcap_url_is_relative_and_has_no_duplicate_api_prefix(
+    link: Link, endpoint: str, expected: str
+) -> None:
+    """PCAP URLs are relative paths without a duplicate /api/v0/ segment.
+
+    Regression guard for CMLDEV-1117: a previous implementation prepended
+    session.base_url (which already ends in /api/v0/) plus "/api/v0/pcap",
+    producing malformed URLs like .../api/v0//api/v0/pcap/<id>.
+    """
+    url = link._url_for(endpoint)
+
+    assert url == expected
+    assert "api/v0" not in url
+    assert "//" not in url
+
+
+def test_pcap_packet_url_has_packet_id(link: Link) -> None:
+    """pcap_packet URL includes packet id and stays relative to base_url.
+
+    Regression guard for CMLDEV-1117.
+    """
+    url = link._url_for("pcap_packet", packet_id="42")
+
+    assert url == "pcap/test-link/packets/42"
+    assert "api/v0" not in url
+    assert "//" not in url
+
+
 def test_start_capture_with_params(link: Link) -> None:
     """start_capture passes maxpackets, maxtime, and bpfilter to the server.
 

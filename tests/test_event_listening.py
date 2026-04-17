@@ -248,7 +248,6 @@ class _FakeWs:
         self._messages = [
             SimpleNamespace(data='{"event_type":"lab_event","event":"created"}')
         ]
-        self.close_called = False
 
     async def send_json(self, _data: dict[str, Any]) -> None:
         """Accept JSON payload used by subscribe call."""
@@ -257,7 +256,7 @@ class _FakeWs:
         """Return awaitable close hook matching aiohttp behavior."""
 
         async def _close() -> None:
-            self.close_called = True
+            return None
 
         return _close()
 

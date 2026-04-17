@@ -373,13 +373,16 @@ EXPECTED_PASS_LIST = [
 ]
 
 # pathlib treats ending dot differently since Python 3.14
-to_extend = NOT_SUPPORTED_LIST if sys.version_info >= (3, 14) else WRONG_FORMAT_LIST
-to_extend += [
+_TRAILING_DOT_NAMES = [
     ".qcow.",
     "qcow.",
     ".file.",
     "file.qcow.",
 ]
+if sys.version_info >= (3, 14):
+    NOT_SUPPORTED_LIST.extend(_TRAILING_DOT_NAMES)
+else:
+    WRONG_FORMAT_LIST.extend(_TRAILING_DOT_NAMES)
 
 
 @contextlib.contextmanager

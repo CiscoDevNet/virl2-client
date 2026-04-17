@@ -178,51 +178,58 @@ Licensing the System
 --------------------
 
 The following example shows how to apply a license to the system using a token
-and retrieve licensing status using the the VIRL2 client library::
+and retrieve licensing status using the VIRL2 client library. Credentials
+are taken from the environment when available and prompted for otherwise,
+so nothing sensitive has to be written to disk::
 
     import getpass
     import json
+    import os
+    import sys
+
     from virl2_client import ClientLibrary
 
-    VIRL_CONTROLLER = "cml2-controller"
-    VIRL_USERNAME = input("username: ")
-    VIRL_PASSWORD = getpass.getpass("password: ")
-    SL_TOKEN = input("smart license token: ")
-    PRODUCT_CONFIG = input("product configuration: ")
 
-    client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+    def _prompt(env_var, prompt, *, secret=False):
+        value = os.environ.get(env_var)
+        if value is not None:
+            return value
+        reader = getpass.getpass if secret else input
+        return reader(prompt)
 
-    # Get the licensing handle from the client as a property
+
+    url = _prompt("CML_URL", "controller URL or hostname: ")
+    username = _prompt("CML_USERNAME", "username: ")
+    password = _prompt("CML_PASSWORD", "password: ", secret=True)
+    token = _prompt("CML_SSMS_TOKEN", "Smart Licensing token: ", secret=True)
+
+    client = ClientLibrary(url, username, password, ssl_verify=False)
     licensing = client.licensing
 
-    # Set the product configuration
-    licensing.set_product_license(PRODUCT_CONFIG)
-
-    # Setup default license transport (i.e., directly connected to the external
-    # Smart License server)
+    # Use the default SSMS transport (direct to the public Smart Licensing
+    # server). Call licensing.set_transport(ssms=...) instead if you need
+    # to point at an on-prem satellite.
     licensing.set_default_transport()
 
-    # Register with the Smart License server.
-    # Wait for registration and authorization to complete.
-    result = licensing.register_wait(SL_TOKEN)
+    # Register with the Smart Licensing server and wait for both
+    # registration and authorization polls to converge.
+    try:
+        accepted = licensing.register_wait(token)
+    except RuntimeError as exc:
+        # register_wait() raises when the status poll times out before
+        # registration / authorization reaches the required state.
+        print(f"ERROR: Smart Licensing registration timed out: {exc}", file=sys.stderr)
+        sys.exit(1)
+    if not accepted:
+        # register_wait() forwards register()'s bool, which is False when
+        # the initial POST is rejected (non-204).
+        print("ERROR: Smart Licensing registration request was not accepted.", file=sys.stderr)
+        sys.exit(1)
 
-    if not result:
-        result = licensing.get_reservation_return_code()
-        print(
-            "ERROR: Failed to register with Smart License server: {}!".format(result)
-        )
-        exit(1)
-
-    # Get the current registration status.
-    # This returns a JSON blob with license status and authorization details.
-    status = licensing.status()
-
-    # Get the current list of licensed features.
-    # This returns a JSON blob with licensed features.
-    features = licensing.features()
-
-    print(json.dumps(status, indent=2))
-    print(json.dumps(features, indent=2))
+    # Dump the full licensing status. The dict already embeds the
+    # per-feature view, so there is no need for a separate features()
+    # call (that API is deprecated).
+    print(json.dumps(licensing.status(), indent=4))
 
 
 The output for this would look something like the following::
@@ -298,29 +305,6 @@ The output for this would look something like the following::
         "is_enterprise": False
       }
     }
-
-    [
-      {
-        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
-        "name": "CML - Enterprise License",
-        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes capacity included",
-        "in_use": 1,
-        "status": "IN_COMPLIANCE",
-        "version": "1.0",
-        "min": 0,
-        "max": 1
-      },
-      {
-        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
-        "name": "CML \u2013 Expansion Nodes",
-        "description": "Cisco Modeling Labs - Expansion node capacity for CML Enterprise Servers",
-        "in_use": 50,
-        "status": "IN_COMPLIANCE",
-        "version": "1.0",
-        "min": 0,
-        "max": 300
-      }
-    ]
 
 
 This example can also be found in the ``examples`` directory as ``licensing.py``.

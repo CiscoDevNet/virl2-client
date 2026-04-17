@@ -27,7 +27,6 @@ import sys
 import time
 import warnings
 from enum import Enum
-from functools import lru_cache
 from pathlib import Path
 from threading import RLock
 from typing import Any, NamedTuple
@@ -51,7 +50,6 @@ from .models.authentication import make_session
 from .utils import Version, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
-cached = lru_cache(maxsize=None)  # cache results forever
 
 
 class ClientConfig(NamedTuple):

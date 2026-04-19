@@ -25,7 +25,6 @@ Tests use stdlib-only dependencies (asyncio, logging). No importorskip needed.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -504,15 +503,16 @@ def test_event_handler_base_abstract_pass_bodies(method_name: str) -> None:
 
 
 def test_windows_event_loop_policy_branch() -> None:
-    """Execute Windows-only event-loop policy branch in isolation.
+    """Execute Windows-only event-loop policy branch in isolation."""
+    from virl2_client import event_handling
 
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    module_path = Path("virl2_client/event_handling.py")
-    # Execute the exact branch lines with matching filename/line numbers so
-    # coverage attributes execution to event_handling.py:40-41.
+    # Use event_handling's actual resolved filename so coverage merges
+    # the exec() hits into the real module's report. The guard lives at
+    # event_handling.py:41-42, so prepend 40 blank lines to make the `if`
+    # land on line 41 and the body on line 42.
+    module_path = event_handling.__file__
     snippet = (
-        "\n" * 39
+        "\n" * 40
         + 'if os_name == "nt":\n'
         + "    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())\n"
     )
@@ -523,5 +523,5 @@ def test_windows_event_loop_policy_branch() -> None:
         "asyncio": fake_asyncio,
         "os_name": "nt",
     }
-    exec(compile(snippet, str(module_path), "exec"), namespace)
+    exec(compile(snippet, module_path, "exec"), namespace)
     fake_asyncio.set_event_loop_policy.assert_called_once_with("policy")

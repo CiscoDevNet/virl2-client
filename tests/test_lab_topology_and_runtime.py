@@ -233,8 +233,7 @@ def test_update_lab_properties() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab, _, _ = _make_lab_context()
-    # Mock get_user to return the expected username
-    lab._user_management.get_user.return_value = {"username": "new-owner"}
+    lab._user_management.get_username.return_value = "new-owner"
     lab.update_lab_properties(
         {
             "title": "new-title",

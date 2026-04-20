@@ -1679,8 +1679,12 @@ class Lab:
 
             # API returns both "owner" (ID) and "owner_username"
             owner_id = topology.get("owner") or topology.get("lab_owner")
-            owner_username = topology.get("owner_username", default_owner)
-            self._set_owner(owner_id, owner_username)
+            owner_username = topology.get("owner_username")
+            if owner_username:
+                self._owner = owner_username
+                self._owner_id = owner_id
+            else:
+                self._set_owner(owner_id, default_owner)
 
             if autostart := topology.get("autostart"):
                 self._autostart = autostart
@@ -2211,7 +2215,11 @@ class Lab:
         if "owner" in properties:
             owner_id = properties.get("owner")
             owner_username = properties.get("owner_username")
-            self._set_owner(owner_id, owner_username)
+            if owner_username:
+                self._owner = owner_username
+                self._owner_id = owner_id
+            else:
+                self._set_owner(owner_id)
 
         self._autostart.update(properties.get("autostart", {}))
 
@@ -2481,20 +2489,18 @@ class Lab:
         self, user_id: str | None = None, user_name: str | None = None
     ) -> None:
         """
-        Sets the owner ID and username. If user_id is provided, fetches the user
-        information directly from the API to get the username. Falls back to the
-        provided user_name if the ID is None or the user doesn't exist.
+        Sets the owner ID and username. If user_id is provided, uses the cached
+        user list to resolve the username efficiently. Falls back to the
+        provided user_name if the ID is None or the user doesn't exist in cache.
 
         :param user_id: User unique identifier.
-        :param user_name: Username.
+        :param user_name: Username to use as fallback.
         """
         if user_id:
-            try:
-                user_info = self._user_management.get_user(user_id)
-                user_name = user_info.get("username")
-                self._owner_id = user_id
-            except Exception:
-                self._owner_id = user_id if user_name else None
+            resolved = self._user_management.get_username(user_id)
+            if resolved is not None:
+                user_name = resolved
+            self._owner_id = user_id
         else:
             self._owner_id = None
         self._owner = user_name

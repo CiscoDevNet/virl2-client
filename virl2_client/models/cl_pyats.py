@@ -127,12 +127,14 @@ class ClPyats:
         loader = _PyatsTFLoader(markupprocessor=processor, enable_extensions=False)
         return loader.load(io.StringIO(testbed_yaml))
 
-    def sync_testbed(self, username: str, password: str) -> None:
+    def sync_testbed(self, username: str, password: str | None = None) -> None:
         """
         Sync the testbed (the latest topology data) from the server.
 
         :param username: The username to be inserted into the testbed data.
-        :param password: The password to be inserted into the testbed data.
+        :param password: The password or a JWT token to be inserted into
+            the testbed data. The SSH console server accepts a JWT as the
+            password, which avoids creating a new token per SSH session.
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()

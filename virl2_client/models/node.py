@@ -1208,7 +1208,7 @@ class Node:
 
         :returns: True if the node is in an active state, False otherwise.
         """
-        active_states = {"STARTED", "QUEUED", "BOOTED"}
+        active_states = {"STARTING", "STARTED", "QUEUED", "BOOTED"}
         return self.state in active_states
 
     def is_booted(self) -> bool:

@@ -1271,10 +1271,11 @@ class Lab:
         :raises SmartAnnotationNotFound: If the smart annotation is not found.
         :returns: The created annotation.
         """
-        for i, node in enumerate(nodes):
-            if isinstance(node, str):
-                nodes[i] = self.get_node_by_id(node)
-        for node in nodes:
+        resolved_nodes: list[Node] = [
+            self.get_node_by_id(node) if isinstance(node, str) else node
+            for node in nodes
+        ]
+        for node in resolved_nodes:
             node.add_tag(tag)
         self._sync_topology(exclude_configurations=True)
         annotation = self.get_smart_annotation_by_tag(tag)

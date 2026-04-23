@@ -50,9 +50,9 @@ class Link:
         "capture_start": "{lab}/links/{id}/capture/start",
         "capture_stop": "{lab}/links/{id}/capture/stop",
         "capture_status": "{lab}/links/{id}/capture/status",
-        "pcap_file": "{pcap}/{id}",
-        "pcap_packets": "{pcap}/{id}/packets",
-        "pcap_packet": "{pcap}/{id}/packets/{packet_id}",
+        "pcap_file": "pcap/{id}",
+        "pcap_packets": "pcap/{id}/packets",
+        "pcap_packet": "pcap/{id}/packets/{packet_id}",
     }
 
     def __init__(
@@ -134,9 +134,10 @@ class Link:
         :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        if endpoint.startswith("pcap"):
-            kwargs["pcap"] = f"{self._session.base_url}/api/v0/pcap"
-        else:
+        # PCAP endpoints live at /api/v0/pcap/... (a sibling of /api/v0/labs/...),
+        # so they don't need the {lab} prefix. All other Link endpoints are
+        # nested under the lab URL.
+        if not endpoint.startswith("pcap"):
             kwargs["lab"] = self._lab._url_for("lab")
         kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)

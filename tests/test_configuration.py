@@ -32,6 +32,28 @@ from virl2_client.virl2_client import ClientConfig
 
 FAKE_URL = "https://0.0.0.0/fake_url/"
 
+
+def test_validate_reports_all_missing_fields_on_final() -> None:
+    """_validate(final=True) reports both missing URL and missing auth.
+
+    Regression guard for CMLDEV-1117: previously the two checks used
+    chained `if`s that overwrote each other's error messages, so a user
+    missing both URL and credentials only saw the latter error.
+    """
+    config = {
+        "url": None,
+        "username": None,
+        "password": None,
+        "jwtoken": None,
+        "ssl_verify": True,
+    }
+    with pytest.raises(InitializationError) as excinfo:
+        ClientConfig._validate(config, final=True)
+
+    assert "No URL provided." in str(excinfo.value)
+    assert "Incomplete authentication configuration." in str(excinfo.value)
+
+
 _TEST_ENV = {
     "VIRL2_URL": "0.0.0.0",
     "VIRL_HOST": "0.0.0.0",

@@ -162,16 +162,21 @@ def test_create_smart_annotation_nodes_update() -> None:
     n2.add_tag = MagicMock()
     smart_annotation = MagicMock()
 
+    nodes_arg = [n1.id, n2]
     with (
         patch.object(lab, "_sync_topology"),
         patch.object(lab, "get_smart_annotation_by_tag", return_value=smart_annotation),
     ):
-        result = lab.create_smart_annotation("core", [n1.id, n2], z_index=2)
+        result = lab.create_smart_annotation("core", nodes_arg, z_index=2)
 
     assert result is smart_annotation
     n1.add_tag.assert_called_once_with("core")
     n2.add_tag.assert_called_once_with("core")
     smart_annotation.update.assert_called_once_with({"z_index": 2})
+    # Regression guard for CMLDEV-1117: the caller's list must not be
+    # mutated (previously, string IDs were replaced with Node objects
+    # in-place as an unexpected side effect).
+    assert nodes_arg == [n1.id, n2]
 
 
 @pytest.mark.parametrize(

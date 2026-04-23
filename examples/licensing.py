@@ -19,141 +19,67 @@
 # limitations under the License.
 #
 
+"""Register a controller with Smart Software Licensing.
+
+Credentials are collected interactively so nothing sensitive is ever
+written to disk. To automate, export ``CML_URL`` / ``CML_USERNAME`` /
+``CML_PASSWORD`` / ``CML_SSMS_TOKEN`` before running.
+"""
+
 import getpass
 import json
+import os
+import sys
 
 from virl2_client import ClientLibrary
 
-VIRL_CONTROLLER = "virl2-controller"
-VIRL_USERNAME = input("username: ")
-VIRL_PASSWORD = getpass.getpass("password: ")
-SL_TOKEN = input("Smart License token: ")
 
-client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+def _prompt(env_var: str, prompt: str, *, secret: bool = False) -> str:
+    """Return the value of ``env_var`` or interactively prompt for it."""
+    value = os.environ.get(env_var)
+    if value is not None:
+        return value
+    reader = getpass.getpass if secret else input
+    return reader(prompt)
 
-# Get the licensing handle from the client as a property
-licensing = client.licensing
 
-# Setup default license transport (i.e., directly connected to the external
-# Smart License server)
-licensing.set_default_transport()
+def main() -> int:
+    url = _prompt("CML_URL", "controller URL or hostname: ")
+    username = _prompt("CML_USERNAME", "username: ")
+    password = _prompt("CML_PASSWORD", "password: ", secret=True)
+    token = _prompt("CML_SSMS_TOKEN", "Smart Licensing token: ", secret=True)
 
-# Register with the Smart License server.
-# Wait for registration and authorization to complete.
-result = licensing.register_wait(SL_TOKEN)
-if not result:
-    result = licensing.get_reservation_return_code()
-    print(f"ERROR: Failed to register with Smart License server: {result}!")
-    exit(1)
+    client = ClientLibrary(url, username, password, ssl_verify=False)
+    licensing = client.licensing
 
-# Get the current registration status. This returns a JSON blob with license
-# status and authorization details.
-status = licensing.status()
+    # Use the default SSMS transport (direct to the public Smart Licensing
+    # server). Call licensing.set_transport(ssms=...) instead if you need
+    # to point at an on-prem satellite.
+    licensing.set_default_transport()
 
-# Get the current list of licensed features. This returns a JSON blob with
-# licensed features.
-features = licensing.features()
+    try:
+        accepted = licensing.register_wait(token)
+    except RuntimeError as exc:
+        # register_wait() raises RuntimeError when the status poll times
+        # out before registration / authorization reaches the required
+        # state.
+        print(f"ERROR: Smart Licensing registration timed out: {exc}", file=sys.stderr)
+        return 1
+    if not accepted:
+        # register_wait() forwards the result of register(), which is
+        # False when the initial POST is rejected (non-204). In that
+        # case the status polls above either timed out or, on a flaky
+        # responder, returned early -- treat it as a registration
+        # failure rather than reporting success.
+        print(
+            "ERROR: Smart Licensing registration request was not accepted.",
+            file=sys.stderr,
+        )
+        return 1
 
-print(json.dumps(status, indent=4))
+    print(json.dumps(licensing.status(), indent=4))
+    return 0
 
-"""
-Prints:
 
-{
-    "udi": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "registration": {
-        "status": "COMPLETED",
-        "expires": "2021-06-10 20:17:39",
-        "smart_account": "Foo",
-        "virtual_account": "Bar",
-        "instance_name": "cml-controller.cml.lab",
-        "register_time": {
-            "succeeded": null,
-            "attempted": "2020-06-10 20:22:33",
-            "scheduled": null,
-            "status": null,
-            "failure": "OK",
-            "success": "SUCCESS"
-        },
-        "renew_time": {
-            "succeeded": null,
-            "attempted": null,
-            "scheduled": "2020-12-07 20:22:40",
-            "status": null,
-            "failure": null,
-            "success": "FAILED"
-        }
-    },
-    "authorization": {
-        "status": "IN_COMPLIANCE",
-        "renew_time": {
-            "succeeded": null,
-            "attempted": "2020-07-25 16:44:09",
-            "scheduled": "2020-08-24 16:44:08",
-            "status": "SUCCEEDED",
-            "failure": null,
-            "success": "SUCCESS"
-        },
-        "expires": "2020-10-23 16:39:07"
-    },
-    "reservation_mode": false,
-    "transport": {
-        "ssms": "https://smartreceiver.cisco.com/licservice/license",
-        "proxy": {
-            "server": null,
-            "port": null
-        },
-        "default_ssms": "https://smartreceiver.cisco.com/licservice/license"
-    },
-    "features": [
-        {
-            "name": "CML - Enterprise License",
-            "description": "Cisco Modeling Labs - Enterprise License with 20 nodes \
-                capacity included",
-            "in_use": 1,
-            "status": "IN_COMPLIANCE",
-            "version": "1.0"
-        },
-        {
-            "name": "CML \u2013 Expansion Nodes",
-            "description": "Cisco Modeling Labs - Expansion node capacity for CML \
-                Enterprise Servers",
-            "in_use": 50,
-            "status": "IN_COMPLIANCE",
-            "version": "1.0"
-        }
-    ]
-}
-"""
-
-print(json.dumps(features, indent=4))
-"""
-Prints:
-
-[
-    {
-        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,\
-            1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
-        "name": "CML - Enterprise License",
-        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes \
-            capacity included",
-        "in_use": 1,
-        "status": "IN_COMPLIANCE",
-        "version": "1.0",
-        "min": 0,
-        "max": 1
-    },
-    {
-        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,\
-            1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
-        "name": "CML \u2013 Expansion Nodes",
-        "description": "Cisco Modeling Labs - Expansion node capacity for \
-            CML Enterprise Servers",
-        "in_use": 50,
-        "status": "IN_COMPLIANCE",
-        "version": "1.0",
-        "min": 0,
-        "max": 300
-    }
-]
-"""
+if __name__ == "__main__":
+    sys.exit(main())

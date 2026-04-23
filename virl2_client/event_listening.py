@@ -56,7 +56,6 @@ class EventListener:
         self._ws_close: Coroutine | None = None
         self._ws_close_event: asyncio.Event | None = None
         self._ws_connected_event: threading.Event | None = None
-        self._synchronizing = False
 
         self._listening = False
         self._connected = False

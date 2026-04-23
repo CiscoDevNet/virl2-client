@@ -114,13 +114,6 @@ def client_library_server_2_19_0() -> Iterator[MagicMock]:
 
 
 @pytest.fixture
-def client_library_server_2_8_0() -> Iterator[MagicMock]:
-    """Simulate a controller running CML version 2.8.0."""
-
-    yield from client_library_patched_system_info(version="2.8.0")
-
-
-@pytest.fixture
 def client_library_server_2_9_0() -> Iterator[MagicMock]:
     """Simulate a controller running CML version 2.9.0.
 

@@ -66,6 +66,12 @@ class TokenAuth(httpx.Auth):
     https://www.python-httpx.org/advanced/#customizing-authentication
     """
 
+    # Read by httpx.Auth at runtime. When True, httpx buffers the full
+    # response body before invoking `auth_flow`, so our retry logic can
+    # safely inspect `response.json()` / `response.text` to decide
+    # whether a 4xx was caused by an expired token. Looks like dead
+    # code at a glance because nothing in this module references it
+    # directly -- the consumer is the httpx.Auth contract.
     requires_response_body = True
 
     def __init__(self, client_library: ClientLibrary) -> None:

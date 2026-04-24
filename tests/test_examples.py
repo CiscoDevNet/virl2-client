@@ -49,11 +49,20 @@ PY_EXAMPLES: list[Path] = sorted(EXAMPLES_DIR.glob("*.py"))
 #: be committed. We keep the list deliberately narrow -- false
 #: positives here would block unrelated example changes.
 SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("AWS access key", re.compile(r"\bA(?:KIA|GPA|IDA|ROA|IPA|NPA|NVA|SIA)[0-9A-Z]{16}\b")),
+    (
+        "AWS access key",
+        re.compile(r"\bA(?:KIA|GPA|IDA|ROA|IPA|NPA|NVA|SIA)[0-9A-Z]{16}\b"),
+    ),
     ("Stripe live key", re.compile(r"\b(?:sk|pk)_live_[0-9A-Za-z]{10,}\b")),
     ("GitHub token", re.compile(r"\bgh[posur]_[0-9A-Za-z]{20,}\b")),
-    ("PEM private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----")),
-    ("JWT-looking literal", re.compile(r'"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"')),
+    (
+        "PEM private key",
+        re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
+    ),
+    (
+        "JWT-looking literal",
+        re.compile(r'"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"'),
+    ),
 ]
 
 #: Import-time modules that some examples use but that are optional

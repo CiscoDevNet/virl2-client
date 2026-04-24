@@ -214,8 +214,8 @@ def test_parse_queue() -> None:
     listener._ws_close = None
     listener._queue.put_nowait('{"event_type":"lab_event","event":"created"}')
     with patch.object(listener._event_handler, "handle_event") as handle_event:
-        handle_event.side_effect = (
-            lambda *_args, **_kwargs: listener._ws_close_event.set()
+        handle_event.side_effect = lambda *_args, **_kwargs: (
+            listener._ws_close_event.set()
         )
         asyncio.run(listener._parse())
     handle_event.assert_called_once()

@@ -45,7 +45,7 @@ sphinx_rtd_theme = {version="^3", optional = true}
 sphinx = {version="<8.2", optional = true}
 
 [tool.poetry.group.dev.dependencies]
-flake8 = "^7"
+ruff = "*"
 pre-commit = "^4"
 pytest = "*"
 pytest-cov = "*"

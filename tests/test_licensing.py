@@ -211,9 +211,11 @@ def test_licensing_features_deprecated() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lic = Licensing(MagicMock())
-    with patch.object(lic, "status", return_value={"features": []}):
-        with pytest.deprecated_call():
-            assert lic.features() == []
+    with (
+        patch.object(lic, "status", return_value={"features": []}),
+        pytest.deprecated_call(),
+    ):
+        assert lic.features() == []
 
 
 def test_licensing_register_wait() -> None:
@@ -308,9 +310,9 @@ def test_licensing_wait_status_timeout() -> None:
             lic, "status", return_value={"registration": {"status": "PENDING"}}
         ),
         patch("virl2_client.models.licensing.time.sleep", return_value=None),
+        pytest.raises(RuntimeError, match="Timeout: licensing registration"),
     ):
-        with pytest.raises(RuntimeError, match="Timeout: licensing registration"):
-            lic.wait_for_status("registration", "COMPLETED")
+        lic.wait_for_status("registration", "COMPLETED")
 
 
 def test_licensing_default_transport() -> None:

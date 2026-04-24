@@ -25,7 +25,7 @@ import json
 import logging
 import time
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from httpx import HTTPStatusError
 
@@ -70,7 +70,7 @@ _LOGGER = logging.getLogger(__name__)
 class Lab:
     """A VIRL2 lab network topology containing nodes, links, and interfaces."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "lab": "labs/{lab_id}",
         "nodes": "labs/{lab_id}/nodes?{CONFIG_MODE}",
         "nodes_populated": "labs/{lab_id}/nodes?populate_interfaces=true&{CONFIG_MODE}",

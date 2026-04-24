@@ -107,9 +107,9 @@ def test_link_wait_until_converged_timeout() -> None:
     with (
         patch.object(link, "has_converged", return_value=False),
         patch("virl2_client.models.link.time.sleep", return_value=None),
+        pytest.raises(RuntimeError, match="maximum tries 1 exceeded"),
     ):
-        with pytest.raises(RuntimeError, match="maximum tries 1 exceeded"):
-            link.wait_until_converged(max_iterations=1, wait_time=0)
+        link.wait_until_converged(max_iterations=1, wait_time=0)
 
 
 def test_link_invalid_condition_name() -> None:

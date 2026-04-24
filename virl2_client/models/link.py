@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
@@ -40,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 class Link:
     """A VIRL2 network link connecting two interfaces on different nodes."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "link": "{lab}/links/{id}",
         "check_if_converged": "{lab}/links/{id}/check_if_converged",
         "state": "{lab}/links/{id}/state",

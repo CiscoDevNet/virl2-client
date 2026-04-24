@@ -99,9 +99,11 @@ def test_add_tag_rolls_back_on_server_error() -> None:
     """
     _lab, node = _make_lab_and_node()
     node._tags = ["core"]
-    with patch.object(node, "_set_node_property", side_effect=RuntimeError("500")):
-        with pytest.raises(RuntimeError):
-            node.add_tag("edge")
+    with (
+        patch.object(node, "_set_node_property", side_effect=RuntimeError("500")),
+        pytest.raises(RuntimeError),
+    ):
+        node.add_tag("edge")
 
     assert node._tags == ["core"]
 
@@ -113,9 +115,11 @@ def test_remove_tag_rolls_back_on_server_error() -> None:
     """
     _lab, node = _make_lab_and_node()
     node._tags = ["core", "edge"]
-    with patch.object(node, "_set_node_property", side_effect=RuntimeError("500")):
-        with pytest.raises(RuntimeError):
-            node._remove_tag_on_server("edge")
+    with (
+        patch.object(node, "_set_node_property", side_effect=RuntimeError("500")),
+        pytest.raises(RuntimeError),
+    ):
+        node._remove_tag_on_server("edge")
 
     assert node._tags == ["core", "edge"]
 
@@ -704,6 +708,6 @@ def test_node_wait_until_converged_timeout() -> None:
     with (
         patch.object(node, "has_converged", return_value=False),
         patch("virl2_client.models.node.time.sleep", return_value=None),
+        pytest.raises(RuntimeError, match="maximum tries 1 exceeded"),
     ):
-        with pytest.raises(RuntimeError, match="maximum tries 1 exceeded"):
-            node.wait_until_converged(max_iterations=1, wait_time=0)
+        node.wait_until_converged(max_iterations=1, wait_time=0)

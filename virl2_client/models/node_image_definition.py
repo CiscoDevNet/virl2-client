@@ -25,7 +25,7 @@ import os
 import pathlib
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar
 
 from ..exceptions import InvalidContentType, InvalidImageFile
 from ..utils import get_url_from_template
@@ -40,7 +40,7 @@ EXTENSION_LIST = [".qcow", ".qcow2", ".iol", ".tar", TARGZ]
 
 
 class NodeImageDefinitions:
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "node_defs": "node_definitions",
         "image_defs": "image_definitions",
         "node_def": "node_definitions/{definition_id}",

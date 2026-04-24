@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
@@ -38,7 +38,7 @@ _LOGGER = logging.getLogger(__name__)
 class Interface:
     """A CML 2 network interface, part of a node."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "interface": "{lab}/interfaces/{id}",
         "state": "{lab}/interfaces/{id}/state",
         "start": "{lab}/interfaces/{id}/state/start",

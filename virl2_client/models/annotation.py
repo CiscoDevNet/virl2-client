@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 
 from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
@@ -179,7 +179,7 @@ class _RotationMixin:
 class Annotation:
     """Base class for VIRL2 lab annotations (text, line, ellipse, rectangle)."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "annotations": "labs/{lab_id}/annotations",
         "annotation": "labs/{lab_id}/annotations/{annotation_id}",
     }

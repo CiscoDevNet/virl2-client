@@ -103,9 +103,11 @@ def test_is_system_ready_non_502() -> None:
         request=httpx.Request("GET", "https://x"),
         response=httpx.Response(status_code=500),
     )
-    with patch.object(client, "system_info", side_effect=other_error):
-        with pytest.raises(httpx.HTTPStatusError):
-            client.is_system_ready(wait=False)
+    with (
+        patch.object(client, "system_info", side_effect=other_error),
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        client.is_system_ready(wait=False)
 
 
 def test_is_virl_1x() -> None:
@@ -328,12 +330,14 @@ def test_prepare_url_error_paths(url: str, urlsplit_side_effect: object) -> None
     :param url: Invalid URL string.
     :param urlsplit_side_effect: Side effect for urlsplit patch.
     """
-    with patch(
-        "virl2_client.virl2_client.urlsplit",
-        side_effect=urlsplit_side_effect,
+    with (
+        patch(
+            "virl2_client.virl2_client.urlsplit",
+            side_effect=urlsplit_side_effect,
+        ),
+        pytest.raises(InitializationError),
     ):
-        with pytest.raises(InitializationError):
-            _prepare_url(url, allow_http=True)
+        _prepare_url(url, allow_http=True)
 
 
 def test_client_uuid_rt() -> None:
@@ -570,9 +574,11 @@ def test_auth_call_propagates_500() -> None:
         response=httpx.Response(status_code=500),
     )
     failing._url_for = MagicMock(return_value="auth")
-    with patch.object(failing._session, "get", side_effect=non_403):
-        with pytest.raises(httpx.HTTPStatusError):
-            original_make_test_auth_call(failing, new_auth=False)
+    with (
+        patch.object(failing._session, "get", side_effect=non_403),
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        original_make_test_auth_call(failing, new_auth=False)
 
 
 def test_config_populate_inputs_uses_jwtoken(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -102,9 +102,11 @@ def test_cl_pyats_not_installed() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     pyats = ClPyats(MagicMock())
-    with patch("virl2_client.models.cl_pyats._PyatsTFLoader", None):
-        with pytest.raises(PyatsNotInstalled):
-            pyats._check_pyats_installed()
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", None),
+        pytest.raises(PyatsNotInstalled),
+    ):
+        pyats._check_pyats_installed()
 
 
 def test_cl_pyats_load_testbed() -> None:
@@ -167,9 +169,11 @@ def test_cl_pyats_switch_missing() -> None:
     pyats = ClPyats(lab)
     devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({})
     pyats._testbed = MagicMock(devices=devices)
-    with patch.object(pyats, "_check_pyats_installed"):
-        with pytest.raises(PyatsDeviceNotFound):
-            pyats.switch_serial_console("missing", 1)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.raises(PyatsDeviceNotFound),
+    ):
+        pyats.switch_serial_console("missing", 1)
 
 
 def test_cl_pyats_set_termserv_creds() -> None:
@@ -280,9 +284,8 @@ def test_cl_pyats_execute_no_testbed() -> None:
     """
     pyats = ClPyats(MagicMock())
     pyats._testbed = None
-    with patch.object(pyats, "_check_pyats_installed"):
-        with pytest.raises(RuntimeError):
-            pyats._execute_command("n1", "x")
+    with patch.object(pyats, "_check_pyats_installed"), pytest.raises(RuntimeError):
+        pyats._execute_command("n1", "x")
 
 
 def test_cl_pyats_execute_missing_dev() -> None:
@@ -292,9 +295,11 @@ def test_cl_pyats_execute_missing_dev() -> None:
     """
     pyats = ClPyats(MagicMock())
     pyats._testbed = MagicMock(devices={})
-    with patch.object(pyats, "_check_pyats_installed"):
-        with pytest.raises(PyatsDeviceNotFound):
-            pyats._execute_command("missing", "x")
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.raises(PyatsDeviceNotFound),
+    ):
+        pyats._execute_command("missing", "x")
 
 
 def test_cl_pyats_reconnect_raises() -> None:
@@ -312,9 +317,9 @@ def test_cl_pyats_reconnect_raises() -> None:
             "virl2_client.models.cl_pyats._analyze_execute_failure",
             return_value=(True, None),
         ),
+        pytest.raises(ValueError),
     ):
-        with pytest.raises(ValueError):
-            pyats._execute_command("n1", "x")
+        pyats._execute_command("n1", "x")
 
 
 def test_cl_pyats_execute_retry_ok() -> None:
@@ -356,7 +361,7 @@ def test_cl_pyats_execute_retry_fail() -> None:
         ),
     ):
         dev.execute.side_effect = Exception("still failing")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="still failing"):
             pyats._execute_command("n1", "x", _retry_attempted=True)
 
 

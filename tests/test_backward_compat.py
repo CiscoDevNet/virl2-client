@@ -208,7 +208,7 @@ class TestVersionGuardCloneImage:
         from virl2_client.models.node import Node
 
         node = Node(lab, "n1", "mynode", "alpine")
-        with pytest.raises(FeatureNotSupported, match="2.9.0"):
+        with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             node.clone_image()
 
     @respx.mock
@@ -248,7 +248,7 @@ class TestVersionGuardLabRepositories:
         client = _make_client(respx.mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
-        with pytest.raises(FeatureNotSupported, match="2.9.0"):
+        with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.sync_lab_repositories()
 
     @respx.mock
@@ -256,7 +256,7 @@ class TestVersionGuardLabRepositories:
         client = _make_client(respx.mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
-        with pytest.raises(FeatureNotSupported, match="2.9.0"):
+        with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.get_lab_repositories()
 
     @respx.mock
@@ -264,7 +264,7 @@ class TestVersionGuardLabRepositories:
         client = _make_client(respx.mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
-        with pytest.raises(FeatureNotSupported, match="2.9.0"):
+        with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.add_lab_repository("https://example.com/repo.git", "test", "folder")
 
     @respx.mock
@@ -272,7 +272,7 @@ class TestVersionGuardLabRepositories:
         client = _make_client(respx.mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
-        with pytest.raises(FeatureNotSupported, match="2.9.0"):
+        with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.refresh_lab_repositories()
 
     @respx.mock
@@ -474,7 +474,7 @@ class TestVersionEnforcement:
     @respx.mock
     def test_rejects_too_old_server(self):
         """Client should reject a server outside the 3-minor support window."""
-        from virl2_client.virl2_client import ClientLibrary as CL
+        from virl2_client.virl2_client import ClientLibrary as CL  # noqa: N817
         from virl2_client.virl2_client import InitializationError
 
         too_old = str(CL.VERSION.minor - 3)

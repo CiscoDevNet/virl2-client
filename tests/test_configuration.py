@@ -372,9 +372,11 @@ def test_get_config_deprecation(
     :param allow_inputs: Whether to allow interactive credential prompts.
     """
     calls = _setup_deprecation_mocks(monkeypatch, config_kwargs)
-    with warnings.catch_warnings(record=True) as caught:
-        with pytest.raises(InitializationError):
-            ClientConfig.get_configuration(**config_kwargs, allow_inputs=allow_inputs)
+    with (
+        warnings.catch_warnings(record=True) as caught,
+        pytest.raises(InitializationError),
+    ):
+        ClientConfig.get_configuration(**config_kwargs, allow_inputs=allow_inputs)
     got_deprecation = any(issubclass(w.category, DeprecationWarning) for w in caught)
     assert got_deprecation == (allow_inputs is None)
     if allow_inputs is False:
@@ -411,9 +413,11 @@ def test_make_client_deprecation(
         classmethod(patched_get_configuration),
     )
     config = ClientConfig(**config_kwargs)
-    with warnings.catch_warnings(record=True) as caught:
-        with pytest.raises(InitializationError):
-            config.make_client()
+    with (
+        warnings.catch_warnings(record=True) as caught,
+        pytest.raises(InitializationError),
+    ):
+        config.make_client()
     got_deprecation = any(issubclass(w.category, DeprecationWarning) for w in caught)
     assert got_deprecation == (allow_inputs is None)
     if allow_inputs is False:

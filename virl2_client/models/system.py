@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from virl2_client.exceptions import ControllerNotFound
 
@@ -35,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class SystemManagement:
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "maintenance_mode": "system/maintenance_mode",
         "compute_hosts": "system/compute_hosts",
         "notices": "system/notices",
@@ -423,7 +423,9 @@ class SystemManagement:
 
 
 class ComputeHost:
-    _URL_TEMPLATES = {"compute_host": "system/compute_hosts/{compute_id}"}
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
+        "compute_host": "system/compute_hosts/{compute_id}"
+    }
 
     def __init__(
         self,
@@ -617,7 +619,7 @@ class ComputeHost:
 
 
 class SystemNotice:
-    _URL_TEMPLATES = {"notice": "system/notices/{notice_id}"}
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {"notice": "system/notices/{notice_id}"}
 
     def __init__(
         self,

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import time
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 
 class UserManagement:
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "users": "users",
         "user": "users/{user_id}",
         "user_id": "users/{username}/id",

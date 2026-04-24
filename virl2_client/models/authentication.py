@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Generator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
 
 import httpx
@@ -179,7 +179,10 @@ class BlankAuth(httpx.Auth):
 class CustomClient(httpx.Client):
     """httpx Client that raises APIError with server description on HTTP errors."""
 
-    _ERROR_PREFIX = {4: "Client error - ", 5: "Server error - "}
+    _ERROR_PREFIX: ClassVar[dict[int, str]] = {
+        4: "Client error - ",
+        5: "Server error - ",
+    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """

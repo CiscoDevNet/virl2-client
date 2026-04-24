@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import httpx
 
@@ -51,7 +51,7 @@ _LOGGER = logging.getLogger(__name__)
 class Node:
     """A VIRL2 node representing a virtual machine (router, switch, or server)."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "node": "{lab}/nodes/{id}?{CONFIG_MODE}",
         "state": "{lab}/nodes/{id}/state",
         "check_if_converged": "{lab}/nodes/{id}/check_if_converged",

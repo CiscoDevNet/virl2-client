@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import time
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..utils import get_url_from_template
 
@@ -37,7 +37,7 @@ DEFAULT_PROXY_PORT = None
 
 
 class Licensing:
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "licensing": "licensing",
         "tech_support": "licensing/tech_support",
         "authorization_renew": "licensing/authorization/renew",

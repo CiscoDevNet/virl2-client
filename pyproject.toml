@@ -60,6 +60,98 @@ docs = ["sphinx", "sphinx_rtd_theme"]
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "*"
 
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+fix = true
+exclude = ["examples"]
+
+[tool.ruff.lint]
+select = [
+  # pycodestyle
+  "E",
+  "W",
+  # pyflakes
+  "F",
+  # isort
+  "I",
+  # pylint (ruff's implementation)
+  "PL",
+  # security (flake8-bandit)
+  "S",
+  # correctness / footguns
+  "B",
+  # pyupgrade
+  "UP",
+  # naming (pep8-naming)
+  "N",
+  # simplifications / refactors
+  "SIM",
+  "C4",
+  # builtins shadowing
+  "A",
+  # ruff-specific rules
+  "RUF",
+  # logging format
+  "G",
+  # prohibit print()/pprint() in production code
+  "T20",
+]
+
+# Reuse the monorepo core ignore set with PCL-appropriate overrides.
+ignore = [
+  # line too long -- handled by formatter
+  "E501",
+  # reassigning loop var
+  "PLW2901",
+  # function parameter shadows builtin -- common in API libs (id, type, etc.)
+  "PLR1704",
+  # magic values in comparisons
+  "PLR2004",
+  # invalid function names (uppercase start)
+  "N802",
+  # raise-without-from-inside-except
+  "B904",
+  # non-lowercase-variable-in-function
+  "N806",
+  # error-suffix-on-exception-name
+  "N818",
+  # builtin-import-shadowing (TYPE_CHECKING imports of id, type, etc.)
+  "A004",
+  # invalid-class-name -- intentional lowercase class (property_s)
+  "N801",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["virl2_client"]
+
+[tool.ruff.lint.per-file-ignores]
+"conftest.py" = ["PLR0913", "PLR0915", "S101"]
+"tests/**/*.py" = [
+  "S101",    # assert in tests
+  "S102",    # exec-builtin in tests
+  "S104",    # hardcoded-bind-all-interfaces
+  "S105",    # hardcoded-password-string
+  "S106",    # hardcoded-password-func-arg
+  "S108",    # hardcoded-temp-file
+  "PLC0415", # import-outside-top-level
+  "PLR0913", # too-many-arguments
+]
+# API-driven constructors with many parameters
+"virl2_client/virl2_client.py" = ["PLR0913"]
+"virl2_client/models/lab.py" = ["PLR0913"]
+"virl2_client/models/resource_pool.py" = ["PLR0913"]
+"virl2_client/models/system.py" = ["PLR0913"]
+"virl2_client/models/user.py" = ["PLR0913"]
+
+[tool.ruff.lint.pylint]
+max-args = 7
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

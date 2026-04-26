@@ -41,7 +41,8 @@ pyats = {version = "^26", optional = true}
 
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
-# version 8.2.3 is available but requires python>=3.11
+# version 8.2 is available but requires python>=3.11
+# version 9 is available but requires python>=3.12
 sphinx = {version="<8.2", optional = true}
 
 [tool.poetry.group.dev.dependencies]
@@ -50,7 +51,7 @@ pre-commit = "^4"
 pytest = "*"
 pytest-cov = "*"
 pytest-xdist = "*"
-respx = "^0.22.0"
+respx = "^0.23.1"
 
 [tool.poetry.extras]
 events = ["aiohttp"]

@@ -1669,34 +1669,32 @@ class Lab:
         default_owner = self.username if created else None
 
         if lab_dict is None:
-            # Create endpoint returns data with lab_title, lab_description, etc.
-            # at the top level (old schema format)
+            # Some endpoints (e.g. lab create / GET /labs/{id}) return the lab
+            # metadata flat at the top level rather than nested under "lab".
             if not created:
                 raise InvalidTopologySchema
-            self._title = topology["lab_title"]
-            self._description = topology["lab_description"]
-            self._notes = topology["lab_notes"]
+            lab_dict = {
+                "title": topology["lab_title"],
+                "description": topology["lab_description"],
+                "notes": topology["lab_notes"],
+                "owner": topology.get("owner") or topology.get("lab_owner"),
+                "owner_username": topology.get("owner_username"),
+                "node_staging": topology.get("node_staging"),
+                "autostart": topology.get("autostart"),
+            }
 
-            # API returns both "owner" (ID) and "owner_username"
-            owner_id = topology.get("owner") or topology.get("lab_owner")
-            owner_username = topology.get("owner_username")
-            if owner_username:
-                self._owner = owner_username
-                self._owner_id = owner_id
-            else:
-                self._set_owner(owner_id, default_owner)
+        self._title = lab_dict["title"]
+        self._description = lab_dict["description"]
+        self._notes = lab_dict["notes"]
+        self._set_owner(
+            lab_dict.get("owner"),
+            lab_dict.get("owner_username") or default_owner,
+        )
 
-            if autostart := topology.get("autostart"):
-                self._autostart = autostart
-            node_staging = topology.get("node_staging")
-        else:
-            self._title = lab_dict["title"]
-            self._description = lab_dict["description"]
-            self._notes = lab_dict["notes"]
-            self._set_owner(lab_dict.get("owner"), default_owner)
-            node_staging = lab_dict.get("node_staging")
+        if autostart := lab_dict.get("autostart"):
+            self._autostart = autostart
 
-        if node_staging:
+        if node_staging := lab_dict.get("node_staging"):
             self._node_staging = node_staging
 
     @locked
@@ -2213,13 +2211,10 @@ class Lab:
         self._notes = properties.get("notes", self._notes)
 
         if "owner" in properties:
-            owner_id = properties.get("owner")
-            owner_username = properties.get("owner_username")
-            if owner_username:
-                self._owner = owner_username
-                self._owner_id = owner_id
-            else:
-                self._set_owner(owner_id)
+            self._set_owner(
+                user_id=properties.get("owner"),
+                user_name=properties.get("owner_username"),
+            )
 
         self._autostart.update(properties.get("autostart", {}))
 

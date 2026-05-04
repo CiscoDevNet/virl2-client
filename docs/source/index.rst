@@ -16,15 +16,38 @@ CML 2 controller.
     examples
     api/*
 
+.. _download:
+
 .. only:: internal
 
     Download
     --------
 
-    `Download the client library (Linux/Win/macOS) </client>`_
+    `Download the client library (Linux/Win/macOS) </client/virl2_client.whl>`_
+
+    You can also download the client library directly from a terminal using the
+    permanent link below. Replace ``<controller>`` with the address of your CML2
+    controller. Use ``curl`` with ``-J`` (``--remote-header-name``) so that the
+    file name from the server's ``Content-Disposition`` header is preserved::
+
+        curl -kLOJ --remote-header-name https://<controller>/client/virl2_client.whl
 
     .. note::
-        That the above link *only* works when the documentation is viewed
+        Preserving the original file name is important: ``pip`` relies on the
+        wheel's file name to determine the distribution name, version, Python
+        compatibility tag, ABI tag and platform tag (e.g.
+        ``virl2_client-2.9.0-py3-none-any.whl``). The permanent URL above ends
+        in ``virl2_client.whl`` for convenience, but the server returns the
+        fully qualified wheel name via the ``Content-Disposition`` header.
+        Without ``-J``/``--remote-header-name`` the file would be saved as
+        ``virl2_client.whl`` and ``pip install`` would reject it as an invalid
+        wheel name.
+
+    The client library is distributed under the
+    `Apache License, Version 2.0 </client/LICENSE>`_.
+
+    .. note::
+        That the above links *only* work when the documentation is viewed
         on the CML 2 controller.
 
 Indices and tables

@@ -16,9 +16,9 @@ CML 2 controller.
     examples
     api/*
 
-.. _download:
-
 .. only:: internal
+
+    .. _download:
 
     Download
     --------

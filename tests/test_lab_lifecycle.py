@@ -419,7 +419,7 @@ def test_import_old_schema() -> None:
         "lab_title": "created",
         "lab_description": "desc",
         "lab_notes": "notes",
-        "lab_owner": "u1",
+        "owner": "u1",
         "autostart": {"enabled": True, "priority": 1, "delay": 0},
         "node_staging": {
             "enabled": True,

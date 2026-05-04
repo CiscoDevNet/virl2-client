@@ -1659,14 +1659,13 @@ class Lab:
         Replace lab properties with the given topology.
 
         :param topology: The topology to import.
-        :param created: The node create API endpoint returns data in the old format,
-            which would print an unnecessary old schema warning;
-            setting this flag to True skips that warning. Also decides whether default
-            username is to be the current user or None.
+        :param created: Whether the topology came from the lab create endpoint,
+            which returns the lab metadata flat at the top level rather than
+            nested under "lab". Setting this flag to True skips the
+            InvalidTopologySchema raise for that flat shape.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
-        default_owner = self.username if created else None
 
         if lab_dict is None:
             # Some endpoints (e.g. lab create / GET /labs/{id}) return the lab
@@ -1677,7 +1676,7 @@ class Lab:
                 "title": topology["lab_title"],
                 "description": topology["lab_description"],
                 "notes": topology["lab_notes"],
-                "owner": topology.get("owner") or topology.get("lab_owner"),
+                "owner": topology.get("owner"),
                 "owner_username": topology.get("owner_username"),
                 "node_staging": topology.get("node_staging"),
                 "autostart": topology.get("autostart"),
@@ -1686,10 +1685,7 @@ class Lab:
         self._title = lab_dict["title"]
         self._description = lab_dict["description"]
         self._notes = lab_dict["notes"]
-        self._set_owner(
-            lab_dict.get("owner"),
-            lab_dict.get("owner_username") or default_owner,
-        )
+        self._set_owner(lab_dict.get("owner"), lab_dict.get("owner_username"))
 
         if autostart := lab_dict.get("autostart"):
             self._autostart = autostart
@@ -2484,18 +2480,16 @@ class Lab:
         self, user_id: str | None = None, user_name: str | None = None
     ) -> None:
         """
-        Sets the owner ID and username. If user_id is provided, uses the cached
-        user list to resolve the username efficiently. Falls back to the
-        provided user_name if the ID is None or the user doesn't exist in cache.
+        Set the lab owner ID and username.
+
+        When *user_name* is supplied, it is used as-is and the cache is not
+        consulted. When only *user_id* is supplied, the username is resolved
+        from the cached user list. Passing both as None clears both attributes.
 
         :param user_id: User unique identifier.
-        :param user_name: Username to use as fallback.
+        :param user_name: Username (preferred when set; skips the cache lookup).
         """
-        if user_id:
-            resolved = self._user_management.get_username(user_id)
-            if resolved is not None:
-                user_name = resolved
-            self._owner_id = user_id
-        else:
-            self._owner_id = None
+        self._owner_id = user_id or None
+        if user_name is None and user_id:
+            user_name = self._user_management.get_username(user_id)
         self._owner = user_name

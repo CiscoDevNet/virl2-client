@@ -52,6 +52,10 @@ downloaded to the local filesystem and then directly installed via::
 The bundled version is available on the index site of the docs when
 viewed directly on the CML 2 controller.
 
+.. only:: internal
+
+    See the :ref:`download` section for download options.
+
 Ensure to replace use the correct file name, replacing the wildcard with the
 proper version/build information. For example::
 

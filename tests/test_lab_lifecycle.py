@@ -436,14 +436,26 @@ def test_import_old_schema() -> None:
     user_mgmt.get_username.assert_called_once_with("u1")
 
 
-def test_owner_fallback() -> None:
-    """Owner fallback when user id not resolved."""
+def test_set_owner_username_overrides_cache() -> None:
+    """Caller-supplied user_name wins and the cache is not consulted."""
+    user_mgmt = MagicMock()
+    user_mgmt.get_username.return_value = "from-cache"
+    lab = make_lab(user_management=user_mgmt)
+    lab._set_owner(user_id="u1", user_name="from-response")
+    assert lab.owner == "from-response"
+    assert lab.owner_id == "u1"
+    user_mgmt.get_username.assert_not_called()
+
+
+def test_set_owner_unresolved_user_id_yields_none_owner() -> None:
+    """When only user_id is supplied and the cache misses, owner is None."""
     user_mgmt = MagicMock()
     user_mgmt.get_username.return_value = None
     lab = make_lab(user_management=user_mgmt)
-    lab._set_owner(user_id="missing", user_name="fallback")
-    assert lab.owner == "fallback"
+    lab._set_owner(user_id="missing")
+    assert lab.owner is None
     assert lab.owner_id == "missing"
+    user_mgmt.get_username.assert_called_once_with("missing")
 
 
 def test_remove_elements_helper() -> None:

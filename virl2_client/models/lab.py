@@ -501,11 +501,14 @@ class Lab:
             setattr(self, f"_{prop}", value)
 
     @property
-    def owner(self) -> str:
+    def owner(self) -> str | None:
         """
-        Return the owner of the lab.
+        Return the owner username of the lab.
 
-        :returns: The lab owner username.
+        :returns: The lab owner username, or None when the owner's id could
+            not be resolved against the user cache (e.g. the API returned an
+            owner id but no ``owner_username`` and the user is unknown to
+            the cache).
         """
         self.sync_topology_if_outdated()
         return self._owner

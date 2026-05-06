@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import TYPE_CHECKING, Any
 
 from ..utils import check_stale, get_url_from_template, locked
@@ -49,7 +48,7 @@ class Interface:
         iid: str,
         node: Node,
         label: str,
-        slot: int | None,
+        slot: int | None = None,
         iface_type: str = "physical",
         mac_address: str | None = None,
     ) -> None:
@@ -79,7 +78,7 @@ class Interface:
             "writebytes": 0,
             "writepackets": 0,
         }
-        self._ip_snooped_info: dict[str, str | None] = {
+        self._ip_snooped_info: dict[str, Any] = {
             "mac_address": None,
             "ipv4": None,
             "ipv6": None,
@@ -115,7 +114,7 @@ class Interface:
         :returns: The formatted URL.
         """
         kwargs["lab"] = self.node._lab._url_for("lab")
-        kwargs["id"] = self.id
+        kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -227,7 +226,7 @@ class Interface:
         return int(self.statistics["writepackets"])
 
     @property
-    def ip_snooped_info(self) -> dict[str, str | None]:
+    def ip_snooped_info(self) -> dict[str, list[str] | str | None]:
         """
         Return the discovered MAC, IPv4 and IPv6 addresses
         of the interface in a dictionary.
@@ -242,14 +241,14 @@ class Interface:
         return self._ip_snooped_info["mac_address"]
 
     @property
-    def discovered_ipv4(self) -> str | None:
-        """Return the discovered IPv4 address of the interface."""
+    def discovered_ipv4(self) -> list[str] | None:
+        """Return the discovered IPv4 addresses of the interface."""
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv4"]
 
     @property
-    def discovered_ipv6(self) -> str | None:
-        """Return the discovered IPv6 address of the interface."""
+    def discovered_ipv6(self) -> list[str] | None:
+        """Return the discovered IPv6 addresses of the interface."""
         self.node.sync_l3_addresses_if_outdated()
         return self._ip_snooped_info["ipv6"]
 
@@ -265,23 +264,10 @@ class Interface:
         self._lab.sync_operational_if_outdated()
         return self._operational.copy()
 
-    @property
-    def is_physical(self) -> bool:
-        """
-        DEPRECATED: Use `.physical` instead.
-        (Reason: renamed to match similar parameters)
-
-        Check if the interface is physical.
-        """
-        warnings.warn(
-            "'Interface.is_physical' is deprecated. Use '.physical' instead.",
-        )
-        return self.physical
-
-    def as_dict(self) -> dict[str, str]:
+    def as_dict(self) -> dict[str, str | dict]:
         """Convert the interface to a dictionary representation."""
         return {
-            "id": self.id,
+            "id": self._id,
             "node": self.node.id,
             "data": {
                 "lab_id": self.node._lab.id,
@@ -317,21 +303,9 @@ class Interface:
 
         This method is internal and should not be used directly. Use 'remove' instead.
         """
-        _LOGGER.info(f"Removing interface {self}")
+        _LOGGER.info("Removing interface %s", self)
         url = self._url_for("interface")
         self._session.delete(url)
-
-    def remove_on_server(self) -> None:
-        """
-        DEPRECATED: Use `.remove()` instead.
-        (Reason: was never meant to be public, removing only on server is not useful)
-
-        Remove the interface on the server.
-        """
-        warnings.warn(
-            "'Interface.remove_on_server()' is deprecated. Use '.remove()' instead.",
-        )
-        self._remove_on_server()
 
     @check_stale
     def bring_up(self) -> None:
@@ -344,70 +318,6 @@ class Interface:
         """Shutdown the interface."""
         url = self._url_for("stop")
         self._session.put(url)
-
-    def peer_interfaces(self):
-        """
-        DEPRECATED: Use `.peer_interface` instead.
-        (Reason: pointless plural, could have been a parameter)
-
-        Return the peer interface connected to this interface in a set.
-        """
-        warnings.warn(
-            "'Interface.peer_interfaces()' is deprecated. "
-            "Use '.peer_interface' instead.",
-        )
-        return {self.peer_interface}
-
-    def peer_nodes(self):
-        """
-        DEPRECATED: Use `.peer_node` instead.
-        (Reason: pointless plural, could have been a parameter)
-
-        Return the node of the peer interface in a set.
-        """
-        warnings.warn(
-            "'Interface.peer_nodes() is deprecated. Use '.peer_node' instead.",
-        )
-        return {self.peer_node}
-
-    def links(self):
-        """
-        DEPRECATED: Use `.link` instead.
-        (Reason: pointless plural, could have been a parameter)
-
-        Return the link connected to this interface in a list.
-        """
-        warnings.warn(
-            "'Interface.links()' is deprecated. Use '.link' instead.",
-        )
-        link = self.link
-        if link is None:
-            return []
-        return [link]
-
-    def degree(self):
-        """
-        DEPRECATED: Use `.connected` instead.
-        (Reason: degree always 0 or 1)
-
-        Return the degree of the interface.
-        """
-        warnings.warn(
-            "'Interface.degree()' is deprecated. Use '.connected' instead.",
-        )
-        return int(self.connected)
-
-    def is_connected(self):
-        """
-        DEPRECATED: Use `.connected` instead.
-        (Reason: should have been a parameter, renamed to match similar parameters)
-
-        Check if the interface is connected to a link.
-        """
-        warnings.warn(
-            "'Interface.is_connected()' is deprecated. Use '.connected' instead.",
-        )
-        return self.connected
 
     @check_stale
     @locked
@@ -427,6 +337,8 @@ class Interface:
         if "data" in interface_data:
             interface_data = interface_data["data"]
         for key, value in interface_data.items():
+            if key == "id":
+                continue
             setattr(self, f"_{key}", value)
 
     def _set_interface_property(self, key: str, val: Any) -> None:
@@ -436,7 +348,7 @@ class Interface:
         :param key: The key of the property to set.
         :param val: The value to set.
         """
-        _LOGGER.debug(f"Setting node property {self} {key}: {val}")
+        _LOGGER.debug("Setting interface property %s %s: %s", self, key, val)
         self._set_interface_properties({key: val})
 
     @check_stale

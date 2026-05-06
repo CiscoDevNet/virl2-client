@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from .models import Interface, Lab, Link, Node
 
 _LOGGER = logging.getLogger(__name__)
+_INVALID_EVENT_MSG = "Received an invalid event. %s"
 
 # Fixes an arbitrary 'RuntimeError: Event loop is closed'
 # that sometimes appeared on Windows for no reason, see
@@ -109,7 +110,7 @@ class EventHandlerBase(ABC):
             self._handle_lab_state(event)
         else:
             # There are only four subtypes, anything else is invalid
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     @abstractmethod
     def _handle_lab_created(self, event: Event) -> None:
@@ -155,7 +156,7 @@ class EventHandlerBase(ABC):
         """
         if event.element_type in ("annotation", "connectormapping"):
             # These are not used in this client library
-            _LOGGER.debug(f"Received an unused element type: {event.data}")
+            _LOGGER.debug("Received an unused element type: %s", event.data)
         elif event.subtype == "created":
             self._handle_element_created(event)
         elif event.subtype == "modified":
@@ -165,7 +166,7 @@ class EventHandlerBase(ABC):
         else:
             # There are only three subtypes, anything else is invalid
             # ("state" is under type "state_change", not "lab_element_event")
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     @abstractmethod
     def _handle_element_created(self, event: Event) -> None:
@@ -211,7 +212,7 @@ class EventHandlerBase(ABC):
         """
         # All other events are useless to the client, but in case some handling
         # needs to be done on them, this method can be overridden
-        pass
+        return
 
 
 class EventHandler(EventHandlerBase):
@@ -226,7 +227,7 @@ class EventHandler(EventHandlerBase):
             event.element_type in ("annotation", "connectormapping")
         ):
             # Some events are unused in the client library
-            _LOGGER.debug(f"Received an unused event: {event}")
+            _LOGGER.debug("Received an unused event: %s", event)
             return
 
         try:
@@ -299,7 +300,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
             return
         new_element._state = event.data.get("state")
 
@@ -313,14 +314,13 @@ class EventHandler(EventHandlerBase):
             event.element._update(event.data, push_to_server=False)
 
         elif event.element_type == "link":
-            # only sends link_capture_key which is not used by the client,
-            # so we discard the message
+            # not used by the client so we discard the message
             pass
 
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     def _handle_element_deleted(self, event: Event) -> None:
         if event.element_type == "node":
@@ -335,7 +335,7 @@ class EventHandler(EventHandlerBase):
         else:
             # "Annotation" and "ConnectorMapping" were weeded out before,
             # so we should never get here
-            _LOGGER.warning(f"Received an invalid event. {event}")
+            _LOGGER.warning(_INVALID_EVENT_MSG, event)
 
     def _handle_state_change(self, event: Event) -> None:
         event.element._state = event.subtype_original

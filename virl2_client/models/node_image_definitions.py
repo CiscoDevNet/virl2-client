@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -19,9 +19,11 @@
 #
 import warnings
 
-from .node_image_definition import *  # noqa
+from .node_image_definition import *  # noqa: F403
 
 warnings.warn(
     "The module name 'virl2_client.models.node_image_definitions' is deprecated. "
     "Use 'virl2_client.models.node_image_definition' instead.",
+    UserWarning,
+    stacklevel=2,
 )

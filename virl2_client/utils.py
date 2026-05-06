@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -20,17 +20,20 @@
 
 from __future__ import annotations
 
+import re
 import warnings
 from collections.abc import Callable
 from contextlib import nullcontext
+from enum import Enum
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import httpx
 
 from .exceptions import (
     AnnotationNotFound,
     ElementNotFound,
+    FeatureNotSupported,
     InterfaceNotFound,
     LabNotFound,
     LinkNotFound,
@@ -47,6 +50,77 @@ if TYPE_CHECKING:
 TCallable = TypeVar("TCallable", bound=Callable)
 
 
+class Version:
+    __slots__ = ("major", "minor", "patch", "version_str")
+
+    def __init__(self, version_str: str) -> None:
+        self.version_str = version_str
+        version_tuple = self.parse_version_str(version_str)
+        self.major = int(version_tuple[0])
+        self.minor = int(version_tuple[1])
+        self.patch = int(version_tuple[2])
+
+    @staticmethod
+    def parse_version_str(version_str: str) -> str:
+        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})(.{0,32})$"
+        res = re.findall(regex, version_str)
+        if not res:
+            raise ValueError("Malformed version string.")
+        return res[0]
+
+    def __repr__(self):
+        return self.version_str
+
+    def _as_tuple(self) -> tuple[int, int, int]:
+        return (self.major, self.minor, self.patch)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() == other._as_tuple()
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() > other._as_tuple()
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() >= other._as_tuple()
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() < other._as_tuple()
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return False
+        return self._as_tuple() <= other._as_tuple()
+
+    def __hash__(self) -> int:
+        return hash(self._as_tuple())
+
+    def major_differs(self, other: Version) -> bool:
+        return self.major != other.major
+
+    def major_lt(self, other: Version) -> bool:
+        return self.major < other.major
+
+    def minor_differs(self, other: Version) -> bool:
+        return self.minor != other.minor
+
+    def minor_lt(self, other: Version) -> bool:
+        return self.minor < other.minor
+
+    def patch_differs(self, other: Version) -> bool:
+        return self.patch != other.patch
+
+    def minor_or_patch_differs(self, other: Version) -> bool:
+        return self.minor_differs(other) or self.patch_differs(other)
+
+
 class _Sentinel:
     def __repr__(self):
         return "<Unchanged>"
@@ -56,12 +130,18 @@ UNCHANGED = _Sentinel()
 _CONFIG_MODE = "exclude_configurations=false"
 
 
+class OptInStatus(Enum):
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    UNSET = "unset"
+
+
 def _make_not_found(instance: Element) -> ElementNotFound:
     """Composes and raises an ElementNotFound error for the given instance."""
     class_name = type(instance).__name__
     if class_name.startswith("Annotation"):
         class_name = "Annotation"
-    error: Type[ElementNotFound] = {
+    error: type[ElementNotFound] = {
         "Lab": LabNotFound,
         "Node": NodeNotFound,
         "Interface": InterfaceNotFound,
@@ -181,4 +261,29 @@ def _deprecated_argument(func, argument: Any, argument_name: str):
             f"{type(func.__self__).__name__}.{func.__name__}: "
             f"The argument '{argument_name}' is deprecated. Reason: {reason}",
             DeprecationWarning,
+            stacklevel=2,
         )
+
+
+def _requires_version(min_version: str) -> Callable:
+    """Decorator that guards a method behind a minimum CML server version.
+
+    If the controller version is older than *min_version*, a FeatureNotSupported
+    error is raised with a user-friendly message *before* the HTTP call is made.
+    """
+    min_ver = Version(min_version)
+
+    def decorator(func: TCallable) -> TCallable:
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self._session.controller_version < min_ver:
+                raise FeatureNotSupported(
+                    f"{type(self).__name__}.{func.__name__}() requires "
+                    f"CML server >= {min_version}, but the connected "
+                    f"controller is running {self._session.controller_version}."
+                )
+            return func(self, *args, **kwargs)
+
+        return cast(TCallable, wrapper)
+
+    return decorator

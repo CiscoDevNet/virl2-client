@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from typing import TYPE_CHECKING
 
-from ..utils import check_stale, get_url_from_template, locked
+from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
@@ -46,6 +45,12 @@ class Link:
         "start": "{lab}/links/{id}/state/start",
         "stop": "{lab}/links/{id}/state/stop",
         "condition": "{lab}/links/{id}/condition",
+        "capture_start": "{lab}/links/{id}/capture/start",
+        "capture_stop": "{lab}/links/{id}/capture/stop",
+        "capture_status": "{lab}/links/{id}/capture/status",
+        "pcap_file": "{pcap}/{id}",
+        "pcap_packets": "{pcap}/{id}/packets",
+        "pcap_packet": "{pcap}/{id}/packets/{packet_id}",
     }
 
     def __init__(
@@ -102,7 +107,7 @@ class Link:
     def __hash__(self):
         return hash(self._id)
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs):
         """
         Generate the URL for a given API endpoint.
 
@@ -110,8 +115,11 @@ class Link:
         :param **kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
-        kwargs["lab"] = self._lab._url_for("lab")
-        kwargs["id"] = self.id
+        if endpoint.startswith("pcap"):
+            kwargs["pcap"] = f"{self._session.base_url}/api/v0/pcap"
+        else:
+            kwargs["lab"] = self._lab._url_for("lab")
+        kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
@@ -203,7 +211,7 @@ class Link:
         :returns: A dictionary representation of the link object.
         """
         return {
-            "id": self.id,
+            "id": self._id,
             "interface_a": self.interface_a.id,
             "interface_b": self.interface_b.id,
         }
@@ -214,21 +222,13 @@ class Link:
 
     @check_stale
     def _remove_on_server(self) -> None:
-        _LOGGER.info(f"Removing link {self}")
+        """
+        Remove the link on the server.
+
+        """
+        _LOGGER.info("Removing link %s", self)
         url = self._url_for("link")
         self._session.delete(url)
-
-    def remove_on_server(self) -> None:
-        """
-        DEPRECATED: Use `.remove()` instead.
-        (Reason: was never meant to be public, removing only on server is not useful)
-
-        Remove the link on the server.
-        """
-        warnings.warn(
-            "'Link.remove_on_server()' is deprecated. Use '.remove()' instead.",
-        )
-        self._remove_on_server()
 
     def wait_until_converged(
         self, max_iterations: int | None = None, wait_time: int | None = None
@@ -241,7 +241,7 @@ class Link:
         :raises RuntimeError: If the link does not converge within the specified number
             of iterations.
         """
-        _LOGGER.info(f"Waiting for link {self.id} to converge")
+        _LOGGER.info("Waiting for link %s to converge", self._id)
         max_iter = (
             self._lab.wait_max_iterations if max_iterations is None else max_iterations
         )
@@ -249,16 +249,18 @@ class Link:
         for index in range(max_iter):
             converged = self.has_converged()
             if converged:
-                _LOGGER.info(f"Link {self.id} has converged")
+                _LOGGER.info("Link %s has converged", self._id)
                 return
 
             if index % 10 == 0:
                 _LOGGER.info(
-                    f"Link has not converged, attempt {index}/{max_iter}, waiting..."
+                    "Link has not converged, attempt %s/%s, waiting...",
+                    index,
+                    max_iter,
                 )
             time.sleep(wait_time)
 
-        msg = f"Link {self.id} has not converged, maximum tries {max_iter} exceeded"
+        msg = f"Link {self._id} has not converged, maximum tries {max_iter} exceeded"
         _LOGGER.error(msg)
         # after maximum retries are exceeded and link has not converged
         # error must be raised - it makes no sense to just log info
@@ -302,7 +304,12 @@ class Link:
 
     @check_stale
     def set_condition(
-        self, bandwidth: int, latency: int, jitter: int, loss: float
+        self,
+        bandwidth: int | None | _Sentinel = UNCHANGED,
+        latency: int | None | _Sentinel = UNCHANGED,
+        jitter: int | None | _Sentinel = UNCHANGED,
+        loss: float | None | _Sentinel = UNCHANGED,
+        **kwargs: dict[str, float | int | bool | None],
     ) -> None:
         """
         Set the conditioning parameters for the link.
@@ -310,15 +317,48 @@ class Link:
         :param bandwidth: The desired bandwidth in kbps (0-10000000).
         :param latency: The desired latency in ms (0-10000).
         :param jitter: The desired jitter in ms (0-10000).
-        :param loss: The desired packet loss percentage (0-100).
+        :param loss: The desired packet loss in percent (0-100).
+        :param kwargs: Additional parameters. See below.
+
+        :Keyword Arguments:
+            - enabled: Whether the link conditioning is enabled.
+            - delay_corr: The desired packet loss correlation in percent (0-100).
+            - limit: The desired maximum delay in ms (0-10000).
+            - loss_corr: The desired packet loss correlation in percent (0-100).
+            - gap: The desired gap between packets in ms (0-10000).
+            - duplicate: The desired probability of duplicates in percent (0-100).
+            - duplicate_corr: The desired correlation of duplicates in percent (0-100).
+            - reorder_prob: The desired probability of re-orders in percent (0-100).
+            - reorder_corr: The desired re-order correlation in percent (0-100).
+            - corrupt_prob: The desired corruption probability in percent (0-100).
+            - corrupt_corr: The desired corruption correlation in percent (0-100).
         """
         url = self._url_for("condition")
-        data = {
-            "bandwidth": bandwidth,
-            "latency": latency,
-            "jitter": jitter,
-            "loss": loss,
-        }
+        data: dict[str, float | int | bool] = {}
+        if bandwidth is not UNCHANGED:
+            data["bandwidth"] = bandwidth
+        if latency is not UNCHANGED:
+            data["latency"] = latency
+        if jitter is not UNCHANGED:
+            data["jitter"] = jitter
+        if loss is not UNCHANGED:
+            data["loss"] = loss
+        expected_params = [
+            "enabled",
+            "delay_corr",
+            "limit",
+            "loss_corr",
+            "gap",
+            "duplicate",
+            "duplicate_corr",
+            "reorder_prob",
+            "reorder_corr",
+            "corrupt_prob",
+            "corrupt_corr",
+        ]
+        for key, value in kwargs.items():
+            if key in expected_params:
+                data[key] = value
         self._session.patch(url, json=data)
 
     @check_stale
@@ -329,9 +369,7 @@ class Link:
         :returns: A dictionary containing the current conditioning parameters.
         """
         url = self._url_for("condition")
-        condition = self._session.get(url).json()
-        keys = ["bandwidth", "latency", "jitter", "loss"]
-        return {k: v for k, v in condition.items() if k in keys}
+        return self._session.get(url).json()
 
     @check_stale
     def remove_condition(self) -> None:
@@ -386,4 +424,84 @@ class Link:
             raise ValueError(msg)
 
         latency, bandwidth, loss = options[name]
-        self.set_condition(bandwidth, latency, 0, loss)
+        self.set_condition(bandwidth=bandwidth, latency=latency, loss=loss)
+
+    @check_stale
+    def start_capture(
+        self,
+        maxpackets: int | None = None,
+        maxtime: int | None = None,
+        bpfilter: str | None = None,
+        encap: str = "ethernet",
+    ) -> dict:
+        """
+        Start a packet capture on this link.
+
+        :param maxpackets: Maximum number of packets to capture (1-1000000). If None, server sets default.
+        :param maxtime: Maximum time in seconds to capture (1-86400). If None, server sets default.
+        :param bpfilter: Berkeley packet filter string (1-128 chars).
+        :param encap: Link encapsulation type.
+        :returns: Dictionary containing the capture status and configuration.
+        """
+        url = self._url_for("capture_start")
+        data: dict[str, str | int] = {"encap": encap}
+
+        if maxpackets is not None:
+            data["maxpackets"] = maxpackets
+        if maxtime is not None:
+            data["maxtime"] = maxtime
+        if bpfilter is not None:
+            data["bpfilter"] = bpfilter
+
+        _LOGGER.info("Starting packet capture on link %s", self._id)
+        return self._session.put(url, json=data).json()
+
+    @check_stale
+    def stop_capture(self) -> None:
+        """
+        Stop the packet capture on this link.
+        """
+        url = self._url_for("capture_stop")
+        _LOGGER.info("Stopping packet capture on link %s", self._id)
+        self._session.put(url)
+
+    @check_stale
+    def capture_status(self) -> dict:
+        """
+        Get the current packet capture status for this link.
+
+        :returns: Dictionary containing capture configuration, start time, and packet count.
+        """
+        url = self._url_for("capture_status")
+        return self._session.get(url).json()
+
+    def download_capture(self) -> bytes:
+        """
+        Download the PCAP file for this link's last capture.
+
+        :returns: The PCAP file content as bytes.
+        """
+        url = self._url_for("pcap_file")
+        _LOGGER.info("Downloading PCAP for link %s", self._id)
+        return self._session.get(url).content
+
+    def get_capture_packets(self) -> list[dict]:
+        """
+        Get a list of all captured packets in decoded format from last capture.
+
+        :returns: List of packet dictionaries with decoded packet information.
+        """
+        url = self._url_for("pcap_packets")
+        _LOGGER.info("Getting packet list for link %s", self._id)
+        return self._session.get(url).json()
+
+    def get_capture_packet(self, packet_id: int) -> dict:
+        """
+        Get a specific packet from the last capture in decoded format.
+
+        :param packet_id: The ID of the packet (1-based index).
+        :returns: Dictionary containing the decoded packet information.
+        """
+        url = self._url_for("pcap_packet", packet_id=packet_id)
+        _LOGGER.info("Downloading packet %s for link %s", packet_id, self._id)
+        return self._session.get(url).json()

@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
+import sys
 from collections.abc import Iterator
 from io import BufferedReader
 from unittest.mock import ANY, MagicMock
@@ -36,12 +37,8 @@ WRONG_FORMAT_LIST = [
     "file",
     ".text",
     ".qcow2",
-    "qcow.",
     "qcow2",
     "qcow",
-    ".qcow.",
-    ".file.",
-    "file.qcow.",
 ]
 NOT_SUPPORTED_LIST = [
     " . ",
@@ -67,13 +64,22 @@ EXPECTED_PASS_LIST = [
     "file.tar.gz",
 ]
 
+# pathlib treats ending dot differently since Python 3.14
+to_extend = NOT_SUPPORTED_LIST if sys.version_info >= (3, 14) else WRONG_FORMAT_LIST
+to_extend += [
+    ".qcow.",
+    "qcow.",
+    ".file.",
+    "file.qcow.",
+]
+
 
 # This fixture is not meant to be used in tests - rather, it's here to easily manually
 # update files when the expected_pass_list is changed. Just change autouse to True,
 # then locally run test_image_upload_file, and this will generate all the files
 # in the expected_pass_list into test_data.
 @pytest.fixture
-def create_test_files(test_data_dir):
+def create_test_files(test_data_dir: pathlib.Path):
     for file_path in EXPECTED_PASS_LIST:
         path = test_data_dir / file_path
         path.write_text("test")
@@ -95,6 +101,17 @@ def windows_path(path: str) -> Iterator[None]:
 @pytest.mark.parametrize(
     "test_path",
     ["", "/", "./", "./../", "test/test/", "/test/test/", "\\", "..\\..\\", "\\test\\"],
+    ids=[
+        "empty",
+        "root",
+        "current_unix",
+        "parent_unix",
+        "relative_unix",
+        "absolute_unix",
+        "backslash",
+        "parent_windows",
+        "absolute_windows",
+    ],
 )
 @pytest.mark.parametrize("rename", [None, "rename"])
 @pytest.mark.parametrize(

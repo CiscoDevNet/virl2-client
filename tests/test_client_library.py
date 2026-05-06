@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,17 +21,17 @@
 import json
 import logging
 import re
-import sys
+from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import httpx
 import pytest
 import respx
 
+from virl2_client.exceptions import APIError
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
-    ClientConfig,
     ClientLibrary,
     DiagnosticsCategory,
     InitializationError,
@@ -39,15 +39,12 @@ from virl2_client.virl2_client import (
 )
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
-
-python37_or_newer = pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="requires Python3.7"
-)
+FAKE_URL = "https://0.0.0.0/fake_url/"
 
 
 # TODO: split into multiple test modules, by feature.
 @pytest.fixture
-def reset_env(monkeypatch):
+def reset_env(monkeypatch: pytest.MonkeyPatch):
     env_vars = [
         "VIRL2_URL",
         "VIRL_HOST",
@@ -55,19 +52,20 @@ def reset_env(monkeypatch):
         "VIRL_USERNAME",
         "VIRL2_PASS",
         "VIRL_PASSWORD",
+        "VIRL2_JWT",
     ]
 
     for key in env_vars:
         monkeypatch.delenv(key, raising=False)
 
 
-@python37_or_newer
 def test_import_lab_from_path_virl(
-    client_library_server_current, mocked_session, tmp_path: Path
+    client_library_server_current: MagicMock,
+    mocked_session: MagicMock,
+    tmp_path: Path,
 ):
-    cl = ClientLibrary(
-        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     Lab.sync = Mock()
 
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
@@ -84,13 +82,13 @@ def test_import_lab_from_path_virl(
     cl._session.post.assert_called_once()
 
 
-@python37_or_newer
 def test_import_lab_from_path_virl_title(
-    client_library_server_current, mocked_session, tmp_path: Path
+    client_library_server_current: MagicMock,
+    mocked_session: MagicMock,
+    tmp_path: Path,
 ):
-    cl = ClientLibrary(
-        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
+    _ = client_library_server_current, mocked_session
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     Lab.sync = Mock()
     new_title = "new_title"
     (tmp_path / "topology.virl").write_text("<?xml version='1.0' encoding='UTF-8'?>")
@@ -107,9 +105,12 @@ def test_import_lab_from_path_virl_title(
     )
 
 
-def test_ssl_certificate(client_library_server_current, mocked_session):
+def test_ssl_certificate(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+):
+    _ = client_library_server_current, mocked_session
     cl = ClientLibrary(
-        url="https://0.0.0.0/fake_url/",
+        url=FAKE_URL,
         username="test",
         password="pa$$",
         ssl_verify="/home/user/cert.pem",
@@ -117,26 +118,60 @@ def test_ssl_certificate(client_library_server_current, mocked_session):
     cl.is_system_ready(wait=True)
 
     assert cl._ssl_verify == "/home/user/cert.pem"
-    assert cl._session.mock_calls[:4] == [call.get("authok")]
+    assert cl._session.mock_calls[0] == call.get("authentication")
 
 
 def test_ssl_certificate_from_env_variable(
-    client_library_server_current, monkeypatch, mocked_session
+    client_library_server_current: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    mocked_session: MagicMock,
 ):
+    _ = client_library_server_current, mocked_session
     monkeypatch.setenv("CA_BUNDLE", "/home/user/cert.pem")
-    cl = ClientLibrary(
-        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
 
     assert cl.is_system_ready()
     assert cl._ssl_verify == "/home/user/cert.pem"
-    assert cl._session.mock_calls[:4] == [call.get("authok")]
+    assert cl._session.mock_calls[0] == call.get("authentication")
 
 
-@python37_or_newer
 @respx.mock
-def test_auth_and_reauth_token(client_library_server_current):
-    def initial_different_response(initial, subsequent=httpx.Response(200)):
+def test_new_auth_url_used_with_cml_2_10(
+    client_library_server_current: MagicMock,
+):
+    """Verify that the new auth URL is used with CML 2.10.x controllers.
+
+    With the current client version (2.10.0), _make_test_auth_call should
+    access the "authentication" endpoint and not the legacy "authok" one.
+    """
+
+    _ = client_library_server_current
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "admin": True,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "error": None,
+        },
+    )
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(404)
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert new_auth_route.called
+    assert not old_auth_route.called
+
+
+@respx.mock
+def test_auth_and_reauth_token(client_library_server_current: MagicMock):
+    def initial_different_response(
+        initial: httpx.Response, subsequent: httpx.Response = httpx.Response(200)
+    ) -> Iterator[httpx.Response]:
+        _ = client_library_server_current
         yield initial
         while True:
             yield subsequent
@@ -145,53 +180,169 @@ def test_auth_and_reauth_token(client_library_server_current):
     side_effect = initial_different_response(
         httpx.Response(403), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
     )
-    respx.post("https://0.0.0.0/fake_url/api/v0/authenticate").side_effect = side_effect
-    side_effect = initial_different_response(httpx.Response(401))
-    respx.get("https://0.0.0.0/fake_url/api/v0/authok").side_effect = side_effect
+    respx.post(f"{FAKE_URL}api/v0/authenticate").side_effect = side_effect
+    side_effect = initial_different_response(
+        httpx.Response(401),
+        httpx.Response(
+            200,
+            json={
+                "username": "username",
+                "admin": True,
+                "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+                "token": "BOGUS_TOKEN",
+                "error": None,
+            },
+        ),
+    )
+    respx.get(f"{FAKE_URL}api/v0/authentication").side_effect = side_effect
 
     # mock get labs
-    respx.get("https://0.0.0.0/fake_url/api/v0/labs").respond(json=[])
+    respx.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
 
     with pytest.raises(InitializationError):
         # Test returns custom exception when instructed to raise on failure
         ClientLibrary(
-            url="https://0.0.0.0/fake_url/",
+            url=FAKE_URL,
             username="test",
             password="pa$$",
             raise_for_auth_failure=True,
         )
 
-    cl = ClientLibrary(
-        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
+    cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
 
     cl.all_labs()
 
-    # for idx, item in enumerate(respx.calls):
-    #     print(idx, item.request.url)
-    #
-    # this is what we expect:
-    # 0 https://0.0.0.0/fake_url/api/v0/authenticate
-    # 1 https://0.0.0.0/fake_url/api/v0/authenticate
-    # 2 https://0.0.0.0/fake_url/api/v0/authok
-    # 3 https://0.0.0.0/fake_url/api/v0/authenticate
-    # 4 https://0.0.0.0/fake_url/api/v0/authok
-    # 5 https://0.0.0.0/fake_url/api/v0/labs
-
-    assert respx.calls[0].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
+    assert respx.calls[0].request.url == f"{FAKE_URL}api/v0/authenticate"
     assert json.loads(respx.calls[0].request.content) == {
         "username": "test",
         "password": "pa$$",
     }
-    assert respx.calls[1].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
-    assert respx.calls[2].request.url == "https://0.0.0.0/fake_url/api/v0/authok"
-    assert respx.calls[3].request.url == "https://0.0.0.0/fake_url/api/v0/authenticate"
-    assert respx.calls[4].request.url == "https://0.0.0.0/fake_url/api/v0/authok"
-    assert respx.calls[5].request.url == "https://0.0.0.0/fake_url/api/v0/labs"
+    assert respx.calls[1].request.url == f"{FAKE_URL}api/v0/authenticate"
+    assert respx.calls[2].request.url == f"{FAKE_URL}api/v0/authentication"
+    assert respx.calls[3].request.url == f"{FAKE_URL}api/v0/authenticate"
+    assert respx.calls[4].request.url == f"{FAKE_URL}api/v0/authentication"
+    assert respx.calls[5].request.url == f"{FAKE_URL}api/v0/labs"
     assert respx.calls.call_count == 6
 
 
-def test_client_library_init_allow_http(client_library_server_current):
+@respx.mock
+def test_jwt_only_valid_token_does_not_call_password_auth(
+    client_library_server_current: MagicMock,
+):
+    _ = client_library_server_current
+
+    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "jwt_user",
+            "admin": False,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "VALID_TOKEN",
+            "error": None,
+        },
+    )
+    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+        json="SHOULD_NOT_BE_USED"
+    )
+    respx.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
+
+    cl = ClientLibrary(url=FAKE_URL, jwtoken="VALID_TOKEN")
+    cl.all_labs()
+
+    assert auth_route.called
+    assert not password_auth_route.called
+
+
+@respx.mock
+def test_jwt_expired_with_credentials_reauths_using_password_auth(
+    client_library_server_current: MagicMock,
+):
+    _ = client_library_server_current
+
+    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication")
+    auth_route.side_effect = [
+        httpx.Response(401),
+        httpx.Response(
+            200,
+            json={
+                "username": "test",
+                "admin": True,
+                "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+                "token": "REFRESHED_TOKEN",
+                "error": None,
+            },
+        ),
+    ]
+    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+        json="REFRESHED_TOKEN"
+    )
+
+    ClientLibrary(
+        url=FAKE_URL,
+        username="test",
+        password="pa$$",
+        jwtoken="EXPIRED_TOKEN",
+    )
+
+    assert auth_route.called
+    assert auth_route.call_count == 2
+    assert password_auth_route.called
+    assert json.loads(password_auth_route.calls[0].request.content) == {
+        "username": "test",
+        "password": "pa$$",
+    }
+
+
+@respx.mock
+def test_jwt_reauth_without_credentials_fails_cleanly(
+    client_library_server_current: MagicMock,
+    reset_env: None,
+):
+    _ = client_library_server_current, reset_env
+
+    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
+    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+        json="SHOULD_NOT_BE_USED"
+    )
+
+    with pytest.raises(
+        APIError,
+        match="JWT token expired and automatic re-authentication is not possible",
+    ):
+        ClientLibrary(url=FAKE_URL, jwtoken="EXPIRED_TOKEN")
+
+    assert auth_route.called
+    assert auth_route.call_count == 1
+    assert not password_auth_route.called
+
+
+@respx.mock
+def test_old_auth_url_used_with_cml_2_9(
+    client_library_server_2_9_0: MagicMock, monkeypatch: pytest.MonkeyPatch
+):
+    """Verify that the legacy auth URL is used with a 2.9.x controller when
+    the client library version is also 2.9.x.
+
+    This simulates running an older client (2.9) against a 2.9 controller,
+    where only the legacy "authok" endpoint is available.
+    """
+
+    _ = client_library_server_2_9_0
+
+    monkeypatch.setattr(ClientLibrary, "VERSION", Version("2.9.0"))
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(404)
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert old_auth_route.called
+    assert not new_auth_route.called
+
+
+def test_client_library_init_allow_http(client_library_server_current: MagicMock):
+    _ = client_library_server_current
     cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
     assert cl._session.base_url.scheme == "http"
     assert cl._session.base_url.host == "somehost"
@@ -201,11 +352,68 @@ def test_client_library_init_allow_http(client_library_server_current):
     assert cl.password == "virl2"
 
 
-def test_client_library_init_disallow_http(client_library_server_current):
+def test_client_library_init_disallow_http(client_library_server_current: MagicMock):
+    _ = client_library_server_current
     with pytest.raises(InitializationError, match="must be https"):
         ClientLibrary("http://somehost", "virl2", "virl2")
     with pytest.raises(InitializationError, match="must be https"):
         ClientLibrary("http://somehost", "virl2", "virl2", allow_http=False)
+
+
+@respx.mock
+def test_new_auth_url_fails_with_cml_2_9(client_library_server_2_9_0: MagicMock):
+    """Negative test: new auth URL does not work with CML 2.9.x.
+
+    With the current client version (2.10.0) and a 2.9 controller, only the
+    legacy "authok" endpoint is expected to exist server-side.
+    """
+
+    _ = client_library_server_2_9_0
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(404)
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert old_auth_route.called
+    assert not new_auth_route.called
+
+
+@respx.mock
+def test_old_auth_url_deprecated_with_cml_2_10(
+    client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
+):
+    """Negative test: legacy auth URL should be considered deprecated on
+    CML 2.10.x controllers.  This is a theoretical scenario in case it is not
+    forbidden to connect to a newer controller with an older client anymore.
+
+    This simulates using an older client (2.9.x) against a 2.10 controller,
+    where the "authok" endpointis deprecated. _make_test_auth_call will
+    select the "legacy" endpoint, which still works, but eventually won't.
+    """
+
+    _ = client_library_server_current
+
+    monkeypatch.setattr(ClientLibrary, "VERSION", Version("2.9.0"))
+
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "admin": True,
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "error": None,
+        },
+    )
+
+    ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
+
+    assert new_auth_route.called
+    assert not old_auth_route.called
 
 
 # the test fails if you have variables set in env
@@ -224,8 +432,14 @@ def test_client_library_init_disallow_http(client_library_server_current):
     ],
 )
 def test_client_library_init_url(
-    client_library_server_current, reset_env, monkeypatch, via, env_var, params
+    client_library_server_current: MagicMock,
+    reset_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    via: str,
+    env_var: str,
+    params: tuple,
 ):
+    _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
     expected_parts = None if fail else httpx.URL(url)
@@ -267,8 +481,14 @@ def test_client_library_init_url(
 @pytest.mark.parametrize("env_var", ["VIRL2_USER", "VIRL_USERNAME"])
 @pytest.mark.parametrize("params", [(False, "johndoe"), (True, ""), (True, None)])
 def test_client_library_init_user(
-    client_library_server_current, reset_env, monkeypatch, via, env_var, params
+    client_library_server_current: MagicMock,
+    reset_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    via: str,
+    env_var: str,
+    params: tuple,
 ):
+    _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
     (fail, user) = params
@@ -277,7 +497,7 @@ def test_client_library_init_user(
         env = user or ""
         user = None
     else:
-        env = "baduser" if user else None
+        env = "baduser" if user else ""
     if env is None:
         monkeypatch.delenv(env_var, raising=False)
     else:
@@ -300,8 +520,14 @@ def test_client_library_init_user(
 @pytest.mark.parametrize("env_var", ["VIRL2_PASS", "VIRL_PASSWORD"])
 @pytest.mark.parametrize("params", [(False, "validPa$$w!2"), (True, ""), (True, None)])
 def test_client_library_init_password(
-    client_library_server_current, reset_env, monkeypatch, via, env_var, params
+    client_library_server_current: MagicMock,
+    reset_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    via: str,
+    env_var: str,
+    params: tuple,
 ):
+    _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     url = "validhostname"
     (fail, password) = params
@@ -310,7 +536,7 @@ def test_client_library_init_password(
         env = password or ""
         password = None
     else:
-        env = "badpass" if password else None
+        env = "badpass" if password else ""
     if env is None:
         monkeypatch.delenv(env_var, raising=False)
     else:
@@ -328,75 +554,53 @@ def test_client_library_init_password(
         assert cl._session.base_url == "https://validhostname/api/v0/"
 
 
-@pytest.mark.parametrize(
-    "config",
-    [
-        ClientConfig("http://somehost", "virl2", "pa$$", allow_http=True),
-        ClientConfig("https://somehost:443", "virl4", "somepass", ssl_verify=False),
-        ClientConfig("https://somehost", "virl4", "somepass", ssl_verify="/path.pem"),
-        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=-1),
-        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=0.0),
-        ClientConfig("https://somehost", "virl4", "somepass", auto_sync=2.3),
-    ],
-)
-def test_client_library_config(client_library_server_current, mocked_session, config):
-    client_library = config.make_client()
-    assert client_library._session.base_url.path.startswith(config.url)
-    assert client_library.username == config.username
-    assert client_library.password == config.password
-    assert client_library.allow_http == config.allow_http
-    assert client_library._ssl_verify == config.ssl_verify
-    assert client_library.auto_sync == (config.auto_sync >= 0.0)
-    assert client_library.auto_sync_interval == config.auto_sync
-    assert client_library._session.mock_calls == [
-        call.get("authok"),
-        call.base_url.path.startswith(config.url),
-        call.base_url.path.startswith().__bool__(),
-    ]
-
-
-def test_client_library_str_and_repr(client_library_server_current):
+def test_client_library_str_and_repr(client_library_server_current: MagicMock):
+    _ = client_library_server_current
     client_library = ClientLibrary("somehost", "virl2", password="virl2")
     assert repr(client_library) == "ClientLibrary('https://somehost')"
     assert str(client_library) == "ClientLibrary URL: https://somehost/api/v0/"
 
 
-def test_incompatible_version(client_library_server_2_0_0):
+def test_incompatible_version(client_library_server_2_0_0: MagicMock):
+    _ = client_library_server_2_0_0
     with pytest.raises(InitializationError) as err:
-        with patch.object(
-            ClientLibrary, "INCOMPATIBLE_CONTROLLER_VERSIONS", new=[Version("2.0.0")]
-        ):
-            ClientLibrary("somehost", "virl2", password="virl2")
-    assert (
-        str(err.value) == "Controller version 2.0.0 is marked incompatible! "
-        "List of versions marked explicitly as incompatible: [2.0.0]."
+        ClientLibrary("somehost", "virl2", password="virl2")
+    assert str(err.value) == (
+        "Unsupported minor version (only last 3 minor versions are supported). "
+        f"Client {ClientLibrary.VERSION}, controller 2.0.0."
     )
 
 
-def test_client_minor_version_gt_nowarn(client_library_server_current, caplog):
+def test_client_minor_version_gt_nowarn(
+    client_library_server_current: MagicMock, caplog: pytest.LogCaptureFixture
+):
+    _ = client_library_server_current
     with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
+        ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         f"Please ensure the client version is compatible with the controller version. "
         f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
     )
 
 
-def test_client_minor_version_lt_warn(client_library_server_2_19_0, caplog):
+def test_client_minor_version_lt_warn(
+    client_library_server_2_19_0: MagicMock, caplog: pytest.LogCaptureFixture
+):
+    _ = client_library_server_2_19_0
     with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
+        ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         f"Please ensure the client version is compatible with the controller version. "
         f"Client {CURRENT_VERSION}, controller 2.19.0." in caplog.text
     )
 
 
-def test_exact_version_no_warn(client_library_server_current, caplog):
+def test_exact_version_no_warn(
+    client_library_server_current: MagicMock, caplog: pytest.LogCaptureFixture
+):
+    _ = client_library_server_current
     with caplog.at_level(logging.WARNING):
-        client_library = ClientLibrary("somehost", "virl2", password="virl2")
-    assert client_library is not None
+        ClientLibrary("somehost", "virl2", password="virl2")
     assert (
         f"Please ensure the client version is compatible with the controller version. "
         f"Client {CURRENT_VERSION}, controller 2.0.0." not in caplog.text
@@ -456,7 +660,9 @@ def test_exact_version_no_warn(client_library_server_current, caplog):
         ),
     ],
 )
-def test_version_comparison_greater_than(greater, lesser, expected):
+def test_version_comparison_greater_than(
+    greater: Version, lesser: Version, expected: bool
+):
     assert (greater > lesser) == expected
 
 
@@ -537,7 +743,9 @@ def test_version_comparison_greater_than(greater, lesser, expected):
         ),
     ],
 )
-def test_version_comparison_greater_than_or_equal_to(first, second, expected):
+def test_version_comparison_greater_than_or_equal_to(
+    first: Version, second: Version, expected: bool
+):
     assert (first >= second) == expected
 
 
@@ -588,7 +796,9 @@ def test_version_comparison_greater_than_or_equal_to(first, second, expected):
         ),
     ],
 )
-def test_version_comparison_less_than(lesser, greater, expected):
+def test_version_comparison_less_than(
+    lesser: Version, greater: Version, expected: bool
+):
     assert (lesser < greater) == expected
 
 
@@ -663,7 +873,9 @@ def test_version_comparison_less_than(lesser, greater, expected):
         ),
     ],
 )
-def test_version_comparison_less_than_or_equal_to(first, second, expected):
+def test_version_comparison_less_than_or_equal_to(
+    first: Version, second: Version, expected: bool
+):
     assert (first <= second) == expected
 
 
@@ -690,11 +902,13 @@ def test_different_version_strings():
 
 
 def test_import_lab_offline_deprecated(
-    client_library_server_current, mocked_session, tmp_path: Path, test_data_dir: Path
+    client_library_server_current: MagicMock,
+    mocked_session: MagicMock,
+    tmp_path: Path,
+    test_data_dir: Path,
 ):
-    client_library = ClientLibrary(
-        url="https://0.0.0.0/fake_url/", username="test", password="pa$$"
-    )
+    _ = client_library_server_current, mocked_session, tmp_path
+    client_library = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
     topology_file_path = test_data_dir / "sample_topology.json"
     with open(topology_file_path) as fh:
         topology_file = fh.read()
@@ -702,11 +916,14 @@ def test_import_lab_offline_deprecated(
             client_library.import_lab(topology_file, "topology-v0_0_4", offline=True)
 
 
-def test_convergence_parametrization(client_library_server_current, mocked_session):
+def test_convergence_parametrization(
+    client_library_server_current: MagicMock, mocked_session: MagicMock
+):
+    _ = client_library_server_current, mocked_session
     max_iter = 2
     max_time = 1
     cl = ClientLibrary(
-        url="https://0.0.0.0/fake_url/",
+        url=FAKE_URL,
         username="test",
         password="pa$$",
         convergence_wait_max_iter=max_iter,
@@ -772,10 +989,20 @@ def test_get_diagnostics_paths(
 
 @respx.mock
 def test_system_management_controller_triggers_compute_load(
-    client_library_server_current,
+    client_library_server_current: MagicMock,
 ):
+    _ = client_library_server_current
     respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
-    respx.get("https://localhost/api/v0/authok").respond(200)
+    respx.get("https://localhost/api/v0/authentication").respond(
+        200,
+        json={
+            "username": "username",
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "admin": True,
+            "error": None,
+        },
+    )
 
     compute_hosts_response = [
         {

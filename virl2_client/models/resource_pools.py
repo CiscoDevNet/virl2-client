@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -19,9 +19,11 @@
 #
 import warnings
 
-from .resource_pool import *  # noqa
+from .resource_pool import *  # noqa: F403
 
 warnings.warn(
     "The module name 'virl2_client.models.resource_pools' is deprecated. "
     "Use 'virl2_client.models.resource_pool' instead.",
+    UserWarning,
+    stacklevel=2,
 )

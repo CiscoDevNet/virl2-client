@@ -156,6 +156,7 @@ class Lab:
         self._id = lab_id
         self._session = session
         self._owner = username
+        self._owner_id = None
         self._state = None
         self._nodes: dict[str, Node] = {}
         """
@@ -500,14 +501,27 @@ class Lab:
             setattr(self, f"_{prop}", value)
 
     @property
-    def owner(self) -> str:
+    def owner(self) -> str | None:
         """
-        Return the owner of the lab.
+        Return the owner username of the lab.
 
-        :returns: The lab owner username.
+        :returns: The lab owner username, or None when the owner's id could
+            not be resolved against the user cache (e.g. the API returned an
+            owner id but no ``owner_username`` and the user is unknown to
+            the cache).
         """
         self.sync_topology_if_outdated()
         return self._owner
+
+    @property
+    def owner_id(self) -> str | None:
+        """
+        Return the owner ID of the lab.
+
+        :returns: The lab owner user ID, or None if not set.
+        """
+        self.sync_topology_if_outdated()
+        return self._owner_id
 
     @property
     def resource_pools(self) -> list[ResourcePool]:
@@ -1649,35 +1663,38 @@ class Lab:
         Replace lab properties with the given topology.
 
         :param topology: The topology to import.
-        :param created: The node create API endpoint returns data in the old format,
-            which would print an unnecessary old schema warning;
-            setting this flag to True skips that warning. Also decides whether default
-            username is to be the current user or None.
+        :param created: Whether the topology came from the lab create endpoint,
+            which returns the lab metadata flat at the top level rather than
+            nested under "lab". Setting this flag to True skips the
+            InvalidTopologySchema raise for that flat shape.
         :raises KeyError: If any property is missing in the topology.
         """
         lab_dict = topology.get("lab")
-        default_owner = self.username if created else None
 
         if lab_dict is None:
-            # If we just created the lab, we skip the warning, since the
-            # lab post endpoint returns data in the old format
+            # Some endpoints (e.g. lab create / GET /labs/{id}) return the lab
+            # metadata flat at the top level rather than nested under "lab".
             if not created:
                 raise InvalidTopologySchema
-            self._title = topology["lab_title"]
-            self._description = topology["lab_description"]
-            self._notes = topology["lab_notes"]
-            self._set_owner(topology.get("lab_owner"), default_owner)
-            if autostart := topology.get("autostart"):
-                self._autostart = autostart
-            node_staging = topology.get("node_staging")
-        else:
-            self._title = lab_dict["title"]
-            self._description = lab_dict["description"]
-            self._notes = lab_dict["notes"]
-            self._set_owner(lab_dict.get("owner"), default_owner)
-            node_staging = lab_dict.get("node_staging")
+            lab_dict = {
+                "title": topology["lab_title"],
+                "description": topology["lab_description"],
+                "notes": topology["lab_notes"],
+                "owner": topology.get("owner"),
+                "owner_username": topology.get("owner_username"),
+                "node_staging": topology.get("node_staging"),
+                "autostart": topology.get("autostart"),
+            }
 
-        if node_staging:
+        self._title = lab_dict["title"]
+        self._description = lab_dict["description"]
+        self._notes = lab_dict["notes"]
+        self._set_owner(lab_dict.get("owner"), lab_dict.get("owner_username"))
+
+        if autostart := lab_dict.get("autostart"):
+            self._autostart = autostart
+
+        if node_staging := lab_dict.get("node_staging"):
             self._node_staging = node_staging
 
     @locked
@@ -2192,7 +2209,13 @@ class Lab:
         self._title = properties.get("title", self._title)
         self._description = properties.get("description", self._description)
         self._notes = properties.get("notes", self._notes)
-        self._owner = properties.get("owner", self._owner)
+
+        if "owner" in properties:
+            self._set_owner(
+                user_id=properties.get("owner"),
+                user_name=properties.get("owner_username"),
+            )
+
         self._autostart.update(properties.get("autostart", {}))
 
         # Handle node staging properties
@@ -2461,15 +2484,16 @@ class Lab:
         self, user_id: str | None = None, user_name: str | None = None
     ) -> None:
         """
-        Sets the owner to the name of the user specified by the provided user_id.
-        If given ID is None/doesn't exist, we fall back to the given user_name,
-        which will usually be the name of the current user or None.
+        Set the lab owner ID and username.
+
+        When *user_name* is supplied, it is used as-is and the cache is not
+        consulted. When only *user_id* is supplied, the username is resolved
+        from the cached user list. Passing both as None clears both attributes.
 
         :param user_id: User unique identifier.
-        :param user_name: Username.
+        :param user_name: Username (preferred when set; skips the cache lookup).
         """
-        if user_id:
-            resolved = self._user_management.get_username(user_id)
-            if resolved is not None:
-                user_name = resolved
+        self._owner_id = user_id or None
+        if user_name is None and user_id:
+            user_name = self._user_management.get_username(user_id)
         self._owner = user_name

@@ -133,8 +133,12 @@ class ClPyats:
 
         :param username: The username to be inserted into the testbed data.
         :param password: The password or a JWT token to be inserted into
-            the testbed data. The SSH console server accepts a JWT as the
-            password, which avoids creating a new token per SSH session.
+            the testbed data. Passing a JWT avoids creating a new token
+            per SSH session and requires a CML 2.11.0 (or newer)
+            controller that accepts JWTs as SSH passwords. When None
+            (the default), the existing terminal-server password in the
+            testbed YAML is left unchanged; call set_termserv_credentials
+            to set credentials later.
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()

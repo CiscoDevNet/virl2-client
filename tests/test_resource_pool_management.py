@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from virl2_client.models.resource_pool import ResourcePoolManagement
+from virl2_client.models import ResourcePoolManagement
 
 
 def test_rp_management_sync() -> None:

@@ -25,8 +25,8 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 from virl2_client.models import Lab
 
 
@@ -41,12 +41,14 @@ def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
     if autostart := resp.get("autostart"):
         if not isinstance(autostart.get("enabled"), bool):
             raise ValueError("Invalid value for enabled")
-        if priority := autostart.get("priority"):
-            if not isinstance(priority, int) or not 0 <= priority <= 10000:
-                raise ValueError("Invalid value for priority")
-        if delay := autostart.get("delay"):
-            if not isinstance(delay, int) or not 0 <= delay <= 86400:
-                raise ValueError("Invalid value for delay")
+        if (priority := autostart.get("priority")) and (
+            not isinstance(priority, int) or not 0 <= priority <= 10000
+        ):
+            raise ValueError("Invalid value for priority")
+        if (delay := autostart.get("delay")) and (
+            not isinstance(delay, int) or not 0 <= delay <= 86400
+        ):
+            raise ValueError("Invalid value for delay")
 
 
 def test_autostart_initial_values() -> None:

@@ -117,7 +117,7 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
     """
 
     def initial_different_response(
-        initial: httpx.Response, subsequent: httpx.Response = httpx.Response(200)
+        initial: httpx.Response, subsequent: httpx.Response | None = None
     ) -> Iterator[httpx.Response]:
         """Yield one initial response, then yield the subsequent response forever.
 
@@ -126,6 +126,8 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
         :returns: Infinite response iterator with first-response override.
         """
         _ = client_library_server_current
+        if subsequent is None:
+            subsequent = httpx.Response(200)
         yield initial
         while True:
             yield subsequent
@@ -542,10 +544,7 @@ def test_get_diagnostics_paths(
     :param valid: Whether API returns 200 (True) or 404 (False).
     """
     data = {"data": "sample"}
-    if valid:
-        return_value = httpx.Response(200, json=data)
-    else:
-        return_value = httpx.Response(404)
+    return_value = httpx.Response(200, json=data) if valid else httpx.Response(404)
 
     expected_categories = categories
     if DiagnosticsCategory.ALL in categories:
@@ -845,9 +844,11 @@ def test_check_version_skip_paths(
     with patch.object(cl, "system_info", return_value={"version": "2.0.0"}):
         result = cl.check_controller_version()
         assert result == Version("2.0.0")
-    with patch.object(cl, "system_info", return_value={"version": object()}):
-        with pytest.raises(InitializationError, match="invalid version"):
-            cl.check_controller_version()
+    with (
+        patch.object(cl, "system_info", return_value={"version": object()}),
+        pytest.raises(InitializationError, match="invalid version"),
+    ):
+        cl.check_controller_version()
 
 
 def test_join_lab_propagates_error(

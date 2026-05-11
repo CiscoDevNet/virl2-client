@@ -100,6 +100,18 @@ def test_event_listener_init_and_connection(
             mocked_ctx.load_verify_locations.assert_called_once_with(ssl_verify_val)
 
 
+def test_ssl_verify_path_missing_raises(tmp_path: Path) -> None:
+    """_init_ws_connection_data raises FileNotFoundError for missing cert path.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Temporary directory used to derive a non-existent path.
+    """
+    missing = (tmp_path / "missing.pem").as_posix()
+    with pytest.raises(FileNotFoundError, match="ssl_verify path"):
+        EventListener(_client(missing))
+
+
 class _DummyThread:
     """Minimal thread-like object for lifecycle tests."""
 
@@ -214,8 +226,8 @@ def test_parse_queue() -> None:
     listener._ws_close = None
     listener._queue.put_nowait('{"event_type":"lab_event","event":"created"}')
     with patch.object(listener._event_handler, "handle_event") as handle_event:
-        handle_event.side_effect = (
-            lambda *_args, **_kwargs: listener._ws_close_event.set()
+        handle_event.side_effect = lambda *_args, **_kwargs: (
+            listener._ws_close_event.set()
         )
         asyncio.run(listener._parse())
     handle_event.assert_called_once()
@@ -239,6 +251,29 @@ def test_parse_close_hook() -> None:
     listener._ws_close = close_hook()
     asyncio.run(listener._parse())
     assert closed["value"] is True
+
+
+def test_parse_cancels_pending_close_wait_on_error() -> None:
+    """_parse finally cancels close_wait when exiting via an exception.
+
+    Covers the branch where the loop is aborted before _ws_close_event is set,
+    requiring the finally block to cancel and drain the pending close-wait task.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    listener = EventListener(_client())
+    listener._queue = asyncio.Queue()
+    listener._ws_close_event = asyncio.Event()
+    listener._ws_close = None
+    listener._queue.put_nowait('{"event_type":"lab_event","event":"created"}')
+    with (
+        patch.object(
+            listener._event_handler, "handle_event", side_effect=RuntimeError("boom")
+        ),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        asyncio.run(listener._parse())
+    assert listener._ws_close_event.is_set() is False
 
 
 class _FakeWs:

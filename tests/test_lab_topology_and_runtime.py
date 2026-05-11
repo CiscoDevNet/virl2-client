@@ -26,8 +26,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import (
     AnnotationNotFound,
     InterfaceNotFound,

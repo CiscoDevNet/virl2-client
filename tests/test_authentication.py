@@ -28,7 +28,7 @@ import httpx
 import pytest
 
 from virl2_client.exceptions import APIError
-from virl2_client.models.authentication import TokenAuth
+from virl2_client.models import TokenAuth
 
 
 def _make_client(allow_http: bool = False) -> MagicMock:

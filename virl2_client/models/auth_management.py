@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..exceptions import MethodNotActive
 from ..utils import get_url_from_template
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 class AuthManagement:
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "config": "system/auth/config",
         "test": "system/auth/test",
         "groups": "system/auth/groups",

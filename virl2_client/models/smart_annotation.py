@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
@@ -55,7 +55,7 @@ _SMART_ANNOTATION_PROPERTIES = set(_SMART_ANNOTATION_DEFAULTS) | {"id"}
 class SmartAnnotation:
     """A VIRL2 lab smart annotation for grouping and labeling nodes."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "smart_annotation": "labs/{lab_id}/smart_annotations/{annotation_id}",
     }
 

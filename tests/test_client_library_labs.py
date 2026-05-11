@@ -24,9 +24,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from respx import MockRouter
 
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from virl2_client.exceptions import (
     ElementAlreadyExists,
     InvalidTopologySchema,

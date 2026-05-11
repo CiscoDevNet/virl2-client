@@ -439,13 +439,17 @@ def test_image_upload_file(
         rename += test_string
 
     if test_string in WRONG_FORMAT_LIST:
-        with pytest.raises(InvalidImageFile, match="wrong format"):
-            with windows_path(filename):
-                nid.upload_image_file(filename, rename)
+        with (
+            pytest.raises(InvalidImageFile, match="wrong format"),
+            windows_path(filename),
+        ):
+            nid.upload_image_file(filename, rename)
     elif test_string in NOT_SUPPORTED_LIST:
-        with pytest.raises(InvalidImageFile, match="unsupported extension"):
-            with windows_path(filename):
-                nid.upload_image_file(filename, rename)
+        with (
+            pytest.raises(InvalidImageFile, match="unsupported extension"),
+            windows_path(filename),
+        ):
+            nid.upload_image_file(filename, rename)
     elif test_path == "test_data/":
         with windows_path(filename):
             nid.upload_image_file(filename, rename)
@@ -459,9 +463,10 @@ def test_image_upload_file(
         file.close()
     else:
         if rename is not None:
-            with pytest.raises(InvalidImageFile, match="does not match source"):
-                with windows_path(filename):
-                    nid.upload_image_file(filename, rename[:-3])
-        with pytest.raises(FileNotFoundError):
-            with windows_path(filename):
-                nid.upload_image_file(filename, rename)
+            with (
+                pytest.raises(InvalidImageFile, match="does not match source"),
+                windows_path(filename),
+            ):
+                nid.upload_image_file(filename, rename[:-3])
+        with pytest.raises(FileNotFoundError), windows_path(filename):
+            nid.upload_image_file(filename, rename)

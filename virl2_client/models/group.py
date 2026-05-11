@@ -20,7 +20,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..utils import get_url_from_template
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 class GroupManagement:
     """Manage groups."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "groups": "groups",
         "group": "groups/{group_id}",
         "id": "groups/{group_name}/id",

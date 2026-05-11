@@ -26,7 +26,7 @@ import pytest
 import respx
 
 from virl2_client.exceptions import ElementNotFound, LabRepositoryNotFound
-from virl2_client.models.lab_repository import LabRepository, LabRepositoryManagement
+from virl2_client.models import LabRepository, LabRepositoryManagement
 from virl2_client.virl2_client import ClientLibrary
 
 MOCK_LAB_REPOSITORY_1 = {

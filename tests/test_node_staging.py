@@ -25,10 +25,9 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 
-from virl2_client.models import Lab
-from virl2_client.models.node import Node
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
+from virl2_client.models import Lab, Node
 
 
 def conditional_side_effect(*args: Any, **kwargs: Any) -> None:

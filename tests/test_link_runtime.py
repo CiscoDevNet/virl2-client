@@ -24,9 +24,9 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from helpers import make_lab_with_topology
 
-from virl2_client.models.link import Link
+from tests.helpers import make_lab_with_topology
+from virl2_client.models import Link
 
 
 def _new_link() -> Link:

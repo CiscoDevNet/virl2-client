@@ -26,8 +26,8 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import (
     ElementAlreadyExists,
     LabNotFound,
@@ -402,6 +402,8 @@ def test_get_smart_annotation_by_tag_missing() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = make_lab()
-    with patch.object(lab, "sync_topology_if_outdated", return_value=None):
-        with pytest.raises(SmartAnnotationNotFound):
-            lab.get_smart_annotation_by_tag("missing-tag")
+    with (
+        patch.object(lab, "sync_topology_if_outdated", return_value=None),
+        pytest.raises(SmartAnnotationNotFound),
+    ):
+        lab.get_smart_annotation_by_tag("missing-tag")

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import httpx
 
@@ -36,7 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class LabRepository:
-    _URL_TEMPLATES = {"lab_repo": "lab_repos/{repo_id}"}
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {"lab_repo": "lab_repos/{repo_id}"}
 
     def __init__(
         self,
@@ -126,7 +126,7 @@ class LabRepository:
 class LabRepositoryManagement:
     """Manage lab repositories."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "lab_repos": "lab_repos",
         "lab_repos_refresh": "lab_repos/refresh",
     }

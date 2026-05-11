@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from virl2_client.models.system import SystemManagement
+from virl2_client.models import SystemManagement
 from virl2_client.utils import OptInStatus
 
 

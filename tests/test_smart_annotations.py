@@ -22,10 +22,10 @@
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import InvalidProperty
-from virl2_client.models.smart_annotation import SmartAnnotation
+from virl2_client.models import SmartAnnotation
 
 
 def test_smart_annotation_prop_setters() -> None:

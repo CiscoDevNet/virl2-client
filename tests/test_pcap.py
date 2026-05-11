@@ -23,7 +23,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from virl2_client.models.link import Link
+from virl2_client.models import Link
 
 
 @pytest.fixture

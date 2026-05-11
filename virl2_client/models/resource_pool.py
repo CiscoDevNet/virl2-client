@@ -24,7 +24,7 @@ import logging
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..exceptions import InvalidProperty
 from ..utils import get_url_from_template
@@ -47,7 +47,7 @@ class ResourcePoolManagement:
     # updatable in both the client itself and its lab objects, as otherwise
     # the lab might receive the ID of a resource pool that doesn't exist yet
     # in the client, because the client wasn't updated recently
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "resource_pools": "resource_pools",
         "resource_pools_data": "resource_pools?data=true",
     }
@@ -247,7 +247,7 @@ class ResourcePoolManagement:
 class ResourcePool:
     """A single resource pool with limits and usage."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "resource_pool": "resource_pools/{pool_id}",
         "resource_pool_usage": "resource_pool_usage/{pool_id}",
     }

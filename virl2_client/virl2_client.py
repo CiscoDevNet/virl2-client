@@ -29,7 +29,7 @@ import warnings
 from enum import Enum
 from pathlib import Path
 from threading import RLock
-from typing import Any, NamedTuple
+from typing import Any, ClassVar, NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -57,7 +57,7 @@ class ClientConfig(NamedTuple):
     any number of identically configured instances of ClientLibrary."""
 
     _CONFIG_FILE_NAME = ".virlrc"
-    _CONFIG_SOURCES = {
+    _CONFIG_SOURCES = {  # noqa: RUF012
         "url": ["VIRL2_URL", "VIRL_HOST"],
         "username": ["VIRL2_USER", "VIRL_USERNAME"],
         "password": ["VIRL2_PASS", "VIRL_PASSWORD"],
@@ -230,7 +230,7 @@ class ClientLibrary:
     # current client version
     VERSION = Version("2.11.0")
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "auth": "authentication",
         "old_auth": "authok",
         "system_info": "system_information",

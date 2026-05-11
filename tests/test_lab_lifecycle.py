@@ -25,8 +25,8 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import LabNotFound, NodeNotFound
 
 
@@ -321,9 +321,9 @@ def test_lab_convergence_timeout() -> None:
     with (
         patch.object(lab, "has_converged", return_value=False),
         patch("virl2_client.models.lab.time.sleep", return_value=None),
+        pytest.raises(RuntimeError),
     ):
-        with pytest.raises(RuntimeError):
-            lab.wait_until_lab_converged(max_iterations=1, wait_time=0)
+        lab.wait_until_lab_converged(max_iterations=1, wait_time=0)
 
 
 def test_lab_has_converged_success() -> None:
@@ -655,9 +655,11 @@ def test_get_node_by_id_missing() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = make_lab()
-    with patch.object(lab, "sync_topology_if_outdated", return_value=None):
-        with pytest.raises(NodeNotFound):
-            lab.get_node_by_id("missing")
+    with (
+        patch.object(lab, "sync_topology_if_outdated", return_value=None),
+        pytest.raises(NodeNotFound),
+    ):
+        lab.get_node_by_id("missing")
 
 
 def test_get_smart_annotation_by_tag() -> None:

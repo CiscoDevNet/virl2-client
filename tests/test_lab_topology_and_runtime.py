@@ -66,7 +66,8 @@ def test_sync_statistics() -> None:
             "n1": {
                 "cpu_usage": "50.5",
                 "block0_rd_bytes": "1048576",
-                "block0_wr_bytes": None,
+                "block0_wr_bytes": "0",
+                "times": {"QUEUED": 25, "STARTED": 200, "BOOTED": 175},
             }
         },
         "links": {
@@ -80,8 +81,111 @@ def test_sync_statistics() -> None:
     }
     lab.sync_statistics()
     assert n1.statistics["cpu_usage"] == 50.5
+    assert n1.statistics["times"] == {"QUEUED": 25, "STARTED": 200, "BOOTED": 175}
     assert link.statistics["readbytes"] == 10
     assert i2.statistics["writebytes"] == 10
+
+
+def test_sync_statistics_handles_payload_without_resource_stats() -> None:
+    """Tolerate ext_conn/UMS/QUEUED node payloads that only carry `times`.
+
+    The CML controller only reports cpu_usage / block0_* for nodes
+    backed by a real VM. External connectors, unmanaged switches, and
+    nodes still in the QUEUED state come back as just ``{"times": ...}``
+    on v2.9 / v2.10 (and ``{"times": ..., "is_running": ...}`` on dev).
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab, session, _ = _make_lab_context()
+    ext_conn = lab._create_node_local("ec", "ec", "external_connector")
+    ums = lab._create_node_local("us", "us", "unmanaged_switch")
+
+    session.get.return_value.json.return_value = {
+        "nodes": {
+            "ec": {"times": {"QUEUED": 10, "STARTED": 50, "BOOTED": 45}},
+            "us": {
+                "times": {"QUEUED": 12, "STARTED": 40, "BOOTED": 35},
+                "is_running": True,
+            },
+        },
+        "links": {},
+    }
+    lab.sync_statistics()
+    assert ext_conn.statistics["cpu_usage"] == 0
+    assert ext_conn.statistics["disk_read"] == 0
+    assert ext_conn.statistics["disk_write"] == 0
+    assert ext_conn.statistics["times"] == {"QUEUED": 10, "STARTED": 50, "BOOTED": 45}
+    assert ums.statistics["times"] == {"QUEUED": 12, "STARTED": 40, "BOOTED": 35}
+    assert ext_conn.boot_time == 45
+    assert ums.boot_time == 35
+
+
+def test_node_times_properties_expose_simulation_stats() -> None:
+    """Node.times/boot_time/started_time/queued_time mirror simulation_stats.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab, _session, _ = _make_lab_context()
+    n1 = lab._create_node_local("n1", "n1", "iosv")
+    n1.statistics = {
+        "cpu_usage": 0,
+        "disk_read": 0,
+        "disk_write": 0,
+        "times": {"QUEUED": 25, "STARTED": 200, "BOOTED": 175},
+    }
+    with patch.object(lab, "sync_statistics_if_outdated"):
+        assert n1.times == {"QUEUED": 25, "STARTED": 200, "BOOTED": 175}
+        assert n1.boot_time == 175
+        assert n1.started_time == 200
+        assert n1.queued_time == 25
+
+
+def test_node_times_defaults_to_empty_pre_sync() -> None:
+    """Node.times returns {} pre-sync; convenience properties return 0.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab, _session, _ = _make_lab_context()
+    n1 = lab._create_node_local("n1", "n1", "iosv")
+
+    with patch.object(lab, "sync_statistics_if_outdated"):
+        assert n1.times == {}
+        assert n1.boot_time == 0
+        assert n1.started_time == 0
+        assert n1.queued_time == 0
+
+
+def test_lab_uptime_returns_min_started_across_running_nodes() -> None:
+    """Lab.uptime is the smallest Node.started_time when all nodes are running.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab, _session, _ = _make_lab_context()
+    n1 = lab._create_node_local("n1", "n1", "iosv")
+    n2 = lab._create_node_local("n2", "n2", "iosv")
+    n1.statistics["times"] = {"QUEUED": 5, "STARTED": 7200, "BOOTED": 7000}
+    n2.statistics["times"] = {"QUEUED": 8, "STARTED": 600, "BOOTED": 540}
+
+    with patch.object(lab, "sync_statistics_if_outdated"):
+        assert lab.uptime == 600
+
+
+def test_lab_uptime_zero_when_any_node_not_running() -> None:
+    """Lab.uptime is 0 if any node is not running, or the lab is empty.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab, _session, _ = _make_lab_context()
+    assert lab.uptime == 0  # empty lab
+
+    running = lab._create_node_local("n1", "n1", "iosv")
+    queued = lab._create_node_local("n2", "n2", "iosv")
+    running.statistics["times"] = {"QUEUED": 5, "STARTED": 600, "BOOTED": 540}
+    queued.statistics["times"] = {"QUEUED": 30, "STARTED": 0, "BOOTED": 0}
+
+    with patch.object(lab, "sync_statistics_if_outdated"):
+        assert lab.uptime == 0
+        assert queued.started_time == 0
 
 
 def test_sync_states() -> None:

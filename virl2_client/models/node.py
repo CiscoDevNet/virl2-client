@@ -142,10 +142,11 @@ class Node:
         self._last_sync_l3_address_time = 0.0
         self._last_sync_operational_time = 0.0
 
-        self.statistics: dict[str, int | float] = {
+        self.statistics: dict[str, int | float | dict[str, int]] = {
             "cpu_usage": 0,
             "disk_read": 0,
             "disk_write": 0,
+            "times": {},
         }
 
     def __str__(self) -> str:
@@ -779,6 +780,53 @@ class Node:
         """
         self._lab.sync_statistics_if_outdated()
         return round(self.statistics["disk_write"] / 1048576)
+
+    @property
+    def times(self) -> dict[str, int]:
+        """
+        Return a copy of the per-state time markers for this node.
+
+        The controller reports STARTED and BOOTED as seconds since the
+        node last entered that state (smaller = more recent), and uses
+        0 to mean the node has not reached that state. QUEUED follows
+        a different convention (time spent in the queue).
+
+        :returns: Mapping of state name (QUEUED/STARTED/BOOTED) to the
+            value reported by the controller, empty before the first
+            simulation_stats sync.
+        """
+        self._lab.sync_statistics_if_outdated()
+        return self.statistics.get("times") or {}
+
+    @property
+    def boot_time(self) -> int:
+        """
+        Return seconds since this node last entered the BOOTED state.
+
+        :returns: The BOOTED time marker, or 0 if the node has not
+            reached BOOTED yet.
+        """
+        return self.times.get("BOOTED") or 0
+
+    @property
+    def started_time(self) -> int:
+        """
+        Return seconds since this node last entered the STARTED state.
+
+        :returns: The STARTED time marker, or 0 if the node has not
+            started yet.
+        """
+        return self.times.get("STARTED") or 0
+
+    @property
+    def queued_time(self) -> int:
+        """
+        Return the time this node has spent in the QUEUED state.
+
+        :returns: The QUEUED time marker, or 0 if the node was never
+            queued.
+        """
+        return self.times.get("QUEUED") or 0
 
     @locked
     def get_interface_by_label(self, label: str) -> Interface:

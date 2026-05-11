@@ -121,7 +121,7 @@ def test_import_old_schema() -> None:
         "lab_title": "created",
         "lab_description": "desc",
         "lab_notes": "notes",
-        "lab_owner": "u1",
+        "owner": "u1",
         "autostart": {"enabled": True, "priority": 1, "delay": 0},
         "node_staging": {
             "enabled": True,
@@ -132,21 +132,38 @@ def test_import_old_schema() -> None:
     lab._import_lab(old_schema, created=True)
     assert lab.title == "created"
     assert lab.owner == "owner-1"
+    assert lab.owner_id == "u1"
     assert lab.autostart["enabled"] is True
     assert lab.node_staging["enabled"] is True
     user_mgmt.get_username.assert_called_once_with("u1")
 
 
-def test_owner_fallback() -> None:
-    """Owner fallback when user id not resolved.
+def test_set_owner_username_overrides_cache() -> None:
+    """Caller-supplied user_name wins and the cache is not consulted.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    user_mgmt = MagicMock()
+    user_mgmt.get_username.return_value = "from-cache"
+    lab = make_lab(user_management=user_mgmt)
+    lab._set_owner(user_id="u1", user_name="from-response")
+    assert lab.owner == "from-response"
+    assert lab.owner_id == "u1"
+    user_mgmt.get_username.assert_not_called()
+
+
+def test_set_owner_unresolved_user_id_yields_none_owner() -> None:
+    """When only user_id is supplied and the cache misses, owner is None.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     user_mgmt = MagicMock()
     user_mgmt.get_username.return_value = None
     lab = make_lab(user_management=user_mgmt)
-    lab._set_owner(user_id="missing", user_name="fallback")
-    assert lab.owner == "fallback"
+    lab._set_owner(user_id="missing")
+    assert lab.owner is None
+    assert lab.owner_id == "missing"
+    user_mgmt.get_username.assert_called_once_with("missing")
 
 
 @pytest.mark.parametrize(

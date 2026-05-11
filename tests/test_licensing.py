@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from virl2_client.models.licensing import Licensing
+from virl2_client.models import Licensing
 
 
 def test_licensing_status() -> None:

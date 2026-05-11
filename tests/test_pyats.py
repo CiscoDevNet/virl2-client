@@ -27,16 +27,15 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import PyatsDeviceNotFound, PyatsNotInstalled
-from virl2_client.models import cl_pyats
+from virl2_client.models import Node, cl_pyats
 from virl2_client.models.cl_pyats import (
     ClPyats,
     _analyze_execute_failure,
     _remove_unicon_loggers,
 )
-from virl2_client.models.node import Node
 
 # ---------------------------------------------------------------------------
 # Helpers

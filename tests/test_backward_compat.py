@@ -39,12 +39,20 @@ import pytest
 import respx
 
 from virl2_client.exceptions import FeatureNotSupported
-from virl2_client.models import Lab
-from virl2_client.models.lab_repository import LabRepositoryManagement
-from virl2_client.models.resource_pool import ResourcePoolManagement
-from virl2_client.models.system import SystemManagement
-from virl2_client.models.user import UserManagement
-from virl2_client.virl2_client import ClientLibrary, Version
+from virl2_client.models import (
+    Lab,
+    LabRepositoryManagement,
+    Node,
+    ResourcePoolManagement,
+    SystemManagement,
+    UserManagement,
+)
+from virl2_client.virl2_client import (
+    ClientLibrary,
+    DiagnosticsCategory,
+    InitializationError,
+    Version,
+)
 
 FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
@@ -181,8 +189,6 @@ class TestAuthFlowBranching:
     @respx.mock
     def test_unparseable_version_raises(self):
         """If the controller returns a garbled version, raise InitializationError."""
-        from virl2_client.virl2_client import InitializationError
-
         respx.get(FAKE_HOST_API + "system_information").respond(
             json={"version": "not-a-version", "ready": True},
         )
@@ -205,8 +211,6 @@ class TestVersionGuardCloneImage:
         """clone_image() raises FeatureNotSupported against a 2.8 server."""
         client = _make_client(respx.mock, "2.8.0")
         lab = _make_lab(client)
-        from virl2_client.models.node import Node
-
         node = Node(lab, "n1", "mynode", "alpine")
         with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             node.clone_image()
@@ -216,8 +220,6 @@ class TestVersionGuardCloneImage:
         """clone_image() proceeds on a 2.9 server (HTTP call is made)."""
         client = _make_client(respx.mock, "2.9.0")
         lab = _make_lab(client)
-        from virl2_client.models.node import Node
-
         node = Node(lab, "n1", "mynode", "alpine")
         respx.put(FAKE_HOST_API + "labs/lab-id/nodes/n1/clone_image").respond(
             json={"image_id": "new-image"}
@@ -230,8 +232,6 @@ class TestVersionGuardCloneImage:
         """clone_image() proceeds on a 2.10 server."""
         client = _make_client(respx.mock, "2.10.0")
         lab = _make_lab(client)
-        from virl2_client.models.node import Node
-
         node = Node(lab, "n1", "mynode", "alpine")
         respx.put(FAKE_HOST_API + "labs/lab-id/nodes/n1/clone_image").respond(
             json={"image_id": "img-123"}
@@ -381,8 +381,6 @@ class TestDiagnosticsCompat:
         """If a category endpoint returns an error, diagnostics records it
         rather than raising."""
         client = _make_client(respx.mock, "2.8.0")
-        from virl2_client.virl2_client import DiagnosticsCategory
-
         respx.get(FAKE_HOST_API + "diagnostics/computes").respond(
             status_code=404,
             json={"description": "Not Found"},
@@ -395,8 +393,6 @@ class TestDiagnosticsCompat:
     def test_diagnostics_success(self):
         """Normal diagnostics fetch returns the data."""
         client = _make_client(respx.mock, "2.10.0")
-        from virl2_client.virl2_client import DiagnosticsCategory
-
         respx.get(FAKE_HOST_API + "diagnostics/labs").respond(json={"active_labs": 3})
         result = client.get_diagnostics(DiagnosticsCategory.LABS)
         assert result == {"labs": {"active_labs": 3}}
@@ -474,10 +470,7 @@ class TestVersionEnforcement:
     @respx.mock
     def test_rejects_too_old_server(self):
         """Client should reject a server outside the 3-minor support window."""
-        from virl2_client.virl2_client import ClientLibrary as CL  # noqa: N817
-        from virl2_client.virl2_client import InitializationError
-
-        too_old = str(CL.VERSION.minor - 3)
+        too_old = str(ClientLibrary.VERSION.minor - 3)
         old_version = f"2.{too_old}.0"
 
         respx.get(FAKE_HOST_API + "system_information").respond(

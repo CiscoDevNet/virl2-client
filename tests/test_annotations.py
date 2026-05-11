@@ -23,8 +23,8 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import InvalidProperty
 from virl2_client.models.annotation import (
     Annotation,

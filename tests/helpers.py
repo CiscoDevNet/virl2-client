@@ -21,7 +21,7 @@
 
 None of the names in this module are pytest fixtures.  Import them directly:
 
-    from helpers import make_lab, make_lab_with_topology, RESOURCE_POOL_MANAGER
+    from tests.helpers import make_lab, make_lab_with_topology, RESOURCE_POOL_MANAGER
 """
 
 from __future__ import annotations
@@ -29,10 +29,7 @@ from __future__ import annotations
 from typing import NamedTuple
 from unittest.mock import MagicMock, Mock
 
-from virl2_client.models import Lab
-from virl2_client.models.interface import Interface
-from virl2_client.models.link import Link
-from virl2_client.models.node import Node
+from virl2_client.models import Interface, Lab, Link, Node
 
 # ---------------------------------------------------------------------------
 # Mock managers

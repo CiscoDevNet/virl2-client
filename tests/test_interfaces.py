@@ -24,13 +24,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from respx import MockRouter
 
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from virl2_client.exceptions import InterfaceNotFound
-from virl2_client.models import Interface, Lab
+from virl2_client.models import Interface, Lab, Node
 from virl2_client.models.authentication import make_session
-from virl2_client.models.node import Node
 
 
 def test_create_interface_raises_slot_missing() -> None:

@@ -25,8 +25,8 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import LabNotFound, NodeNotFound
 
 

@@ -24,8 +24,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import (
     AnnotationNotFound,
     InterfaceNotFound,
@@ -33,8 +33,7 @@ from virl2_client.exceptions import (
     NodeNotFound,
     SmartAnnotationNotFound,
 )
-from virl2_client.models import Lab
-from virl2_client.models.node import Node
+from virl2_client.models import Lab, Node
 
 
 def _make_lab_and_node() -> tuple[Lab, Node]:

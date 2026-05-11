@@ -25,8 +25,8 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 from virl2_client.models import Lab
 
 

@@ -24,9 +24,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 from respx import MockRouter
 
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
 

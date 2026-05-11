@@ -23,8 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from virl2_client.models.group import GroupManagement
-from virl2_client.models.user import UserManagement
+from virl2_client.models import GroupManagement, UserManagement
 from virl2_client.utils import OptInStatus
 
 

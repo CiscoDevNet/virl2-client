@@ -1344,6 +1344,7 @@ class Lab:
                 "cpu_usage": float(node_data.get("cpu_usage", 0)),
                 "disk_read": disk_read,
                 "disk_write": disk_write,
+                "times": node_data["times"],
             }
 
         for link_id, link_data in link_statistics.items():
@@ -1518,6 +1519,20 @@ class Lab:
         :returns: True if the lab is active, False otherwise
         """
         return self.state() == "STARTED"
+
+    @property
+    def uptime(self) -> int:
+        """
+        Return seconds since the most recent node start in this lab.
+
+        Smallest Node.started_time across the lab's nodes. Useful as
+        an abandoned-lab signal: a large value means the whole lab
+        has been up for a while with no recent node restarts.
+
+        :returns: Smallest Node.started_time, or 0 if any node in the
+            lab is not running (including the empty-lab case).
+        """
+        return min((n.started_time for n in self.nodes()), default=0)
 
     @check_stale
     def details(self) -> dict[str, str | list | int]:

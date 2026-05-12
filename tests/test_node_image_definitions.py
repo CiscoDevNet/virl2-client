@@ -103,8 +103,8 @@ def test_upload_def_json_rt(upload_method: str, payload: dict) -> None:
     """
     session = MagicMock()
     defs = NodeImageDefinitions(session)
-    session.request.return_value.json.return_value = "Success"
-    assert getattr(defs, upload_method)(payload) == "Success"
+    session.request.return_value.json.return_value = {"id": "a"}
+    assert getattr(defs, upload_method)(payload) == {"id": "a"}
 
 
 @pytest.mark.parametrize(
@@ -121,8 +121,8 @@ def test_upload_def_yaml_update_rt(upload_method: str) -> None:
     """
     session = MagicMock()
     defs = NodeImageDefinitions(session)
-    session.request.return_value.json.return_value = "Success"
-    assert getattr(defs, upload_method)("yaml-body", update=True) == "Success"
+    session.request.return_value.json.return_value = {"id": "a"}
+    assert getattr(defs, upload_method)("yaml-body", update=True) == {"id": "a"}
 
 
 @pytest.mark.parametrize(
@@ -144,14 +144,14 @@ def test_node_image_defs_download(method: str, arg: str) -> None:
 
 
 def test_remove_dropfolder_image_list() -> None:
-    """remove_dropfolder_image deletes and returns result.
+    """remove_dropfolder_image deletes the image and returns None.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     defs = NodeImageDefinitions(session)
-    session.delete.return_value.json.return_value = "Success"
-    assert defs.remove_dropfolder_image("x.qcow2") == "Success"
+    assert defs.remove_dropfolder_image("x.qcow2") is None
+    session.delete.assert_called_once_with("images/manage/x.qcow2")
 
 
 @pytest.mark.parametrize(
@@ -286,10 +286,8 @@ def test_remove_dropfolder_image() -> None:
     """
     session = MagicMock()
     defs = NodeImageDefinitions(session)
-    session.delete.return_value.json.return_value = {"status": "removed"}
 
-    remove_result = defs.remove_dropfolder_image("image.qcow2")
-    assert remove_result == {"status": "removed"}
+    assert defs.remove_dropfolder_image("image.qcow2") is None
     assert session.delete.mock_calls[0].args[0] == "images/manage/image.qcow2"
 
 

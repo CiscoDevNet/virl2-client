@@ -507,8 +507,7 @@ class Lab:
 
         :returns: The lab owner username, or None when the owner's id could
             not be resolved against the user cache (e.g. the API returned an
-            owner id but no ``owner_username`` and the user is unknown to
-            the cache).
+            owner id but no owner_username and the user is unknown to the cache).
         """
         self.sync_topology_if_outdated()
         return self._owner

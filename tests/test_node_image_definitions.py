@@ -293,6 +293,36 @@ def test_remove_dropfolder_image() -> None:
     assert session.delete.mock_calls[0].args[0] == "images/manage/image.qcow2"
 
 
+def test_reload_definitions() -> None:
+    """reload_definitions returns report with node and image definition changes.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    session = MagicMock()
+    defs = NodeImageDefinitions(session)
+    expected_report = {
+        "node_definitions": {
+            "unchanged": ["iosv", "nxosv"],
+            "updated": ["asav"],
+            "new": ["custom-node"],
+            "removed": ["old-node"],
+            "failed": [],
+        },
+        "image_definitions": {
+            "unchanged": ["iosv-159-3"],
+            "updated": [],
+            "new": ["custom-image"],
+            "removed": [],
+            "failed": ["Error loading bad-image.yaml"],
+        },
+    }
+    session.put.return_value.json.return_value = expected_report
+
+    report = defs.reload_definitions()
+    assert report == expected_report
+    assert session.put.mock_calls[0].args[0] == "reload_definitions"
+
+
 # everything except str or dict is invalid
 INVALID_DEFINITIONS: dict[str, Any] = {
     "none": None,

@@ -49,6 +49,7 @@ class NodeImageDefinitions:
         "upload": "images/upload",
         "image_list": "list_image_definition_drop_folder",
         "image_manage": "images/manage/{filename}",
+        "reload_defs": "reload_definitions",
     }
 
     def __init__(self, session: httpx.Client) -> None:
@@ -312,6 +313,25 @@ class NodeImageDefinitions:
         """
         url = self._url_for("image_def", definition_id=definition_id)
         self._session.delete(url)
+
+    def reload_definitions(self) -> dict[str, Any]:
+        """
+        Reload node and image definitions from disk.
+
+        Triggers a re-scan of node and image definition YAML files,
+        returning a report of changes (unchanged, updated, new, removed, failed).
+
+        Example::
+
+            report = client_library.definitions.reload_definitions()
+            print(f"New node definitions: {report['node_definitions']['new']}")
+            print(f"Updated image definitions: {report['image_definitions']['updated']}")
+
+        :returns: Report dict with node_definitions and image_definitions keys,
+                  each containing lists of unchanged, updated, new, removed, and failed entries.
+        """
+        url = self._url_for("reload_defs")
+        return self._session.put(url).json()
 
 
 def print_progress_bar(

@@ -381,17 +381,35 @@ def test_get_pyats_testbed() -> None:
 
 
 def test_sync_and_cleanup_pyats() -> None:
-    """sync_pyats and cleanup_pyats_connections delegate to pyats.
+    """sync_pyats forwards the password, cleanup delegates to pyats.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab, _, _ = _make_lab_context()
     with patch.object(lab.pyats, "sync_testbed") as sync_testbed:
         lab.sync_pyats()
-        sync_testbed.assert_called_once()
+        sync_testbed.assert_called_once_with(lab.username, lab.password)
     with patch.object(lab.pyats, "cleanup") as cleanup:
         lab.cleanup_pyats_connections()
         cleanup.assert_called_once()
+
+
+def test_sync_pyats_falls_back_to_jwt_when_password_missing() -> None:
+    """sync_pyats uses the active JWT when the client has no password.
+
+    Token-only clients (e.g. ClientLibrary initialized via cml_token /
+    jwtoken) leave Lab.password unset.  In that case sync_pyats must
+    fall back to the live JWT on the session's auth handler so the SSH
+    console can verify the token instead of creating a new one.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab, session, _ = _make_lab_context()
+    lab.password = None
+    session.auth.token = "jwt-token-placeholder"
+    with patch.object(lab.pyats, "sync_testbed") as sync_testbed:
+        lab.sync_pyats()
+        sync_testbed.assert_called_once_with(lab.username, "jwt-token-placeholder")
 
 
 def test_associations_crud() -> None:

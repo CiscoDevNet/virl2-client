@@ -2366,8 +2366,16 @@ class Lab:
         """
         Sync the pyATS testbed.
 
+        When the client library was initialized with a password, that
+        password is inserted into the testbed as the terminal-server
+        credential.  When it was initialized with a JWT only (no
+        password), the active JWT is used instead; this avoids creating
+        a new token per SSH session and lets token-only clients use
+        pyATS.  Using a JWT requires a CML 2.11.0 (or newer) controller
+        that accepts JWTs as SSH passwords.
         """
-        self.pyats.sync_testbed(self.username, self.password)
+        password = self.password or self._session.auth.token
+        self.pyats.sync_testbed(self.username, password)
 
     def cleanup_pyats_connections(self) -> None:
         """

@@ -126,8 +126,26 @@ def test_cl_pyats_load_testbed() -> None:
         assert pyats._load_pyats_testbed("devices: {}") == {"tb": "ok"}
 
 
-def test_cl_pyats_sync_testbed() -> None:
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        pytest.param(("u", "p"), ("u", "p"), id="password"),
+        pytest.param(("u", None), ("u", None), id="password-none"),
+        pytest.param(("u",), ("u", None), id="password-omitted"),
+        pytest.param(
+            ("u", "jwt-token-placeholder"),
+            ("u", "jwt-token-placeholder"),
+            id="password-jwt",
+        ),
+    ],
+)
+def test_cl_pyats_sync_testbed(args: tuple, expected: tuple) -> None:
     """Sync credentials into testbed.
+
+    The password parameter is optional; None is forwarded to
+    set_termserv_credentials so the testbed YAML default is preserved.
+    A JWT string is forwarded verbatim (the SSH console server
+    interprets it).
 
     NOTE: LLM-generated test -- verify for correctness.
     """
@@ -139,9 +157,9 @@ def test_cl_pyats_sync_testbed() -> None:
         patch.object(pyats, "set_termserv_credentials") as set_creds,
     ):
         lab.get_pyats_testbed.return_value = "yaml-data"
-        pyats.sync_testbed("u", "p")
+        pyats.sync_testbed(*args)
         load_tb.assert_called_once_with("yaml-data")
-        set_creds.assert_called_once_with("u", "p")
+        set_creds.assert_called_once_with(*expected)
 
 
 def test_cl_pyats_switch_console() -> None:

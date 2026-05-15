@@ -31,7 +31,7 @@ VIRL_USERNAME = input("username: ")
 VIRL_PASSWORD = getpass.getpass("password: ")
 LAB_NAME = input("enter lab name: ")
 
-client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=True)
 
 # Find the lab by title and join it as long as it's the only
 # lab with that title.

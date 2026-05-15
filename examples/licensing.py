@@ -29,7 +29,7 @@ VIRL_USERNAME = input("username: ")
 VIRL_PASSWORD = getpass.getpass("password: ")
 SL_TOKEN = input("Smart License token: ")
 
-client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=True)
 
 # Get the licensing handle from the client as a property
 licensing = client.licensing

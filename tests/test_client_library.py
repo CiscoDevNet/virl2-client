@@ -1023,7 +1023,7 @@ def test_system_management_controller_triggers_compute_load(
     )
 
     client_library = ClientLibrary(
-        "https://localhost", "user", "pass", ssl_verify=False
+"https://localhost", "user", "pass", ssl_verify=True
     )
 
     controller = client_library.system_management.controller

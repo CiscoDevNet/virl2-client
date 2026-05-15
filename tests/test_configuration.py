@@ -61,7 +61,7 @@ def home_virlrc(tmp_path: Path) -> Iterator[Path]:
 
 def test_local_virlrc(client_library_server_current: MagicMock, cwd_virlrc: Path):
     _ = client_library_server_current, cwd_virlrc
-    cl = ClientLibrary(ssl_verify=False)
+cl = ClientLibrary(ssl_verify=True)
     assert cl.is_system_ready()
     assert cl.url == f"https://{_TEST_ENV['VIRL2_URL']}"
     assert cl.username == _TEST_ENV["VIRL2_USER"]
@@ -76,7 +76,7 @@ def test_export_credentials(
     for name, value in _TEST_ENV.items():
         monkeypatch.setenv(name, value)
 
-    cl = ClientLibrary(ssl_verify=False)
+cl = ClientLibrary(ssl_verify=True)
     assert cl.is_system_ready()
     assert cl.url == f"https://{_TEST_ENV['VIRL2_URL']}"
     assert cl.username == _TEST_ENV["VIRL2_USER"]
@@ -88,7 +88,7 @@ def test_home_directory_virlrc(
     client_library_server_current: MagicMock, home_virlrc: Path
 ):
     _ = client_library_server_current, home_virlrc
-    cl = ClientLibrary(ssl_verify=False)
+cl = ClientLibrary(ssl_verify=True)
     assert cl.is_system_ready()
     assert cl.url == f"https://{_TEST_ENV['VIRL2_URL']}"
     assert cl.username == _TEST_ENV["VIRL2_USER"]
@@ -99,7 +99,7 @@ def test_home_directory_virlrc(
 def test_read_from_stdin(client_library_server_current: MagicMock):
     _ = client_library_server_current
     with pytest.raises(OSError, match="reading from stdin"):
-        _ = ClientLibrary(ssl_verify=False)
+_ = ClientLibrary(ssl_verify=True)
 
 
 def test_get_configuration_uses_jwt_from_env(monkeypatch: pytest.MonkeyPatch):
@@ -156,7 +156,7 @@ def test_get_configuration_uses_cml_verify_cert_for_ssl_verify(
             url="https://somehost:443",
             username="virl4",
             password="somepass",
-            ssl_verify=False,
+ssl_verify=True,
         ),
         ClientConfig(
             url="https://somehost",

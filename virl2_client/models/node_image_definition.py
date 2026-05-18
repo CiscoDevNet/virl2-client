@@ -129,13 +129,15 @@ class NodeImageDefinitions:
         url = f"node_definitions/{definition_id}/read_only"
         return self._session.put(url, json=read_only).json()
 
-    def upload_node_definition(self, body: str | dict, update: bool = False) -> str:
+    def upload_node_definition(
+        self, body: str | dict, update: bool = False
+    ) -> dict[str, Any]:
         """
         Upload a new node definition.
 
         :param body: The node definition (yaml or json).
         :param update: If creating a new node definition or updating an existing one.
-        :returns: "Success".
+        :returns: The created (or updated) node definition.
         """
         is_json = _is_json_content(body)
         url = self._url_for("node_defs")
@@ -146,13 +148,15 @@ class NodeImageDefinitions:
             # YAML
             return self._session.request(method, url, content=body).json()
 
-    def upload_image_definition(self, body: str | dict, update: bool = False) -> str:
+    def upload_image_definition(
+        self, body: str | dict, update: bool = False
+    ) -> dict[str, Any]:
         """
         Upload a new image definition.
 
         :param body: The image definition (yaml or json).
         :param update: If creating a new image definition or updating an existing one.
-        :returns: "Success".
+        :returns: The created (or updated) image definition.
         """
         is_json = _is_json_content(body)
         url = self._url_for("image_defs")
@@ -277,15 +281,14 @@ class NodeImageDefinitions:
         url = self._url_for("image_list")
         return self._session.get(url).json()
 
-    def remove_dropfolder_image(self, filename: str) -> str:
+    def remove_dropfolder_image(self, filename: str) -> None:
         """
         Remove an image file from the drop folder.
 
         :param filename: The name of the image file to remove.
-        :returns: "Success".
         """
         url = self._url_for("image_manage", filename=filename)
-        return self._session.delete(url).json()
+        self._session.delete(url)
 
     def remove_node_definition(self, definition_id: str) -> None:
         """

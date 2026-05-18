@@ -320,7 +320,7 @@ def test_reload_definitions() -> None:
 
     report = defs.reload_definitions()
     assert report == expected_report
-    assert session.put.mock_calls[0].args[0] == "reload_definitions"
+    assert session.put.mock_calls[0].args[0] == defs._URL_TEMPLATES["reload_defs"]
 
 
 # everything except str or dict is invalid

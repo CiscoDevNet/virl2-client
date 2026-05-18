@@ -28,7 +28,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar
 
 from ..exceptions import InvalidContentType, InvalidImageFile
-from ..utils import get_url_from_template
+from ..utils import _requires_version, get_url_from_template
 
 if TYPE_CHECKING:
     import httpx
@@ -314,12 +314,17 @@ class NodeImageDefinitions:
         url = self._url_for("image_def", definition_id=definition_id)
         self._session.delete(url)
 
-    def reload_definitions(self) -> dict[str, Any]:
+    @_requires_version("2.10.0")
+    def reload_definitions(self) -> dict[str, dict[str, list[str]]]:
         """
         Reload node and image definitions from disk.
 
         Triggers a re-scan of node and image definition YAML files,
         returning a report of changes (unchanged, updated, new, removed, failed).
+
+        Requires CML server >= 2.10.
+
+        Requires admin permission.
 
         Example::
 

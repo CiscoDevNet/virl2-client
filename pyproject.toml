@@ -97,6 +97,24 @@ select = [
   "G",
   # prohibit print()/pprint() in production code
   "T20",
+  # datetime timezone awareness
+  # NOTE: virl2_client targets py310; if you add a datetime.now()/strptime
+  # later, use `from datetime import timezone` and `timezone.utc`, NOT
+  # `from datetime import UTC` (the UTC sentinel is py311+ only).
+  "DTZ",
+  # logging best practices
+  "LOG",
+  # sys.version checks
+  "YTT",
+  # raise-style cleanups
+  "RSE",
+  # import conventions
+  "ICN",
+  # performance anti-patterns
+  "PERF",
+  # PT (pytest style) and INP (implicit namespace packages) are deferred:
+  # both have non-trivial hit counts in tests/, and this ticket explicitly
+  # leaves test files alone. Revisit alongside the tests-linting policy.
 ]
 
 # Reuse the monorepo core ignore set with PCL-appropriate overrides.
@@ -105,17 +123,12 @@ ignore = [
   "E501",
   # reassigning loop var
   "PLW2901",
-  # function parameter shadows builtin -- common in API libs (id, type, etc.)
-  "PLR1704",
   # magic values in comparisons
   "PLR2004",
-  # invalid function names (uppercase start)
-  "N802",
-  # raise-without-from-inside-except
+  # raise-without-from-inside-except (deferred; coordinated with simple)
   "B904",
-  # non-lowercase-variable-in-function
-  "N806",
-  # error-suffix-on-exception-name
+  # error-suffix-on-exception-name (deferred; coordinated with simple --
+  # public API rename is a breaking change)
   "N818",
   # builtin-import-shadowing (TYPE_CHECKING imports of id, type, etc.)
   "A004",

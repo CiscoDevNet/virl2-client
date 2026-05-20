@@ -101,7 +101,7 @@ class SystemManagement:
         for compute_host in self._compute_hosts.values():
             if compute_host.is_connector:
                 return compute_host
-        raise ControllerNotFound()
+        raise ControllerNotFound
 
     @property
     def system_notices(self) -> dict[str, SystemNotice]:

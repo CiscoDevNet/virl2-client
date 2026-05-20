@@ -435,9 +435,7 @@ class Link:
             "corrupt_prob",
             "corrupt_corr",
         ]
-        for key, value in kwargs.items():
-            if key in expected_params:
-                data[key] = value
+        data.update({k: v for k, v in kwargs.items() if k in expected_params})
         self._session.patch(url, json=data)
 
     @check_stale

@@ -1,3 +1,4 @@
+# ruff: noqa: INP001  -- Sphinx docs config, intentionally not a package
 #
 # This file is part of VIRL 2
 # Copyright (c) 2019-2026, Cisco Systems, Inc.

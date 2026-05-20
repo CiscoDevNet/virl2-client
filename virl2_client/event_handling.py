@@ -208,7 +208,7 @@ class EventHandlerBase(ABC):
         """
         pass
 
-    def _handle_other(self, event: Event) -> None:
+    def _handle_other(self, event: Event) -> None:  # noqa: ARG002 -- `event` is part of the documented subclass-override contract
         """
         Handle other events.
 

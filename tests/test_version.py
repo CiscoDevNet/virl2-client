@@ -27,7 +27,7 @@ from virl2_client.virl2_client import Version
 
 
 @pytest.mark.parametrize(
-    "a, b, expected",
+    ("a", "b", "expected"),
     [
         pytest.param(Version("2.0.0"), Version("2.0.0"), True, id="equal"),
         pytest.param(Version("2.0.0"), Version("2.0.1"), False, id="differ"),
@@ -50,7 +50,7 @@ def test_version_comparison_eq(
 
 
 @pytest.mark.parametrize(
-    "greater, lesser, expected",
+    ("greater", "lesser", "expected"),
     [
         pytest.param(
             Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"
@@ -117,7 +117,7 @@ def test_version_comparison_gt(
 
 
 @pytest.mark.parametrize(
-    "first, second, expected",
+    ("first", "second", "expected"),
     [
         pytest.param(
             Version("2.0.1"), Version("2.0.0"), True, id="Patch is greater than"
@@ -208,7 +208,7 @@ def test_version_comparison_gte(
 
 
 @pytest.mark.parametrize(
-    "lesser, greater, expected",
+    ("lesser", "greater", "expected"),
     [
         pytest.param(Version("2.0.0"), Version("2.0.1"), True, id="Patch is less than"),
         pytest.param(
@@ -269,7 +269,7 @@ def test_version_comparison_lt(
 
 
 @pytest.mark.parametrize(
-    "first, second, expected",
+    ("first", "second", "expected"),
     [
         pytest.param(Version("2.0.0"), Version("2.0.1"), True, id="Patch is less than"),
         pytest.param(
@@ -372,7 +372,9 @@ def test_version_parse_valid(version_str: str) -> None:
     :param version_str: Version string to parse.
     """
     v = Version(version_str)
-    assert v.major == 2 and v.minor == 1 and v.patch == 0
+    assert v.major == 2
+    assert v.minor == 1
+    assert v.patch == 0
 
 
 @pytest.mark.parametrize(
@@ -390,7 +392,7 @@ def test_version_parse_invalid(version_str: str) -> None:
 
     :param version_str: Invalid version string.
     """
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Malformed version string"):
         Version(version_str)
 
 

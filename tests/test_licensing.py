@@ -256,7 +256,7 @@ def test_licensing_reservation_mode_set() -> None:
 
 
 @pytest.mark.parametrize(
-    "method,expected_json",
+    ("method", "expected_json"),
     [
         ("enable_reservation_mode", True),
         ("disable_reservation_mode", False),

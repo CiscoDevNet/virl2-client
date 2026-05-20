@@ -124,7 +124,7 @@ def test_autostart_rejects_invalid(kwargs: dict[str, Any]) -> None:
         user_management=USER_MANAGEMENT,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid value for"):
         lab.set_autostart(**kwargs)
 
 

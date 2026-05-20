@@ -191,7 +191,7 @@ def test_user_delete() -> None:
 
 
 @pytest.mark.parametrize(
-    "opt_in,expected",
+    ("opt_in", "expected"),
     [
         (True, "accepted"),
         (False, "declined"),

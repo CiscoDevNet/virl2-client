@@ -84,7 +84,7 @@ def cwd_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path
             f.write(f"{name}={value}\n")
 
     monkeypatch.chdir(path.parent)
-    yield path
+    return path
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ def home_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
             f.write(f"{name}={value}\n")
 
     monkeypatch.setenv("HOME", str(path.parent))
-    yield path
+    return path
 
 
 def test_local_virlrc(
@@ -402,7 +402,7 @@ def test_make_client_deprecation(
     calls = _setup_deprecation_mocks(monkeypatch, config_kwargs)
     orig_get_configuration = ClientConfig.get_configuration.__func__
 
-    def patched_get_configuration(*args: object) -> ClientConfig:
+    def patched_get_configuration(*_args: object) -> ClientConfig:
         return orig_get_configuration(
             ClientConfig, **config_kwargs, allow_inputs=allow_inputs
         )

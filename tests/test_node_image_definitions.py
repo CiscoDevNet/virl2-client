@@ -90,7 +90,7 @@ def test_node_image_defs_read_only(method: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "upload_method,payload",
+    ("upload_method", "payload"),
     [
         ("upload_node_definition", {"id": "a"}),
         ("upload_image_definition", {"id": "a"}),
@@ -126,7 +126,7 @@ def test_upload_def_yaml_update_rt(upload_method: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "method,arg",
+    ("method", "arg"),
     [
         ("download_node_definition", "nd"),
         ("download_image_definition", "img"),
@@ -155,7 +155,7 @@ def test_remove_dropfolder_image_list() -> None:
 
 
 @pytest.mark.parametrize(
-    "method,arg",
+    ("method", "arg"),
     [
         ("remove_node_definition", "nd"),
         ("remove_image_definition", "img"),
@@ -173,7 +173,7 @@ def test_remove_def_list_rt(method: str, arg: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "rename,exc_type",
+    ("rename", "exc_type"),
     [
         ("file.bad", InvalidImageFile),
         ("file.unsupported", InvalidImageFile),

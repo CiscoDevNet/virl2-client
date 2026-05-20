@@ -328,7 +328,7 @@ def _resolve_method(module_path, class_method):
 
 
 @pytest.mark.parametrize(
-    "module_path,class_method,required_params",
+    ("module_path", "class_method", "required_params"),
     EXPECTED_SIGNATURES,
     ids=[f"{m}.{cm}" for m, cm, _ in EXPECTED_SIGNATURES],
 )
@@ -440,4 +440,6 @@ def test_version_importable_from_utils():
     from virl2_client.utils import Version
 
     v = Version("2.10.0")
-    assert v.major == 2 and v.minor == 10 and v.patch == 0
+    assert v.major == 2
+    assert v.minor == 10
+    assert v.patch == 0

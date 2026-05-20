@@ -118,7 +118,8 @@ def test_example_imports_without_side_effects(path: Path) -> None:
     rel = path.relative_to(EXAMPLES_DIR.parent).with_suffix("")
     module_name = "_example_" + "_".join(rel.parts)
     spec = importlib.util.spec_from_file_location(module_name, path)
-    assert spec is not None and spec.loader is not None, path
+    assert spec is not None, path
+    assert spec.loader is not None, path
 
     module = importlib.util.module_from_spec(spec)
     try:

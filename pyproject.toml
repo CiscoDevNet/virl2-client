@@ -112,9 +112,12 @@ select = [
   "ICN",
   # performance anti-patterns
   "PERF",
-  # PT (pytest style) and INP (implicit namespace packages) are deferred:
-  # both have non-trivial hit counts in tests/, and this ticket explicitly
-  # leaves test files alone. Revisit alongside the tests-linting policy.
+  # pytest-style correctness (parametrize types, raises match=, fixture teardown)
+  "PT",
+  # implicit namespace packages
+  "INP",
+  # unused function/method/lambda arguments
+  "ARG",
 ]
 
 # Reuse the monorepo core ignore set with PCL-appropriate overrides.
@@ -150,6 +153,7 @@ known-first-party = ["virl2_client"]
   "S108",    # hardcoded-temp-file
   "PLC0415", # import-outside-top-level
   "PLR0913", # too-many-arguments
+  "INP001",  # tests/ intentionally has no __init__.py (pytest rootdir collection)
 ]
 # API-driven constructors with many parameters
 "virl2_client/virl2_client.py" = ["PLR0913"]

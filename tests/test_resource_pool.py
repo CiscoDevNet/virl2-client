@@ -189,7 +189,7 @@ def test_rp_repr() -> None:
 
 
 @pytest.mark.parametrize(
-    "pool_fixture,prop",
+    ("pool_fixture", "prop"),
     [
         ("template_pool", "users"),
         ("user_pool", "user_pools"),

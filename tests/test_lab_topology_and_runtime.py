@@ -284,7 +284,7 @@ def test_create_smart_annotation_nodes_update() -> None:
 
 
 @pytest.mark.parametrize(
-    "finder,element_id",
+    ("finder", "element_id"),
     [
         (Lab._find_node_in_topology, "n1"),
         (Lab._find_link_in_topology, "l1"),
@@ -309,7 +309,7 @@ def test_find_in_topology_success(finder: Callable[..., Any], element_id: str) -
 
 
 @pytest.mark.parametrize(
-    "finder,exception",
+    ("finder", "exception"),
     [
         (Lab._find_node_in_topology, NodeNotFound),
         (Lab._find_link_in_topology, LinkNotFound),

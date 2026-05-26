@@ -334,7 +334,7 @@ def test_cl_pyats_reconnect_raises() -> None:
             "virl2_client.models.cl_pyats._analyze_execute_failure",
             return_value=(True, None),
         ),
-        pytest.raises(ValueError),
+        pytest.raises(ValueError, match="boom"),
     ):
         pyats._execute_command("n1", "x")
 
@@ -469,7 +469,7 @@ def test_cl_pyats_destroy_raises() -> None:
 
 
 @pytest.mark.parametrize(
-    "case,should_raise,reason_substr",
+    ("case", "should_raise", "reason_substr"),
     [
         ("connection_error", False, "ConnectionError"),
         ("timeout", False, "TimeoutError"),
@@ -562,7 +562,7 @@ def node(request: pytest.FixtureRequest, pyats_session: MagicMock) -> Node:
 
 
 @pytest.mark.parametrize(
-    "node, initial_pyats, expected_pyats",
+    ("node", "initial_pyats", "expected_pyats"),
     [
         (None, {}, {"username": None, "password": None, "enable_password": None}),
         (

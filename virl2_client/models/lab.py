@@ -1385,33 +1385,24 @@ class Lab:
 
         nodes = self._nodes.copy()
         for node_id, node_state in states["nodes"].items():
-            try:
-                node = nodes.pop(node_id)
-            except KeyError:
-                pass
-            else:
+            node = nodes.pop(node_id, None)
+            if node is not None:
                 node._state = node_state
         for stale_node in nodes.values():
             stale_node._stale = True
 
         ifaces = self._interfaces.copy()
         for interface_id, interface_state in states["interfaces"].items():
-            try:
-                iface = ifaces.pop(interface_id)
-            except KeyError:
-                pass
-            else:
+            iface = ifaces.pop(interface_id, None)
+            if iface is not None:
                 iface._state = interface_state
         for stale_iface in ifaces.values():
             stale_iface._stale = True
 
         links = self._links.copy()
         for link_id, link_state in states["links"].items():
-            try:
-                link = links.pop(link_id)
-            except KeyError:
-                pass
-            else:
+            link = links.pop(link_id, None)
+            if link is not None:
                 link._state = link_state
         for stale_link in links.values():
             stale_link._stale = True

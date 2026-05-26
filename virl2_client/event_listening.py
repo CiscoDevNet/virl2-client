@@ -182,7 +182,9 @@ class EventListener:
                         with contextlib.suppress(asyncio.CancelledError):
                             await queue_get
                     if self._ws_close is not None:
-                        with contextlib.suppress(Exception):
+                        with contextlib.suppress(
+                            asyncio.CancelledError, OSError, aiohttp.ClientError
+                        ):
                             await self._ws_close
                     return
                 event = Event(json.loads(queue_get.result()))

@@ -169,7 +169,7 @@ def test_staging_rejects_invalid(kwargs: dict[str, Any]) -> None:
         user_management=USER_MANAGEMENT,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid value for"):
         lab.set_node_staging(**kwargs)
 
 
@@ -202,7 +202,7 @@ def test_priority_rejects_invalid(value: Any) -> None:
     )
     node = Node(lab, "node-id", "node1", "node-type")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid value for priority"):
         node.priority = value
 
 

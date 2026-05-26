@@ -197,9 +197,7 @@ class UserManagement:
             "pubkey": pubkey,
             "tour_version": tour_version,
         }
-        for key, value in optional_data.items():
-            if value is not None:
-                data[key] = value
+        data.update({k: v for k, v in optional_data.items() if v is not None})
         if resource_pool is not UNCHANGED:
             data["resource_pool"] = resource_pool
         if opt_in is UNCHANGED:

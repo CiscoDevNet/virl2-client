@@ -55,7 +55,7 @@ def _make_client() -> ClientLibrary:
     client.resource_pool_management = MagicMock()
     client.user_management = MagicMock()
     client.event_listener = None
-    client._url_for = MagicMock(side_effect=lambda endpoint, **kwargs: endpoint)
+    client._url_for = MagicMock(side_effect=lambda endpoint, **_kwargs: endpoint)
     return client
 
 
@@ -312,7 +312,7 @@ def test_get_lab_list_show_all(show_all: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    "url,urlsplit_side_effect",
+    ("url", "urlsplit_side_effect"),
     [
         ("bad://", ValueError),
         (
@@ -408,7 +408,7 @@ def test_imported_lab_no_id_rt() -> None:
     """
     client = _make_client()
     client._session.post.return_value.json.return_value = {}
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No lab ID returned"):
         client._create_imported_lab("topo")
 
 
@@ -475,7 +475,7 @@ def test_remove_lab_local_keyerror_guard() -> None:
 
 
 @pytest.mark.parametrize(
-    "status,exc_type",
+    ("status", "exc_type"),
     [
         (500, httpx.HTTPStatusError),
         (404, LabNotFound),
@@ -541,16 +541,16 @@ def test_events_init_starts_listener(monkeypatch: pytest.MonkeyPatch) -> None:
     :param monkeypatch: Pytest fixture for temporary attribute patching.
     """
     monkeypatch.setattr(
-        ClientLibrary, "check_controller_version", lambda self: Version("2.10.0")
+        ClientLibrary, "check_controller_version", lambda _self: Version("2.10.0")
     )
     monkeypatch.setattr(
-        ClientLibrary, "_make_test_auth_call", lambda self, new_auth: None
+        ClientLibrary, "_make_test_auth_call", lambda _self, _new_auth: None
     )
     started = {"called": False}
     monkeypatch.setattr(
         ClientLibrary,
         "start_event_listening",
-        lambda self: started.__setitem__("called", True),
+        lambda _self: started.__setitem__("called", True),
     )
     cl = ClientLibrary("https://localhost", "u", "p", events=True, check_version=False)
     assert cl.auto_sync is False

@@ -167,7 +167,7 @@ def test_set_owner_unresolved_user_id_yields_none_owner() -> None:
 
 
 @pytest.mark.parametrize(
-    "method,sync_target,last_time_attr",
+    ("method", "sync_target", "last_time_attr"),
     [
         (
             "sync_statistics_if_outdated",
@@ -246,8 +246,10 @@ def test_sync_full_path() -> None:
         patch.object(lab, "sync_operational") as sync_op,
     ):
         lab.sync(topology_only=False)
-        assert sync_topo.called and sync_stats.called
-        assert sync_l3.called and sync_op.called
+        assert sync_topo.called
+        assert sync_stats.called
+        assert sync_l3.called
+        assert sync_op.called
 
 
 def test_import_nodes_no_interfaces() -> None:

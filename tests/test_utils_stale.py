@@ -132,7 +132,7 @@ def test_check_stale_decorator_returns_value() -> None:
     instance = Lab(stale=False)
 
     @check_stale
-    def f(self: Lab, value: str) -> str:
+    def f(_self: Lab, value: str) -> str:
         """Echo value for decorated function behavior assertion."""
         return value
 
@@ -147,7 +147,7 @@ def test_check_stale_decorator_raises_for_stale() -> None:
     instance = Lab(stale=True)
 
     @check_stale
-    def f(self: Lab) -> None:
+    def f(_self: Lab) -> None:
         """No-op helper used only to trigger stale guard."""
         return None
 

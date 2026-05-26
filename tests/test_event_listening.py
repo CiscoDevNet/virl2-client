@@ -115,10 +115,10 @@ def test_ssl_verify_path_missing_raises(tmp_path: Path) -> None:
 class _DummyThread:
     """Minimal thread-like object for lifecycle tests."""
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self, *_args: object, **kwargs: object) -> None:
         """Record start state and close eagerly-created listener coroutine.
 
-        :param args: Positional constructor arguments from patched thread usage.
+        :param _args: Positional constructor arguments from patched thread usage (unused).
         :param kwargs: Keyword constructor arguments from patched thread usage.
         """
         self.started = False

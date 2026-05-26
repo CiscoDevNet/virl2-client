@@ -181,7 +181,7 @@ def test_next_free_interface() -> None:
 
 
 @pytest.mark.parametrize(
-    "method,exc",
+    ("method", "exc"),
     [
         ("get_interface_by_id", InterfaceNotFound),
         ("get_link_by_id", LinkNotFound),
@@ -552,7 +552,7 @@ def test_node_physical_interfaces() -> None:
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("string-value", "string-value"),
         ([{"name": "Main", "content": "list"}], "list"),
@@ -664,7 +664,9 @@ def test_node_sync_if_outdated() -> None:
         node.sync_l3_addresses_if_outdated()
         node.sync_operational_if_outdated()
         node.sync_interface_operational_if_outdated()
-        assert sync_l3.called and sync_op.called and sync_ifop.called
+        assert sync_l3.called
+        assert sync_op.called
+        assert sync_ifop.called
 
 
 def test_node_update_wrapper() -> None:
@@ -679,7 +681,7 @@ def test_node_update_wrapper() -> None:
 
 
 @pytest.mark.parametrize(
-    "method,arg",
+    ("method", "arg"),
     [
         ("get_interface_by_label", "eth99"),
         ("get_interface_by_slot", 99),

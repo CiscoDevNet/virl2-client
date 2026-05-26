@@ -863,11 +863,7 @@ class Node:
         :param other_node: The other node.
         :returns: A list of links between this node and the other node.
         """
-        links = []
-        for link in self.links():
-            if other_node in link.nodes:
-                links.append(link)
-        return links
+        return [link for link in self.links() if other_node in link.nodes]
 
     def get_link_to(self, other_node: Node) -> Link | None:
         """

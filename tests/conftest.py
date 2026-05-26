@@ -261,4 +261,4 @@ def client_library(respx_mock_with_labs: None) -> Iterator[ClientLibrary]:
     """
     _ = respx_mock_with_labs
     client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
-    yield client
+    return client

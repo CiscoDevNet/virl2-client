@@ -182,7 +182,7 @@ def test_current_auth_includes_manager_password() -> None:
 
 
 @pytest.mark.parametrize(
-    "setting,value",
+    ("setting", "value"),
     [
         ("admin_search_filter", "(&(uid={0})(memberOf=cn=admins,dc=corp,dc=com))"),
         (
@@ -240,7 +240,7 @@ def test_timeout_inactive_method_raises(method: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "method,pool_id",
+    ("method", "pool_id"),
     [("ldap", "pool-123"), ("radius", "pool-456")],
 )
 def test_resource_pool_accepts_instance(method: str, pool_id: str) -> None:
@@ -266,7 +266,7 @@ def test_resource_pool_accepts_instance(method: str, pool_id: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "setting,value",
+    ("setting", "value"),
     [
         ("server_hosts", "radius-1 radius-2:1813"),
         ("port", 1813),
@@ -295,7 +295,7 @@ def test_radius_settings_update(setting: str, value: str | int | float) -> None:
 
 
 @pytest.mark.parametrize(
-    "method,prop,value",
+    ("method", "prop", "value"),
     [
         ("ldap", "manager_password", "secret"),
         ("radius", "secret", "secret"),

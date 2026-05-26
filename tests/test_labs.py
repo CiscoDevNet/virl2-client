@@ -186,7 +186,10 @@ def test_need_to_wait_invalid_type_raises() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = make_lab()
-    with pytest.raises(ValueError):
+
+    # message; adding a match here would require widening that production
+    # contract. Leave PT011 suppressed for the bare-raise case.
+    with pytest.raises(ValueError):  # noqa: PT011
         lab.need_to_wait("yes")  # type: ignore[arg-type]
 
 

@@ -190,7 +190,7 @@ def test_lab_repos_property_sync(
 
 @patch("time.time")
 @pytest.mark.parametrize(
-    "auto_sync,interval,last_sync,now,expect_sync",
+    ("auto_sync", "interval", "last_sync", "now", "expect_sync"),
     [
         (False, 0, 0, 10, False),
         (True, 100, 5, 10, False),

@@ -145,9 +145,7 @@ class GroupManagement:
             "members": members,
             "associations": associations,
         }
-        for key, value in optional_data.items():
-            if value is not None:
-                data[key] = value
+        data.update({k: v for k, v in optional_data.items() if v is not None})
 
     def group_members(self, group_id: str) -> list[str]:
         """

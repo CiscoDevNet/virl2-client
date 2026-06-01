@@ -214,7 +214,7 @@ class Licensing:
         )
         return self.status().get("features")
 
-    def update_features(self, features: dict[str, int] | list[dict[str, int]]) -> None:
+    def update_features(self, features: list[dict[str, int]]) -> None:
         """Update licensing feature's explicit count in reservation mode.
 
         :param features: Feature names to counts, or list of such mappings.

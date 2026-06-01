@@ -237,7 +237,7 @@ class ClientLibrary:
         "import": "import",
         "import_1x": "import/virl-1x",
         "sample_labs": "sample/labs",
-        "sample_lab": "sample/labs/{lab_title}",
+        "sample_lab": "sample/labs/{sample_lab_id}",
         "labs": "labs",
         "lab": "labs/{lab_id}",
         "lab_topology": "labs/{lab_id}/topology",
@@ -612,7 +612,7 @@ class ClientLibrary:
         :returns: The imported Lab instance.
         """
 
-        url = self._url_for("sample_lab", lab_title=title)
+        url = self._url_for("sample_lab", sample_lab_id=title)
         lab_id = self._session.put(url).json()
         return self.join_existing_lab(lab_id)
 

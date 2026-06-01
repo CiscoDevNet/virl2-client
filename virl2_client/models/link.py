@@ -43,7 +43,6 @@ class Link:
     _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "link": "{lab}/links/{id}",
         "check_if_converged": "{lab}/links/{id}/check_if_converged",
-        "state": "{lab}/links/{id}/state",
         "start": "{lab}/links/{id}/state/start",
         "stop": "{lab}/links/{id}/state/stop",
         "condition": "{lab}/links/{id}/condition",

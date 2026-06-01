@@ -51,7 +51,7 @@ class Link:
         "capture_status": "{lab}/links/{id}/capture/status",
         "pcap_file": "pcap/{id}",
         "pcap_packets": "pcap/{id}/packets",
-        "pcap_packet": "pcap/{id}/packets/{packet_id}",
+        "pcap_packet": "pcap/{id}/packet/{packet_id}",
     }
 
     def __init__(

@@ -153,7 +153,7 @@ def test_sample_labs() -> None:
         client._session.get.return_value.json.return_value = {"sample": {}}
         assert client.get_sample_labs() == {"sample": {}}
         client._session.put.return_value.json.return_value = "id-1"
-        client.import_sample_lab("sample-1")
+        client.import_sample_lab("id-1")  # need to check the ID is correct
         join_lab.assert_called_with("id-1")
 
 

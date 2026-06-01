@@ -604,15 +604,15 @@ class ClientLibrary:
         return self._session.get(url).json()
 
     @locked
-    def import_sample_lab(self, title: str) -> Lab:
+    def import_sample_lab(self, sample_lab_id: str) -> Lab:
         """
         Import a built-in sample lab.
 
-        :param title: The sample lab name.
+        :param sample_lab_id: The sample lab ID.
         :returns: The imported Lab instance.
         """
 
-        url = self._url_for("sample_lab", sample_lab_id=title)
+        url = self._url_for("sample_lab", sample_lab_id=sample_lab_id)
         lab_id = self._session.put(url).json()
         return self.join_existing_lab(lab_id)
 

@@ -86,7 +86,7 @@ def test_pcap_packet_url_has_packet_id(link: Link) -> None:
     """
     url = link._url_for("pcap_packet", packet_id="42")
 
-    assert url == "pcap/test-link/packets/42"
+    assert url == "pcap/test-link/packet/42"
     assert "api/v0" not in url
     assert "//" not in url
 

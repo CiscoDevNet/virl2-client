@@ -1585,7 +1585,7 @@ class Lab:
 
         """
         url = self._url_for("bootstrap")
-        self._session.get(url)
+        self._session.put(url)
         # sync to get the updated configs
         self.sync_topology_if_outdated()
 

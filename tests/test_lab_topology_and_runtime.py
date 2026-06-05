@@ -86,7 +86,7 @@ def test_sync_statistics() -> None:
     assert i2.statistics["writebytes"] == 10
 
 
-def test_sync_statistics_handles_payload_without_resource_stats() -> None:
+def test_sync_stats_without_resource_stats() -> None:
     """Tolerate ext_conn/UMS/QUEUED node payloads that only carry `times`.
 
     The CML controller only reports cpu_usage / block0_* for nodes
@@ -155,7 +155,7 @@ def test_node_times_defaults_to_empty_pre_sync() -> None:
         assert n1.queued_time == 0
 
 
-def test_lab_uptime_returns_min_started_across_running_nodes() -> None:
+def test_lab_uptime_min_started_running_nodes() -> None:
     """Lab.uptime is the smallest Node.started_time when all nodes are running.
 
     NOTE: LLM-generated test -- verify for correctness.
@@ -394,7 +394,7 @@ def test_sync_and_cleanup_pyats() -> None:
         cleanup.assert_called_once()
 
 
-def test_sync_pyats_falls_back_to_jwt_when_password_missing() -> None:
+def test_sync_pyats_jwt_when_password_missing() -> None:
     """sync_pyats uses the active JWT when the client has no password.
 
     Token-only clients (e.g. ClientLibrary initialized via cml_token /

@@ -66,7 +66,7 @@ def test_token_auth_logs_insecure_url_details(
     assert "Not using https scheme: http" in caplog.text
 
 
-def test_token_auth_suppresses_warnings_when_http_allowed(
+def test_token_auth_suppresses_warnings_http(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Suppress scheme/port warnings when allow_http is True.

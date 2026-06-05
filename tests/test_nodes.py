@@ -439,7 +439,7 @@ def test_node_sync_operational_updates_last_sync_time() -> None:
     assert node._last_sync_operational_time > 0.0
 
 
-def test_node_sync_operational_with_response_updates_last_sync_time() -> None:
+def test_node_sync_operational_updates_sync_time() -> None:
     """sync_operational(response=...) also stamps _last_sync_operational_time.
 
     Regression guard for CMLDEV-1117: Lab.sync_operational() fans out to

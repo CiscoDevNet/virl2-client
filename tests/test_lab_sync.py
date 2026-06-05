@@ -152,7 +152,7 @@ def test_set_owner_username_overrides_cache() -> None:
     user_mgmt.get_username.assert_not_called()
 
 
-def test_set_owner_unresolved_user_id_yields_none_owner() -> None:
+def test_set_owner_unresolved_user_none() -> None:
     """When only user_id is supplied and the cache misses, owner is None.
 
     NOTE: LLM-generated test -- verify for correctness.

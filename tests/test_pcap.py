@@ -63,7 +63,7 @@ def test_url_template_exists(template: str) -> None:
         ("pcap_packets", "pcap/test-link/packets"),
     ],
 )
-def test_pcap_url_is_relative_and_has_no_duplicate_api_prefix(
+def test_pcap_url_relative_no_dup_prefix(
     link: Link, endpoint: str, expected: str
 ) -> None:
     """PCAP URLs are relative paths without a duplicate /api/v0/ segment.

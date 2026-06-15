@@ -216,6 +216,7 @@ def test_ldap_settings_update(setting: str, value: str | bool | float) -> None:
     """
     auth_management, session = make_auth_management({"method": "ldap", setting: value})
     manager = auth_management._managers["ldap"]
+    session.patch.return_value.json.return_value = {"method": "ldap", setting: value}
 
     setattr(manager, setting, value)
 
@@ -256,6 +257,10 @@ def test_resource_pool_accepts_instance(method: str, pool_id: str) -> None:
     )
     manager = auth_management._managers[method]
     resource_pool = ResourcePool(MagicMock(_session=MagicMock()), pool_id, "label")
+    session.patch.return_value.json.return_value = {
+        "method": method,
+        "resource_pool": pool_id,
+    }
 
     manager.resource_pool = resource_pool
 
@@ -285,6 +290,7 @@ def test_radius_settings_update(setting: str, value: str | int | float) -> None:
         {"method": "radius", setting: value}
     )
     manager = auth_management._managers["radius"]
+    session.patch.return_value.json.return_value = {"method": "radius", setting: value}
 
     setattr(manager, setting, value)
 
@@ -312,6 +318,7 @@ def test_secret_setter_patches_config(method: str, prop: str, value: str) -> Non
     """
     auth_management, session = make_auth_management({"method": method})
     manager = auth_management._managers[method]
+    session.patch.return_value.json.return_value = {"method": method, prop: value}
 
     setattr(manager, prop, value)
 
@@ -323,14 +330,17 @@ def test_secret_setter_patches_config(method: str, prop: str, value: str) -> Non
 def test_update_settings_precedence_and_sync() -> None:
     """Keyword args override dict args; sync fetches updated config."""
     auth_management, session = make_auth_management({"method": "ldap"})
-    session.get.return_value.json.return_value = {"method": "ldap", "verify_tls": False}
+    session.patch.return_value.json.return_value = {
+        "method": "ldap",
+        "verify_tls": False,
+    }
 
     auth_management.update_settings({"verify_tls": True}, verify_tls=False)
 
     session.patch.assert_called_once_with(
         "system/auth/config", json={"verify_tls": False}
     )
-    session.get.assert_called_once_with("system/auth/config")
+    session.get.assert_not_called()
     assert auth_management._settings["verify_tls"] is False
 
 
@@ -387,6 +397,7 @@ def test_method_setter_and_current_settings() -> None:
     """
     auth_management, session = make_auth_management({"method": "ldap"})
     session.get.return_value.json.return_value = {"method": "radius"}
+    session.patch.return_value.json.return_value = {"method": "radius"}
 
     assert auth_management.method == "ldap"
     auth_management.method = "radius"

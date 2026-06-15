@@ -304,7 +304,12 @@ def test_lab_build_configurations() -> None:
     lab = make_lab()
     expected_results = [
         {"id": "n0", "label": "R1", "result": "generated", "reason": None},
-        {"id": "n1", "label": "R2", "result": "skipped", "reason": "already configured"},
+        {
+            "id": "n1",
+            "label": "R2",
+            "result": "skipped",
+            "reason": "already configured",
+        },
     ]
     lab._session.put.return_value.json.return_value = expected_results
     with patch.object(

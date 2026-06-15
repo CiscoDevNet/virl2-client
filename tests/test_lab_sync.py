@@ -25,8 +25,8 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from helpers import make_lab
+
 from virl2_client.exceptions import (
     ElementAlreadyExists,
     SmartAnnotationNotFound,

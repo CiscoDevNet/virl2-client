@@ -1578,16 +1578,20 @@ class Lab:
         return changed
 
     @check_stale
-    def build_configurations(self) -> None:
+    def build_configurations(self) -> list[dict]:
         """
         Build basic configurations for all nodes in the lab that do not
         already have a configuration and support configuration building.
 
+        Returns a list of per-node bootstrap results, each containing
+        ``id``, ``label``, ``result`` (``"generated"``, ``"skipped"``, or
+        ``"failed"``), and an optional ``reason`` string.
         """
         url = self._url_for("bootstrap")
-        self._session.put(url)
+        results: list[dict] = self._session.put(url).json()
         # sync to get the updated configs
         self.sync_topology_if_outdated()
+        return results
 
     @check_stale
     @locked

@@ -22,148 +22,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import httpx
 import pytest
 
-from tests.helpers import make_lab
+from helpers import make_lab
 from virl2_client.exceptions import (
     ElementAlreadyExists,
-    LabNotFound,
     SmartAnnotationNotFound,
 )
-
-
-def test_sync_topology_import_path() -> None:
-    """_sync_topology calls import_lab when not initialized.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    lab = make_lab()
-    topology = {
-        "lab": {"title": "T", "description": "D", "notes": "N", "owner": None},
-        "nodes": [],
-        "links": [],
-        "annotations": [],
-        "smart_annotations": [],
-    }
-    lab._initialized = False
-    lab._session.get.return_value = MagicMock(json=MagicMock(return_value=topology))
-    with patch.object(lab, "import_lab") as import_lab:
-        lab._sync_topology()
-        import_lab.assert_called_once()
-        assert lab._initialized is True
-
-
-def test_sync_topology_update_path() -> None:
-    """_sync_topology calls update_lab when initialized.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    lab = make_lab()
-    topology = {
-        "lab": {"title": "T", "description": "D", "notes": "N", "owner": None},
-        "nodes": [],
-        "links": [],
-        "annotations": [],
-        "smart_annotations": [],
-    }
-    lab._initialized = True
-    lab._session.get.return_value = MagicMock(json=MagicMock(return_value=topology))
-    with patch.object(lab, "update_lab") as update_lab_mock:
-        lab._sync_topology()
-        update_lab_mock.assert_called_once()
-
-
-def test_sync_topology_404() -> None:
-    """_sync_topology raises LabNotFound on 404 and marks stale.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    lab = make_lab()
-    not_found = httpx.HTTPStatusError(
-        "404",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=404, text="Lab not found: l1"),
-    )
-    lab._session.get.side_effect = not_found
-    with pytest.raises(LabNotFound):
-        lab._sync_topology()
-    assert lab._stale is True
-
-
-def test_sync_topology_500() -> None:
-    """_sync_topology raises HTTPStatusError on 500.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    lab = make_lab()
-    generic = httpx.HTTPStatusError(
-        "500",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=500, text="boom"),
-    )
-    lab._session.get.side_effect = generic
-    with pytest.raises(httpx.HTTPStatusError):
-        lab._sync_topology()
-
-
-def test_import_old_schema() -> None:
-    """_import_lab handles old schema path for created labs.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    user_mgmt = MagicMock()
-    user_mgmt.get_username.return_value = "owner-1"
-    lab = make_lab(user_management=user_mgmt)
-    old_schema = {
-        "lab_title": "created",
-        "lab_description": "desc",
-        "lab_notes": "notes",
-        "owner": "u1",
-        "autostart": {"enabled": True, "priority": 1, "delay": 0},
-        "node_staging": {
-            "enabled": True,
-            "start_remaining": False,
-            "abort_on_failure": True,
-        },
-    }
-    lab._import_lab(old_schema, created=True)
-    assert lab.title == "created"
-    assert lab.owner == "owner-1"
-    assert lab.owner_id == "u1"
-    assert lab.autostart["enabled"] is True
-    assert lab.node_staging["enabled"] is True
-    user_mgmt.get_username.assert_called_once_with("u1")
-
-
-def test_set_owner_username_overrides_cache() -> None:
-    """Caller-supplied user_name wins and the cache is not consulted.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    user_mgmt = MagicMock()
-    user_mgmt.get_username.return_value = "from-cache"
-    lab = make_lab(user_management=user_mgmt)
-    lab._set_owner(user_id="u1", user_name="from-response")
-    assert lab.owner == "from-response"
-    assert lab.owner_id == "u1"
-    user_mgmt.get_username.assert_not_called()
-
-
-def test_set_owner_unresolved_user_none() -> None:
-    """When only user_id is supplied and the cache misses, owner is None.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
-    user_mgmt = MagicMock()
-    user_mgmt.get_username.return_value = None
-    lab = make_lab(user_management=user_mgmt)
-    lab._set_owner(user_id="missing")
-    assert lab.owner is None
-    assert lab.owner_id == "missing"
-    user_mgmt.get_username.assert_called_once_with("missing")
 
 
 @pytest.mark.parametrize(

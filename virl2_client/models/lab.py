@@ -1588,7 +1588,12 @@ class Lab:
         ``"failed"``), and an optional ``reason`` string.
         """
         url = self._url_for("bootstrap")
-        results: list[dict] = self._session.put(url).json()
+        response = self._session.put(url)
+        if response.status_code == 204:
+            # Pre-2.11 controllers returned 204 No Content with no body.
+            results: list[dict] = []
+        else:
+            results = response.json()
         # sync to get the updated configs
         self.sync_topology_if_outdated()
         return results

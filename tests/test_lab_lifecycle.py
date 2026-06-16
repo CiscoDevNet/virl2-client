@@ -25,8 +25,8 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from helpers import make_lab
 
+from tests.helpers import make_lab
 from virl2_client.exceptions import LabNotFound, NodeNotFound
 
 
@@ -311,6 +311,7 @@ def test_lab_build_configurations() -> None:
             "reason": "already configured",
         },
     ]
+    lab._session.put.return_value.status_code = 200
     lab._session.put.return_value.json.return_value = expected_results
     with patch.object(
         lab, "sync_topology_if_outdated", return_value=None
@@ -318,6 +319,19 @@ def test_lab_build_configurations() -> None:
         results = lab.build_configurations()
         sync_topology.assert_called_once()
     assert results == expected_results
+
+
+def test_lab_build_configurations_pre_211_no_content() -> None:
+    """Pre-2.11 bootstrap returned 204 with no body; return an empty list."""
+    lab = make_lab()
+    lab._session.put.return_value.status_code = 204
+    with patch.object(
+        lab, "sync_topology_if_outdated", return_value=None
+    ) as sync_topology:
+        results = lab.build_configurations()
+        sync_topology.assert_called_once()
+    assert results == []
+    lab._session.put.return_value.json.assert_not_called()
 
 
 def test_lab_convergence_timeout() -> None:

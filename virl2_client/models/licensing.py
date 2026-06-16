@@ -101,24 +101,24 @@ class Licensing:
         ssms: str | None,
         proxy_server: str | None = None,
         proxy_port: int | None = None,
-    ) -> bool:
-        """Setup licensing transport configuration.
+    ) -> dict[str, Any]:
+        """Partially update licensing transport configuration.
 
         :param ssms: The Smart Software Licensing server URL.
         :param proxy_server: Optional proxy server hostname.
         :param proxy_port: Optional proxy server port.
-        :returns: True if the configuration was accepted (HTTP 204).
+        :returns: Effective updated licensing status.
         """
         url = self._url_for("transport")
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
-        response = self._session.put(url, json=data)
-        _LOGGER.info("The transport configuration has been accepted. Config: %s.", data)
-        return response.status_code == 204
+        response = self._session.patch(url, json=data)
+        _LOGGER.info("The transport configuration has been updated. Config: %s.", data)
+        return response.json()
 
-    def set_default_transport(self) -> bool:
+    def set_default_transport(self) -> dict[str, Any]:
         """Setup licensing transport configuration to default values.
 
-        :returns: True if the configuration was accepted (HTTP 204).
+        :returns: Effective updated licensing status.
         """
         default_ssms = self.status()["transport"]["default_ssms"]
         return self.set_transport(
@@ -127,16 +127,16 @@ class Licensing:
             proxy_port=DEFAULT_PROXY_PORT,
         )
 
-    def set_product_license(self, product_license: str) -> bool:
+    def set_product_license(self, product_license: str) -> dict[str, Any]:
         """Setup a product license.
 
         :param product_license: The product license string to install.
-        :returns: True if the license was accepted (HTTP 204).
+        :returns: Effective updated licensing status.
         """
         url = self._url_for("product_license")
         response = self._session.put(url, json=product_license)
         _LOGGER.info("Product license was accepted by the agent.")
-        return response.status_code == 204
+        return response.json()
 
     def register(self, token: str, reregister: bool = False) -> bool:
         """Setup licensing registration.
@@ -214,29 +214,33 @@ class Licensing:
         )
         return self.status().get("features")
 
-    def update_features(self, features: list[dict[str, int]]) -> None:
+    def update_features(self, features: list[dict[str, str | int]]) -> dict[str, Any]:
         """Update licensing feature's explicit count in reservation mode.
 
-        :param features: list of feature names to count mappings.
+        :param features: List of {"id": "<feature>", "count": <int>} objects.
+        :returns: Effective updated licensing status.
         """
         url = self._url_for("features")
-        self._session.patch(url, json=features)
+        response = self._session.patch(url, json=features)
+        return response.json()
 
-    def reservation_mode(self, data: bool) -> None:
+    def reservation_mode(self, data: bool) -> dict[str, Any]:
         """Enable or disable reservation mode in unregistered agent.
 
         :param data: True to enable, False to disable.
+        :returns: Effective updated licensing status.
         """
         url = self._url_for("reservation_action", action="mode")
-        self._session.put(url, json=data)
+        response = self._session.put(url, json=data)
         msg = "enabled" if data else "disabled"
         _LOGGER.info("The reservation mode has been %s.", msg)
+        return response.json()
 
-    def enable_reservation_mode(self) -> None:
+    def enable_reservation_mode(self) -> dict[str, Any]:
         """Enable reservation mode in unregistered agent."""
         return self.reservation_mode(data=True)
 
-    def disable_reservation_mode(self) -> None:
+    def disable_reservation_mode(self) -> dict[str, Any]:
         """Disable reservation mode in unregistered agent."""
         return self.reservation_mode(data=False)
 

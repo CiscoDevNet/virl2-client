@@ -60,25 +60,31 @@ def test_licensing_renew_auth() -> None:
 
 
 def test_licensing_set_transport() -> None:
-    """set_transport calls put with ssms and proxy params.
+    """set_transport calls patch with ssms and proxy params and returns body.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.put.return_value.status_code = 204
-    assert lic.set_transport("ssms", proxy_server="proxy", proxy_port=443)
+    session.patch.return_value.json.return_value = {"transport": {"ssms": "ssms"}}
+    assert lic.set_transport("ssms", proxy_server="proxy", proxy_port=443) == {
+        "transport": {"ssms": "ssms"}
+    }
+    session.patch.assert_called_once_with(
+        "licensing/transport",
+        json={"ssms": "ssms", "proxy": {"server": "proxy", "port": 443}},
+    )
 
 
 def test_licensing_set_product_lic() -> None:
-    """set_product_license calls put with product id.
+    """set_product_license calls put with product id and returns body.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.put.return_value.status_code = 204
-    assert lic.set_product_license("prod")
+    session.put.return_value.json.return_value = {"product_license": {"active": "prod"}}
+    assert lic.set_product_license("prod") == {"product_license": {"active": "prod"}}
 
 
 def test_licensing_register_renew() -> None:
@@ -234,24 +240,27 @@ def test_licensing_register_wait() -> None:
 
 
 def test_licensing_update_features() -> None:
-    """update_features patches licensing features.
+    """update_features patches licensing features and returns body.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    lic.update_features({"featureA": 1})
-    session.patch.assert_called_with("licensing/features", json={"featureA": 1})
+    features_payload = [{"id": "featureA", "count": 1}]
+    session.patch.return_value.json.return_value = {"features": [{"id": "featureA"}]}
+    assert lic.update_features(features_payload) == {"features": [{"id": "featureA"}]}
+    session.patch.assert_called_with("licensing/features", json=features_payload)
 
 
 def test_licensing_reservation_mode_set() -> None:
-    """reservation_mode puts mode with json value.
+    """reservation_mode puts mode with json value and returns body.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    lic.reservation_mode(True)
+    session.put.return_value.json.return_value = {"reservation_mode": True}
+    assert lic.reservation_mode(True) == {"reservation_mode": True}
     session.put.assert_called_with("licensing/reservation/mode", json=True)
 
 
@@ -263,13 +272,14 @@ def test_licensing_reservation_mode_set() -> None:
     ],
 )
 def test_licensing_reservation_mode_rt(method: str, expected_json: bool) -> None:
-    """enable/disable_reservation_mode puts mode with json value.
+    """enable/disable_reservation_mode puts mode with json value and returns body.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    getattr(lic, method)()
+    session.put.return_value.json.return_value = {"reservation_mode": expected_json}
+    assert getattr(lic, method)() == {"reservation_mode": expected_json}
     session.put.assert_called_with("licensing/reservation/mode", json=expected_json)
 
 
@@ -327,9 +337,9 @@ def test_licensing_default_transport() -> None:
         patch.object(
             lic, "status", return_value={"transport": {"default_ssms": "https://ssms"}}
         ),
-        patch.object(lic, "set_transport", return_value=True) as set_transport,
+        patch.object(lic, "set_transport", return_value={"ok": True}) as set_transport,
     ):
-        assert lic.set_default_transport()
+        assert lic.set_default_transport() == {"ok": True}
         set_transport.assert_called_once_with(
             ssms="https://ssms", proxy_server=None, proxy_port=None
         )

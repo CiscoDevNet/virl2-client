@@ -269,7 +269,7 @@ def test_lab_is_active() -> None:
 
 
 def test_lab_details() -> None:
-    """Details returns json from session.
+    """Details returns JSON from session.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
@@ -300,16 +300,38 @@ def test_lab_sync_events() -> None:
 
 
 def test_lab_build_configurations() -> None:
-    """build_configurations calls sync_topology_if_outdated.
-
-    NOTE: LLM-generated test -- verify for correctness.
-    """
+    """build_configurations returns per-node results and calls sync_topology_if_outdated."""
     lab = make_lab()
+    expected_results = [
+        {"id": "n0", "label": "R1", "result": "generated", "reason": None},
+        {
+            "id": "n1",
+            "label": "R2",
+            "result": "skipped",
+            "reason": "already configured",
+        },
+    ]
+    lab._session.put.return_value.status_code = 200
+    lab._session.put.return_value.json.return_value = expected_results
     with patch.object(
         lab, "sync_topology_if_outdated", return_value=None
     ) as sync_topology:
-        lab.build_configurations()
+        results = lab.build_configurations()
         sync_topology.assert_called_once()
+    assert results == expected_results
+
+
+def test_lab_build_configurations_pre_211_no_content() -> None:
+    """Pre-2.11 bootstrap returned 204 with no body; return an empty list."""
+    lab = make_lab()
+    lab._session.put.return_value.status_code = 204
+    with patch.object(
+        lab, "sync_topology_if_outdated", return_value=None
+    ) as sync_topology:
+        results = lab.build_configurations()
+        sync_topology.assert_called_once()
+    assert results == []
+    lab._session.put.return_value.json.assert_not_called()
 
 
 def test_lab_convergence_timeout() -> None:

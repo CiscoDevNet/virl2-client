@@ -246,9 +246,10 @@ def test_licensing_update_features() -> None:
     """
     session = MagicMock()
     lic = Licensing(session)
+    features_payload = [{"id": "featureA", "count": 1}]
     session.patch.return_value.json.return_value = {"features": [{"id": "featureA"}]}
-    assert lic.update_features({"featureA": 1}) == {"features": [{"id": "featureA"}]}
-    session.patch.assert_called_with("licensing/features", json={"featureA": 1})
+    assert lic.update_features(features_payload) == {"features": [{"id": "featureA"}]}
+    session.patch.assert_called_with("licensing/features", json=features_payload)
 
 
 def test_licensing_reservation_mode_set() -> None:

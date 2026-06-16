@@ -214,10 +214,10 @@ class Licensing:
         )
         return self.status().get("features")
 
-    def update_features(self, features: list[dict[str, int]]) -> dict[str, Any]:
+    def update_features(self, features: list[dict[str, str | int]]) -> dict[str, Any]:
         """Update licensing feature's explicit count in reservation mode.
 
-        :param features: list of feature names to count mappings.
+        :param features: List of {"id": "<feature>", "count": <int>} objects.
         :returns: Effective updated licensing status.
         """
         url = self._url_for("features")

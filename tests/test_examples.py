@@ -16,9 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Static checks that the ``examples/`` scripts stay healthy.
+"""Static checks that the examples/ scripts stay healthy.
 
-These tests deliberately do not execute the example ``main()``
+These tests deliberately do not execute the example main()
 functions -- that requires a live controller. Instead they enforce
 contracts that are cheap to verify and that catch the bug classes the
 examples have historically regressed on:
@@ -79,7 +79,7 @@ def test_example_parses(path: Path) -> None:
 
 @pytest.mark.parametrize("path", PY_EXAMPLES, ids=lambda p: p.name)
 def test_example_has_main_guard(path: Path) -> None:
-    """Each example wraps its entry point behind ``if __name__ == '__main__':``.
+    """Each example wraps its entry point behind if __name__ == '__main__':.
 
     The guard is what makes the module safe to import for the other
     static checks; regressing it would re-introduce the "runs input()
@@ -110,9 +110,9 @@ def test_example_has_main_guard(path: Path) -> None:
 def test_example_imports_without_side_effects(path: Path) -> None:
     """Importing an example must not prompt, hit the network, or raise.
 
-    The ``if __name__ == "__main__":`` guard enforced by
-    ``test_example_has_main_guard`` is what keeps ``input()`` /
-    ``getpass()`` / network calls out of import time; this test
+    The if __name__ == "__main__": guard enforced by
+    test_example_has_main_guard is what keeps input() /
+    getpass() / network calls out of import time; this test
     verifies the guard is actually effective end-to-end.
     """
     rel = path.relative_to(EXAMPLES_DIR.parent).with_suffix("")

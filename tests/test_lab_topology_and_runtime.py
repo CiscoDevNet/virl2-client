@@ -91,8 +91,8 @@ def test_sync_stats_without_resource_stats() -> None:
 
     The CML controller only reports cpu_usage / block0_* for nodes
     backed by a real VM. External connectors, unmanaged switches, and
-    nodes still in the QUEUED state come back as just ``{"times": ...}``
-    on v2.9 / v2.10 (and ``{"times": ..., "is_running": ...}`` on dev).
+    nodes still in the QUEUED state come back as just {"times": ...}
+    on v2.9 / v2.10 (and {"times": ..., "is_running": ...} on dev).
 
     NOTE: LLM-generated test -- verify for correctness.
     """

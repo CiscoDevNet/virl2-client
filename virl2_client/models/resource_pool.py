@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -30,6 +29,8 @@ from ..exceptions import InvalidProperty
 from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import httpx
 
 _LOGGER = logging.getLogger(__name__)

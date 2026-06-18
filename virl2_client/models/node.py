@@ -26,8 +26,6 @@ import time
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import httpx
-
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import (
     UNCHANGED,
@@ -40,6 +38,8 @@ from ..utils import (
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
+    import httpx
+
     from .interface import Interface
     from .lab import Lab
     from .link import Link

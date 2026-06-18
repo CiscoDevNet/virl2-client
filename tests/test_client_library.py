@@ -23,8 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -39,6 +38,10 @@ from virl2_client.virl2_client import (
     InitializationError,
     Version,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
 FAKE_URL = "https://0.0.0.0/fake_url/"

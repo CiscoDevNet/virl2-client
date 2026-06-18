@@ -23,7 +23,6 @@ from __future__ import annotations
 import io
 import logging
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -45,6 +44,8 @@ else:
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from genie.libs.conf.device import Device
     from genie.libs.conf.testbed import Testbed
 
@@ -461,6 +462,7 @@ def _remove_unicon_loggers(pyats_device: Device) -> None:
     except (AttributeError, TypeError, KeyError):
         return
     for name in names:
-        while name.startswith("unicon."):
-            loggers.pop(name, None)
-            name = name.rsplit(".", 1)[0]
+        current_name = name
+        while current_name.startswith("unicon."):
+            loggers.pop(current_name, None)
+            current_name = current_name.rsplit(".", 1)[0]

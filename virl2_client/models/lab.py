@@ -24,7 +24,6 @@ import contextlib
 import json
 import logging
 import time
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from httpx import HTTPStatusError
@@ -57,6 +56,8 @@ from .node import Node
 from .smart_annotation import SmartAnnotation
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import httpx
 
     from .annotation import AnnotationType
@@ -799,8 +800,7 @@ class Lab:
                 kwargs[key] = None
         kwargs["resource_pool"] = None
         kwargs.pop("compute_id", None)
-        node = self._create_node_local(node_id, **kwargs)
-        return node
+        return self._create_node_local(node_id, **kwargs)
 
     @locked
     def _create_node_local(
@@ -1087,8 +1087,7 @@ class Lab:
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
 
-        link = self._create_link_local(i1, i2, link_id, label)
-        return link
+        return self._create_link_local(i1, i2, link_id, label)
 
     @check_stale
     @locked
@@ -1230,12 +1229,11 @@ class Lab:
         if not self._initialized:
             self._initialized = True
 
-        annotation = self._create_annotation_local(
+        return self._create_annotation_local(
             res_annotation["id"],
             annotation_type,
             **res_annotation,
         )
-        return annotation
 
     @check_stale
     @locked
@@ -1455,8 +1453,7 @@ class Lab:
         :returns: True if the lab has converged, False otherwise.
         """
         url = self._url_for("check_if_converged")
-        converged = self._session.get(url).json()
-        return converged
+        return self._session.get(url).json()
 
     @check_stale
     def start(self, wait: bool | None = None) -> None:
@@ -1898,10 +1895,9 @@ class Lab:
             if key not in ("id", "type")
         }
 
-        annotation = self._create_annotation_local(
+        return self._create_annotation_local(
             annotation_id, annotation_type, **annotation_data
         )
-        return annotation
 
     @locked
     def _import_smart_annotation(
@@ -1919,10 +1915,9 @@ class Lab:
         annotation_data = {
             key: annotation_data[key] for key in annotation_data if key != "id"
         }
-        annotation = self._create_smart_annotation_local(
+        return self._create_smart_annotation_local(
             annotation_id, **annotation_data
         )
-        return annotation
 
     @locked
     def update_lab(self, topology: dict, exclude_configurations: bool) -> None:
@@ -2099,8 +2094,8 @@ class Lab:
             for interface in interfaces:
                 interface_id = interface["id"]
                 if interface_id in new_interfaces:
-                    interface = self._import_interface(interface_id, node_id, interface)
-                    _LOGGER.info("Added interface %s", interface)
+                    imported_interface = self._import_interface(interface_id, node_id, interface)
+                    _LOGGER.info("Added interface %s", imported_interface)
 
     @locked
     def _add_interfaces(self, topology: dict, new_interfaces: Iterable[str]) -> None:

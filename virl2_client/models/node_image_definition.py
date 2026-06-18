@@ -24,13 +24,14 @@ import logging
 import os
 import pathlib
 import time
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar
 
 from ..exceptions import InvalidContentType, InvalidImageFile
 from ..utils import _requires_version, get_url_from_template
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import httpx
 
 _LOGGER = logging.getLogger(__name__)
@@ -145,9 +146,8 @@ class NodeImageDefinitions:
         method = "PUT" if update else "POST"
         if is_json:
             return self._session.request(method, url, json=body).json()
-        else:
-            # YAML
-            return self._session.request(method, url, content=body).json()
+        # YAML
+        return self._session.request(method, url, content=body).json()
 
     def upload_image_definition(
         self, body: str | dict, update: bool = False
@@ -164,9 +164,8 @@ class NodeImageDefinitions:
         method = "PUT" if update else "POST"
         if is_json:
             return self._session.request(method, url, json=body).json()
-        else:
-            # YAML
-            return self._session.request(method, url, content=body).json()
+        # YAML
+        return self._session.request(method, url, content=body).json()
 
     def download_node_definition(self, definition_id: str) -> str:
         """
@@ -377,6 +376,6 @@ def _is_json_content(content: dict[str, Any] | str) -> bool:
     """
     if isinstance(content, dict):
         return True
-    elif isinstance(content, str):
+    if isinstance(content, str):
         return False
     raise InvalidContentType(type(content))

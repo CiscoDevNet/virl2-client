@@ -207,6 +207,7 @@ class ClientConfig(NamedTuple):
             cls._populate_from_inputs(config)
         if cls._validate(config, final=True):
             return cls(**config)
+        return None
 
 
 class DiagnosticsCategory(Enum):
@@ -331,9 +332,8 @@ class ClientLibrary:
         except InitializationError as exc:
             if raise_for_auth_failure:
                 raise
-            else:
-                _LOGGER.warning(exc)
-                return
+            _LOGGER.warning(exc)
+            return
 
         self.event_listener = None
         self._session.lock = None

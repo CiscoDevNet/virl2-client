@@ -149,7 +149,7 @@ def test_check_stale_decorator_raises_for_stale() -> None:
     @check_stale
     def f(_self: Lab) -> None:
         """No-op helper used only to trigger stale guard."""
-        return None
+        return
 
     with pytest.raises(LabNotFound):
         f(instance)
@@ -247,7 +247,7 @@ def test_deprecated_argument_warns_and_ignores_none() -> None:
     class Dummy:
         def method(self) -> None:
             """No-op method for deprecation warning origin."""
-            return None
+            return
 
     dummy = Dummy()
     with pytest.deprecated_call(match="The argument 'offline' is deprecated"):

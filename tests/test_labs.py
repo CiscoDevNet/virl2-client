@@ -21,15 +21,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
-from respx import MockRouter
 
 from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from virl2_client.exceptions import VirlException
 from virl2_client.models import Lab
 from virl2_client.models.authentication import make_session
+
+if TYPE_CHECKING:
+    from respx import MockRouter
 
 
 def test_topology_create_stats() -> None:

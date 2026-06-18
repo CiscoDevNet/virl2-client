@@ -21,10 +21,10 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
-from respx import MockRouter
 
 from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from virl2_client.exceptions import (
@@ -34,7 +34,11 @@ from virl2_client.exceptions import (
 )
 from virl2_client.models import Lab
 from virl2_client.models.authentication import make_session
-from virl2_client.virl2_client import ClientLibrary
+
+if TYPE_CHECKING:
+    from respx import MockRouter
+
+    from virl2_client.virl2_client import ClientLibrary
 
 
 def test_join_existing_lab(client_library: ClientLibrary) -> None:

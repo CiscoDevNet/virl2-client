@@ -279,9 +279,8 @@ class SystemManagement:
         url = self._url_for("external_connectors")
         if sync is None:
             return self._session.get(url).json()
-        else:
-            data = {"push_configured_state": sync}
-            return self._session.put(url, json=data).json()
+        data = {"push_configured_state": sync}
+        return self._session.put(url, json=data).json()
 
     def update_external_connector(
         self, connector_id: str, data: dict[str, Any]

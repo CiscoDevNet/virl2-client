@@ -21,15 +21,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-from respx import MockRouter
 
 from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT, make_lab
 from virl2_client.exceptions import InterfaceNotFound
 from virl2_client.models import Interface, Lab, Node
 from virl2_client.models.authentication import make_session
+
+if TYPE_CHECKING:
+    from respx import MockRouter
 
 
 def test_create_interface_raises_slot_missing() -> None:

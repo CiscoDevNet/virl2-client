@@ -54,8 +54,7 @@ def mock_lab_repository_management() -> LabRepositoryManagement:
     """
     session_mock = Mock()
     system_mock = Mock()
-    lab_repo_mgmt = LabRepositoryManagement(system_mock, session_mock, auto_sync=False)
-    return lab_repo_mgmt
+    return LabRepositoryManagement(system_mock, session_mock, auto_sync=False)
 
 
 @pytest.fixture
@@ -467,10 +466,9 @@ def test_lab_repository_end_to_end_workflow() -> None:
         _ = request
         if deleted[0]:
             return httpx.Response(200, json=[])
-        elif len(respx.calls) >= 4:
+        if len(respx.calls) >= 4:
             return httpx.Response(200, json=[MOCK_LAB_REPOSITORY_1])
-        else:
-            return httpx.Response(200, json=[])
+        return httpx.Response(200, json=[])
 
     def delete_lab_repo_response(request: httpx.Request) -> httpx.Response:
         """Mark repository as deleted in mocked backend state.

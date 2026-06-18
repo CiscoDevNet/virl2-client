@@ -221,7 +221,7 @@ def check_stale(func: TCallable) -> TCallable:
         """
         return _check_and_mark_stale(func, args[0], *args, **kwargs)
 
-    return cast(TCallable, wrapper_stale)
+    return cast("TCallable", wrapper_stale)
 
 
 class property_s(property):
@@ -286,7 +286,7 @@ def locked(func: TCallable) -> TCallable:
         with ctx:
             return func(*args, **kwargs)
 
-    return cast(TCallable, wrapper_locked)
+    return cast("TCallable", wrapper_locked)
 
 
 def get_url_from_template(
@@ -356,6 +356,6 @@ def _requires_version(min_version: str) -> Callable:
                 )
             return func(self, *args, **kwargs)
 
-        return cast(TCallable, wrapper)
+        return cast("TCallable", wrapper)
 
     return decorator

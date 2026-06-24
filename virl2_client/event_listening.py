@@ -80,11 +80,13 @@ class EventListener:
         # Create an SSL context based on the 'verify' str/bool,
         # since that is what aiohttp asks for
         if ssl_verify is False:
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
+            # Caller set ssl_verify=False (lab/dev); TLS verification is intentionally off.
+            ssl_context = ssl.create_default_context()  # NOSONAR
+            ssl_context.check_hostname = False  # NOSONAR
+            ssl_context.verify_mode = ssl.CERT_NONE  # NOSONAR
         elif isinstance(ssl_verify, str) and Path(ssl_verify).is_file():
-            ssl_context = ssl.create_default_context()
+            # Custom CA bundle; hostname check remains enabled (create_default_context).
+            ssl_context = ssl.create_default_context()  # NOSONAR
             ssl_context.load_verify_locations(ssl_verify)
         else:
             ssl_context = None

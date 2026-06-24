@@ -39,6 +39,22 @@ TARGZ = ".tar.gz"
 EXTENSION_LIST = [".qcow", ".qcow2", ".iol", ".tar", TARGZ]
 
 
+def _sanitize_filename(name: str) -> str:
+    """Reject path components in user-supplied image filename parameters.
+
+    Used for remote dropfolder names and explicit upload rename values, not
+    for local filesystem paths when rename is omitted.
+
+    :param name: Proposed filename or rename value.
+    :returns: The basename of name when it contains no path separators.
+    :raises ValueError: If name contains path separators or is invalid.
+    """
+    safe = os.path.basename(name)
+    if safe != name or safe in ("", ".", ".."):
+        raise ValueError(f"Invalid filename: {name!r}")
+    return safe
+
+
 class NodeImageDefinitions:
     _URL_TEMPLATES = {
         "node_defs": "node_definitions",
@@ -204,7 +220,7 @@ class NodeImageDefinitions:
 
         path = pathlib.Path(filename)
 
-        name = rename or path.name
+        name = _sanitize_filename(rename) if rename is not None else path.name
         extension = TARGZ if path.name.endswith(TARGZ) else path.suffix
 
         if not name.endswith(extension):
@@ -271,7 +287,7 @@ class NodeImageDefinitions:
         :param filename: The name of the image file to remove.
         :returns: "Success".
         """
-        url = self._url_for("image_manage", filename=filename)
+        url = self._url_for("image_manage", filename=_sanitize_filename(filename))
         return self._session.delete(url).json()
 
     def remove_node_definition(self, definition_id: str) -> None:

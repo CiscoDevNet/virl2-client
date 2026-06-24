@@ -47,7 +47,8 @@ sphinx = {version="<8.2", optional = true}
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7"
 pre-commit = "^4"
-pytest = "*"
+# incompatible with pyats
+pytest = "<9.1"
 pytest-xdist = "*"
 respx = "^0.22.0"
 

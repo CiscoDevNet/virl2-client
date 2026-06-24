@@ -228,7 +228,7 @@ class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.10.0")
+    VERSION = Version("2.10.1")
 
     _URL_TEMPLATES = {
         "auth": "authentication",

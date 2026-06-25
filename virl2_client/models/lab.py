@@ -1915,9 +1915,7 @@ class Lab:
         annotation_data = {
             key: annotation_data[key] for key in annotation_data if key != "id"
         }
-        return self._create_smart_annotation_local(
-            annotation_id, **annotation_data
-        )
+        return self._create_smart_annotation_local(annotation_id, **annotation_data)
 
     @locked
     def update_lab(self, topology: dict, exclude_configurations: bool) -> None:
@@ -2094,7 +2092,9 @@ class Lab:
             for interface in interfaces:
                 interface_id = interface["id"]
                 if interface_id in new_interfaces:
-                    imported_interface = self._import_interface(interface_id, node_id, interface)
+                    imported_interface = self._import_interface(
+                        interface_id, node_id, interface
+                    )
                     _LOGGER.info("Added interface %s", imported_interface)
 
     @locked

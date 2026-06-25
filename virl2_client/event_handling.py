@@ -123,6 +123,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the lab created event.
         """
+        pass
 
     @abstractmethod
     def _handle_lab_modified(self, event: Event) -> None:
@@ -131,6 +132,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the lab modified event.
         """
+        pass
 
     @abstractmethod
     def _handle_lab_deleted(self, event: Event) -> None:
@@ -139,6 +141,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the lab deleted event.
         """
+        pass
 
     @abstractmethod
     def _handle_lab_state(self, event: Event) -> None:
@@ -147,6 +150,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the lab state event.
         """
+        pass
 
     def _handle_element(self, event: Event) -> None:
         """
@@ -175,6 +179,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the element created event.
         """
+        pass
 
     @abstractmethod
     def _handle_element_modified(self, event: Event) -> None:
@@ -183,6 +188,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the element modified event.
         """
+        pass
 
     @abstractmethod
     def _handle_element_deleted(self, event: Event) -> None:
@@ -191,6 +197,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the element deleted event.
         """
+        pass
 
     @abstractmethod
     def _handle_state_change(self, event: Event) -> None:
@@ -199,6 +206,7 @@ class EventHandlerBase(ABC):
 
         :param event: An Event object representing the state change event.
         """
+        pass
 
     def _handle_other(self, event: Event) -> None:  # noqa: ARG002 -- `event` is part of the documented subclass-override contract
         """
@@ -264,6 +272,7 @@ class EventHandler(EventHandlerBase):
         """
         # we don't care about labs the user hasn't joined,
         # so we don't need the lab creation event
+        pass
 
     def _handle_lab_modified(self, event: Event) -> None:
         """Apply lab property updates.

@@ -159,6 +159,8 @@ ignore = [
   "A004",
   # invalid-class-name -- intentional lowercase class (property_s)
   "N801",
+  # allow explicit pass in placeholder implementations
+  "PIE790",
 ]
 
 [tool.ruff.lint.isort]

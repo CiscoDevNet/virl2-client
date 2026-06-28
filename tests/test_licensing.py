@@ -21,8 +21,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
+from virl2_client.exceptions import APIError
 from virl2_client.models import Licensing
 
 
@@ -76,6 +78,29 @@ def test_licensing_set_transport() -> None:
     )
 
 
+def test_licensing_set_transport_put_fallback() -> None:
+    """Pre-2.11 controllers reject PATCH; fall back to PUT and status() on 204."""
+    session = MagicMock()
+    lic = Licensing(session)
+    request = httpx.Request("PATCH", "https://controller/licensing/transport")
+    patch_response = httpx.Response(405, request=request)
+    put_response = MagicMock()
+    put_response.status_code = 204
+    lic.status = MagicMock(return_value={"transport": {"ssms": "legacy"}})
+
+    session.patch.side_effect = APIError(
+        "405", request=request, response=patch_response
+    )
+    session.put.return_value = put_response
+
+    assert lic.set_transport("ssms") == {"transport": {"ssms": "legacy"}}
+    session.put.assert_called_once_with(
+        "licensing/transport",
+        json={"ssms": "ssms", "proxy": {"server": None, "port": None}},
+    )
+    lic.status.assert_called_once()
+
+
 def test_licensing_set_product_lic() -> None:
     """set_product_license calls put with product id and returns body.
 
@@ -85,6 +110,16 @@ def test_licensing_set_product_lic() -> None:
     lic = Licensing(session)
     session.put.return_value.json.return_value = {"product_license": {"active": "prod"}}
     assert lic.set_product_license("prod") == {"product_license": {"active": "prod"}}
+
+
+def test_licensing_set_product_license_204() -> None:
+    """Pre-2.11 controllers returned 204 No Content; fall back to status()."""
+    session = MagicMock()
+    lic = Licensing(session)
+    session.put.return_value.status_code = 204
+    lic.status = MagicMock(return_value={"product_license": {"active": "prod"}})
+    assert lic.set_product_license("prod") == {"product_license": {"active": "prod"}}
+    lic.status.assert_called_once()
 
 
 def test_licensing_register_renew() -> None:

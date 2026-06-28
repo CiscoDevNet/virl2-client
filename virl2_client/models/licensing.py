@@ -25,6 +25,8 @@ import time
 import warnings
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from virl2_client.exceptions import APIError
+
 from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
@@ -96,6 +98,12 @@ class Licensing:
         _LOGGER.info("The agent has scheduled an authorization renewal.")
         return response.status_code == 204
 
+    def _transport_response(self, response: httpx.Response) -> dict[str, Any]:
+        if response.status_code == 204:
+            # Pre-2.11 controllers returned 204 No Content with no body.
+            return self.status()
+        return response.json()
+
     def set_transport(
         self,
         ssms: str | None,
@@ -111,9 +119,15 @@ class Licensing:
         """
         url = self._url_for("transport")
         data = {"ssms": ssms, "proxy": {"server": proxy_server, "port": proxy_port}}
-        response = self._session.patch(url, json=data)
+        try:
+            response = self._session.patch(url, json=data)
+        except APIError as error:
+            # PATCH /licensing/transport was added in 2.11; pre-2.11 only supports PUT.
+            if error.response.status_code != 405:
+                raise
+            response = self._session.put(url, json=data)
         _LOGGER.info("The transport configuration has been updated. Config: %s.", data)
-        return response.json()
+        return self._transport_response(response)
 
     def set_default_transport(self) -> dict[str, Any]:
         """Setup licensing transport configuration to default values.
@@ -136,6 +150,9 @@ class Licensing:
         url = self._url_for("product_license")
         response = self._session.put(url, json=product_license)
         _LOGGER.info("Product license was accepted by the agent.")
+        if response.status_code == 204:
+            # Pre-2.11 controllers returned 204 No Content with no body.
+            return self.status()
         return response.json()
 
     def register(self, token: str, reregister: bool = False) -> bool:

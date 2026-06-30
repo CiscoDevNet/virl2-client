@@ -24,12 +24,12 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import httpx
-
 from ..exceptions import LabRepositoryNotFound
 from ..utils import _requires_version, get_url_from_template
 
 if TYPE_CHECKING:
+    import httpx
+
     from .system import SystemManagement
 
 _LOGGER = logging.getLogger(__name__)

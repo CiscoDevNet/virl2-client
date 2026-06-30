@@ -260,9 +260,8 @@ class EventHandler(EventHandlerBase):
                     # (e.g. node being deleted and all its links and interfaces being
                     # deleted with it) so the event is useless
                     return
-                else:
-                    # A modify event arrived for a missing element - something is wrong
-                    raise
+                # A modify event arrived for a missing element - something is wrong
+                raise
 
         super().handle_event(event)
 

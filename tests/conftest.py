@@ -260,5 +260,4 @@ def client_library(respx_mock_with_labs: None) -> Iterator[ClientLibrary]:
     :yields: A ClientLibrary connected to FAKE_HOST with test credentials.
     """
     _ = respx_mock_with_labs
-    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
-    return client
+    return ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")

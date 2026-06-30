@@ -25,13 +25,15 @@ Tests are skipped when aiohttp is not installed via pytest.importorskip.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
-from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from pathlib import Path
 
 try:
     import aiohttp
@@ -134,7 +136,7 @@ class _DummyThread:
 
     def join(self) -> None:
         """Provide thread-join compatibility for tests."""
-        return None
+        return
 
 
 def test_bool_reflects_listening_state() -> None:

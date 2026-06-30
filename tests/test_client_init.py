@@ -21,12 +21,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
 
 from virl2_client.virl2_client import ClientLibrary, InitializationError
+
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
 
 FAKE_URL = "https://0.0.0.0/fake_url/"
 

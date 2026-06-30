@@ -21,8 +21,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,6 +36,9 @@ from virl2_client.exceptions import (
     SmartAnnotationNotFound,
 )
 from virl2_client.models import Lab
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _make_lab_context() -> tuple[Lab, MagicMock, MagicMock]:

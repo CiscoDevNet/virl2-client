@@ -21,12 +21,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from tests.helpers import make_lab_with_topology
-from virl2_client.models import Link
+
+if TYPE_CHECKING:
+    from virl2_client.models import Link
 
 
 def _new_link() -> Link:

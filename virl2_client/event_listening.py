@@ -26,7 +26,6 @@ import json
 import logging
 import ssl
 import threading
-from collections.abc import Coroutine
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -36,6 +35,8 @@ import aiohttp
 from .event_handling import Event, EventHandler
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
     from .virl2_client import ClientLibrary
 
 _LOGGER = logging.getLogger(__name__)

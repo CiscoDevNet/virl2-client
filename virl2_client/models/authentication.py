@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Generator
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
 
@@ -33,6 +33,8 @@ from ..exceptions import APIError
 _LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from ..virl2_client import ClientLibrary
 
 
@@ -106,7 +108,7 @@ class TokenAuth(httpx.Auth):
         response = self.client_library._session.post(
             _AUTH_URL,
             json=data,
-            auth=None,  # type: ignore
+            auth=None,  # type: ignore[arg-type]
         )  # auth=None works but is missing from .post's type hint
         raise_for_status(response)
         self.client_library.jwtoken = response.json()
@@ -179,10 +181,12 @@ class BlankAuth(httpx.Auth):
 class CustomClient(httpx.Client):
     """httpx Client that raises APIError with server description on HTTP errors."""
 
-    _ERROR_PREFIX: ClassVar[dict[int, str]] = {
-        4: "Client error - ",
-        5: "Server error - ",
-    }
+    _ERROR_PREFIX: ClassVar[dict[int, str]] = MappingProxyType(
+        {
+            4: "Client error - ",
+            5: "Server error - ",
+        }
+    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """

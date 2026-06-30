@@ -21,14 +21,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-from respx import MockRouter
 
 from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 from virl2_client.models import Interface, Lab
 from virl2_client.models.authentication import make_session
+
+if TYPE_CHECKING:
+    from respx import MockRouter
 
 
 @pytest.mark.parametrize("connect_two_nodes", [True, False])

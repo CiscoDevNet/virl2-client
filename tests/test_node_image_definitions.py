@@ -24,10 +24,9 @@ from __future__ import annotations
 import contextlib
 import pathlib
 import sys
-from collections.abc import Iterator
 from io import BufferedReader
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -38,7 +37,11 @@ from virl2_client.models.node_image_definition import (
     NodeImageDefinitions,
     print_progress_bar,
 )
-from virl2_client.virl2_client import ClientLibrary
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from virl2_client.virl2_client import ClientLibrary
 
 
 @pytest.mark.parametrize(

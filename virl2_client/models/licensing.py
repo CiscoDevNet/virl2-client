@@ -88,15 +88,15 @@ class Licensing:
         url = self._url_for("tech_support")
         return self._session.get(url).text
 
-    def renew_authorization(self) -> bool:
+    def renew_authorization(self) -> dict[str, Any]:
         """Renew licensing authorization with the backend.
 
-        :returns: True if the renewal was scheduled (HTTP 204).
+        :returns: Effective licensing status snapshot after the renewal was scheduled.
         """
         url = self._url_for("authorization_renew")
         response = self._session.put(url)
         _LOGGER.info("The agent has scheduled an authorization renewal.")
-        return response.status_code == 204
+        return response.json()
 
     def _transport_response(self, response: httpx.Response) -> dict[str, Any]:
         if response.status_code == 204:
@@ -155,64 +155,83 @@ class Licensing:
             return self.status()
         return response.json()
 
-    def register(self, token: str, reregister: bool = False) -> bool:
+    def register(self, token: str, reregister: bool = False) -> dict[str, Any]:
         """Setup licensing registration.
 
         :param token: The registration token.
         :param reregister: Whether to re-register if already registered.
-        :returns: True if the request was accepted (HTTP 204).
+        :returns: Effective licensing status snapshot after the request was
+            accepted (registration is typically still IN_PROGRESS or
+            RETRY_IN_PROGRESS).
         """
         url = self._url_for("registration")
         response = self._session.post(
             url, json={"token": token, "reregister": reregister}
         )
         _LOGGER.info("Registration request was accepted by the agent.")
-        return response.status_code == 204
+        return response.json()
 
-    def register_renew(self) -> bool:
+    def register_renew(self) -> dict[str, Any]:
         """Request a renewal of licensing registration against current SSMS.
 
-        :returns: True if the request was accepted (HTTP 204).
+        :returns: Effective licensing status snapshot after the renewal request
+            was accepted.
         """
         url = self._url_for("registration_renew")
         response = self._session.put(url)
         _LOGGER.info("The renewal request was accepted by the agent.")
-        return response.status_code == 204
+        return response.json()
 
-    def register_wait(self, token: str, reregister: bool = False) -> bool:
+    def register_wait(self, token: str, reregister: bool = False) -> dict[str, Any]:
         """
-        Setup licensing registrations and wait for registration status
-        to be COMPLETED and authorization status to be IN_COMPLIANCE.
+        Setup licensing registration and wait for registration status to be
+        COMPLETED and authorization status to be IN_COMPLIANCE.
+
+        The initial registration response carries the post-mutation snapshot;
+        the polling loops are skipped if the snapshot already reports the
+        target state.
 
         :param token: The registration token.
         :param reregister: Whether to re-register if already registered.
-        :returns: True if the initial registration request was accepted.
+        :returns: Effective licensing status snapshot once both registration and
+            authorization have reached their target states.
         :raises RuntimeError: If the status does not reach the target within timeout.
         """
-        res = self.register(token=token, reregister=reregister)
-        self.wait_for_status("registration", "COMPLETED")
-        self.wait_for_status("authorization", "IN_COMPLIANCE")
-        return res
+        status = self.register(token=token, reregister=reregister)
+        if status.get("registration", {}).get("status") != "COMPLETED":
+            self.wait_for_status("registration", "COMPLETED")
+        if status.get("authorization", {}).get("status") != "IN_COMPLIANCE":
+            self.wait_for_status("authorization", "IN_COMPLIANCE")
+        return self.status()
 
-    def deregister(self) -> int:
+    def deregister(self) -> dict[str, Any]:
         """Request deregistration from the current SSMS.
 
-        :returns: The HTTP status code (e.g. 202 or 204).
+        On the manual-deregistration branch (HTTP 202) the returned dict is the
+        licensing status snapshot augmented with
+        ``"manual_deregistration_required": True``, signalling to callers that
+        the Product Instance must still be removed from Smart Software Licensing
+        manually.
+
+        :returns: Effective licensing status snapshot; on the 202 path the
+            sentinel key ``manual_deregistration_required`` is set to True.
         """
         url = self._url_for("deregistration")
         response = self._session.delete(url)
+        status: dict[str, Any] = response.json()
         if response.status_code == 202:
             _LOGGER.warning(
                 "Deregistration has been completed on the Product Instance but was "
                 "unable to deregister from Smart Software Licensing due to a "
                 "communication timeout."
             )
-        if response.status_code == 204:
+            status = {"manual_deregistration_required": True, **status}
+        else:
             _LOGGER.info(
                 "The Product Instance was successfully deregistered from Smart "
                 "Software Licensing."
             )
-        return response.status_code
+        return status
 
     def features(self) -> list[dict[str, str | int]] | None:
         """
@@ -282,15 +301,15 @@ class Licensing:
         _LOGGER.info("The confirmation code of completed reservation received.")
         return response.json()
 
-    def cancel_reservation(self) -> bool:
+    def cancel_reservation(self) -> dict[str, Any]:
         """Cancel reservation request without completing it.
 
-        :returns: True if the cancellation was successful (HTTP 204).
+        :returns: Effective licensing status snapshot after the cancellation.
         """
         url = self._url_for("reservation_action", action="cancel")
         response = self._session.delete(url)
         _LOGGER.info("The reservation request has been cancelled.")
-        return response.status_code == 204
+        return response.json()
 
     def release_reservation(self) -> Any:
         """Return a completed reservation.
@@ -327,15 +346,15 @@ class Licensing:
         _LOGGER.info("The confirmation code of the completed reservation received.")
         return response.json()
 
-    def delete_reservation_confirmation_code(self) -> bool:
+    def delete_reservation_confirmation_code(self) -> dict[str, Any]:
         """Remove the reservation confirmation code.
 
-        :returns: True if the removal was successful (HTTP 204).
+        :returns: Effective licensing status snapshot after removal.
         """
         url = self._url_for("reservation_action", action="confirmation_code")
         response = self._session.delete(url)
         _LOGGER.info("The confirmation code has been removed.")
-        return response.status_code == 204
+        return response.json()
 
     def get_reservation_return_code(self) -> Any:
         """Get the reservation return code.
@@ -347,15 +366,15 @@ class Licensing:
         _LOGGER.info("The return code of the released reservation received.")
         return response.json()
 
-    def delete_reservation_return_code(self) -> bool:
+    def delete_reservation_return_code(self) -> dict[str, Any]:
         """Remove the reservation return code.
 
-        :returns: True if the removal was successful (HTTP 204).
+        :returns: Effective licensing status snapshot after removal.
         """
         url = self._url_for("reservation_action", action="return_code")
         response = self._session.delete(url)
         _LOGGER.info("The return code has been removed.")
-        return response.status_code == 204
+        return response.json()
 
     def wait_for_status(self, what: str, *target_status: str) -> None:
         """

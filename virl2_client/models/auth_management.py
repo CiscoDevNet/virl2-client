@@ -157,9 +157,8 @@ class AuthManagement:
         """
         url = self._url_for("config")
         settings = {setting: value, "method": self._settings["method"]}
-        self._session.patch(url, json=settings)
-        if setting in self._settings:
-            self._settings[setting] = value
+        self._settings = self._session.patch(url, json=settings).json()
+        self._last_sync_time = time.time()
 
     def update_settings(
         self, settings_dict: dict[str, Any] | None = None, **kwargs: Any
@@ -192,8 +191,8 @@ class AuthManagement:
         if not settings:
             raise TypeError("No settings to update.")
         url = self._url_for("config")
-        self._session.patch(url, json=settings)
-        self.sync()
+        self._settings = self._session.patch(url, json=settings).json()
+        self._last_sync_time = time.time()
 
     def get_ldap_groups(self, search_filter: str | None = None) -> list[str]:
         """

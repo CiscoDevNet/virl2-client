@@ -19,6 +19,7 @@
 #
 """Tests for Licensing API wrappers."""
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -254,8 +255,10 @@ def test_licensing_deregister_success() -> None:
     assert lic.deregister() == {"registration": {"status": "NOT_REGISTERED"}}
 
 
-def test_licensing_deregister_manual_required() -> None:
-    """deregister tags the body with manual_deregistration_required on HTTP 202.
+def test_licensing_deregister_manual_required(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """HTTP 202 returns the plain status snapshot and logs a manual-removal warning.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
@@ -264,9 +267,43 @@ def test_licensing_deregister_manual_required() -> None:
     lic._session.delete.return_value.json.return_value = {
         "registration": {"status": "NOT_REGISTERED"}
     }
-    result = lic.deregister()
-    assert result["manual_deregistration_required"] is True
-    assert result["registration"] == {"status": "NOT_REGISTERED"}
+    with caplog.at_level(logging.WARNING, logger="virl2_client.models.licensing"):
+        result = lic.deregister()
+    assert result == {"registration": {"status": "NOT_REGISTERED"}}
+    assert "manual_deregistration_required" not in result
+    assert any(
+        "unable to deregister from Smart Software Licensing" in message
+        for message in caplog.messages
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "session_verb", "call_args"),
+    [
+        ("renew_authorization", "put", ()),
+        ("register", "post", ("token",)),
+        ("register_renew", "put", ()),
+        ("deregister", "delete", ()),
+        ("cancel_reservation", "delete", ()),
+        ("delete_reservation_confirmation_code", "delete", ()),
+        ("delete_reservation_return_code", "delete", ()),
+        ("update_features", "patch", ([{"id": "f", "count": 1}],)),
+        ("reservation_mode", "put", (True,)),
+    ],
+)
+def test_licensing_mutation_204_fallback(
+    method: str, session_verb: str, call_args: tuple
+) -> None:
+    """Pre-2.11 controllers reply 204 No Content; the client re-fetches status().
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lic = Licensing(MagicMock())
+    getattr(lic._session, session_verb).return_value.status_code = 204
+    snapshot = {"registration": {"status": "NOT_REGISTERED"}}
+    lic.status = MagicMock(return_value=snapshot)
+    assert getattr(lic, method)(*call_args) == snapshot
+    lic.status.assert_called_once()
 
 
 def test_licensing_features_deprecated() -> None:

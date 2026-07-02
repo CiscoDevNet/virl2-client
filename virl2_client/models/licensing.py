@@ -96,11 +96,17 @@ class Licensing:
         url = self._url_for("authorization_renew")
         response = self._session.put(url)
         _LOGGER.info("The agent has scheduled an authorization renewal.")
-        return response.json()
+        return self._status_response(response)
 
-    def _transport_response(self, response: httpx.Response) -> dict[str, Any]:
+    def _status_response(self, response: httpx.Response) -> dict[str, Any]:
+        """Return the effective licensing status from a mutation response.
+
+        CML 2.11+ returns the effective ``LicensingStatus`` body on 200/202.
+        Pre-2.11 controllers reply with 204 No Content and no body; in that
+        case a follow-up ``GET /licensing`` is issued to preserve the return
+        contract.
+        """
         if response.status_code == 204:
-            # Pre-2.11 controllers returned 204 No Content with no body.
             return self.status()
         return response.json()
 
@@ -127,7 +133,7 @@ class Licensing:
                 raise
             response = self._session.put(url, json=data)
         _LOGGER.info("The transport configuration has been updated. Config: %s.", data)
-        return self._transport_response(response)
+        return self._status_response(response)
 
     def set_default_transport(self) -> dict[str, Any]:
         """Setup licensing transport configuration to default values.
@@ -150,10 +156,7 @@ class Licensing:
         url = self._url_for("product_license")
         response = self._session.put(url, json=product_license)
         _LOGGER.info("Product license was accepted by the agent.")
-        if response.status_code == 204:
-            # Pre-2.11 controllers returned 204 No Content with no body.
-            return self.status()
-        return response.json()
+        return self._status_response(response)
 
     def register(self, token: str, reregister: bool = False) -> dict[str, Any]:
         """Setup licensing registration.
@@ -169,7 +172,7 @@ class Licensing:
             url, json={"token": token, "reregister": reregister}
         )
         _LOGGER.info("Registration request was accepted by the agent.")
-        return response.json()
+        return self._status_response(response)
 
     def register_renew(self) -> dict[str, Any]:
         """Request a renewal of licensing registration against current SSMS.
@@ -180,7 +183,7 @@ class Licensing:
         url = self._url_for("registration_renew")
         response = self._session.put(url)
         _LOGGER.info("The renewal request was accepted by the agent.")
-        return response.json()
+        return self._status_response(response)
 
     def register_wait(self, token: str, reregister: bool = False) -> dict[str, Any]:
         """
@@ -207,31 +210,27 @@ class Licensing:
     def deregister(self) -> dict[str, Any]:
         """Request deregistration from the current SSMS.
 
-        On the manual-deregistration branch (HTTP 202) the returned dict is the
-        licensing status snapshot augmented with
-        ``"manual_deregistration_required": True``, signalling to callers that
-        the Product Instance must still be removed from Smart Software Licensing
-        manually.
+        On the manual-deregistration branch (HTTP 202) the Product Instance has
+        been deregistered locally, but the client was unable to contact Smart
+        Software Licensing to complete the remote removal; a warning is logged
+        so operators can clean up the Product Instance in SSMS manually.
 
-        :returns: Effective licensing status snapshot; on the 202 path the
-            sentinel key ``manual_deregistration_required`` is set to True.
+        :returns: Effective licensing status snapshot after deregistration.
         """
         url = self._url_for("deregistration")
         response = self._session.delete(url)
-        status: dict[str, Any] = response.json()
         if response.status_code == 202:
             _LOGGER.warning(
                 "Deregistration has been completed on the Product Instance but was "
                 "unable to deregister from Smart Software Licensing due to a "
                 "communication timeout."
             )
-            status = {"manual_deregistration_required": True, **status}
         else:
             _LOGGER.info(
                 "The Product Instance was successfully deregistered from Smart "
                 "Software Licensing."
             )
-        return status
+        return self._status_response(response)
 
     def features(self) -> list[dict[str, str | int]] | None:
         """
@@ -258,7 +257,7 @@ class Licensing:
         """
         url = self._url_for("features")
         response = self._session.patch(url, json=features)
-        return response.json()
+        return self._status_response(response)
 
     def reservation_mode(self, data: bool) -> dict[str, Any]:
         """Enable or disable reservation mode in unregistered agent.
@@ -270,7 +269,7 @@ class Licensing:
         response = self._session.put(url, json=data)
         msg = "enabled" if data else "disabled"
         _LOGGER.info("The reservation mode has been %s.", msg)
-        return response.json()
+        return self._status_response(response)
 
     def enable_reservation_mode(self) -> dict[str, Any]:
         """Enable reservation mode in unregistered agent."""
@@ -309,7 +308,7 @@ class Licensing:
         url = self._url_for("reservation_action", action="cancel")
         response = self._session.delete(url)
         _LOGGER.info("The reservation request has been cancelled.")
-        return response.json()
+        return self._status_response(response)
 
     def release_reservation(self) -> Any:
         """Return a completed reservation.
@@ -354,7 +353,7 @@ class Licensing:
         url = self._url_for("reservation_action", action="confirmation_code")
         response = self._session.delete(url)
         _LOGGER.info("The confirmation code has been removed.")
-        return response.json()
+        return self._status_response(response)
 
     def get_reservation_return_code(self) -> Any:
         """Get the reservation return code.
@@ -374,7 +373,7 @@ class Licensing:
         url = self._url_for("reservation_action", action="return_code")
         response = self._session.delete(url)
         _LOGGER.info("The return code has been removed.")
-        return response.json()
+        return self._status_response(response)
 
     def wait_for_status(self, what: str, *target_status: str) -> None:
         """

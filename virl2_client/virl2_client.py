@@ -373,10 +373,10 @@ class ClientLibrary:
                 message = (
                     "Unable to authenticate, please check your username and password"
                 )
-                raise InitializationError(message)
+                raise InitializationError(message) from exc
             raise
         except httpx.HTTPError as exc:
-            raise InitializationError(exc)
+            raise InitializationError(exc) from exc
         if new_auth:
             user_info: dict = response.json()
             self.user_id = user_info["id"]
@@ -430,10 +430,10 @@ class ClientLibrary:
         controller_version_str = self.system_info().get("version", "")
         try:
             controller_version = Version(controller_version_str)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
             raise InitializationError(
                 f"Controller returned invalid version: {controller_version_str}"
-            )
+            ) from exc
 
         if not self.check_version:
             return controller_version
@@ -661,7 +661,7 @@ class ClientLibrary:
         try:
             return self._labs[lab_id]
         except KeyError:
-            raise LabNotFound(lab_id)
+            raise LabNotFound(lab_id) from None
 
     @locked
     def create_lab(
@@ -792,7 +792,7 @@ class ClientLibrary:
                 topology = self._session.get(url).json()
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
-                    raise LabNotFound(lab_id)
+                    raise LabNotFound(lab_id) from exc
                 raise
             title = topology.get("lab", {}).get("title")
         else:
@@ -923,7 +923,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
         url_parts = urlsplit(url, "https")
     except ValueError:
         message = "invalid URL / hostname"
-        raise InitializationError(message)
+        raise InitializationError(message) from None
 
     # https://docs.python.org/3/library/urllib.parse.html
     # Following the syntax specifications in RFC 1808, urlparse recognizes
@@ -935,7 +935,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
             url_parts = urlsplit("//" + url, "https")
         except ValueError:
             message = "invalid URL / hostname"
-            raise InitializationError(message)
+            raise InitializationError(message) from None
 
     if not allow_http and url_parts.scheme == "http":
         message = "invalid URL scheme (must be https)"

@@ -150,8 +150,6 @@ ignore = [
   "E501",
   # magic values in comparisons
   "PLR2004",
-  # raise-without-from-inside-except (deferred; coordinated with simple)
-  "B904",
   # error-suffix-on-exception-name (deferred; coordinated with simple --
   # public API rename is a breaking change)
   "N818",

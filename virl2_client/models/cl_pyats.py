@@ -162,7 +162,7 @@ class ClPyats:
         try:
             pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
-            raise PyatsDeviceNotFound(node_label)
+            raise PyatsDeviceNotFound(node_label) from None
 
         command = pyats_device.connections["a"]["command"]
         pyats_device.connections["a"]["command"] = command[:-1] + str(console_number)
@@ -292,7 +292,7 @@ class ClPyats:
         try:
             pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
-            raise PyatsDeviceNotFound(node_label)
+            raise PyatsDeviceNotFound(node_label) from None
 
         params = self._prepare_params(
             init_exec_commands, init_config_commands, **pyats_params

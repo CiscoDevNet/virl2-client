@@ -212,24 +212,19 @@ so nothing sensitive has to be written to disk::
     licensing.set_default_transport()
 
     # Register with the Smart Licensing server and wait for both
-    # registration and authorization polls to converge.
+    # registration and authorization polls to converge. register_wait()
+    # returns the effective licensing status snapshot on success and
+    # raises RuntimeError when polling times out.
     try:
-        accepted = licensing.register_wait(token)
+        status = licensing.register_wait(token)
     except RuntimeError as exc:
-        # register_wait() raises when the status poll times out before
-        # registration / authorization reaches the required state.
         print(f"ERROR: Smart Licensing registration timed out: {exc}", file=sys.stderr)
-        sys.exit(1)
-    if not accepted:
-        # register_wait() forwards register()'s bool, which is False when
-        # the initial POST is rejected (non-204).
-        print("ERROR: Smart Licensing registration request was not accepted.", file=sys.stderr)
         sys.exit(1)
 
     # Dump the full licensing status. The dict already embeds the
     # per-feature view, so there is no need for a separate features()
     # call (that API is deprecated).
-    print(json.dumps(licensing.status(), indent=4))
+    print(json.dumps(status, indent=4))
 
 
 The output for this would look something like the following::

@@ -19,6 +19,7 @@
 #
 """Tests for Licensing API wrappers."""
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -51,14 +52,16 @@ def test_licensing_tech_support() -> None:
 
 
 def test_licensing_renew_auth() -> None:
-    """renew_authorization returns True on 204.
+    """renew_authorization returns the licensing status snapshot.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.put.return_value.status_code = 204
-    assert lic.renew_authorization()
+    session.put.return_value.json.return_value = {
+        "authorization": {"status": "IN_COMPLIANCE"}
+    }
+    assert lic.renew_authorization() == {"authorization": {"status": "IN_COMPLIANCE"}}
 
 
 def test_licensing_set_transport() -> None:
@@ -123,14 +126,16 @@ def test_licensing_set_product_license_204() -> None:
 
 
 def test_licensing_register_renew() -> None:
-    """register_renew calls put and returns True on 204.
+    """register_renew calls put and returns licensing status snapshot.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.put.return_value.status_code = 204
-    assert lic.register_renew()
+    session.put.return_value.json.return_value = {
+        "registration": {"status": "COMPLETED"}
+    }
+    assert lic.register_renew() == {"registration": {"status": "COMPLETED"}}
 
 
 @pytest.mark.parametrize(
@@ -141,36 +146,38 @@ def test_licensing_register_renew() -> None:
     ],
 )
 def test_licensing_del_code_rt(method: str) -> None:
-    """delete_reservation_*_code returns True on 204.
+    """delete_reservation_*_code returns the licensing status snapshot.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.delete.return_value.status_code = 204
-    assert getattr(lic, method)()
+    session.delete.return_value.json.return_value = {"reservation_mode": False}
+    assert getattr(lic, method)() == {"reservation_mode": False}
 
 
 def test_licensing_register() -> None:
-    """register posts token.
+    """register posts token and returns licensing status snapshot.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.post.return_value.status_code = 204
-    assert lic.register("token")
+    session.post.return_value.json.return_value = {
+        "registration": {"status": "IN_PROGRESS"}
+    }
+    assert lic.register("token") == {"registration": {"status": "IN_PROGRESS"}}
 
 
 def test_licensing_cancel_reservation() -> None:
-    """cancel_reservation deletes reservation.
+    """cancel_reservation deletes reservation and returns licensing status.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.delete.return_value.status_code = 204
-    assert lic.cancel_reservation()
+    session.delete.return_value.json.return_value = {"reservation_mode": True}
+    assert lic.cancel_reservation() == {"reservation_mode": True}
 
 
 def test_licensing_request_reservation() -> None:
@@ -235,15 +242,68 @@ def test_licensing_get_code_rt(method: str) -> None:
     assert getattr(lic, method)() == {"code": "ret"}
 
 
-@pytest.mark.parametrize("status_code", [202, 204])
-def test_licensing_deregister(status_code: int) -> None:
-    """deregister returns status code from delete.
+def test_licensing_deregister_success() -> None:
+    """deregister returns the licensing status snapshot on the 200 path.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     lic = Licensing(MagicMock())
-    lic._session.delete.return_value.status_code = status_code
-    assert lic.deregister() == status_code
+    lic._session.delete.return_value.status_code = 200
+    lic._session.delete.return_value.json.return_value = {
+        "registration": {"status": "NOT_REGISTERED"}
+    }
+    assert lic.deregister() == {"registration": {"status": "NOT_REGISTERED"}}
+
+
+def test_licensing_deregister_manual_required(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """HTTP 202 returns the plain status snapshot and logs a manual-removal warning.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lic = Licensing(MagicMock())
+    lic._session.delete.return_value.status_code = 202
+    lic._session.delete.return_value.json.return_value = {
+        "registration": {"status": "NOT_REGISTERED"}
+    }
+    with caplog.at_level(logging.WARNING, logger="virl2_client.models.licensing"):
+        result = lic.deregister()
+    assert result == {"registration": {"status": "NOT_REGISTERED"}}
+    assert "manual_deregistration_required" not in result
+    assert any(
+        "unable to deregister from Smart Software Licensing" in message
+        for message in caplog.messages
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "session_verb", "call_args"),
+    [
+        ("renew_authorization", "put", ()),
+        ("register", "post", ("token",)),
+        ("register_renew", "put", ()),
+        ("deregister", "delete", ()),
+        ("cancel_reservation", "delete", ()),
+        ("delete_reservation_confirmation_code", "delete", ()),
+        ("delete_reservation_return_code", "delete", ()),
+        ("update_features", "patch", ([{"id": "f", "count": 1}],)),
+        ("reservation_mode", "put", (True,)),
+    ],
+)
+def test_licensing_mutation_204_fallback(
+    method: str, session_verb: str, call_args: tuple
+) -> None:
+    """Pre-2.11 controllers reply 204 No Content; the client re-fetches status().
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lic = Licensing(MagicMock())
+    getattr(lic._session, session_verb).return_value.status_code = 204
+    snapshot = {"registration": {"status": "NOT_REGISTERED"}}
+    lic.status = MagicMock(return_value=snapshot)
+    assert getattr(lic, method)(*call_args) == snapshot
+    lic.status.assert_called_once()
 
 
 def test_licensing_features_deprecated() -> None:
@@ -259,19 +319,50 @@ def test_licensing_features_deprecated() -> None:
         assert lic.features() == []
 
 
-def test_licensing_register_wait() -> None:
-    """register_wait calls wait_for_status for registration and authorization.
+def test_licensing_register_wait_polls_when_in_progress() -> None:
+    """register_wait polls when the initial snapshot is not at the target state.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     lic = Licensing(session)
-    session.post.return_value.status_code = 204
+    session.post.return_value.json.return_value = {
+        "registration": {"status": "IN_PROGRESS"},
+        "authorization": {"status": "EVAL"},
+    }
+    final_status = {
+        "registration": {"status": "COMPLETED"},
+        "authorization": {"status": "IN_COMPLIANCE"},
+    }
 
-    with patch.object(lic, "wait_for_status", return_value=None) as wait_for_status:
-        assert lic.register_wait("token-1", reregister=True) is True
+    with (
+        patch.object(lic, "wait_for_status", return_value=None) as wait_for_status,
+        patch.object(lic, "status", return_value=final_status),
+    ):
+        assert lic.register_wait("token-1", reregister=True) == final_status
         wait_for_status.assert_any_call("registration", "COMPLETED")
         wait_for_status.assert_any_call("authorization", "IN_COMPLIANCE")
+
+
+def test_licensing_register_wait_short_circuits_on_terminal_snapshot() -> None:
+    """register_wait skips polling when the snapshot already reports target states.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    session = MagicMock()
+    lic = Licensing(session)
+    terminal = {
+        "registration": {"status": "COMPLETED"},
+        "authorization": {"status": "IN_COMPLIANCE"},
+    }
+    session.post.return_value.json.return_value = terminal
+
+    with (
+        patch.object(lic, "wait_for_status", return_value=None) as wait_for_status,
+        patch.object(lic, "status", return_value=terminal),
+    ):
+        assert lic.register_wait("token-1") == terminal
+        wait_for_status.assert_not_called()
 
 
 def test_licensing_update_features() -> None:

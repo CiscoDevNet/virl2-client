@@ -58,26 +58,15 @@ def main() -> int:
     licensing.set_default_transport()
 
     try:
-        accepted = licensing.register_wait(token)
+        # register_wait() returns the effective licensing status snapshot once
+        # registration is COMPLETED and authorization is IN_COMPLIANCE, or
+        # raises RuntimeError if the polling times out.
+        status = licensing.register_wait(token)
     except RuntimeError as exc:
-        # register_wait() raises RuntimeError when the status poll times
-        # out before registration / authorization reaches the required
-        # state.
         print(f"ERROR: Smart Licensing registration timed out: {exc}", file=sys.stderr)
         return 1
-    if not accepted:
-        # register_wait() forwards the result of register(), which is
-        # False when the initial POST is rejected (non-204). In that
-        # case the status polls above either timed out or, on a flaky
-        # responder, returned early -- treat it as a registration
-        # failure rather than reporting success.
-        print(
-            "ERROR: Smart Licensing registration request was not accepted.",
-            file=sys.stderr,
-        )
-        return 1
 
-    print(json.dumps(licensing.status(), indent=4))
+    print(json.dumps(status, indent=4))
     return 0
 
 

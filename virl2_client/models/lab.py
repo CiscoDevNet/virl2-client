@@ -624,7 +624,7 @@ class Lab:
         try:
             return self._nodes[node_id]
         except KeyError:
-            raise NodeNotFound(node_id)
+            raise NodeNotFound(node_id) from None
 
     def get_node_by_label(self, label: str) -> Node:
         """
@@ -652,7 +652,7 @@ class Lab:
         try:
             return self._interfaces[interface_id]
         except KeyError:
-            raise InterfaceNotFound(interface_id)
+            raise InterfaceNotFound(interface_id) from None
 
     def get_link_by_id(self, link_id: str) -> Link:
         """
@@ -666,7 +666,7 @@ class Lab:
         try:
             return self._links[link_id]
         except KeyError:
-            raise LinkNotFound(link_id)
+            raise LinkNotFound(link_id) from None
 
     def get_annotation_by_id(self, annotation_id: str) -> AnnotationType:
         """
@@ -680,7 +680,7 @@ class Lab:
         try:
             return self._annotations[annotation_id]
         except KeyError:
-            raise AnnotationNotFound(annotation_id)
+            raise AnnotationNotFound(annotation_id) from None
 
     def get_smart_annotation_by_id(self, annotation_id: str) -> SmartAnnotation:
         """
@@ -694,7 +694,7 @@ class Lab:
         try:
             return self._smart_annotations[annotation_id]
         except KeyError:
-            raise SmartAnnotationNotFound(annotation_id)
+            raise SmartAnnotationNotFound(annotation_id) from None
 
     def get_smart_annotation_by_tag(self, tag: str) -> SmartAnnotation:
         """
@@ -1642,7 +1642,7 @@ class Lab:
                 and f"Lab not found: {self._id}" in exc.response.text
             ):
                 self._stale = True
-                raise LabNotFound(self._id)
+                raise LabNotFound(self._id) from exc
             raise
 
         topology = result.json()

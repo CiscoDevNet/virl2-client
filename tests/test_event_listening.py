@@ -305,7 +305,7 @@ class _FakeWs:
         try:
             return next(self._iter)
         except StopIteration:
-            raise StopAsyncIteration
+            raise StopAsyncIteration from None
 
 
 class _FakeWsContext:

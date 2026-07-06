@@ -240,6 +240,40 @@ class TestVersionGuardCloneImage:
         assert result == {"image_id": "img-123"}
 
 
+class TestVersionGuardWirelessPcap:
+    """Node wireless capture methods require CML >= 2.10."""
+
+    @respx.mock
+    def test_start_capture_blocked_on_2_9(self):
+        """start_capture() raises FeatureNotSupported against a 2.9 server."""
+        client = _make_client(respx.mock, "2.9.0")
+        lab = _make_lab(client)
+        node = Node(lab, "n1", "wireless-ap", "wireless_node")
+        with pytest.raises(FeatureNotSupported, match=r"2\.10\.0"):
+            node.start_capture(maxpackets=100)
+
+    @respx.mock
+    def test_stop_capture_blocked_on_2_9(self):
+        """stop_capture() raises FeatureNotSupported against a 2.9 server."""
+        client = _make_client(respx.mock, "2.9.0")
+        lab = _make_lab(client)
+        node = Node(lab, "n1", "wireless-ap", "wireless_node")
+        with pytest.raises(FeatureNotSupported, match=r"2\.10\.0"):
+            node.stop_capture()
+
+    @respx.mock
+    def test_start_capture_allowed_on_2_10(self):
+        """start_capture() proceeds on a 2.10 server."""
+        client = _make_client(respx.mock, "2.10.0")
+        lab = _make_lab(client)
+        node = Node(lab, "n1", "wireless-ap", "wireless_node")
+        respx.post(FAKE_HOST_API + "wireless/pcap").respond(
+            json="PCAP started for node n1"
+        )
+        result = node.start_capture(maxpackets=100)
+        assert result == "PCAP started for node n1"
+
+
 class TestVersionGuardLabRepositories:
     """LabRepositoryManagement methods require CML >= 2.9."""
 

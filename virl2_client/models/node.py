@@ -26,6 +26,8 @@ import time
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import httpx
+
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import (
     UNCHANGED,
@@ -38,8 +40,6 @@ from ..utils import (
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
-
     from .interface import Interface
     from .lab import Lab
     from .link import Link
@@ -67,6 +67,12 @@ class Node:
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
         "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
         "interface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
+        # Wireless PCAP endpoints live at /api/v0/wireless/pcap/... (a sibling
+        # of /api/v0/labs/...) and are keyed off the node ID (the capture key).
+        "capture_start": "wireless/pcap",
+        "capture_stop": "wireless/pcap/{id}",
+        "capture_status": "wireless/pcap/{id}",
+        "pcap_file": "wireless/pcap/{id}/download",
     }
 
     def __init__(
@@ -197,6 +203,84 @@ class Node:
         kwargs["lab"] = self._lab._url_for("lab")
         kwargs["id"] = self._id
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
+
+    @check_stale
+    @_requires_version("2.10.0")
+    def start_capture(
+        self,
+        maxpackets: int | None = None,
+        maxtime: int | None = None,
+        bpfilter: str | None = None,
+        encap: str = "ethernet",
+    ) -> Any:
+        """Start a wireless packet capture on this node.
+
+        Requires CML server >= 2.10.0. The server accepts captures only on
+        wireless nodes that are in an active state.
+
+        :param maxpackets: Maximum number of packets to capture (1-1000000).
+        :param maxtime: Maximum time in seconds to capture (1-86400).
+        :param bpfilter: Berkeley packet filter string (1-128 chars).
+        :param encap: Link encapsulation type.
+        :returns: The server result message for the started capture.
+        """
+        url = self._url_for("capture_start")
+        data: dict[str, str | int] = {"encap": encap, "node_id": self._id}
+
+        if maxpackets is not None:
+            data["maxpackets"] = maxpackets
+        if maxtime is not None:
+            data["maxtime"] = maxtime
+        if bpfilter is not None:
+            data["bpfilter"] = bpfilter
+
+        _LOGGER.info("Starting wireless packet capture on node %s", self._id)
+        return self._session.post(url, json=data).json()
+
+    @check_stale
+    @_requires_version("2.10.0")
+    def stop_capture(self) -> None:
+        """Stop the wireless packet capture on this node.
+
+        Requires CML server >= 2.10.0. A 404 response is treated as success
+        when no capture session is active.
+        """
+        url = self._url_for("capture_stop")
+        _LOGGER.info("Stopping wireless packet capture on node %s", self._id)
+        try:
+            self._session.delete(url)
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code != httpx.codes.NOT_FOUND:
+                raise
+            _LOGGER.debug(
+                "No active wireless capture on node %s (404); treating stop as a no-op",
+                self._id,
+            )
+
+    @check_stale
+    @_requires_version("2.10.0")
+    def capture_status(self) -> dict[str, Any]:
+        """Get the wireless packet capture status for this node.
+
+        Requires CML server >= 2.10.0.
+
+        :returns: Dictionary containing capture configuration, start time, and
+            packet count.
+        """
+        url = self._url_for("capture_status")
+        return self._session.get(url).json()
+
+    @_requires_version("2.10.0")
+    def download_capture(self) -> bytes:
+        """Download the wireless PCAP file for this node's last capture.
+
+        Requires CML server >= 2.10.0.
+
+        :returns: The PCAP file content as bytes.
+        """
+        url = self._url_for("pcap_file")
+        _LOGGER.info("Downloading wireless PCAP for node %s", self._id)
+        return self._session.get(url).content
 
     @property
     def lab(self) -> Lab:

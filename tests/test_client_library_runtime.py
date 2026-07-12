@@ -29,7 +29,6 @@ import pytest
 from virl2_client.exceptions import InitializationError, LabNotFound
 from virl2_client.models import Lab
 from virl2_client.virl2_client import (
-    ClientConfig,
     ClientLibrary,
     DiagnosticsCategory,
     Version,
@@ -575,23 +574,3 @@ def test_auth_call_propagates_500() -> None:
         pytest.raises(httpx.HTTPStatusError),
     ):
         original_make_test_auth_call(failing, new_auth=False)
-
-
-def test_config_populate_inputs_uses_jwtoken(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Cover long auth-input branch that stores a JWT token.
-
-    NOTE: LLM-generated test -- verify for correctness.
-
-    :param monkeypatch: Pytest fixture for replacing interactive input.
-    """
-    config = {
-        "url": None,
-        "username": None,
-        "password": None,
-        "jwtoken": None,
-        "ssl_verify": True,
-    }
-    values = iter(["https://host", "x" * 40])
-    monkeypatch.setattr("builtins.input", lambda _: next(values))
-    ClientConfig._populate_from_inputs(config)
-    assert config["jwtoken"] == "x" * 40

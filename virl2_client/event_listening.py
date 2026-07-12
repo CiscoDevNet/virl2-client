@@ -204,7 +204,11 @@ class EventListener:
         try:
             async with (
                 aiohttp.ClientSession() as session,
-                session.ws_connect(self._ws_url, ssl=self._ssl_context) as ws,
+                session.ws_connect(
+                    self._ws_url,
+                    ssl=self._ssl_context,
+                    heartbeat=30,
+                ) as ws,
             ):
                 await ws.send_json(self._auth_data)
                 self._connected = True

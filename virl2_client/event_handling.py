@@ -233,9 +233,12 @@ class EventHandler(EventHandlerBase):
         :raises ElementNotFound: If a non-created element event targets a missing
             element and the event subtype is not deleted.
         """
-        if event.type in ("lab_stats", "system_stats") or (
-            event.element_type in ("annotation", "connectormapping")
-        ):
+        if event.type in (
+            "lab_stats",
+            "system_stats",
+            "system_event",
+            "ping",
+        ) or (event.element_type in ("annotation", "connectormapping")):
             # Some events are unused in the client library
             _LOGGER.debug("Received an unused event: %s", event)
             return

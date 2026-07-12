@@ -41,10 +41,13 @@ EXTENSION_LIST = [".qcow", ".qcow2", ".iol", ".tar", TARGZ]
 
 
 def _sanitize_filename(name: str) -> str:
-    """Reject path components in image filenames before they reach the API.
+    """Reject path components in user-supplied image filename parameters.
+
+    Used for remote dropfolder names and explicit upload rename values, not
+    for local filesystem paths when rename is omitted.
 
     :param name: Proposed filename or rename value.
-    :returns: The basename of name.
+    :returns: The basename of name when it contains no path separators.
     :raises ValueError: If name contains path separators or is invalid.
     """
     safe = os.path.basename(name)

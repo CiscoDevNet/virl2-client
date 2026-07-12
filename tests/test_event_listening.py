@@ -397,9 +397,8 @@ def test_ws_client_error() -> None:
 
 
 def test_ws_client_passes_heartbeat() -> None:
-    """_ws_client must call session.ws_connect with heartbeat=30."""
+    """_ws_client passes heartbeat and Authorization on ws_connect."""
     listener = EventListener(_client())
-    listener._auth_data = {"token": "t"}
     listener._ws_close_event = asyncio.Event()
     listener._ws_connected_event = asyncio.Event()
 
@@ -442,4 +441,5 @@ def test_ws_client_passes_heartbeat() -> None:
         asyncio.run(listener._ws_client())
 
     assert captured["kwargs"].get("heartbeat") == 30
+    assert captured["kwargs"].get("headers") == {"Authorization": "Bearer token"}
     assert captured["args"][0] == listener._ws_url

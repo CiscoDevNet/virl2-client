@@ -7,21 +7,25 @@ Client Library::
     from virl2_client import ClientLibrary
     client = ClientLibrary("https://192.168.1.1", "username", "password")
 
-A custom SSL certificate bundle can be passed in `ssl_verify`::
+A custom SSL certificate bundle can be passed in ``ssl_verify``::
 
     client = ClientLibrary("https://192.168.1.1", "username", "password", ssl_verify="./cert.pem")
 
 You can pass a certificate using the ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variables as well.
+Constructor arguments take precedence; environment variables and ``.virlrc`` fill in values that were not provided explicitly.
 
 If no username or password are given then the environment will be checked,
 looking for ``VIRL2_USER`` or ``VIRL_USERNAME`` and ``VIRL2_PASS`` or ``VIRL_PASSWORD``, respectively.
-Environment variables take precedence over those provided in arguments.
 
 It's also possible to pass the URL as an environment variable ``VIRL2_URL`` or ``VIRL_HOST``.
 
-Disabling SSL certificate verification (not recommended)::
+For controllers that ship with a self-signed TLS certificate, prefer pointing
+the client at the controller CA (``ssl_verify="./controller-ca.pem"`` or the
+``CA_BUNDLE`` environment variable) instead of disabling verification.
 
-    client = ClientLibrary("https://192.168.1.1", "username", "password", ssl_verify=False)
+Disabling SSL certificate verification entirely (``ssl_verify=False``) is
+discouraged and should only be used as a last resort in isolated lab
+environments.
 
 Creating a lab with nodes and links
 -----------------------------------
@@ -123,8 +127,7 @@ and is interactive::
 
     client = ClientLibrary(VIRL_CONTROLLER,
                            VIRL_USERNAME,
-                           VIRL_PASSWORD,
-                           ssl_verify=False)
+                           VIRL_PASSWORD)
 
     # this assumes that there's exactly one lab with this title
     our_lab = client.find_labs_by_title('my_lab')[0]
@@ -203,7 +206,7 @@ so nothing sensitive has to be written to disk::
     password = _prompt("CML_PASSWORD", "password: ", secret=True)
     token = _prompt("CML_SSMS_TOKEN", "Smart Licensing token: ", secret=True)
 
-    client = ClientLibrary(url, username, password, ssl_verify=False)
+    client = ClientLibrary(url, username, password)
     licensing = client.licensing
 
     # Use the default SSMS transport (direct to the public Smart Licensing
@@ -327,7 +330,7 @@ should be removed::
     VIRL_PASSWORD = getpass.getpass("password: ")
     LAB_NAME = input("enter lab name: ")
 
-    client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+    client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD)
 
     # Find the lab by title and join it as long as it's the only
     # lab with that title.

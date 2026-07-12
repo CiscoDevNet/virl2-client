@@ -33,6 +33,9 @@ exposes two import paths:
   from an in-memory string (used here).
 * ``ClientLibrary.import_lab_from_path(path, title=...)`` -- import
   directly from a ``.yaml`` / ``.virl`` file on disk.
+
+Set ``CA_BUNDLE`` to the controller CA PEM path when the controller
+uses a self-signed TLS certificate.
 """
 
 from __future__ import annotations
@@ -62,7 +65,7 @@ def main() -> int:
     ).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    client = ClientLibrary(url, username, password, ssl_verify=False)
+    client = ClientLibrary(url, username, password)
     client.is_system_ready(wait=True)
 
     source = client.create_lab(title="virl2_client import/export source")

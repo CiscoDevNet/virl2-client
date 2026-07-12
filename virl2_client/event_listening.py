@@ -60,13 +60,36 @@ class EventListener:
 
         self._listening = False
         self._connected = False
-        self._auth_data = None
+        self._client_library = client_library
         self._queue: asyncio.Queue | None = None
         self._ws_url: str | None = None
         self._ssl_context: ssl.SSLContext | None = None
 
         self._event_handler = EventHandler(client_library)
         self._init_ws_connection_data(client_library)
+
+    def _ws_connect_headers(self) -> dict[str, str]:
+        """Build WebSocket handshake headers for the upgrade request.
+
+        Mirrors the REST API by sending Authorization on the upgrade request.
+        The controller still authenticates /ws/ui from the first JSON message
+        (see _ws_auth_message); the header is not sufficient on its own today
+        and does not remove the token from that message stream.
+
+        :returns: Headers to pass to aiohttp ws_connect.
+        """
+        token = self._client_library._session.auth.token
+        return {"Authorization": f"Bearer {token}"}
+
+    def _ws_auth_message(self) -> dict[str, str]:
+        """Build the first JSON auth payload expected by the controller.
+
+        :returns: Auth message with token and client UUID.
+        """
+        return {
+            "token": self._client_library._session.auth.token,
+            "client_uuid": self._client_library.uuid,
+        }
 
     def __bool__(self) -> bool:
         """Report whether the listener is currently active.
@@ -111,11 +134,6 @@ class EventListener:
         ws_scheme = "ws" if url_pieces.scheme == "http" else "wss"
         ws_url_pieces = url_pieces._replace(scheme=ws_scheme, path="ws/ui")
         self._ws_url = str(ws_url_pieces.geturl())
-
-        self._auth_data = {
-            "token": client_library._session.auth.token,
-            "client_uuid": client_library.uuid,
-        }
 
     def start_listening(self) -> None:
         """Start listening for events."""
@@ -190,7 +208,7 @@ class EventListener:
                         ):
                             await self._ws_close
                     return
-                event = Event(json.loads(queue_get.result()))
+                event = Event(json.loads(self._message_text(queue_get.result())))
                 self._event_handler.handle_event(event)
                 self._queue.task_done()
         finally:
@@ -198,6 +216,17 @@ class EventListener:
                 close_wait.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await close_wait
+
+    @staticmethod
+    def _message_text(payload: str | bytes) -> str:
+        """Normalize websocket frame data to text for JSON parsing.
+
+        :param payload: Raw frame data from aiohttp.
+        :returns: UTF-8 text payload.
+        """
+        if isinstance(payload, bytes):
+            return payload.decode()
+        return payload
 
     async def _ws_client(self) -> None:
         """Run websocket client loop and enqueue received messages."""
@@ -207,10 +236,11 @@ class EventListener:
                 session.ws_connect(
                     self._ws_url,
                     ssl=self._ssl_context,
+                    headers=self._ws_connect_headers(),
                     heartbeat=30,
                 ) as ws,
             ):
-                await ws.send_json(self._auth_data)
+                await ws.send_json(self._ws_auth_message())
                 self._connected = True
                 _LOGGER.info("Connected successfully")
                 self._ws_close = ws.close()
@@ -224,7 +254,7 @@ class EventListener:
             # cancelling it so _parse() cannot observe a half-closed coroutine
             # and await it (which would raise). Any awaiter reading
             # self._ws_close while holding the previous reference is fine:
-            # after the `async with` exited, the websocket is already closed.
+            # after the async with block exited, the websocket is already closed.
             pending_close = self._ws_close
             self._ws_close = None
             if pending_close is not None:

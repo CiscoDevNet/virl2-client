@@ -404,7 +404,11 @@ class ClientLibrary:
 
     @property
     def uuid(self) -> str:
-        """Return the UUID4 that identifies this client to the server."""
+        """Return the client UUID sent to the controller, if enabled.
+
+        When send_client_uuid is False, the X-Client-UUID header is omitted
+        and this property returns an empty string.
+        """
         return self._session.headers.get("X-Client-UUID", "")
 
     def logout(self, clear_all_sessions: bool = False) -> bool:

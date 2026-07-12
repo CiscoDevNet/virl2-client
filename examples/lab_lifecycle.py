@@ -31,6 +31,7 @@ Environment variables (all optional, prompted if unset):
 
 * ``CML_URL`` / ``CML_USERNAME`` / ``CML_PASSWORD`` - controller
   credentials.
+* ``CA_BUNDLE`` - path to the controller CA PEM for self-signed certs.
 * ``CML_NODE_DEFINITION`` - node definition to use (defaults to
   ``alpine``; make sure it is available on the controller).
 """
@@ -58,7 +59,7 @@ def main() -> int:
     password = _prompt("CML_PASSWORD", "password: ", secret=True)
     node_def = os.environ.get("CML_NODE_DEFINITION", "alpine")
 
-    client = ClientLibrary(url, username, password, ssl_verify=False)
+    client = ClientLibrary(url, username, password)
     client.is_system_ready(wait=True)
 
     lab = client.create_lab(title="virl2_client lab_lifecycle demo")

@@ -248,11 +248,9 @@ def make_session(
     :param ssl_verify: Whether to perform SSL verification.
     :param client_type: The client type identifier.
     :param timeout: HTTP timeout override. Defaults to a 10s connect /
-        300s read / 60s write / 10s pool budget. Pass a larger
-        httpx.Timeout if you expect long-running synchronous lab
-        operations. Disabling timeouts entirely is strongly discouraged
-        as it lets a hostile or stalled controller pin the client
-        indefinitely.
+        300s read / 60s write / 10s pool budget when omitted or None.
+        Pass a larger httpx.Timeout for long-running synchronous lab
+        operations.
     :param send_client_uuid: When True (default), send an X-Client-UUID
         header on every request so the controller can correlate activity.
         Set to False in privacy-sensitive automation.

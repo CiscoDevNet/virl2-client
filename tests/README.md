@@ -295,6 +295,7 @@ complements `test_system.py`).
 | `test_nodes.py` | Node behaviours and properties |
 | `test_node_staging.py` | Lab node staging and node priority |
 | `test_pcap.py` | Link packet-capture API (start, stop, status, download, packets) |
+| `test_wireless_pcap.py` | Wireless node packet-capture API (start, stop, status, download) |
 
 ### Authentication and Users
 

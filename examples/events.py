@@ -31,6 +31,7 @@ Run against an active controller::
 
     CML_URL=https://cml.example \\
     CML_USERNAME=admin CML_PASSWORD=... \\
+    CA_BUNDLE=/path/to/controller-ca.pem \\
     python examples/events.py
 
 Press Ctrl-C to stop.
@@ -81,7 +82,7 @@ def main() -> int:
     username = _prompt("CML_USERNAME", "username: ")
     password = _prompt("CML_PASSWORD", "password: ", secret=True)
 
-    client = ClientLibrary(url, username, password, ssl_verify=False)
+    client = ClientLibrary(url, username, password)
 
     # Wire up the custom handler *before* calling start_event_listening(),
     # following the pattern documented on ClientLibrary.start_event_listening:

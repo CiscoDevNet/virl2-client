@@ -157,6 +157,23 @@ def test_remove_dropfolder_image_list() -> None:
     session.delete.assert_called_once_with("images/manage/x.qcow2")
 
 
+@pytest.mark.parametrize("filename", ["../evil.qcow2", "/etc/passwd", ".."])
+def test_remove_dropfolder_image_rejects_path_traversal(filename: str) -> None:
+    """remove_dropfolder_image rejects path components in filename."""
+    defs = NodeImageDefinitions(MagicMock())
+    with pytest.raises(ValueError, match="Invalid filename"):
+        defs.remove_dropfolder_image(filename)
+
+
+def test_upload_image_file_rejects_path_traversal_rename(tmp_path: Path) -> None:
+    """upload_image_file rejects path components in rename."""
+    defs = NodeImageDefinitions(MagicMock())
+    image = tmp_path / "file.qcow2"
+    image.write_bytes(b"abc")
+    with pytest.raises(ValueError, match="Invalid filename"):
+        defs.upload_image_file(image, rename="../evil.qcow2")
+
+
 @pytest.mark.parametrize(
     ("method", "arg"),
     [

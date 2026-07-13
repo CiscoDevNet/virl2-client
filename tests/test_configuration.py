@@ -480,20 +480,35 @@ def test_config_get_from_file(tmp_path: Path) -> None:
     assert ClientConfig._get_from_file(tmp_path, "VIRL2_URL") == "https://from-file"
 
 
-def test_config_get_prop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """ClientConfig._get_prop walks directory tree to find .virlrc.
+def test_config_get_from_file_password_with_equals(tmp_path: Path) -> None:
+    """ClientConfig._get_from_file preserves passwords containing '='."""
+    config_file = tmp_path / ".virlrc"
+    config_file.write_text("VIRL2_PASS=P@ss=W0rd!123\n")
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "P@ss=W0rd!123"
 
-    NOTE: LLM-generated test -- verify for correctness.
+
+def test_config_get_prop_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ClientConfig._get_prop reads .virlrc from the current working directory.
 
     :param tmp_path: Temporary directory fixture.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     config_file = tmp_path / ".virlrc"
     config_file.write_text('VIRL2_URL="https://from-file"\n')
-    nested = tmp_path / "a" / "b"
-    nested.mkdir(parents=True)
-    monkeypatch.chdir(nested)
+    monkeypatch.chdir(tmp_path)
     assert ClientConfig._get_prop("VIRL2_URL") == "https://from-file"
+
+
+def test_config_get_prop_ignores_parent_virlrc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ClientConfig._get_prop does not walk parent directories for .virlrc."""
+    config_file = tmp_path / ".virlrc"
+    config_file.write_text('VIRL2_URL="https://from-parent"\n')
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    monkeypatch.chdir(nested)
+    assert ClientConfig._get_prop("VIRL2_URL") is None
 
 
 def test_config_populate_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -503,6 +518,7 @@ def test_config_populate_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.signature"
     conf = {
         "url": None,
         "username": None,
@@ -512,7 +528,23 @@ def test_config_populate_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     }
     monkeypatch.setattr(
         "builtins.input",
-        MagicMock(side_effect=["https://server.local", "x" * 40]),
+        MagicMock(side_effect=["https://server.local", jwt]),
     )
     ClientConfig._populate_from_inputs(conf)
-    assert conf["jwtoken"] == "x" * 40
+    assert conf["jwtoken"] == jwt
+
+
+def test_config_populate_inputs_long_username(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Long usernames are not misclassified as JWTs."""
+    username = "a" * 40 + "@example.com"
+    conf = {
+        "url": "https://server.local",
+        "username": None,
+        "password": "secret",
+        "jwtoken": None,
+        "ssl_verify": True,
+    }
+    monkeypatch.setattr("builtins.input", MagicMock(return_value=username))
+    ClientConfig._populate_from_inputs(conf)
+    assert conf["username"] == username
+    assert conf["jwtoken"] is None

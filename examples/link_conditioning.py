@@ -24,7 +24,8 @@
 Bandwidth is 0-10_000_000 kbps (0 = unlimited), latency and jitter are
 0-10_000 ms, loss is a percentage (0-100). Environment: ``CML_URL``,
 ``CML_USERNAME``, ``CML_PASSWORD``, ``CML_LAB_NAME`` override the
-interactive prompts when set.
+interactive prompts when set. For self-signed controller certificates,
+set ``CA_BUNDLE`` to the controller CA PEM path.
 """
 
 import getpass
@@ -66,7 +67,7 @@ def main() -> int:
     password = _prompt("CML_PASSWORD", "password: ", secret=True)
     lab_name = _prompt("CML_LAB_NAME", "lab name: ")
 
-    client = ClientLibrary(url, username, password, ssl_verify=False)
+    client = ClientLibrary(url, username, password)
 
     labs = client.find_labs_by_title(lab_name)
     if not labs or len(labs) != 1:

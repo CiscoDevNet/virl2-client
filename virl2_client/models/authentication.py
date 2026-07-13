@@ -227,8 +227,15 @@ class CustomClient(httpx.Client):
             raise api_error from None
 
 
+DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=60.0, pool=10.0)
+
+
 def make_session(
-    base_url: str, ssl_verify: bool | str = True, client_type: str | None = None
+    base_url: str,
+    ssl_verify: bool | str = True,
+    client_type: str | None = None,
+    timeout: httpx.Timeout | float | None = None,
+    send_client_uuid=True,
 ) -> httpx.Client:
     """
     Create an httpx Client object with the specified base URL
@@ -240,16 +247,23 @@ def make_session(
     :param base_url: The base URL for the client.
     :param ssl_verify: Whether to perform SSL verification.
     :param client_type: The client type identifier.
+    :param timeout: HTTP timeout override. Defaults to a 10s connect /
+        300s read / 60s write / 10s pool budget when omitted or None.
+        Pass a larger httpx.Timeout for long-running synchronous lab
+        operations.
+    :param send_client_uuid: When True (default), send an X-Client-UUID
+        header on every request so the controller can correlate activity.
+        Set to False in privacy-sensitive automation.
     :returns: The created httpx Client object.
     """
+    headers = {"X-CML-CLIENT": "PCL" if client_type is None else client_type}
+    if send_client_uuid:
+        headers["X-Client-UUID"] = str(uuid4())
     return CustomClient(
         base_url=base_url,
         verify=ssl_verify,
         auth=BlankAuth(),
         follow_redirects=True,
-        timeout=None,
-        headers={
-            "X-Client-UUID": str(uuid4()),
-            "X-CML-CLIENT": "PCL" if client_type is None else client_type,
-        },
+        timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
+        headers=headers,
     )

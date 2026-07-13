@@ -29,6 +29,7 @@ import pytest
 
 from virl2_client.exceptions import APIError
 from virl2_client.models import TokenAuth
+from virl2_client.models.authentication import DEFAULT_TIMEOUT, make_session
 
 
 def _make_client(allow_http: bool = False) -> MagicMock:
@@ -128,3 +129,15 @@ def test_auth_flow_no_creds_raises() -> None:
 
     with pytest.raises(APIError, match="automatic re-authentication is not possible"):
         flow.send(response)
+
+
+def test_make_session_default_timeout() -> None:
+    """make_session applies DEFAULT_TIMEOUT when timeout is omitted."""
+    session = make_session("https://example.local/api/v0/")
+    assert session.timeout == DEFAULT_TIMEOUT
+
+
+def test_make_session_send_client_uuid_false() -> None:
+    """make_session omits X-Client-UUID when send_client_uuid is False."""
+    session = make_session("https://example.local/api/v0/", send_client_uuid=False)
+    assert "X-Client-UUID" not in session.headers

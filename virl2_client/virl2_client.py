@@ -23,6 +23,7 @@ from __future__ import annotations
 import getpass
 import logging
 import os
+import re
 import sys
 import time
 import warnings
@@ -50,6 +51,8 @@ from .models.authentication import make_session
 from .utils import Version, get_url_from_template, locked
 
 _LOGGER = logging.getLogger(__name__)
+
+_JWT_PATTERN = re.compile(r"^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$")
 
 
 class ClientConfig(NamedTuple):
@@ -105,7 +108,7 @@ class ClientConfig(NamedTuple):
 
             for line in config:
                 if line.startswith(prop_name):
-                    prop = line.split("=")[1].strip()
+                    prop = line.split("=", 1)[1].strip()
                     if prop.startswith('"') and prop.endswith('"'):
                         prop = prop[1:-1]
                     return prop
@@ -113,13 +116,21 @@ class ClientConfig(NamedTuple):
 
     @classmethod
     def _get_prop(cls, prop_name: str) -> str | None:
-        cwd = Path.cwd()
-        if prop := cls._get_from_file(cwd, prop_name):
-            return prop
+        """Read a configuration property from .virlrc.
 
-        for path in cwd.parents:
-            if prop := cls._get_from_file(path, prop_name):
-                return prop
+        Only the current working directory and the user home directory are
+        consulted. Walking parent directories of the cwd is intentionally
+        not done: a writable ancestor (for example /tmp, a shared workspace,
+        or a CI checkout root) could plant a .virlrc that overrides
+        VIRL2_URL, credentials, or CML_VERIFY_CERT and redirect the next
+        authenticated session to a hostile controller.
+
+        :param prop_name: Environment-style key to look up (for example
+            VIRL2_URL).
+        :returns: The property value, or None if not found.
+        """
+        if prop := cls._get_from_file(Path.cwd(), prop_name):
+            return prop
 
         return cls._get_from_file(Path.home(), prop_name) or None
 
@@ -146,7 +157,7 @@ class ClientConfig(NamedTuple):
 
         if config["username"] is None and config["jwtoken"] is None:
             auth_input = input("Please enter your username or JWT (if using a token): ")
-            if len(auth_input) > 32:
+            if _JWT_PATTERN.match(auth_input):
                 config["jwtoken"] = auth_input
             else:
                 config["username"] = auth_input
@@ -262,6 +273,8 @@ class ClientLibrary:
         events: bool = False,
         client_type: str | None = None,
         check_version: bool = True,
+        timeout: httpx.Timeout | float | None = None,
+        send_client_uuid=True,
     ) -> None:
         client_config = ClientConfig.get_configuration(
             url, username, password, jwtoken, ssl_verify
@@ -291,7 +304,13 @@ class ClientLibrary:
         self._labs: dict[str, Lab] = {}
 
         try:
-            self._session = make_session(base_url, ssl_verify, client_type)
+            self._session = make_session(
+                base_url,
+                self._ssl_verify,
+                client_type,
+                timeout=timeout,
+                send_client_uuid=send_client_uuid,
+            )
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
         self._session.controller_version = self.check_controller_version()
@@ -385,8 +404,12 @@ class ClientLibrary:
 
     @property
     def uuid(self) -> str:
-        """Return the UUID4 that identifies this client to the server."""
-        return self._session.headers["X-Client-UUID"]
+        """Return the client UUID sent to the controller, if enabled.
+
+        When send_client_uuid is False, the X-Client-UUID header is omitted
+        and this property returns an empty string.
+        """
+        return self._session.headers.get("X-Client-UUID", "")
 
     def logout(self, clear_all_sessions: bool = False) -> bool:
         """

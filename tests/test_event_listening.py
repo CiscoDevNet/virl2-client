@@ -394,3 +394,52 @@ def test_ws_client_error() -> None:
     ):
         asyncio.run(listener._ws_client())
     assert listener._connected is False
+
+
+def test_ws_client_passes_heartbeat() -> None:
+    """_ws_client passes heartbeat and Authorization on ws_connect."""
+    listener = EventListener(_client())
+    listener._ws_close_event = asyncio.Event()
+    listener._ws_connected_event = asyncio.Event()
+
+    captured: dict[str, object] = {}
+
+    class _EmptyAsyncIter:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class FakeWsContext:
+        async def __aenter__(self):
+            ws = MagicMock()
+            ws.send_json = MagicMock(return_value=asyncio.sleep(0))
+            ws.close = MagicMock(return_value=asyncio.sleep(0))
+            ws.__aiter__ = lambda _self: _EmptyAsyncIter()
+            return ws
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakeSessionContext:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        def ws_connect(self, *args: object, **kwargs: object) -> FakeWsContext:
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            return FakeWsContext()
+
+    with patch(
+        "virl2_client.event_listening.aiohttp.ClientSession",
+        return_value=FakeSessionContext(),
+    ):
+        asyncio.run(listener._ws_client())
+
+    assert captured["kwargs"].get("heartbeat") == 30
+    assert captured["kwargs"].get("headers") == {"Authorization": "Bearer token"}
+    assert captured["args"][0] == listener._ws_url

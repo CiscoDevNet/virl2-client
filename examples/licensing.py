@@ -23,7 +23,9 @@
 
 Credentials are collected interactively so nothing sensitive is ever
 written to disk. To automate, export ``CML_URL`` / ``CML_USERNAME`` /
-``CML_PASSWORD`` / ``CML_SSMS_TOKEN`` before running.
+``CML_PASSWORD`` / ``CML_SSMS_TOKEN`` before running. For controllers
+with a self-signed certificate, also export ``CA_BUNDLE`` to the
+controller CA PEM path.
 """
 
 import getpass
@@ -49,7 +51,7 @@ def main() -> int:
     password = _prompt("CML_PASSWORD", "password: ", secret=True)
     token = _prompt("CML_SSMS_TOKEN", "Smart Licensing token: ", secret=True)
 
-    client = ClientLibrary(url, username, password, ssl_verify=False)
+    client = ClientLibrary(url, username, password)
     licensing = client.licensing
 
     # Use the default SSMS transport (direct to the public Smart Licensing

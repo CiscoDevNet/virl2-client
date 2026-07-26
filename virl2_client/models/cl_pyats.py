@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -21,15 +21,21 @@
 from __future__ import annotations
 
 import io
+import logging
+import os
 from typing import TYPE_CHECKING, Any
 
 try:
     from pyats.topology.loader.base import TestbedFileLoader as _PyatsTFLoader
     from pyats.topology.loader.markup import TestbedMarkupProcessor as _PyatsTMProcessor
     from pyats.utils.yaml.markup import Processor as _PyatsProcessor
+    from unicon.core.errors import ConnectionError as _UConnectionError
+    from unicon.core.errors import SubCommandFailure as _USubCommandFailure
 except ImportError:
     _PyatsTFLoader = None
     _PyatsTMProcessor = None
+    _UConnectionError = None
+    _USubCommandFailure = None
 else:
     # Ensure markup processor never uses the command line arguments as that's broken
     _PyatsProcessor.argv.clear()
@@ -38,24 +44,33 @@ else:
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from genie.libs.conf.device import Device
     from genie.libs.conf.testbed import Testbed
 
     from .lab import Lab
 
 
+_LOGGER = logging.getLogger(__name__)
+
+# Do not use any identity keys and agents with the terminal server
+# by default - the keys would be attempted before password, and may
+# exhaust the number of allowed attempts at the server
+# to use ssh keys, set the specific key path or set empty ssh_options
+DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
+
+
 class ClPyats:
     def __init__(self, lab: Lab, hostname: str | None = None) -> None:
         """
         Create a pyATS object that can be used to run commands
-        against a device either in exec mode ``show version`` or in
-        configuration mode ``interface gi0/0 \\n no shut``.
+        against a device either in exec mode show version or in
+        configuration mode interface gi0/0 \\n no shut.
 
         :param lab: The lab object to be used with pyATS.
         :param hostname: Forced hostname or IP address and port of the console
             terminal server.
-        :raises PyatsNotInstalled: If pyATS is not installed.
-        :raises PyatsDeviceNotFound: If the device cannot be found.
         """
         self._lab = lab
         self._hostname = hostname
@@ -64,7 +79,10 @@ class ClPyats:
 
     @property
     def hostname(self) -> str | None:
-        """Return the forced hostname/IP and port terminal server setting."""
+        """Return the forced hostname/IP and port terminal server setting.
+
+        :returns: Terminal server host override, or None when unset.
+        """
         return self._hostname
 
     @hostname.setter
@@ -91,8 +109,11 @@ class ClPyats:
         Load a PyATS testbed instance from YAML representation.
 
         Disable all templating features of PyATS markup processor.
-        Also disable extensions loading (which still uses all of the templating)
+        Also disable extensions loading (which still uses all the templating)
         https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
+
+        :param testbed_yaml: Testbed document in YAML format.
+        :returns: Parsed pyATS testbed object.
         """
         processor = _PyatsTMProcessor(
             reference=True,
@@ -107,26 +128,85 @@ class ClPyats:
         loader = _PyatsTFLoader(markupprocessor=processor, enable_extensions=False)
         return loader.load(io.StringIO(testbed_yaml))
 
-    def sync_testbed(self, username: str, password: str) -> None:
+    def sync_testbed(self, username: str, password: str | None = None) -> None:
         """
         Sync the testbed (the latest topology data) from the server.
 
         :param username: The username to be inserted into the testbed data.
-        :param password: The password to be inserted into the testbed data.
+        :param password: The password or a JWT token to be inserted into
+            the testbed data. Passing a JWT avoids creating a new token
+            per SSH session and requires a CML 2.11.0 (or newer)
+            controller that accepts JWTs as SSH passwords. When None
+            (the default), the existing terminal-server password in the
+            testbed YAML is left unchanged; call set_termserv_credentials
+            to set credentials later.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()
         testbed_yaml = self._lab.get_pyats_testbed(self._hostname)
-        testbed = self._load_pyats_testbed(testbed_yaml)
-        testbed.devices.terminal_server.credentials.default.username = username
-        testbed.devices.terminal_server.credentials.default.password = password
-        self._testbed = testbed
+        self._testbed = self._load_pyats_testbed(testbed_yaml)
+        self.set_termserv_credentials(username, password)
+
+    def switch_serial_console(self, node_label: str, console_number: int | str) -> None:
+        """
+        Switch to different serial console that is used to execute PyAts commands
+        should be executed after sync_testbed
+        and re-executed after every sync_testbed call.
+
+        :param node_label: The label/title of the device.
+        :param console_number: The serial console number to be used for PyAts.
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
+        """
+        self._check_pyats_installed()
+        try:
+            pyats_device: Device = self._testbed.devices[node_label]
+        except KeyError:
+            raise PyatsDeviceNotFound(node_label) from None
+
+        command = pyats_device.connections["a"]["command"]
+        pyats_device.connections["a"]["command"] = command[:-1] + str(console_number)
+
+    def set_termserv_credentials(
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        key_path: Path | str | None = None,
+        ssh_options: str = DEFAULT_SSH_OPTIONS,
+    ) -> None:
+        """
+        Configure how to connect to the SSH terminal server after the testbed
+        was synced with the server; the username must be known before making
+        any connections. Then either set the password, or path to an identity
+        file if SSH authentication with public keys is set up on the server.
+        By default, this function disables authentication agents and identity
+        files that would be loaded from the environment and running user ssh
+        configuration, so that the passed password or key is attempted first.
+        Pass empty string or custom SSH options to override this behavior.
+
+        :param username: The username to be set.
+        :param password: The password to be set.
+        :param key_path: The SSH key path to be set.
+        :param ssh_options: SSH options passed to terminal server connection.
+        :raises PyatsNotInstalled: If pyATS is not installed.
+        """
+        self._check_pyats_installed()
+        terminal = self._testbed.devices.terminal_server
+        if username is not None:
+            terminal.credentials.default.username = username
+        if password is not None:
+            terminal.credentials.default.password = password
+            terminal.connections.cli.ssh_options = ssh_options
+        if key_path is not None:
+            ssh_options += f" -o IdentityFile={key_path}"
+        terminal.connections.cli.ssh_options = ssh_options
 
     def _prepare_params(
         self,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
-        **params: str,
-    ) -> dict:
+        **params: Any,
+    ) -> dict[str, Any]:
         """
         Prepare a dictionary of optional parameters to be executed before a command.
         None means that default commands will be executed. If you want no commands
@@ -134,6 +214,7 @@ class ClPyats:
 
         :param init_exec_commands: A list of exec commands to be executed.
         :param init_config_commands: A list of config commands to be executed.
+        :param params: Additional PyATS parameters to pass through.
         :returns: A dictionary of optional parameters to be executed with a command.
         """
         if init_exec_commands is not None:
@@ -142,6 +223,37 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
+    def _is_connected(self, pyats_device: Device) -> bool:
+        """Check whether a pyATS device is currently connected.
+
+        :param pyats_device: Device instance to inspect.
+        :returns: True when the device has an active CLI spawn handle.
+        """
+        if pyats_device not in self._connections or not pyats_device.is_connected():
+            return False
+        try:
+            spawn = pyats_device.connectionmgr.connections.cli.spawn
+            return bool(spawn.fd)
+        except (TypeError, AttributeError):
+            return False
+
+    def _reconnect(self, pyats_device: Device, params: dict[str, Any]) -> None:
+        """Reconnect a pyATS device with cleanup around connect calls.
+
+        :param pyats_device: Device instance to reconnect.
+        :param params: Connect/init command parameters.
+        """
+        if self._is_connected(pyats_device):
+            return
+        self._destroy_device(pyats_device, raise_exc=False)
+        try:
+            pyats_device.connect(
+                logfile=os.devnull, log_stdout=False, learn_hostname=True, **params
+            )
+        finally:
+            _remove_unicon_loggers(pyats_device)
+        self._connections.add(pyats_device)
+
     def _execute_command(
         self,
         node_label: str,
@@ -149,6 +261,7 @@ class ClPyats:
         configure_mode: bool = False,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
+        _retry_attempted: bool = False,
         **pyats_params: Any,
     ) -> str:
         """
@@ -164,30 +277,52 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
-        :param pyats_params: Additional PyATS call parameters
+        :param _retry_attempted: Internal guard to avoid infinite reconnect retries.
+        :param pyats_params: Additional PyATS call parameters.
         :returns: The output from the device.
         :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
+        :raises RuntimeError: If the pyATS testbed is not initialized.
         """
         self._check_pyats_installed()
+
+        if self._testbed is None:
+            raise RuntimeError("pyATS testbed is not initialized")
 
         try:
             pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
-            raise PyatsDeviceNotFound(node_label)
+            raise PyatsDeviceNotFound(node_label) from None
 
-        if pyats_device not in self._connections or not pyats_device.is_connected():
-            if pyats_device in self._connections:
-                pyats_device.destroy()
-
-            pyats_device.connect(log_stdout=False, learn_hostname=True)
-            self._connections.add(pyats_device)
         params = self._prepare_params(
             init_exec_commands, init_config_commands, **pyats_params
         )
-        if configure_mode:
-            return pyats_device.configure(command, log_stdout=False, **params)
-        else:
+
+        try:
+            self._reconnect(pyats_device, params)
+            if configure_mode:
+                return pyats_device.configure(command, log_stdout=False, **params)
             return pyats_device.execute(command, log_stdout=False, **params)
+        except Exception as exc:
+            should_raise, retry_reason = _analyze_execute_failure(exc)
+
+            if _retry_attempted or should_raise:
+                raise
+
+            _LOGGER.info(
+                "PyATS command failed on node %s, retrying after reconnection. Reason: %s",
+                node_label,
+                retry_reason,
+            )
+            return self._execute_command(
+                node_label,
+                command,
+                configure_mode,
+                init_exec_commands,
+                init_config_commands,
+                _retry_attempted=True,
+                **pyats_params,
+            )
 
     def run_command(
         self,
@@ -209,6 +344,8 @@ class ClPyats:
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
         :param pyats_params: Additional PyATS call parameters
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
         return self._execute_command(
@@ -241,6 +378,8 @@ class ClPyats:
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
         :param pyats_params: Additional PyATS call parameters
+        :raises PyatsDeviceNotFound: If the device cannot be found.
+        :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
         return self._execute_command(
@@ -252,8 +391,78 @@ class ClPyats:
             **pyats_params,
         )
 
-    def cleanup(self) -> None:
-        """Clean up the pyATS connections."""
-        for pyats_device in self._connections:
+    def cleanup(self, node_label: str | None = None) -> None:
+        """
+        Clean up pyATS connections.
+
+        :param node_label: The label/title of a specific node to cleanup.
+            If None, all connections will be cleaned up.
+        """
+        if node_label is None:
+            for pyats_device in tuple(self._connections):
+                self._destroy_device(pyats_device)
+            return
+        if self._testbed is None:
+            return
+        try:
+            pyats_device: Device = self._testbed.devices[node_label]
+        except KeyError:
+            return
+        if pyats_device in self._connections:
+            self._destroy_device(pyats_device)
+
+    def _destroy_device(self, pyats_device: Device, raise_exc: bool = True) -> None:
+        """Destroy a device connection and forget local tracking state.
+
+        :param pyats_device: Device instance to destroy.
+        :param raise_exc: Re-raise destroy exceptions when True.
+        """
+        try:
             pyats_device.destroy()
-        self._connections.clear()
+        except Exception:
+            if raise_exc:
+                raise
+        finally:
+            self._connections.discard(pyats_device)
+
+
+def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
+    """Classify command failures to decide whether retry is safe.
+
+    :param exc: Exception raised during command execution.
+    :returns: Tuple (should_raise, retry_reason).
+    """
+    should_raise = True
+    retry_reason = None
+
+    if _UConnectionError and isinstance(exc, _UConnectionError):
+        should_raise = False
+        retry_reason = f"ConnectionError: {exc}"
+    elif _USubCommandFailure and isinstance(exc, _USubCommandFailure):
+        cause = getattr(exc, "__cause__", None)
+        if isinstance(cause, TimeoutError):
+            should_raise = False
+            retry_reason = f"SubCommandFailure with TimeoutError cause: {cause}"
+    return should_raise, retry_reason
+
+
+def _remove_unicon_loggers(pyats_device: Device) -> None:
+    """Prevent unicon logger instances and placeholders from accumulating.
+
+    :param pyats_device: Device with active/previous unicon connections.
+    """
+    loggers = logging.root.manager.loggerDict
+    try:
+        names = {
+            con.log.name for con in pyats_device.connectionmgr.connections.values()
+        }
+        names.update(
+            name for name in loggers if name.startswith("unicon.terminal_server.")
+        )
+    except (AttributeError, TypeError, KeyError):
+        return
+    for name in names:
+        current_name = name
+        while current_name.startswith("unicon."):
+            loggers.pop(current_name, None)
+            current_name = current_name.rsplit(".", 1)[0]

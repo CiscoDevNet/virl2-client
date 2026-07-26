@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -19,87 +19,102 @@
 # limitations under the License.
 #
 
-# This script demonstrates various functionalities of the client library.
-# Each example is accompanied by comments explaining its purpose and usage.
+"""Walk-through of the most common virl2_client operations.
+
+Set at least ``CML_URL``, ``CML_USERNAME`` and ``CML_PASSWORD`` in the
+environment before running this script. Optional variables:
+
+* ``CML_SSMS_URL``  -- override the default SSMS endpoint.
+* ``CML_SSMS_TOKEN`` -- Smart Licensing registration token. When unset
+  the licensing block is skipped, which lets the script be used on a
+  controller that is already licensed.
+"""
+
+import os
 import pathlib
+import sys
 
 from virl2_client import ClientLibrary
 
-SSMS = "https://sch-alpha.cisco.com/its/service/oddce/services/DDCEService"
-
-TOKEN = (
-    "FFY4YzJjNjItMDUxNi00NjJhLWIzMzQtMzllMzEzN2NhYjk2"
-    "6s8e1gr5res1g35ads1g651rg23rs1gs3rd5g1s2rd1g3s2r"
-    "WhPV3MzWGJrT3U5VHVEL1NrWkNu%0AclBSST0%3D%0A"
-)
+DEFAULT_SSMS_URL = "https://smartreceiver.cisco.com/licservice/license"
 
 
-# Set up the CML 2 connection
-server_url = "http://localhost:8001"
-username = "cml2"  # Default username if not changed in CML instance
-password = pathlib.Path("/etc/machine-id").read_text().strip()
-# Default password is equal to the contents of the CML instances /etc/machine-id file
-# If you are running this script remotely, replace the password above
-client_library = ClientLibrary(server_url, username, password, allow_http=True)
+def _read_default_password() -> str:
+    """Return the controller's default password or an empty string.
 
-# Check if the CML 2 system is ready
-client_library.is_system_ready(wait=True)
+    On a locally-provisioned CML instance the default admin password is the
+    contents of ``/etc/machine-id``. That file only exists on the
+    controller itself, so callers running remotely should export
+    ``CML_PASSWORD`` instead.
+    """
+    try:
+        return pathlib.Path("/etc/machine-id").read_text().strip()
+    except OSError:
+        return ""
 
-# Set up licensing configuration
-client_library.licensing.set_transport(ssms=SSMS)
-client_library.licensing.register_wait(token=TOKEN)
 
-# Get a list of existing labs and print their details
-lab_list = client_library.get_lab_list()
-for lab_id in lab_list:
-    lab = client_library.join_existing_lab(lab_id)
-    print("Lab ID:", lab.id)
-    print("Lab Title:", lab.title)
-    print("Lab Description:", lab.description)
-    print("Lab State:", lab.state)
-    print("----")
+def main() -> int:
+    url = os.environ.get("CML_URL", "http://localhost:8001")
+    username = os.environ.get("CML_USERNAME", "cml2")
+    password = os.environ.get("CML_PASSWORD") or _read_default_password()
+    if not password:
+        print(
+            "ERROR: set CML_PASSWORD (or run on the controller so "
+            "/etc/machine-id is readable).",
+            file=sys.stderr,
+        )
+        return 1
 
-# A simpler way to join all labs at once
-labs = client_library.all_labs()
+    client = ClientLibrary(url, username, password, allow_http=True)
+    client.is_system_ready(wait=True)
 
-# Create a lab
-lab = client_library.create_lab()
+    token = os.environ.get("CML_SSMS_TOKEN")
+    if token:
+        ssms = os.environ.get("CML_SSMS_URL", DEFAULT_SSMS_URL)
+        client.licensing.set_transport(ssms=ssms)
+        client.licensing.register_wait(token=token)
 
-# Create two server nodes
-server1 = lab.create_node("server1", "server", 50, 100)
-server2 = lab.create_node("server2", "server", 50, 200)
-print("Created nodes:", server1, server2)
+    for lab_id in client.get_lab_list():
+        lab = client.join_existing_lab(lab_id)
+        print(f"Lab {lab.id!r}: title={lab.title!r}, state={lab.state}")
 
-# Create a link between server1 and server2
-link = lab.connect_two_nodes(server1, server2)
-print("Created link between server1 and server2")
+    # A simpler way to join all labs at once.
+    client.all_labs()
 
-# Remove the link between server1 and server2
-link.remove()
-print("Removed link between server1 and server2")
+    lab = client.create_lab()
+    server1 = lab.create_node("server1", "server", 50, 100)
+    server2 = lab.create_node("server2", "server", 50, 200)
+    print("Created nodes:", server1, server2)
 
-# Manually synchronize lab states - this happens automatically once per second
-# by default, but we can skip the wait by calling this method
-lab.sync_states()
+    link = lab.connect_two_nodes(server1, server2)
+    print("Created link between server1 and server2")
 
-# Print the state of each node and its interfaces
-for node in lab.nodes():
-    print(f"Node: {node.label} | State: {node.state}")
-    for interface in node.interfaces():
-        print(f"    Interface: {interface.label} | State: {interface.state}")
+    link.remove()
+    print("Removed link between server1 and server2")
 
-# Export a lab topology to a file
-lab_data = lab.download()
-with open("demo_lab_export.yaml", "w") as file:
-    file.write(lab_data)
-print("Lab exported successfully.")
+    # sync_states() skips the next auto-sync tick so subsequent reads
+    # are guaranteed to reflect the latest server state.
+    lab.sync_states()
+    for node in lab.nodes():
+        print(f"Node: {node.label} | State: {node.state}")
+        for interface in node.interfaces():
+            print(f"    Interface: {interface.label} | State: {interface.state}")
 
-# Clean up the lab
-lab.stop()
-lab.wipe()
-lab.remove()  # or client_library.remove_lab(lab_id)
+    export_path = pathlib.Path("demo_lab_export.yaml")
+    export_path.write_text(lab.download())
+    print(f"Lab exported to {export_path}.")
 
-# Deregister (optional) and set licensing back to the default transport (optional)
-# Default SSMS is "https://smartreceiver.cisco.com/licservice/license"
-client_library.licensing.deregister()
-client_library.licensing.set_default_transport()
+    lab.stop()
+    lab.wipe()
+    lab.remove()
+
+    if token:
+        # Optional cleanup -- deregister and fall back to default transport.
+        client.licensing.deregister()
+        client.licensing.set_default_transport()
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

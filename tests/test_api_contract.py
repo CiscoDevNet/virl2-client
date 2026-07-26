@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -31,7 +31,6 @@ from __future__ import annotations
 import inspect
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Top-level package exports
@@ -74,6 +73,8 @@ MODEL_EXPORTS = [
     "GroupManagement",
     "Interface",
     "Lab",
+    "LabRepository",
+    "LabRepositoryManagement",
     "Licensing",
     "Link",
     "Node",
@@ -156,6 +157,13 @@ def test_exception_hierarchy_api_error():
     assert issubclass(APIError, httpx.HTTPStatusError)
 
 
+def test_exception_hierarchy_feature_not_supported():
+    """FeatureNotSupported inherits from VirlException."""
+    from virl2_client.exceptions import FeatureNotSupported, VirlException
+
+    assert issubclass(FeatureNotSupported, VirlException)
+
+
 # ---------------------------------------------------------------------------
 # Method signature stability
 #
@@ -200,6 +208,11 @@ EXPECTED_SIGNATURES = [
         "virl2_client.virl2_client",
         "ClientLibrary.join_existing_lab",
         ["self", "lab_id"],
+    ),
+    (
+        "virl2_client.virl2_client",
+        "ClientLibrary.get_diagnostics",
+        ["self"],
     ),
     (
         "virl2_client.models.lab",
@@ -271,6 +284,36 @@ EXPECTED_SIGNATURES = [
         "Node.remove_tag",
         ["self", "tag"],
     ),
+    (
+        "virl2_client.models.node",
+        "Node.clone_image",
+        ["self"],
+    ),
+    (
+        "virl2_client.models.system",
+        "SystemManagement.sync_compute_hosts",
+        ["self"],
+    ),
+    (
+        "virl2_client.models.system",
+        "SystemManagement.sync_system_notices",
+        ["self"],
+    ),
+    (
+        "virl2_client.models.auth_management",
+        "AuthManagement.sync_if_outdated",
+        ["self"],
+    ),
+    (
+        "virl2_client.models.lab_repository",
+        "LabRepositoryManagement.sync_lab_repositories",
+        ["self"],
+    ),
+    (
+        "virl2_client.models.lab_repository",
+        "LabRepositoryManagement.add_lab_repository",
+        ["self", "url", "name", "folder"],
+    ),
 ]
 
 
@@ -285,14 +328,13 @@ def _resolve_method(module_path, class_method):
 
 
 @pytest.mark.parametrize(
-    "module_path,class_method,required_params",
+    ("module_path", "class_method", "required_params"),
     EXPECTED_SIGNATURES,
     ids=[f"{m}.{cm}" for m, cm, _ in EXPECTED_SIGNATURES],
 )
 def test_method_signatures(module_path, class_method, required_params):
     """Critical method signatures retain their expected parameters."""
     method = _resolve_method(module_path, class_method)
-    # For properties, inspect the fget; for decorated methods, unwrap
     func = method
     if isinstance(method, property):
         func = method.fget
@@ -308,45 +350,96 @@ def test_method_signatures(module_path, class_method, required_params):
 
 
 # ---------------------------------------------------------------------------
-# Deprecated methods/attributes still exist
+# URL template stability
 #
-# User code from v2.8/v2.9 may use these. They must remain present even
-# if they emit DeprecationWarning.
+# The client's _URL_TEMPLATES dict defines the REST endpoints it depends on.
+# Removing a key would silently break any code path that calls _url_for()
+# with that endpoint name.
 # ---------------------------------------------------------------------------
 
-DEPRECATED_ATTRS = [
-    # (class_name_in_models, attribute_name)
-    ("Node", "config"),
-    ("Node", "remove_on_server"),
-    ("Interface", "is_physical"),
-    ("Interface", "remove_on_server"),
-    ("Interface", "peer_interfaces"),
-    ("Interface", "peer_nodes"),
-    ("Interface", "links"),
-    ("Interface", "degree"),
-    ("Interface", "is_connected"),
-    ("Link", "remove_on_server"),
-    ("Lab", "get_link_by_nodes"),
-    ("Lab", "get_link_by_interfaces"),
-    ("Lab", "add_node_local"),
+CLIENT_LIBRARY_URL_TEMPLATES = [
+    "auth",
+    "old_auth",
+    "system_info",
+    "import",
+    "import_1x",
+    "sample_labs",
+    "labs",
+    "lab",
+    "lab_topology",
+    "diagnostics",
+    "system_health",
+    "system_stats",
+    "populate_lab_tiles",
+]
+
+LAB_URL_TEMPLATES = [
+    "lab",
+    "nodes",
+    "links",
+    "interfaces",
+    "start",
+    "stop",
+    "state",
+    "wipe",
+    "events",
+    "topology",
+    "download",
+    "associations",
+    "connector_mappings",
+    "resource_pools",
+    "annotations",
+]
+
+NODE_URL_TEMPLATES = [
+    "node",
+    "state",
+    "start",
+    "stop",
+    "wipe_disks",
+    "clone_image",
+    "extract_configuration",
+    "console_log",
+    "console_key",
+    "vnc_key",
+    "layer3_addresses",
 ]
 
 
-@pytest.mark.parametrize(
-    "cls_name,attr_name",
-    DEPRECATED_ATTRS,
-    ids=[f"{c}.{a}" for c, a in DEPRECATED_ATTRS],
-)
-def test_deprecated_attrs_exist(cls_name, attr_name):
-    """Deprecated methods/properties still exist on their classes."""
-    from virl2_client import models
+@pytest.mark.parametrize("key", CLIENT_LIBRARY_URL_TEMPLATES)
+def test_client_library_url_templates(key):
+    """ClientLibrary._URL_TEMPLATES contains all expected keys."""
+    from virl2_client.virl2_client import ClientLibrary
 
-    cls = getattr(models, cls_name)
-    # Can't use hasattr() because property_s.__get__ raises when instance is
-    # None (class-level access triggers the stale-check path).  Walk the MRO
-    # and look in each class __dict__ instead.
-    found = any(attr_name in klass.__dict__ for klass in cls.__mro__)
-    assert found, (
-        f"{cls_name}.{attr_name} has been removed; "
-        f"this breaks backward compatibility with v2.8/v2.9 user code"
-    )
+    assert key in ClientLibrary._URL_TEMPLATES
+
+
+@pytest.mark.parametrize("key", LAB_URL_TEMPLATES)
+def test_lab_url_templates(key):
+    """Lab._URL_TEMPLATES contains all expected keys."""
+    from virl2_client.models.lab import Lab
+
+    assert key in Lab._URL_TEMPLATES
+
+
+@pytest.mark.parametrize("key", NODE_URL_TEMPLATES)
+def test_node_url_templates(key):
+    """Node._URL_TEMPLATES contains all expected keys."""
+    from virl2_client.models.node import Node
+
+    assert key in Node._URL_TEMPLATES
+
+
+# ---------------------------------------------------------------------------
+# New in 2.10: Version importable from utils
+# ---------------------------------------------------------------------------
+
+
+def test_version_importable_from_utils():
+    """Version class is importable from virl2_client.utils."""
+    from virl2_client.utils import Version
+
+    v = Version("2.10.0")
+    assert v.major == 2
+    assert v.minor == 10
+    assert v.patch == 0

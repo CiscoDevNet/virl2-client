@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
+# ruff: noqa: INP001  -- Sphinx docs config, intentionally not a package
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Configuration file for the Sphinx documentation builder.
@@ -26,7 +26,7 @@ VIRL2_DOC = "virl2_client Documentation"
 # -- Project information -----------------------------------------------------
 
 project = "virl2_client"
-copyright = "Copyright (c) 2019-2025, Cisco Systems, Inc."
+copyright = "Copyright (c) 2019-2026, Cisco Systems, Inc."  # noqa: A001  # Sphinx requires the name 'copyright'
 author = "VIRL2 team <virl@cisco.com>"
 
 # The short X.Y version

@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -17,16 +17,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Python client library for the Cisco Modeling Labs (CML) REST API."""
 
 from .exceptions import InterfaceNotFound, LabNotFound, LinkNotFound, NodeNotFound
 from .virl2_client import ClientConfig, ClientLibrary, InitializationError
 
 __all__ = [
+    "ClientConfig",
+    "ClientLibrary",
+    "InitializationError",
     "InterfaceNotFound",
     "LabNotFound",
     "LinkNotFound",
     "NodeNotFound",
-    "ClientConfig",
-    "ClientLibrary",
-    "InitializationError",
 ]

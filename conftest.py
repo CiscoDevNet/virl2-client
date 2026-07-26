@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 #
@@ -21,9 +21,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
+if TYPE_CHECKING:
+    import pytest
 
 
 def pytest_addoption(
@@ -44,8 +45,3 @@ def pytest_addoption(
     # pytest-asycnio
     if pluginmanager.get_plugin("asyncio") is None:
         parser.addini("asyncio_mode", "suppress the warning")
-
-
-@pytest.fixture
-def test_dir(request: pytest.FixtureRequest) -> Path:
-    return request.path.parent

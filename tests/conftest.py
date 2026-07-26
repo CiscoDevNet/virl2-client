@@ -1,6 +1,6 @@
 #
 # This file is part of VIRL 2
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 # Python bindings for the Cisco VIRL 2 Network Simulation Platform
@@ -18,11 +18,15 @@
 # limitations under the License.
 #
 
+import sys
+from collections.abc import Iterator
+from functools import partial
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from respx import MockRouter
 
 from virl2_client.models import authentication
 from virl2_client.virl2_client import ClientLibrary
@@ -32,7 +36,50 @@ FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 
 
-def client_library_patched_system_info(version):
+@pytest.fixture
+def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear VIRL2-related environment variables for isolated init tests.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    env_vars = [
+        "VIRL2_URL",
+        "VIRL_HOST",
+        "VIRL2_USER",
+        "VIRL_USERNAME",
+        "VIRL2_PASS",
+        "VIRL_PASSWORD",
+        "VIRL2_JWT",
+    ]
+
+    for key in env_vars:
+        monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _patch_stdin_isatty() -> Iterator[None]:
+    """Suppress DeprecationWarning for non-TTY stdin across the whole session.
+
+    ClientLibrary emits a DeprecationWarning when sys.stdin.isatty()
+    returns False and interactive inputs are used.  Patching only the
+    isatty attribute (not the whole sys.stdin object) keeps pytest's
+    DontReadFromInput in place so tests that expect OSError from stdin
+    reads continue to work correctly.
+
+    :yields: Nothing; setup/teardown only.
+    """
+    original = sys.stdin.isatty
+    sys.stdin.isatty = lambda: True  # type: ignore[method-assign]
+    yield
+    sys.stdin.isatty = original  # type: ignore[method-assign]
+
+
+def client_library_patched_system_info(version: str) -> Iterator[MagicMock]:
+    """Patch ClientLibrary.system_info to return a fixed version.
+
+    :param version: Version string to return from system_info.
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     with patch.object(
         ClientLibrary, "system_info", return_value={"version": version, "ready": True}
     ) as cl:
@@ -40,58 +87,105 @@ def client_library_patched_system_info(version):
 
 
 @pytest.fixture
-def client_library_server_current():
+def client_library_server_current() -> Iterator[MagicMock]:
+    """Simulate a controller running the current CML version.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version=CURRENT_VERSION)
 
 
 @pytest.fixture
-def client_library_server_2_0_0():
+def client_library_server_2_0_0() -> Iterator[MagicMock]:
+    """Simulate a controller running CML version 2.0.0.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version="2.0.0")
 
 
 @pytest.fixture
-def client_library_server_2_19_0():
+def client_library_server_2_19_0() -> Iterator[MagicMock]:
+    """Simulate a controller running CML version 2.19.0.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
     yield from client_library_patched_system_info(version="2.19.0")
 
 
 @pytest.fixture
-def mocked_session():
+def client_library_server_2_9_0() -> Iterator[MagicMock]:
+    """Simulate a controller running CML version 2.9.0.
+
+    :yields: The patch object for ClientLibrary.system_info.
+    """
+    yield from client_library_patched_system_info(version="2.9.0")
+
+
+@pytest.fixture
+def mocked_session() -> Iterator[MagicMock]:
+    """Patch authentication.CustomClient for tests that need a mock HTTP session.
+
+    :yields: The patched CustomClient class (MagicMock).
+    """
     with patch.object(authentication, "CustomClient", autospec=True) as session:
         yield session
 
 
-def resp_body_from_file(request: httpx.Request) -> httpx.Response:
-    """
-    A callback that returns the contents of a file based on the request.
+@pytest.fixture(scope="session")
+def test_data_dir() -> Path:
+    """Path to the test_data directory containing JSON fixtures.
 
-    :param request: The request that contains the title to search for
-    :returns: A Response that has `content` set to the contents of a file
-        that corresponds to a response body for the request.
+    :returns: Path to the test_data directory.
+    """
+    return Path(__file__).parent / "test_data"
+
+
+def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Response:
+    """Return response body from a file based on the request URL path.
+
+    :param test_data_dir: Directory containing JSON fixture files.
+    :param request: The HTTP request; URL path determines which file to load.
+    :returns: An httpx.Response with content set to the matching fixture file.
     """
     endpoint_parts = request.url.path.split("/")[3:]
-    filename = "not initialized"
     if len(endpoint_parts) == 1:
         filename = endpoint_parts[0] + ".json"
     elif endpoint_parts[0] == "labs":
         lab_id = endpoint_parts[1]
         filename = "_".join(endpoint_parts[2:]) + "-" + lab_id + ".json"
-    test_dir = Path(__file__).parent.resolve()
-    file_path = test_dir / "test_data" / filename
+    else:
+        pytest.fail(
+            f"resp_body_from_file: unhandled URL path {request.url.path!r}; "
+            "add an explicit respx route or extend the path-mapping logic."
+        )
+    file_path = test_data_dir / filename
     return httpx.Response(200, text=file_path.read_text())
 
 
 @pytest.fixture
-def respx_mock_with_labs(respx_mock):
-    """
-    A test fixture that provides basic lab data with respx_mock so that unit tests can
-    call ``client.all_labs`` or ``client.join_existing_lab``.  The sample data includes
-    some runtime data, like node states and simulation_statistics.
+def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
+    """Provide basic lab data with respx_mock for unit tests.
+
+    Enables tests to call client.all_labs or client.join_existing_lab.
+    Sample data includes runtime data (node states, simulation_statistics).
+
+    :param respx_mock: The respx mock router to configure.
+    :param test_data_dir: Directory containing JSON fixture files.
     """
     respx_mock.get(FAKE_HOST_API + "system_information").respond(
         json={"version": CURRENT_VERSION, "ready": True, "oui": "52:54:00:00:00:00"},
     )
     respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
-    respx_mock.get(FAKE_HOST_API + "authok")
+    respx_mock.get(FAKE_HOST_API + "authentication").respond(
+        json={
+            "username": "username",
+            "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
+            "token": "BOGUS_TOKEN",
+            "admin": True,
+            "error": None,
+        }
+    )
     respx_mock.get(
         FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/resource_pools"
     ).respond(json=[])
@@ -114,6 +208,16 @@ def respx_mock_with_labs(respx_mock):
         ).respond(
             json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
         )
+        respx_mock.get(
+            FAKE_HOST_API
+            + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}/interfaces"
+            + "?data=true&operational=true"
+        ).respond(json=[])
+
+    respx_mock.get(
+        FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/interfaces"
+    ).respond(json=[])
+
     respx_mock.get(
         FAKE_HOST_API
         + "labs/444a78d1-575c-4746-8469-696e580f17b6/nodes?data=true&operational=true&"
@@ -143,11 +247,17 @@ def respx_mock_with_labs(respx_mock):
         "labs/863799a0-3d09-4af4-be26-cad997b6ab27/simulation_stats",
         "labs/863799a0-3d09-4af4-be26-cad997b6ab27/layer3_addresses",
     )
+    side_effect = partial(resp_body_from_file, test_data_dir)
     for api in resp_from_files:
-        respx_mock.get(FAKE_HOST_API + api).mock(side_effect=resp_body_from_file)
+        respx_mock.get(FAKE_HOST_API + api).mock(side_effect=side_effect)
 
 
 @pytest.fixture
-def client_library(respx_mock_with_labs):
-    client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
-    yield client
+def client_library(respx_mock_with_labs: None) -> Iterator[ClientLibrary]:
+    """Provide a ClientLibrary instance with mocked lab API responses.
+
+    :param respx_mock_with_labs: Fixture that configures respx (consumed for setup).
+    :yields: A ClientLibrary connected to FAKE_HOST with test credentials.
+    """
+    _ = respx_mock_with_labs
+    return ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")

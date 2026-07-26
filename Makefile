@@ -1,14 +1,11 @@
 
-.phony: export diff
+.PHONY: export diff test coverage coverage-html
 
-# https://github.com/python-poetry/poetry/issues/3472
-# https://github.com/python-poetry/poetry/issues/3160
-# when resolved, we should be able to run with hashes
 tests/requirements.txt: poetry.lock
-	poetry export --format=requirements.txt --with dev --without-hashes --output=$@
+	poetry export --format=requirements.txt --with dev --output=$@
 
 clean:
-	rm -rf dist virl2_client.egg-info .built .pytest_cache .coverage coverage.xml
+	rm -rf dist virl2_client.egg-info .built .pytest_cache .coverage coverage.xml coverage.json htmlcov
 	find . -depth -type f -name '*.pyc' -exec rm {} \; || true
 	find . -depth -type d -name '__pycache__' -exec rmdir {} \; || true
 	cd docs && make clean
@@ -21,3 +18,12 @@ export: tests/requirements.txt
 
 diff:
 	diff -ruN -X.gitignore -x.github -x.git -xdist -x.pytest_cache ./ ../simple/virl2_client/ | pygmentize | less -r
+
+test:
+	pytest -n auto
+
+coverage:
+	pytest -n auto --cov=virl2_client --cov-report=term-missing --cov-report=xml --cov-report=json
+
+coverage-html:
+	pytest -n auto --cov=virl2_client --cov-report=html --cov-report=term-missing

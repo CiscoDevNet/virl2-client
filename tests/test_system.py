@@ -284,14 +284,15 @@ def test_get_external_connectors() -> None:
 
 
 def test_set_web_session_timeout() -> None:
-    """set_web_session_timeout calls PATCH.
+    """set_web_session_timeout PUTs a JSON body and returns updated int.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     session = MagicMock()
     system = SystemManagement(session, auto_sync=False)
-    system.set_web_session_timeout(120)
-    session.patch.assert_called_with("web_session_timeout/120")
+    session.put.return_value.json.return_value = 120
+    assert system.set_web_session_timeout(120) == 120
+    session.put.assert_called_with("web_session_timeout", json={"timeout": 120})
 
 
 def test_maintenance_notice_resolve() -> None:

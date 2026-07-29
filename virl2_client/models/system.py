@@ -313,13 +313,14 @@ class SystemManagement:
         url = self._url_for("web_session_timeout")
         return self._session.get(url).json()
 
-    def set_web_session_timeout(self, timeout: int) -> None:
+    def set_web_session_timeout(self, timeout: int) -> int:
         """Set the web session timeout in seconds.
 
         :param timeout: The timeout value in seconds.
+        :returns: The updated web session timeout in seconds.
         """
-        url = f"{self._url_for('web_session_timeout')}/{timeout}"
-        self._session.patch(url)
+        url = self._url_for("web_session_timeout")
+        return self._session.put(url, json={"timeout": timeout}).json()
 
     def get_new_compute_host_state(self) -> str:
         """

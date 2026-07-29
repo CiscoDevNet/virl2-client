@@ -93,7 +93,8 @@ def test_web_session_timeout_rt() -> None:
     system = SystemManagement(session, auto_sync=False)
     session.get.return_value.json.return_value = 1200
     assert system.get_web_session_timeout() == 1200
-    system.set_web_session_timeout(1800)
+    session.put.return_value.json.return_value = 1800
+    assert system.set_web_session_timeout(1800) == 1800
 
 
 def test_telemetry_state_get_rt() -> None:

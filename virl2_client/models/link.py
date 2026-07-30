@@ -383,10 +383,10 @@ class Link:
     @check_stale
     def set_condition(
         self,
-        bandwidth: int | None | _Sentinel = UNCHANGED,
-        latency: int | None | _Sentinel = UNCHANGED,
-        jitter: int | None | _Sentinel = UNCHANGED,
-        loss: float | None | _Sentinel = UNCHANGED,
+        bandwidth: int | _Sentinel | None = UNCHANGED,
+        latency: int | _Sentinel | None = UNCHANGED,
+        jitter: int | _Sentinel | None = UNCHANGED,
+        loss: float | _Sentinel | None = UNCHANGED,
         **kwargs: float | int | bool | None,
     ) -> None:
         """

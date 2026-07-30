@@ -695,9 +695,9 @@ class Node:
     @locked
     def set_pyats_credentials(
         self,
-        username: str | None | _Sentinel = UNCHANGED,
-        password: str | None | _Sentinel = UNCHANGED,
-        enable_password: str | None | _Sentinel = UNCHANGED,
+        username: str | _Sentinel | None = UNCHANGED,
+        password: str | _Sentinel | None = UNCHANGED,
+        enable_password: str | _Sentinel | None = UNCHANGED,
     ) -> None:
         """Set pyATS credentials for this node.
 

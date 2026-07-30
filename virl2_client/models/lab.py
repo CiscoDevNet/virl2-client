@@ -424,8 +424,8 @@ class Lab:
     def set_autostart(
         self,
         enabled: bool | None = None,
-        priority: int | None | _Sentinel = UNCHANGED,
-        delay: int | None | _Sentinel = UNCHANGED,
+        priority: int | _Sentinel | None = UNCHANGED,
+        delay: int | _Sentinel | None = UNCHANGED,
     ) -> None:
         """
         Set all autostart configuration properties.

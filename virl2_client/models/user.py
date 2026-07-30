@@ -182,8 +182,8 @@ class UserManagement:
         admin: bool | None = None,
         password_dict: dict[str, str] | None = None,
         pubkey: str | None = None,
-        resource_pool: str | None | _Sentinel = UNCHANGED,
-        opt_in: OptInStatus | bool | None | _Sentinel = UNCHANGED,
+        resource_pool: str | _Sentinel | None = UNCHANGED,
+        opt_in: OptInStatus | bool | _Sentinel | None = UNCHANGED,
         tour_version: str | None = None,
     ) -> None:
         optional_data = {

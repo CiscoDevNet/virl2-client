@@ -159,6 +159,8 @@ ignore = [
   "N801",
   # allow explicit pass in placeholder implementations
   "PIE790",
+  # too-many-positional-arguments -- same rationale as PLR0913 per-file ignores
+  "PLR0917",
 ]
 
 [tool.ruff.lint.isort]

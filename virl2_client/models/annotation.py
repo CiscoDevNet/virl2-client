@@ -61,6 +61,11 @@ ANNOTATION_PROPERTY_MAP = {
     "line_end": 0b0100,
     "line_start": 0b0100,
     "rotation": 0b1011,
+    "shadow_angle": 0b1000,
+    "shadow_blur": 0b1000,
+    "shadow_color": 0b1000,
+    "shadow_distance": 0b1000,
+    "shadow_enabled": 0b1000,
     "text_bold": 0b1000,
     "text_content": 0b1000,
     "text_font": 0b1000,
@@ -94,6 +99,11 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
     "line_end": None,
     "line_start": None,
     "rotation": 0,
+    "shadow_angle": 45,
+    "shadow_blur": 6,
+    "shadow_color": "#808080FF",
+    "shadow_distance": 6,
+    "shadow_enabled": False,
     "text_bold": False,
     "text_content": "text annotation",
     "text_font": "monospace",
@@ -738,6 +748,11 @@ class AnnotationText(_RotationMixin, Annotation):
             "x2",
             "y2",
             "rotation",
+            "shadow_angle",
+            "shadow_blur",
+            "shadow_color",
+            "shadow_distance",
+            "shadow_enabled",
             "text_bold",
             "text_content",
             "text_font",
@@ -768,6 +783,11 @@ class AnnotationText(_RotationMixin, Annotation):
         self._x2 = 100
         self._y2 = 100
         self._rotation = 0
+        self._shadow_angle = 45
+        self._shadow_blur = 6
+        self._shadow_color = GREY
+        self._shadow_distance = 6
+        self._shadow_enabled = False
         self._text_bold = False
         self._text_content = "text annotation"
         self._text_font = "monospace"
@@ -890,3 +910,98 @@ class AnnotationText(_RotationMixin, Annotation):
         """
         self._set_annotation_property("text_unit", value)
         self._text_unit = value
+
+    @property
+    def shadow_enabled(self) -> bool:
+        """Text shadow enabled state.
+
+        :returns: True if text shadow is enabled, False otherwise.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_enabled
+
+    @shadow_enabled.setter
+    @locked
+    def shadow_enabled(self, value: bool) -> None:
+        """Set text shadow enabled state.
+
+        :param value: True to enable text shadow, False otherwise.
+        """
+        self._set_annotation_property("shadow_enabled", value)
+        self._shadow_enabled = value
+
+    @property
+    def shadow_color(self) -> str:
+        """Text shadow color.
+
+        :returns: The shadow color string (RGBA hex).
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_color
+
+    @shadow_color.setter
+    @locked
+    def shadow_color(self, value: str) -> None:
+        """Set text shadow color.
+
+        :param value: The shadow color string (RGBA hex) to set.
+        """
+        self._set_annotation_property("shadow_color", value)
+        self._shadow_color = value
+
+    @property
+    def shadow_distance(self) -> int:
+        """Text shadow distance.
+
+        :returns: The shadow distance in pixels.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_distance
+
+    @shadow_distance.setter
+    @locked
+    def shadow_distance(self, value: int) -> None:
+        """Set text shadow distance.
+
+        :param value: The shadow distance in pixels to set.
+        """
+        self._set_annotation_property("shadow_distance", value)
+        self._shadow_distance = value
+
+    @property
+    def shadow_blur(self) -> int:
+        """Text shadow blur radius.
+
+        :returns: The shadow blur radius in pixels.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_blur
+
+    @shadow_blur.setter
+    @locked
+    def shadow_blur(self, value: int) -> None:
+        """Set text shadow blur radius.
+
+        :param value: The shadow blur radius in pixels to set.
+        """
+        self._set_annotation_property("shadow_blur", value)
+        self._shadow_blur = value
+
+    @property
+    def shadow_angle(self) -> int:
+        """Text shadow angle.
+
+        :returns: The shadow angle in degrees.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_angle
+
+    @shadow_angle.setter
+    @locked
+    def shadow_angle(self, value: int) -> None:
+        """Set text shadow angle.
+
+        :param value: The shadow angle in degrees to set.
+        """
+        self._set_annotation_property("shadow_angle", value)
+        self._shadow_angle = value

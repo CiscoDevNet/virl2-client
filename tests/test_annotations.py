@@ -48,6 +48,11 @@ from virl2_client.models.annotation import (
             AnnotationText,
             {
                 "rotation": 15,
+                "shadow_angle": 90,
+                "shadow_blur": 8,
+                "shadow_color": "#AABBCCDD",
+                "shadow_distance": 10,
+                "shadow_enabled": True,
                 "text_bold": True,
                 "text_content": "hello",
                 "text_font": "serif",
@@ -178,6 +183,9 @@ def test_annotation_default_prop_values() -> None:
     """
     defaults = Annotation.get_default_property_values("text")
     assert "text_content" in defaults
+    assert defaults["shadow_enabled"] is False
+    assert defaults["shadow_color"] == "#808080FF"
+    assert defaults["shadow_distance"] == 6
     assert "x2" not in defaults
 
 
@@ -186,6 +194,8 @@ def test_annotation_default_prop_values() -> None:
     [
         ("line", "line_start", True),
         ("text", "line_start", False),
+        ("text", "shadow_enabled", True),
+        ("line", "shadow_enabled", False),
         ("text", "unknown_key", False),
     ],
 )

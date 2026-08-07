@@ -190,7 +190,7 @@ class ClientConfig(NamedTuple):
         jwtoken: str | None,
         ssl_verify: bool | str | None,
         allow_inputs: bool | None = None,
-    ) -> ClientConfig:
+    ) -> ClientConfig | None:
         config = {
             "url": url,
             "username": username,
@@ -259,6 +259,7 @@ class ClientLibrary:
         "populate_lab_tiles": "populate_lab_tiles",
     }
 
+    # Public constructor arity matches documented session/auth options.
     def __init__(
         self,
         url: str | None = None,

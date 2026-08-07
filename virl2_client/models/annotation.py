@@ -33,7 +33,8 @@ if TYPE_CHECKING:
     from .lab import Lab
 
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
-    AnnotationType: TypeAlias = (
+    # TypeAlias kept for Python 3.10; type statement needs 3.12+.
+    AnnotationType: TypeAlias = (  # NOSONAR
         "AnnotationRectangle | AnnotationEllipse | AnnotationLine | AnnotationText"
     )
 

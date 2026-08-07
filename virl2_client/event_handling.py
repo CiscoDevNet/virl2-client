@@ -216,7 +216,8 @@ class EventHandlerBase(ABC):
         """
         # All other events are useless to the client, but in case some handling
         # needs to be done on them, this method can be overridden
-        return
+        # Subclass override point; explicit return is intentional.
+        return  # NOSONAR
 
 
 class EventHandler(EventHandlerBase):

@@ -21,11 +21,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import ssl
 import threading
-from collections.abc import Coroutine
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -35,13 +35,15 @@ import aiohttp
 from .event_handling import Event, EventHandler
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
     from .virl2_client import ClientLibrary
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class EventListener:
-    def __init__(self, client_library: ClientLibrary):
+    def __init__(self, client_library: ClientLibrary) -> None:
         """
         Initialize an EventListener instance.
         EventListener creates and listens to a websocket connection to the server.
@@ -55,11 +57,10 @@ class EventListener:
         self._ws_close: Coroutine | None = None
         self._ws_close_event: asyncio.Event | None = None
         self._ws_connected_event: threading.Event | None = None
-        self._synchronizing = False
 
         self._listening = False
         self._connected = False
-        self._auth_data = None
+        self._client_library = client_library
         self._queue: asyncio.Queue | None = None
         self._ws_url: str | None = None
         self._ssl_context: ssl.SSLContext | None = None
@@ -67,7 +68,34 @@ class EventListener:
         self._event_handler = EventHandler(client_library)
         self._init_ws_connection_data(client_library)
 
-    def __bool__(self):
+    def _ws_connect_headers(self) -> dict[str, str]:
+        """Build WebSocket handshake headers for the upgrade request.
+
+        Mirrors the REST API by sending Authorization on the upgrade request.
+        The controller still authenticates /ws/ui from the first JSON message
+        (see _ws_auth_message); the header is not sufficient on its own today
+        and does not remove the token from that message stream.
+
+        :returns: Headers to pass to aiohttp ws_connect.
+        """
+        token = self._client_library._session.auth.token
+        return {"Authorization": f"Bearer {token}"}
+
+    def _ws_auth_message(self) -> dict[str, str]:
+        """Build the first JSON auth payload expected by the controller.
+
+        :returns: Auth message with token and client UUID.
+        """
+        return {
+            "token": self._client_library._session.auth.token,
+            "client_uuid": self._client_library.uuid,
+        }
+
+    def __bool__(self) -> bool:
+        """Report whether the listener is currently active.
+
+        :returns: True if actively listening, else False.
+        """
         return self._listening
 
     def _init_ws_connection_data(self, client_library: ClientLibrary) -> None:
@@ -78,13 +106,20 @@ class EventListener:
         """
         ssl_verify = client_library._ssl_verify
         # Create an SSL context based on the 'verify' str/bool,
-        # since that is what aiohttp asks for
+        # since that is what aiohttp asks for.
         if ssl_verify is False:
             # Caller set ssl_verify=False (lab/dev); TLS verification is intentionally off.
             ssl_context = ssl.create_default_context()  # NOSONAR
             ssl_context.check_hostname = False  # NOSONAR
             ssl_context.verify_mode = ssl.CERT_NONE  # NOSONAR
-        elif isinstance(ssl_verify, str) and Path(ssl_verify).is_file():
+        elif isinstance(ssl_verify, str):
+            if not Path(ssl_verify).is_file():
+                # Raise explicitly rather than silently falling back to the
+                # default trust store: a configured cert path that can't be
+                # read is almost always a deployment error.
+                raise FileNotFoundError(
+                    f"ssl_verify path is not a readable file: {ssl_verify!r}"
+                )
             # Custom CA bundle; hostname check remains enabled (create_default_context).
             ssl_context = ssl.create_default_context()  # NOSONAR
             ssl_context.load_verify_locations(ssl_verify)
@@ -92,18 +127,15 @@ class EventListener:
             ssl_context = None
         self._ssl_context = ssl_context
 
-        # Take the base URL and modify it into the WS url,
-        # without string manipulation because we are civilized people
+        # Take the base URL and modify it into the WS url. Map http->ws and
+        # https->wss so allow_http=True deployments also get a working event
+        # listener; previously this was hardcoded to wss://.
         url_pieces = urlparse(client_library.url)
-        ws_url_pieces = url_pieces._replace(scheme="wss", path="ws/ui")
+        ws_scheme = "ws" if url_pieces.scheme == "http" else "wss"
+        ws_url_pieces = url_pieces._replace(scheme=ws_scheme, path="ws/ui")
         self._ws_url = str(ws_url_pieces.geturl())
 
-        self._auth_data = {
-            "token": client_library._session.auth.token,
-            "client_uuid": client_library.uuid,
-        }
-
-    def start_listening(self):
+    def start_listening(self) -> None:
         """Start listening for events."""
         if self._listening:
             return
@@ -116,7 +148,7 @@ class EventListener:
         )
         self._thread.start()
 
-    def stop_listening(self):
+    def stop_listening(self) -> None:
         """Stop listening for events."""
         if not self._listening:
             return
@@ -130,7 +162,11 @@ class EventListener:
         self._ws_connected_event = None
         self._listening = False
 
-    async def _listen(self):
+    async def _listen(self) -> list[None]:
+        """Run websocket client and parser tasks.
+
+        :returns: Gathered task results.
+        """
         _LOGGER.info("Starting listening")
         self._queue = asyncio.Queue()
         self._ws_close_event = asyncio.Event()
@@ -144,30 +180,67 @@ class EventListener:
         _LOGGER.info("Listening over")
         return result
 
-    async def _parse(self):
+    async def _parse(self) -> None:
+        """Parse queue messages into events and dispatch them."""
         close_wait = asyncio.create_task(self._ws_close_event.wait())
-        while True:
-            queue_get = asyncio.create_task(self._queue.get())
-            await asyncio.wait(
-                {queue_get, asyncio.shield(close_wait)},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            if close_wait.done():
-                _LOGGER.info("Closing connection")
-                if self._ws_close is not None:
-                    await self._ws_close
-                return
-            event = Event(json.loads(queue_get.result()))
-            self._event_handler.handle_event(event)
-            self._queue.task_done()
+        # Wrap close_wait in a single shield so asyncio.wait() doesn't cancel
+        # the underlying task when the queue task completes first.
+        close_sentinel = asyncio.shield(close_wait)
+        try:
+            while True:
+                queue_get = asyncio.create_task(self._queue.get())
+                await asyncio.wait(
+                    {queue_get, close_sentinel},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if close_wait.done():
+                    _LOGGER.info("Closing connection")
+                    # Cancel and drain the pending queue_get so asyncio
+                    # doesn't emit "Task was destroyed but it is pending"
+                    # warnings at shutdown.
+                    if not queue_get.done():
+                        queue_get.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await queue_get
+                    if self._ws_close is not None:
+                        with contextlib.suppress(
+                            asyncio.CancelledError, OSError, aiohttp.ClientError
+                        ):
+                            await self._ws_close
+                    return
+                event = Event(json.loads(self._message_text(queue_get.result())))
+                self._event_handler.handle_event(event)
+                self._queue.task_done()
+        finally:
+            if not close_wait.done():
+                close_wait.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await close_wait
 
-    async def _ws_client(self):
+    @staticmethod
+    def _message_text(payload: str | bytes) -> str:
+        """Normalize websocket frame data to text for JSON parsing.
+
+        :param payload: Raw frame data from aiohttp.
+        :returns: UTF-8 text payload.
+        """
+        if isinstance(payload, bytes):
+            return payload.decode()
+        return payload
+
+    async def _ws_client(self) -> None:
+        """Run websocket client loop and enqueue received messages."""
         try:
             async with (
                 aiohttp.ClientSession() as session,
-                session.ws_connect(self._ws_url, ssl=self._ssl_context) as ws,
+                session.ws_connect(
+                    self._ws_url,
+                    ssl=self._ssl_context,
+                    headers=self._ws_connect_headers(),
+                    heartbeat=30,
+                ) as ws,
             ):
-                await ws.send_json(self._auth_data)
+                await ws.send_json(self._ws_auth_message())
                 self._connected = True
                 _LOGGER.info("Connected successfully")
                 self._ws_close = ws.close()
@@ -177,9 +250,15 @@ class EventListener:
         except aiohttp.ClientError:
             _LOGGER.exception("Connection closed unexpectedly")
         finally:
-            if self._ws_close is not None:
-                self._ws_close.close()
-                self._ws_close = None
+            # ws.close() returns a coroutine. Clear our reference BEFORE
+            # cancelling it so _parse() cannot observe a half-closed coroutine
+            # and await it (which would raise). Any awaiter reading
+            # self._ws_close while holding the previous reference is fine:
+            # after the async with block exited, the websocket is already closed.
+            pending_close = self._ws_close
+            self._ws_close = None
+            if pending_close is not None:
+                pending_close.close()
             self._ws_close_event.set()
             self._ws_connected_event.set()
             self._connected = False

@@ -45,7 +45,7 @@ def test_smart_annotation_prop_setters() -> None:
         "tag_size": 20,
         "group_distance": 500,
         "thickness": 3,
-        "border_style": "2,2",
+        "border_style": "dotted",
         "fill_color": "#33333333",
         "border_color": "#44444444",
         "z_index": 9,

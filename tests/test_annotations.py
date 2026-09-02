@@ -33,6 +33,7 @@ from virl2_client.models.annotation import (
     AnnotationRectangle,
     AnnotationText,
 )
+from virl2_client.utils import Version
 
 
 @pytest.mark.parametrize(
@@ -74,10 +75,11 @@ def test_annotation_subclass_setters(
     :param extra_updates: Subclass-specific properties to set and assert.
     """
     lab = make_lab()
+    lab._session.controller_version = Version("2.11.0")
     annotation = cls(lab, "a1")
     base_updates = {
         "border_color": "#11111111",
-        "border_style": "2,2",
+        "border_style": "dotted",
         "color": "#22222222",
         "thickness": 2,
         "x1": 3,
@@ -85,15 +87,31 @@ def test_annotation_subclass_setters(
         "z_index": 7,
     }
 
+    dotted_updates = {**base_updates, "border_style": "dotted"}
+
     with patch.object(annotation, "_set_annotation_property", return_value=None):
-        for key, value in base_updates.items():
+        for key, value in dotted_updates.items():
             setattr(annotation, key, value)
         for key, value in extra_updates.items():
             setattr(annotation, key, value)
             assert getattr(annotation, key) == value
 
-    for key, value in base_updates.items():
+    for key, value in dotted_updates.items():
         assert getattr(annotation, key) == value
+
+    with patch.object(
+        annotation, "_set_annotation_property", return_value=None
+    ) as setter:
+        lab._session.controller_version = Version("2.10.0")
+        annotation.border_style = "dotted"
+        setter.assert_called_with("border_style", "2,2")
+
+    with patch.object(
+        annotation, "_set_annotation_property", return_value=None
+    ) as setter:
+        lab._session.controller_version = Version("2.11.0")
+        annotation.border_style = "dotted"
+        setter.assert_called_with("border_style", "dotted")
 
 
 def test_annotation_set_props_patches() -> None:

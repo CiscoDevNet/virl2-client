@@ -26,6 +26,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 from ..exceptions import InvalidProperty
 from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
+from .border_style import (
+    BorderStyle,
+    border_style_for_api,
+    border_style_from_api,
+)
 
 if TYPE_CHECKING:
     import httpx
@@ -90,7 +95,7 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
         "text": TRANSPARENT,
     },
     "border_radius": 0,
-    "border_style": "",
+    "border_style": "solid",
     "color": {
         "rectangle": WHITE,
         "ellipse": WHITE,
@@ -232,7 +237,7 @@ class Annotation:
         # set properties required by all annotations
         # values set to 'None' have type-specific default values
         self._border_color = None
-        self._border_style = ""
+        self._border_style = "solid"
         self._color = None
         self._thickness = 1
         self._type = annotation_type
@@ -319,7 +324,7 @@ class Annotation:
 
     @property
     def border_style(self) -> str:
-        """Border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed).
+        """Border style; valid values: solid, dotted, dashed.
 
         :returns: The border style string.
         """
@@ -329,12 +334,14 @@ class Annotation:
     @border_style.setter
     @locked
     def border_style(self, value: str) -> None:
-        """Set border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed).
+        """Set border style (solid, dotted, dashed).
 
         :param value: The border style string to set.
         """
-        self._set_annotation_property("border_style", value)
-        self._border_style = value
+        canonical = BorderStyle(value).value
+        wire = border_style_for_api(canonical, self._session.controller_version)
+        self._set_annotation_property("border_style", wire)
+        self._border_style = canonical
 
     @property
     def color(self) -> str:
@@ -547,13 +554,24 @@ class Annotation:
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:
-            self._set_annotation_properties(annotation_data)
+            wire_data = dict(annotation_data)
+            if "border_style" in wire_data:
+                wire_data["border_style"] = border_style_for_api(
+                    wire_data["border_style"],
+                    self._session.controller_version,
+                )
+            self._set_annotation_properties(wire_data)
 
         # update locally
-        for key, value in annotation_data.items():
+        for key, raw_value in annotation_data.items():
             if key == "id":
                 continue
-            setattr(self, f"_{key}", value)
+            local_value = (
+                border_style_from_api(raw_value, self._session.controller_version)
+                if key == "border_style"
+                else raw_value
+            )
+            setattr(self, f"_{key}", local_value)
 
     def _set_annotation_property(self, key: str, val: Any) -> None:
         """

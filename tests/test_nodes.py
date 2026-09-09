@@ -28,12 +28,14 @@ import pytest
 from tests.helpers import make_lab
 from virl2_client.exceptions import (
     AnnotationNotFound,
+    FeatureNotSupported,
     InterfaceNotFound,
     LinkNotFound,
     NodeNotFound,
     SmartAnnotationNotFound,
 )
 from virl2_client.models import Lab, Node
+from virl2_client.virl2_client import Version
 
 
 def _make_lab_and_node() -> tuple[Lab, Node]:
@@ -390,6 +392,54 @@ def test_node_pyats_commands() -> None:
     ):
         assert node.run_pyats_command("show version") == "ok"
         assert node.run_pyats_config_command("interface gi0") == "ok2"
+
+
+def test_node_run_cli_command_posts_expected_payload() -> None:
+    """run_cli_command POSTs command/config_command/serial_port/timeout."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "show version output"
+
+    result = node.run_cli_command(
+        "show version", config_command=False, serial_port=1, timeout=30
+    )
+
+    assert result == "show version output"
+    node._session.post.assert_called_once()
+    call = node._session.post.call_args
+    assert call.args[0] == node._url_for("cli")
+    payload = call.kwargs["json"]
+    assert payload == {
+        "command": "show version",
+        "config_command": False,
+        "serial_port": 1,
+        "timeout": 30,
+    }
+
+
+def test_node_run_cli_command_omits_timeout_when_unset() -> None:
+    """run_cli_command omits the timeout key when not provided."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "ok"
+
+    node.run_cli_command("interface gi0", config_command=True)
+
+    payload = node._session.post.call_args.kwargs["json"]
+    assert payload == {
+        "command": "interface gi0",
+        "config_command": True,
+        "serial_port": 0,
+    }
+
+
+def test_node_run_cli_command_requires_2_11() -> None:
+    """run_cli_command raises FeatureNotSupported on older controllers."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.10.0")
+
+    with pytest.raises(FeatureNotSupported):
+        node.run_cli_command("show version")
 
 
 def test_node_sync_l3_addresses() -> None:

@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -106,6 +107,29 @@ def test_cl_pyats_not_installed() -> None:
         pytest.raises(PyatsNotInstalled),
     ):
         pyats._check_pyats_installed()
+
+
+def test_cl_pyats_not_installed_message() -> None:
+    """PyatsNotInstalled carries an actionable message."""
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", None),
+        pytest.raises(PyatsNotInstalled) as exc_info,
+    ):
+        pyats._check_pyats_installed()
+    assert "pip install pyats unicon" in str(exc_info.value)
+    assert "run_cli_command" in str(exc_info.value)
+
+
+def test_cl_pyats_deprecation_warning_fires_once_per_instance() -> None:
+    """_check_pyats_installed warns only on the first call per ClPyats instance."""
+    pyats = ClPyats(MagicMock())
+    with patch("virl2_client.models.cl_pyats._PyatsTFLoader", MagicMock()):
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            pyats._check_pyats_installed()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            pyats._check_pyats_installed()
 
 
 def test_cl_pyats_load_testbed() -> None:

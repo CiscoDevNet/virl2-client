@@ -17,12 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Deprecated pyATS/Unicon integration for running commands on lab devices.
+
+.. deprecated::
+    This module is deprecated and will be removed in a future release.
+    ``pyats`` is no longer a dependency of ``virl2_client`` (optional or
+    otherwise) -- it must be installed separately for this module to be
+    functional. New code should use
+    :meth:`~virl2_client.models.node.Node.run_cli_command` instead, which
+    requires CML server >= 2.11.0 and runs commands server-side via Unicon
+    without needing pyATS/Unicon installed locally.
+"""
 
 from __future__ import annotations
 
 import io
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -62,11 +74,28 @@ DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
 
 
 class ClPyats:
+    """PyATS/Unicon integration for running commands against lab devices.
+
+    .. deprecated::
+        This module and class are deprecated and will be removed in a
+        future release. ``pyats`` is no longer a dependency (optional or
+        otherwise) of ``virl2_client`` -- install it separately in your
+        own environment if you still need this functionality. New code
+        should use :meth:`~virl2_client.models.node.Node.run_cli_command`
+        instead, which requires CML server >= 2.11.0 and runs commands
+        server-side via Unicon without needing pyATS/Unicon installed
+        locally.
+    """
+
     def __init__(self, lab: Lab, hostname: str | None = None) -> None:
         """
         Create a pyATS object that can be used to run commands
         against a device either in exec mode show version or in
         configuration mode interface gi0/0 \\n no shut.
+
+        .. deprecated::
+            Use :meth:`Node.run_cli_command` instead (requires CML server
+            >= 2.11.0).
 
         :param lab: The lab object to be used with pyATS.
         :param hostname: Forced hostname or IP address and port of the console
@@ -76,6 +105,7 @@ class ClPyats:
         self._hostname = hostname
         self._testbed: Testbed | None = None
         self._connections: set[Device] = set()
+        self._deprecation_warned = False
 
     @property
     def hostname(self) -> str | None:
@@ -99,10 +129,34 @@ class ClPyats:
         """
         Check if pyATS is installed and raise an exception if not.
 
+        Also emits a DeprecationWarning (once per :class:`ClPyats` instance):
+        pyATS support is deprecated and pyats is no longer a virl2_client
+        dependency (optional or otherwise); use Node.run_cli_command()
+        instead.
+
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
+        if not self._deprecation_warned:
+            self._deprecation_warned = True
+            warnings.warn(
+                "pyATS/Unicon integration (ClPyats, Lab.pyats, "
+                "Node.run_pyats_command/run_pyats_config_command) is "
+                "deprecated and will be removed in a future release. pyats "
+                "is no longer bundled as a virl2_client dependency and must "
+                "be installed separately. Use Node.run_cli_command() "
+                "instead (requires CML server >= 2.11.0).",
+                DeprecationWarning,
+                stacklevel=3,
+            )
         if _PyatsTFLoader is None:
-            raise PyatsNotInstalled
+            raise PyatsNotInstalled(
+                "pyATS is not installed. pyats is no longer bundled as a "
+                "virl2_client dependency; install it separately "
+                "(e.g. `pip install pyats unicon`) if you still need this "
+                "functionality, or switch to Node.run_cli_command() instead "
+                "(requires CML server >= 2.11.0 and needs no local pyATS "
+                "install)."
+            )
 
     def _load_pyats_testbed(self, testbed_yaml: str) -> Testbed:
         """

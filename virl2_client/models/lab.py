@@ -24,6 +24,8 @@ import contextlib
 import json
 import logging
 import time
+import warnings
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from httpx import HTTPStatusError
@@ -2346,9 +2348,22 @@ class Lab:
 
             aetest.main(testbed=testbed)
 
+        .. deprecated::
+            pyATS support is deprecated and will be removed in a future
+            release. Use :meth:`Node.run_cli_command` instead, which
+            requires CML server >= 2.11.0 and runs commands server-side via
+            Unicon without needing pyATS/Unicon installed locally.
+
         :param hostname: Force hostname/ip and port for console terminal server.
         :returns: The pyATS testbed for the lab in YAML format.
         """
+        warnings.warn(
+            "Lab.get_pyats_testbed() is deprecated and will be removed in a "
+            "future release; use Node.run_cli_command() instead (requires "
+            "CML server >= 2.11.0).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         url = self._url_for("pyats_testbed")
         params = {}
         if hostname is not None:
@@ -2368,6 +2383,14 @@ class Lab:
         a new token per SSH session and lets token-only clients use
         pyATS.  Using a JWT requires a CML 2.11.0 (or newer) controller
         that accepts JWTs as SSH passwords.
+
+        .. deprecated::
+            pyATS support is deprecated and will be removed in a future
+            release. Use :meth:`Node.run_cli_command` instead, which
+            requires CML server >= 2.11.0 and does not need pyATS/Unicon
+            installed locally. Emits a DeprecationWarning (once per
+            :class:`Lab`) via the underlying
+            :class:`~.cl_pyats.ClPyats` integration.
         """
         password = self.password or self._session.auth.token
         self.pyats.sync_testbed(self.username, password)
@@ -2376,7 +2399,16 @@ class Lab:
         """
         Close and clean up connection that pyATS might still hold.
 
+        .. deprecated::
+            pyATS support is deprecated and will be removed in a future
+            release.
         """
+        warnings.warn(
+            "Lab.cleanup_pyats_connections() is deprecated and will be "
+            "removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.pyats.cleanup()
 
     @check_stale

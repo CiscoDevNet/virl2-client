@@ -64,6 +64,7 @@ class Node:
         "console_log_lines": "{lab}/nodes/{id}/consoles/{console_id}/log?lines={lines}",
         "console_key": "{lab}/nodes/{id}/keys/console",
         "vnc_key": "{lab}/nodes/{id}/keys/vnc",
+        "cli": "{lab}/nodes/{id}/cli",
         "layer3_addresses": "{lab}/nodes/{id}/layer3_addresses",
         "operational": "{lab}/nodes/{id}?operational=true&exclude_configurations=true",
         "interface_operational": "{lab}/nodes/{id}/interfaces?data=true&operational=true",
@@ -1185,8 +1186,53 @@ class Node:
         self._set_node_property("tags", current)
         self._tags = current
 
+    @check_stale
+    @_requires_version("2.11.0")
+    def run_cli_command(
+        self,
+        command: str,
+        config_command: bool = False,
+        serial_port: int = 0,
+        timeout: int | None = None,
+    ) -> str:
+        """Run an exec or config-mode CLI command on the node.
+
+        The command is executed server-side via Unicon (pyATS) against the
+        node's serial console and does not require any local pyATS/Unicon
+        installation on the client.
+
+        Requires CML server >= 2.11.0.
+
+        :param command: The CLI command to run on the node
+            (e.g. "show version" or "interface gi0/0\\nno shut").
+        :param config_command: When True, run the command in configuration
+            mode (do not include "configure terminal" or "end"). When False
+            (the default), run in exec/operational mode.
+        :param serial_port: The serial console line/port to use. Defaults
+            to 0 (the first serial console).
+        :param timeout: Maximum time in seconds to wait for the command to
+            finish. Uses the server default when omitted.
+        :returns: The command output text.
+        """
+        url = self._url_for("cli")
+        data: dict[str, str | int | bool] = {
+            "command": command,
+            "config_command": config_command,
+            "serial_port": serial_port,
+        }
+        if timeout is not None:
+            data["timeout"] = timeout
+        return self._session.post(url, json=data).json()
+
     def run_pyats_command(self, command: str, **pyats_params: Any) -> str:
         """Run a pyATS command in exec mode on the node.
+
+        .. deprecated::
+            pyATS support is deprecated and will be removed in a future
+            release. Use :meth:`run_cli_command` instead, which requires
+            CML server >= 2.11.0 and does not need pyATS/Unicon installed
+            locally. Emits a DeprecationWarning (once per :class:`Lab`)
+            via the underlying :class:`~.cl_pyats.ClPyats` integration.
 
         :param command: The command to run (e.g. "show version").
         :param pyats_params: Custom command dialog parameters for PyATS.
@@ -1197,6 +1243,14 @@ class Node:
 
     def run_pyats_config_command(self, command: str, **pyats_params: Any) -> str:
         """Run a pyATS command in config mode on the node.
+
+        .. deprecated::
+            pyATS support is deprecated and will be removed in a future
+            release. Use :meth:`run_cli_command` with ``config_command=True``
+            instead, which requires CML server >= 2.11.0 and does not need
+            pyATS/Unicon installed locally. Emits a DeprecationWarning (once
+            per :class:`Lab`) via the underlying
+            :class:`~.cl_pyats.ClPyats` integration.
 
         :param command: The command to run (e.g. "interface gi0").
         :param pyats_params: Custom command dialog parameters for PyATS.

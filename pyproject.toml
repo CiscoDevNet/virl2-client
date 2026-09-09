@@ -34,11 +34,6 @@ httpx = "^0.28.1"
 # optional package for events
 aiohttp = {version = "^3", optional = true}
 
-# optional pyATS package
-# (this pulls in a lot more dependencies)
-# it does not pull in genie, need to specify extras=["full"] for pyATS.
-pyats = {version = "^26", optional = true}
-
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
 # version 8.2 is available but requires python>=3.11
@@ -55,7 +50,6 @@ respx = "^0.23.1"
 
 [tool.poetry.extras]
 events = ["aiohttp"]
-pyats = ["pyats"]
 docs = ["sphinx", "sphinx_rtd_theme"]
 
 [tool.poetry.requires-plugins]

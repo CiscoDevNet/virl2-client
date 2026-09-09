@@ -17,12 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Deprecated pyATS/Unicon integration for running commands on lab devices.
+
+.. deprecated::
+    This module is deprecated and will be removed in a future release.
+    ``pyats`` is no longer a dependency of ``virl2_client`` (optional or
+    otherwise) -- it must be installed separately for this module to be
+    functional. New code should use
+    :meth:`~virl2_client.models.node.Node.run_cli_command` instead, which
+    requires CML server >= 2.11.0 and runs commands server-side via Unicon
+    without needing pyATS/Unicon installed locally.
+"""
 
 from __future__ import annotations
 
 import io
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -42,6 +54,7 @@ else:
 
 
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
+from ..utils import Version
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -60,13 +73,77 @@ _LOGGER = logging.getLogger(__name__)
 # to use ssh keys, set the specific key path or set empty ssh_options
 DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
 
+# CML 2.11.0 introduced POST /labs/{lab_id}/nodes/{node_id}/cli. Frozen for the
+# pyATS deprecation stack — not advanced for later releases (2.12, 2.13, …).
+# Any connected controller >= this version delegates to the server-side CLI API.
+SERVER_CLI_API_MIN_VERSION = Version("2.11.0")
+SERVER_CLI_API_MIN_VERSION_STR = "2.11.0"
+
+_PYATS_DEPRECATION_MESSAGE = (
+    "pyATS/Unicon integration (ClPyats, Lab.pyats, "
+    "Node.run_pyats_command/run_pyats_config_command) is "
+    "deprecated and will be removed in a future release. pyats "
+    "is no longer bundled as a virl2_client dependency and must "
+    "be installed separately if you still need this functionality."
+)
+
+_RUN_PYATS_USE_CLI_MESSAGE = (
+    "Node.run_pyats_command() and Node.run_pyats_config_command() are "
+    "deprecated; use Node.run_cli_command() instead."
+)
+
+
+def warn_pyats_deprecated(cl_pyats: ClPyats, stacklevel: int = 2) -> None:
+    """Emit a DeprecationWarning once per :class:`ClPyats` instance (per lab)."""
+    if cl_pyats._deprecation_warned:
+        return
+    cl_pyats._deprecation_warned = True
+    warnings.warn(
+        _PYATS_DEPRECATION_MESSAGE,
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
+
+def warn_run_pyats_use_cli(cl_pyats: ClPyats, stacklevel: int = 2) -> None:
+    """Advise :meth:`~virl2_client.models.node.Node.run_cli_command` on CML >= 2.11.
+
+    Emitted once per :class:`ClPyats` instance when the deprecated node helpers
+    are used against a controller that exposes the server-side CLI API.
+    """
+    if cl_pyats._run_pyats_cli_warned:
+        return
+    cl_pyats._run_pyats_cli_warned = True
+    warnings.warn(
+        _RUN_PYATS_USE_CLI_MESSAGE,
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
 
 class ClPyats:
+    """PyATS/Unicon integration for running commands against lab devices.
+
+    .. deprecated::
+        This module and class are deprecated and will be removed in a
+        future release. ``pyats`` is no longer a dependency (optional or
+        otherwise) of ``virl2_client`` -- install it separately in your
+        own environment if you still need this functionality. New code
+        should use :meth:`~virl2_client.models.node.Node.run_cli_command`
+        instead, which requires CML server >= 2.11.0 and runs commands
+        server-side via Unicon without needing pyATS/Unicon installed
+        locally.
+    """
+
     def __init__(self, lab: Lab, hostname: str | None = None) -> None:
         """
         Create a pyATS object that can be used to run commands
         against a device either in exec mode show version or in
         configuration mode interface gi0/0 \\n no shut.
+
+        .. deprecated::
+            Use :meth:`Node.run_cli_command` instead (requires CML server
+            >= 2.11.0).
 
         :param lab: The lab object to be used with pyATS.
         :param hostname: Forced hostname or IP address and port of the console
@@ -76,6 +153,9 @@ class ClPyats:
         self._hostname = hostname
         self._testbed: Testbed | None = None
         self._connections: set[Device] = set()
+        self._deprecation_warned = False
+        self._run_pyats_cli_warned = False
+        self._serial_ports: dict[str, int] = {}
 
     @property
     def hostname(self) -> str | None:
@@ -95,6 +175,10 @@ class ClPyats:
         """
         self._hostname = hostname
 
+    def serial_port_for(self, node_label: str) -> int:
+        """Return the serial console index selected for *node_label* (default 0)."""
+        return self._serial_ports.get(node_label, 0)
+
     def _check_pyats_installed(self) -> None:
         """
         Check if pyATS is installed and raise an exception if not.
@@ -102,7 +186,14 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
         if _PyatsTFLoader is None:
-            raise PyatsNotInstalled
+            raise PyatsNotInstalled(
+                "pyATS is not installed. pyats is no longer bundled as a "
+                "virl2_client dependency; install it separately "
+                "(e.g. `pip install pyats unicon`) if you still need this "
+                "functionality, or switch to Node.run_cli_command() instead "
+                "(requires CML server >= 2.11.0 and needs no local pyATS "
+                "install)."
+            )
 
     def _load_pyats_testbed(self, testbed_yaml: str) -> Testbed:
         """
@@ -153,19 +244,31 @@ class ClPyats:
         should be executed after sync_testbed
         and re-executed after every sync_testbed call.
 
+        On CML 2.11.0+ controllers the selection is recorded for
+        :meth:`~virl2_client.models.node.Node.run_cli_command` delegation from
+        the deprecated pyATS node helpers; no local pyATS testbed is required.
+
         :param node_label: The label/title of the device.
         :param console_number: The serial console number to be used for PyAts.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
-        self._check_pyats_installed()
-        try:
-            pyats_device: Device = self._testbed.devices[node_label]
-        except KeyError:
-            raise PyatsDeviceNotFound(node_label) from None
+        self._serial_ports[node_label] = int(console_number)
+        if self._lab._session.controller_version < SERVER_CLI_API_MIN_VERSION:
+            warn_pyats_deprecated(self, stacklevel=2)
+            self._check_pyats_installed()
+            if self._testbed is None:
+                raise RuntimeError("pyATS testbed is not initialized")
 
-        command = pyats_device.connections["a"]["command"]
-        pyats_device.connections["a"]["command"] = command[:-1] + str(console_number)
+            try:
+                pyats_device: Device = self._testbed.devices[node_label]
+            except KeyError:
+                raise PyatsDeviceNotFound(node_label) from None
+
+            command = pyats_device.connections["a"]["command"]
+            pyats_device.connections["a"]["command"] = command[:-1] + str(
+                console_number
+            )
 
     def set_termserv_credentials(
         self,
@@ -348,6 +451,7 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
+        warn_pyats_deprecated(self, stacklevel=2)
         return self._execute_command(
             node_label,
             command,
@@ -382,6 +486,7 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
+        warn_pyats_deprecated(self, stacklevel=2)
         return self._execute_command(
             node_label,
             command,

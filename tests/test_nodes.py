@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import warnings
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,12 +29,14 @@ import pytest
 from tests.helpers import make_lab
 from virl2_client.exceptions import (
     AnnotationNotFound,
+    FeatureNotSupported,
     InterfaceNotFound,
     LinkNotFound,
     NodeNotFound,
     SmartAnnotationNotFound,
 )
 from virl2_client.models import Lab, Node
+from virl2_client.virl2_client import Version
 
 
 def _make_lab_and_node() -> tuple[Lab, Node]:
@@ -379,17 +382,165 @@ def test_node_remove_tag_on_server() -> None:
 
 
 def test_node_pyats_commands() -> None:
-    """run_pyats_command, run_pyats_config_command.
+    """run_pyats_command, run_pyats_config_command fall back on older controllers.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.10.0")
     with (
-        patch.object(lab.pyats, "run_command", return_value="ok"),
-        patch.object(lab.pyats, "run_config_command", return_value="ok2"),
+        patch.object(lab.pyats, "_execute_command", return_value="ok"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
     ):
         assert node.run_pyats_command("show version") == "ok"
+    with (
+        patch.object(lab.pyats, "_execute_command", return_value="ok2"),
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("ignore", DeprecationWarning)
         assert node.run_pyats_config_command("interface gi0") == "ok2"
+
+
+def test_node_run_pyats_emits_cli_migration_warning_on_2_11() -> None:
+    """On CML 2.11+, delegated run_pyats_command warns to use run_cli_command."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "ok"
+
+    with pytest.warns(DeprecationWarning, match="use Node.run_cli_command()"):
+        node.run_pyats_command("show version")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        node.run_pyats_command("show ip int brief")
+
+
+def test_node_run_pyats_no_cli_migration_warning_on_2_10() -> None:
+    """On CML 2.10, only the general pyATS deprecation is emitted."""
+    lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.10.0")
+    with (
+        patch.object(lab.pyats, "_execute_command", return_value="ok"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration") as record,
+    ):
+        node.run_pyats_command("show version")
+    assert all("run_cli_command" not in str(w.message) for w in record)
+
+
+def test_node_run_pyats_command_delegates_to_cli_on_2_11() -> None:
+    """run_pyats_command delegates to run_cli_command on CML 2.11+."""
+    lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "show version output"
+
+    with (
+        patch.object(lab.pyats, "run_command") as run_command,
+        pytest.warns(DeprecationWarning, match="use Node.run_cli_command()"),
+    ):
+        result = node.run_pyats_command("show version")
+
+    assert result == "show version output"
+    run_command.assert_not_called()
+    node._session.post.assert_called_once()
+    assert node._session.post.call_args.kwargs["json"] == {
+        "command": "show version",
+        "config_command": False,
+        "serial_port": 0,
+    }
+
+
+def test_node_run_pyats_config_command_delegates_to_cli_on_2_11() -> None:
+    """run_pyats_config_command delegates with config_command=True on CML 2.11+."""
+    lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "configured"
+
+    with (
+        patch.object(lab.pyats, "run_config_command") as run_config_command,
+        pytest.warns(DeprecationWarning, match="use Node.run_cli_command()"),
+    ):
+        result = node.run_pyats_config_command("interface gi0")
+
+    assert result == "configured"
+    run_config_command.assert_not_called()
+    assert node._session.post.call_args.kwargs["json"]["config_command"] is True
+
+
+def test_node_run_pyats_command_uses_selected_serial_port_on_2_11() -> None:
+    """Delegated pyATS helpers honour switch_serial_console selection."""
+    lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "ok"
+    lab.pyats.switch_serial_console(node.label, 1)
+    with pytest.warns(DeprecationWarning, match="use Node.run_cli_command()"):
+        node.run_pyats_command("show version")
+
+    assert node._session.post.call_args.kwargs["json"]["serial_port"] == 1
+
+
+def test_node_run_pyats_command_falls_back_when_pyats_params_given() -> None:
+    """Custom pyats_params force the legacy local pyATS path even on 2.11+."""
+    lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    with (
+        patch.object(lab.pyats, "_execute_command", return_value="legacy") as execute,
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
+    ):
+        result = node.run_pyats_command("show version", timeout=30)
+
+    assert result == "legacy"
+    execute.assert_called_once()
+    assert execute.call_args.args[1] == "show version"
+    assert execute.call_args.kwargs["timeout"] == 30
+    node._session.post.assert_not_called()
+
+
+def test_node_run_cli_command_posts_expected_payload() -> None:
+    """run_cli_command POSTs command/config_command/serial_port/timeout."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "show version output"
+
+    result = node.run_cli_command(
+        "show version", config_command=False, serial_port=1, timeout=30
+    )
+
+    assert result == "show version output"
+    node._session.post.assert_called_once()
+    call = node._session.post.call_args
+    assert call.args[0] == node._url_for("cli")
+    payload = call.kwargs["json"]
+    assert payload == {
+        "command": "show version",
+        "config_command": False,
+        "serial_port": 1,
+        "timeout": 30,
+    }
+
+
+def test_node_run_cli_command_omits_timeout_when_unset() -> None:
+    """run_cli_command omits the timeout key when not provided."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.11.0")
+    node._session.post.return_value.json.return_value = "ok"
+
+    node.run_cli_command("interface gi0", config_command=True)
+
+    payload = node._session.post.call_args.kwargs["json"]
+    assert payload == {
+        "command": "interface gi0",
+        "config_command": True,
+        "serial_port": 0,
+    }
+
+
+def test_node_run_cli_command_requires_2_11() -> None:
+    """run_cli_command raises FeatureNotSupported on older controllers."""
+    _lab, node = _make_lab_and_node()
+    node._session.controller_version = Version("2.10.0")
+
+    with pytest.raises(FeatureNotSupported):
+        node.run_cli_command("show version")
 
 
 def test_node_sync_l3_addresses() -> None:

@@ -24,7 +24,6 @@ import contextlib
 import json
 import logging
 import time
-import warnings
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -51,7 +50,7 @@ from .annotation import (
     AnnotationRectangle,
     AnnotationText,
 )
-from .cl_pyats import ClPyats
+from .cl_pyats import ClPyats, warn_pyats_deprecated
 from .interface import Interface
 from .link import Link
 from .node import Node
@@ -2357,13 +2356,7 @@ class Lab:
         :param hostname: Force hostname/ip and port for console terminal server.
         :returns: The pyATS testbed for the lab in YAML format.
         """
-        warnings.warn(
-            "Lab.get_pyats_testbed() is deprecated and will be removed in a "
-            "future release; use Node.run_cli_command() instead (requires "
-            "CML server >= 2.11.0).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        warn_pyats_deprecated(self.pyats, stacklevel=2)
         url = self._url_for("pyats_testbed")
         params = {}
         if hostname is not None:
@@ -2386,12 +2379,9 @@ class Lab:
 
         .. deprecated::
             pyATS support is deprecated and will be removed in a future
-            release. Use :meth:`Node.run_cli_command` instead, which
-            requires CML server >= 2.11.0 and does not need pyATS/Unicon
-            installed locally. Emits a DeprecationWarning (once per
-            :class:`Lab`) via the underlying
-            :class:`~.cl_pyats.ClPyats` integration.
+            release.
         """
+        warn_pyats_deprecated(self.pyats, stacklevel=2)
         password = self.password or self._session.auth.token
         self.pyats.sync_testbed(self.username, password)
 
@@ -2403,12 +2393,7 @@ class Lab:
             pyATS support is deprecated and will be removed in a future
             release.
         """
-        warnings.warn(
-            "Lab.cleanup_pyats_connections() is deprecated and will be "
-            "removed in a future release.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        warn_pyats_deprecated(self.pyats, stacklevel=2)
         self.pyats.cleanup()
 
     @check_stale

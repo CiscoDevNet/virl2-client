@@ -37,6 +37,7 @@ from virl2_client.models.cl_pyats import (
     _analyze_execute_failure,
     _remove_unicon_loggers,
 )
+from virl2_client.virl2_client import Version
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -122,14 +123,25 @@ def test_cl_pyats_not_installed_message() -> None:
 
 
 def test_cl_pyats_deprecation_warning_fires_once_per_instance() -> None:
-    """_check_pyats_installed warns only on the first call per ClPyats instance."""
+    """Deprecated pyATS APIs warn only on first use per ClPyats instance."""
     pyats = ClPyats(MagicMock())
-    with patch("virl2_client.models.cl_pyats._PyatsTFLoader", MagicMock()):
+    with patch.object(pyats, "_execute_command", return_value="ok"):
         with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
-            pyats._check_pyats_installed()
+            pyats.run_command("n1", "show version")
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            pyats._check_pyats_installed()
+            pyats.run_command("n1", "show ip int brief")
+
+
+def test_cl_pyats_check_pyats_installed_does_not_warn() -> None:
+    """_check_pyats_installed only validates installation; callers warn."""
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", MagicMock()),
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("error")
+        pyats._check_pyats_installed()
 
 
 def test_cl_pyats_load_testbed() -> None:
@@ -192,6 +204,7 @@ def test_cl_pyats_switch_console() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = MagicMock()
+    lab._session.controller_version = Version("2.10.0")
     pyats = ClPyats(lab)
     dev = _device()
     devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({"n1": dev})
@@ -201,12 +214,26 @@ def test_cl_pyats_switch_console() -> None:
         assert dev.connections["a"]["command"].endswith("5")
 
 
+def test_cl_pyats_switch_console_records_port_on_2_11_without_testbed() -> None:
+    """On CML 2.11+ switch_serial_console records the port without a testbed."""
+    lab = MagicMock()
+    lab._session.controller_version = Version("2.11.0")
+    pyats = ClPyats(lab)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        pyats.switch_serial_console("n1", 2)
+
+    assert pyats.serial_port_for("n1") == 2
+
+
 def test_cl_pyats_switch_missing() -> None:
     """Raise PyatsDeviceNotFound for missing device.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = MagicMock()
+    lab._session.controller_version = Version("2.10.0")
     pyats = ClPyats(lab)
     devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({})
     pyats._testbed = MagicMock(devices=devices)

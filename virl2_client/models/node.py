@@ -38,6 +38,11 @@ from ..utils import (
     locked,
 )
 from ..utils import property_s as property
+from .cl_pyats import (
+    SERVER_CLI_API_MIN_VERSION,
+    SERVER_CLI_API_MIN_VERSION_STR,
+    warn_run_pyats_use_cli,
+)
 
 if TYPE_CHECKING:
     from .interface import Interface
@@ -1187,7 +1192,7 @@ class Node:
         self._tags = current
 
     @check_stale
-    @_requires_version("2.11.0")
+    @_requires_version(SERVER_CLI_API_MIN_VERSION_STR)
     def run_cli_command(
         self,
         command: str,
@@ -1224,6 +1229,29 @@ class Node:
             data["timeout"] = timeout
         return self._session.post(url, json=data).json()
 
+    def _run_pyats_or_delegate_cli(
+        self,
+        command: str,
+        config_command: bool,
+        **pyats_params: Any,
+    ) -> str:
+        if (
+            pyats_params
+            or self._session.controller_version < SERVER_CLI_API_MIN_VERSION
+        ):
+            runner = (
+                self._lab.pyats.run_config_command
+                if config_command
+                else self._lab.pyats.run_command
+            )
+            return runner(self.label, command, **pyats_params)
+        warn_run_pyats_use_cli(self._lab.pyats, stacklevel=2)
+        return self.run_cli_command(
+            command,
+            config_command=config_command,
+            serial_port=self._lab.pyats.serial_port_for(self.label),
+        )
+
     def run_pyats_command(self, command: str, **pyats_params: Any) -> str:
         """Run a pyATS command in exec mode on the node.
 
@@ -1231,15 +1259,19 @@ class Node:
             pyATS support is deprecated and will be removed in a future
             release. Use :meth:`run_cli_command` instead, which requires
             CML server >= 2.11.0 and does not need pyATS/Unicon installed
-            locally. Emits a DeprecationWarning (once per :class:`Lab`)
-            via the underlying :class:`~.cl_pyats.ClPyats` integration.
+            locally.
+
+        On CML 2.11.0+ controllers with no custom *pyats_params*, this
+        delegates to :meth:`run_cli_command` and does not require a local
+        pyATS installation.
 
         :param command: The command to run (e.g. "show version").
         :param pyats_params: Custom command dialog parameters for PyATS.
         :returns: The output from the device.
         """
-        label = self.label
-        return self._lab.pyats.run_command(label, command, **pyats_params)
+        return self._run_pyats_or_delegate_cli(
+            command, config_command=False, **pyats_params
+        )
 
     def run_pyats_config_command(self, command: str, **pyats_params: Any) -> str:
         """Run a pyATS command in config mode on the node.
@@ -1248,16 +1280,19 @@ class Node:
             pyATS support is deprecated and will be removed in a future
             release. Use :meth:`run_cli_command` with ``config_command=True``
             instead, which requires CML server >= 2.11.0 and does not need
-            pyATS/Unicon installed locally. Emits a DeprecationWarning (once
-            per :class:`Lab`) via the underlying
-            :class:`~.cl_pyats.ClPyats` integration.
+            pyATS/Unicon installed locally.
+
+        On CML 2.11.0+ controllers with no custom *pyats_params*, this
+        delegates to :meth:`run_cli_command` and does not require a local
+        pyATS installation.
 
         :param command: The command to run (e.g. "interface gi0").
         :param pyats_params: Custom command dialog parameters for PyATS.
         :returns: The output from the device.
         """
-        label = self.label
-        return self._lab.pyats.run_config_command(label, command, **pyats_params)
+        return self._run_pyats_or_delegate_cli(
+            command, config_command=True, **pyats_params
+        )
 
     @check_stale
     @locked

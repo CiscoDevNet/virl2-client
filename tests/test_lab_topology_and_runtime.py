@@ -389,10 +389,13 @@ def test_sync_and_cleanup_pyats() -> None:
     """
     lab, _, _ = _make_lab_context()
     with patch.object(lab.pyats, "sync_testbed") as sync_testbed:
-        lab.sync_pyats()
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            lab.sync_pyats()
         sync_testbed.assert_called_once_with(lab.username, lab.password)
-    with patch.object(lab.pyats, "cleanup") as cleanup:
-        lab.cleanup_pyats_connections()
+    lab2, _, _ = _make_lab_context()
+    with patch.object(lab2.pyats, "cleanup") as cleanup:
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            lab2.cleanup_pyats_connections()
         cleanup.assert_called_once()
 
 

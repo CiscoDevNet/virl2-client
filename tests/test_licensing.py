@@ -81,6 +81,20 @@ def test_licensing_set_transport() -> None:
     )
 
 
+def test_licensing_set_transport_reraises_non_405_patch_error() -> None:
+    """set_transport re-raises PATCH failures other than HTTP 405."""
+    session = MagicMock()
+    lic = Licensing(session)
+    request = httpx.Request("PATCH", "https://controller/licensing/transport")
+    patch_response = httpx.Response(500, request=request)
+    session.patch.side_effect = APIError(
+        "500", request=request, response=patch_response
+    )
+
+    with pytest.raises(APIError, match="500"):
+        lic.set_transport("ssms")
+
+
 def test_licensing_set_transport_put_fallback() -> None:
     """Pre-2.11 controllers reject PATCH; fall back to PUT and status() on 204."""
     session = MagicMock()

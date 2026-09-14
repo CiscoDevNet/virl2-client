@@ -237,7 +237,11 @@ def test_lab_method_waits(method: str) -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = make_lab()
-    with patch.object(lab, "wait_until_lab_converged") as wait:
+    with (
+        # stop() calls cleanup_pyats_connections; this test targets wait_until_lab_converged.
+        patch.object(lab, "cleanup_pyats_connections"),
+        patch.object(lab, "wait_until_lab_converged") as wait,
+    ):
         getattr(lab, method)(wait=True)
         wait.assert_called_once()
 

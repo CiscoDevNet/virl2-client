@@ -146,6 +146,22 @@ def test_stop_capture_uses_delete(node: Node) -> None:
     assert result is None
 
 
+def test_stop_capture_reraises_non_404(node: Node) -> None:
+    """stop_capture propagates DELETE failures other than HTTP 404.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    response = Mock(status_code=httpx.codes.INTERNAL_SERVER_ERROR)
+    node._session.delete.side_effect = httpx.HTTPStatusError(
+        "server error",
+        request=Mock(),
+        response=response,
+    )
+
+    with pytest.raises(httpx.HTTPStatusError, match="server error"):
+        node.stop_capture()
+
+
 def test_stop_capture_ignores_404(node: Node) -> None:
     """stop_capture treats a 404 as success when no capture session is active.
 

@@ -22,8 +22,10 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -36,6 +38,7 @@ from virl2_client.models.cl_pyats import (
     _analyze_execute_failure,
     _remove_unicon_loggers,
 )
+from virl2_client.virl2_client import Version
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -83,6 +86,54 @@ def test_cl_pyats_importerror_branch() -> None:
     assert namespace["_UConnectionError"] is None
 
 
+def test_cl_pyats_import_success_branch_clears_processor_argv(monkeypatch) -> None:
+    """Import success path clears pyATS Processor.argv (no CLI args).
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    import importlib
+    import sys
+    import types
+
+    from virl2_client.models import cl_pyats as cl_pyats_module
+
+    class Processor:
+        argv: ClassVar[list[str]] = ["--stale-cli-arg"]
+
+    # Ensure markup processor never uses pytest CLI args (mirrors cl_pyats import).
+    fake_module_names = (
+        "pyats.topology.loader.base",
+        "pyats.topology.loader.markup",
+        "pyats.utils.yaml.markup",
+        "unicon.core.errors",
+    )
+    fake_modules = {
+        "pyats.topology.loader.base": types.SimpleNamespace(TestbedFileLoader=object),
+        "pyats.topology.loader.markup": types.SimpleNamespace(
+            TestbedMarkupProcessor=object
+        ),
+        "pyats.utils.yaml.markup": types.SimpleNamespace(Processor=Processor),
+        "unicon.core.errors": types.SimpleNamespace(
+            ConnectionError=Exception,
+            SubCommandFailure=Exception,
+        ),
+    }
+    saved_modules = {name: sys.modules.get(name) for name in fake_module_names}
+    try:
+        for name, module in fake_modules.items():
+            monkeypatch.setitem(sys.modules, name, module)
+        reloaded = importlib.reload(cl_pyats_module)
+        assert Processor.argv == []
+        assert reloaded._PyatsTFLoader is object
+    finally:
+        for name, module in saved_modules.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+        importlib.reload(cl_pyats_module)
+
+
 def test_cl_pyats_hostname() -> None:
     """Get and set hostname.
 
@@ -105,6 +156,41 @@ def test_cl_pyats_not_installed() -> None:
         patch("virl2_client.models.cl_pyats._PyatsTFLoader", None),
         pytest.raises(PyatsNotInstalled),
     ):
+        pyats._check_pyats_installed()
+
+
+def test_cl_pyats_not_installed_message() -> None:
+    """PyatsNotInstalled carries an actionable message."""
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", None),
+        pytest.raises(PyatsNotInstalled) as exc_info,
+    ):
+        pyats._check_pyats_installed()
+    assert "pip install pyats unicon" in str(exc_info.value)
+    assert "run_cli_command" in str(exc_info.value)
+
+
+def test_cl_pyats_deprecation_warning_fires_once_per_instance() -> None:
+    """Deprecated pyATS APIs warn only on first use per ClPyats instance."""
+    pyats = ClPyats(MagicMock())
+    with patch.object(pyats, "_execute_command", return_value="ok"):
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            pyats.run_command("n1", "show version")
+        # DeprecationWarning is once per ClPyats instance; second call must stay silent.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            pyats.run_command("n1", "show ip int brief")
+
+
+def test_cl_pyats_check_pyats_installed_does_not_warn() -> None:
+    """_check_pyats_installed only validates installation; callers warn."""
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", MagicMock()),
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("error")
         pyats._check_pyats_installed()
 
 
@@ -168,13 +254,32 @@ def test_cl_pyats_switch_console() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = MagicMock()
+    # < 2.11: mutates the pyATS testbed connection command.
+    lab._session.controller_version = Version("2.10.0")
     pyats = ClPyats(lab)
     dev = _device()
     devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({"n1": dev})
     pyats._testbed = MagicMock(devices=devices)
-    with patch.object(pyats, "_check_pyats_installed"):
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
+    ):
         pyats.switch_serial_console("n1", 5)
-        assert dev.connections["a"]["command"].endswith("5")
+    assert dev.connections["a"]["command"].endswith("5")
+
+
+def test_cl_pyats_switch_console_records_port_on_2_11_without_testbed() -> None:
+    """On CML 2.11+ switch_serial_console records the port without a testbed."""
+    lab = MagicMock()
+    # >= 2.11: records serial_port only; no local pyATS / testbed mutation.
+    lab._session.controller_version = Version("2.11.0")
+    pyats = ClPyats(lab)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        pyats.switch_serial_console("n1", 2)
+
+    assert pyats.serial_port_for("n1") == 2
 
 
 def test_cl_pyats_switch_missing() -> None:
@@ -183,14 +288,32 @@ def test_cl_pyats_switch_missing() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     lab = MagicMock()
+    lab._session.controller_version = Version("2.10.0")
     pyats = ClPyats(lab)
     devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({})
     pyats._testbed = MagicMock(devices=devices)
     with (
         patch.object(pyats, "_check_pyats_installed"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
         pytest.raises(PyatsDeviceNotFound),
     ):
         pyats.switch_serial_console("missing", 1)
+
+
+def test_cl_pyats_switch_console_requires_testbed_on_2_10() -> None:
+    """switch_serial_console on 2.10 requires an initialized pyATS testbed.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    lab._session.controller_version = Version("2.10.0")
+    pyats = ClPyats(lab)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
+        pytest.raises(RuntimeError, match="testbed is not initialized"),
+    ):
+        pyats.switch_serial_console("n1", 1)
 
 
 def test_cl_pyats_set_termserv_creds() -> None:
@@ -389,8 +512,12 @@ def test_cl_pyats_run_wrappers() -> None:
     """
     pyats = ClPyats(MagicMock())
     with patch.object(pyats, "_execute_command", return_value="ok") as exec_cmd:
-        assert pyats.run_command("n1", "show x") == "ok"
-        assert pyats.run_config_command("n1", "hostname x") == "ok"
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            assert pyats.run_command("n1", "show x") == "ok"
+        # DeprecationWarning is once per ClPyats instance; second call must stay silent.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert pyats.run_config_command("n1", "hostname x") == "ok"
         assert exec_cmd.call_count == 2
 
 

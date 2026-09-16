@@ -27,6 +27,42 @@ Disabling SSL certificate verification entirely (``ssl_verify=False``) is
 discouraged and should only be used as a last resort in isolated lab
 environments.
 
+Authenticating with a Personal Access Token
+-------------------------------------------
+
+For unattended automation, authenticate with a Personal Access Token (PAT)
+instead of a username and password. Create the token in the CML UI at
+**Settings > API Tokens**, or through the ``/api/v0/access_tokens`` API. Copy
+and store the token securely when it is created; it is a bearer credential.
+
+Pass the PAT as ``jwtoken`` when creating the client. Do not provide a username
+or password::
+
+    import os
+
+    from virl2_client import ClientLibrary
+
+    client = ClientLibrary(
+        "https://cml.example.com",
+        jwtoken=os.environ["CML_API_TOKEN"],
+    )
+
+The client sends the value of ``client.jwtoken`` in the ``Authorization``
+header as a Bearer token. You may also set ``VIRL2_JWT`` instead of passing
+``jwtoken`` explicitly.
+
+PATs have a maximum lifetime of 365 days and can be revoked from **Settings >
+API Tokens** or through the API. If a PAT expires or is revoked, the controller
+returns HTTP 401. Without configured username and password credentials, the
+client raises ``APIError`` ("JWT token expired and automatic re-authentication
+is not possible") rather than automatically re-authenticating. Create a
+replacement PAT and update ``client.jwtoken`` (or ``CML_API_TOKEN``) before
+retrying. Token expiration is determined by the token itself; the client does
+not assume a 24-hour lifetime.
+
+No client-library code change is required for PAT authentication. A
+PAT-specific constructor helper, if desired, should be considered separately.
+
 Creating a lab with nodes and links
 -----------------------------------
 

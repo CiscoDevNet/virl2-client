@@ -21,8 +21,16 @@
 
 """Walk-through of the most common virl2_client operations.
 
-Set at least ``CML_URL``, ``CML_USERNAME`` and ``CML_PASSWORD`` in the
-environment before running this script. Optional variables:
+Set at least ``CML_URL`` in the environment before running this script,
+plus one of the following credential options:
+
+* ``CML_USERNAME`` and ``CML_PASSWORD`` -- for an ``https://`` ``CML_URL``.
+  Username/password auth over plain ``http://`` is refused by the client
+  (CMLDEV-1228): credentials must never be posted in cleartext.
+* ``CML_JWT_TOKEN`` -- a pre-obtained token. Required when ``CML_URL`` uses
+  ``http://`` (e.g. a local, non-TLS controller); optional otherwise.
+
+Optional variables:
 
 * ``CML_SSMS_URL``  -- override the default SSMS endpoint.
 * ``CML_SSMS_TOKEN`` -- Smart Licensing registration token. When unset
@@ -55,17 +63,31 @@ def _read_default_password() -> str:
 
 def main() -> int:
     url = os.environ.get("CML_URL", "http://localhost:8001")
-    username = os.environ.get("CML_USERNAME", "cml2")
-    password = os.environ.get("CML_PASSWORD") or _read_default_password()
-    if not password:
+    is_http = url.startswith("http://")
+    jwtoken = os.environ.get("CML_JWT_TOKEN")
+
+    if jwtoken:
+        client = ClientLibrary(url, jwtoken=jwtoken, allow_http=is_http)
+    elif is_http:
         print(
-            "ERROR: set CML_PASSWORD (or run on the controller so "
-            "/etc/machine-id is readable).",
+            "ERROR: CML_URL uses http://; username/password auth is "
+            "refused over cleartext. Set CML_JWT_TOKEN to a pre-obtained "
+            "token instead, or use an https:// CML_URL.",
             file=sys.stderr,
         )
         return 1
+    else:
+        username = os.environ.get("CML_USERNAME", "cml2")
+        password = os.environ.get("CML_PASSWORD") or _read_default_password()
+        if not password:
+            print(
+                "ERROR: set CML_PASSWORD (or run on the controller so "
+                "/etc/machine-id is readable).",
+                file=sys.stderr,
+            )
+            return 1
+        client = ClientLibrary(url, username, password)
 
-    client = ClientLibrary(url, username, password, allow_http=True)
     client.is_system_ready(wait=True)
 
     token = os.environ.get("CML_SSMS_TOKEN")

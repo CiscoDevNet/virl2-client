@@ -48,7 +48,7 @@ from .models import (
     UserManagement,
 )
 from .models.authentication import make_session
-from .utils import Version, get_url_from_template, locked
+from .utils import Version, get_url_from_template, locked, sanitize_for_log
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +80,7 @@ class ClientConfig(NamedTuple):
     convergence_wait_max_iter: int = 500
     convergence_wait_time: int | float = 5
     check_version: bool = True
+    follow_redirects: bool = False
 
     def make_client(self) -> ClientLibrary:
         client = ClientLibrary(
@@ -94,6 +95,7 @@ class ClientConfig(NamedTuple):
             convergence_wait_time=self.convergence_wait_time,
             check_version=self.check_version,
             events=self.events,
+            follow_redirects=self.follow_redirects,
         )
         client.auto_sync_interval = self.auto_sync
         client.auto_sync = self.auto_sync >= 0.0 and not self.events
@@ -276,6 +278,7 @@ class ClientLibrary:
         check_version: bool = True,
         timeout: httpx.Timeout | float | None = None,
         send_client_uuid=True,
+        follow_redirects: bool = False,
     ) -> None:
         client_config = ClientConfig.get_configuration(
             url, username, password, jwtoken, ssl_verify
@@ -304,6 +307,14 @@ class ClientLibrary:
 
         self._labs: dict[str, Lab] = {}
 
+        # Initialize event_listener before any call that could raise or
+        # return early below, so consumers never see a half-initialized
+        # instance. _session.lock is set right after the session exists,
+        # for the same reason (@locked previously fell back to unlocked
+        # execution if this attribute was still missing after an early
+        # return).
+        self.event_listener = None
+
         try:
             self._session = make_session(
                 base_url,
@@ -311,9 +322,11 @@ class ClientLibrary:
                 client_type,
                 timeout=timeout,
                 send_client_uuid=send_client_uuid,
+                follow_redirects=follow_redirects,
             )
         except httpx.InvalidURL as exc:
             raise InitializationError(exc) from None
+        self._session.lock = None
         self._session.controller_version = self.check_controller_version()
 
         self._session.auth = TokenAuth(self)
@@ -355,8 +368,6 @@ class ClientLibrary:
             _LOGGER.warning(exc)
             return
 
-        self.event_listener = None
-        self._session.lock = None
         if events:
             # http-based auto sync should be off by default when using events
             self.auto_sync = False
@@ -787,7 +798,7 @@ class ClientLibrary:
         """Helper function to remove an unjoined lab from the server."""
         url = self._url_for("lab", lab_id=lab_id)
         response = self._session.delete(url)
-        _LOGGER.debug("Removed lab: %s", response.text)
+        _LOGGER.debug("Removed lab: %s", sanitize_for_log(response.text))
 
     @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:

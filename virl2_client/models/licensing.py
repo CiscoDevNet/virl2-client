@@ -24,6 +24,7 @@ import logging
 import time
 import warnings
 from typing import TYPE_CHECKING, Any, ClassVar
+from urllib.parse import urlsplit
 
 from virl2_client.exceptions import APIError
 
@@ -132,7 +133,13 @@ class Licensing:
             if error.response.status_code != 405:
                 raise
             response = self._session.put(url, json=data)
-        _LOGGER.info("The transport configuration has been updated. Config: %s.", data)
+        # Log a stable identifier only, not the full config: proxy_server may
+        # carry embedded userinfo (e.g. user:pass@host) that must not reach
+        # log pipelines.
+        ssms_host = urlsplit(ssms if "//" in (ssms or "") else f"//{ssms or ''}").hostname
+        _LOGGER.info(
+            "The transport configuration has been updated. ssms_host=%s.", ssms_host
+        )
         return self._status_response(response)
 
     def set_default_transport(self) -> dict[str, Any]:

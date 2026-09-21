@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import re
 import time
 from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar
 
@@ -38,6 +39,15 @@ _LOGGER = logging.getLogger(__name__)
 
 TARGZ = ".tar.gz"
 EXTENSION_LIST = [".qcow", ".qcow2", ".iol", ".tar", TARGZ]
+
+# Upload is meant for VM disk images, which can legitimately be large, but a
+# cap still protects against a mistaken/malicious multi-hundred-GiB upload.
+MAX_UPLOAD_SIZE_BYTES = 200 * 1024**3  # 200 GiB
+
+# Conservative allow-list for the filename ultimately sent to the server (as
+# the X-Original-File-Name header and multipart field name), checked once the
+# extension has otherwise been validated as supported.
+_FILENAME_CHARS = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 def _sanitize_filename(name: str) -> str:
@@ -250,9 +260,25 @@ class NodeImageDefinitions:
             )
             raise InvalidImageFile(message)
 
+        if rename is not None and not _FILENAME_CHARS.match(name):
+            message = (
+                f"Specified filename ({name}) contains disallowed characters "
+                "(only letters, digits, '.', '_', and '-' are allowed)."
+            )
+            raise InvalidImageFile(message)
+
         # path may be a PureWindowsPath, cannot use path.is_file
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
+
+        size = os.path.getsize(filename)
+        if size > MAX_UPLOAD_SIZE_BYTES:
+            message = (
+                f"Specified file ({filename}) is {size} bytes, which exceeds "
+                f"the maximum allowed upload size of {MAX_UPLOAD_SIZE_BYTES} bytes."
+            )
+            raise InvalidImageFile(message)
+
         _LOGGER.info("Uploading %s", name)
         headers = {"X-Original-File-Name": name}
 

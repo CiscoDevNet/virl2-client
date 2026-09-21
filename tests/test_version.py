@@ -356,11 +356,20 @@ def test_version_comparison_lte(
 @pytest.mark.parametrize(
     "version_str",
     [
+        "2.1.0",
+        "2.1.0.",
+        "2.1.0.dev0",
+        "2.1.0.dev0+build8.7ee86bf8",
+        "2.1.0.-dev0+build8.7ee86bf8",
+        "2.1.0.--dev0+build8.7ee86bf8",
+        "2.1.0._dev0+build8.7ee86bf8",
+        # Real controller/product version formats (no leading dot before
+        # the suffix) must remain accepted -- only the suffix character
+        # set and length are restricted, not the separator.
         "2.1.0-dev0+build8.7ee86bf8",
         "2.1.0dev0+build8.7ee86bf8",
         "2.1.0--dev0+build8.7ee86bf8",
         "2.1.0_dev0+build8.7ee86bf8",
-        "2.1.0",
         "2.1.0-",
     ],
 )
@@ -383,6 +392,11 @@ def test_version_parse_valid(version_str: str) -> None:
         "2.1-dev0+build8.7ee86bf8",
         "2-dev0+build8.7ee86bf8",
         "54dev0+build8.7ee86bf8",
+        # Disallowed suffix characters (whitespace/quotes/etc.) and
+        # over-length suffixes must still be rejected (CMLDEV-1228).
+        "2.1.0 dev0",
+        "2.1.0;dev0",
+        "2.1.0" + "a" * 33,
     ],
 )
 def test_version_parse_invalid(version_str: str) -> None:

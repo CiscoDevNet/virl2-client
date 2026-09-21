@@ -28,7 +28,7 @@ from uuid import uuid4
 
 import httpx
 
-from ..exceptions import APIError
+from ..exceptions import APIError, InitializationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,13 +68,17 @@ class TokenAuth(httpx.Auth):
     https://www.python-httpx.org/advanced/#customizing-authentication
     """
 
-    # Read by httpx.Auth at runtime. When True, httpx buffers the full
-    # response body before invoking `auth_flow`, so our retry logic can
-    # safely inspect `response.json()` / `response.text` to decide
-    # whether a 4xx was caused by an expired token. Looks like dead
-    # code at a glance because nothing in this module references it
-    # directly -- the consumer is the httpx.Auth contract.
+    # Read by httpx.Auth at runtime. When True, httpx would buffer the full
+    # response body before invoking `auth_flow`. We override `sync_auth_flow`
+    # below to apply a max-bytes cap instead, so this flag is not actually
+    # consumed by the base implementation for us -- it documents intent for
+    # readers, and would still gate `async_auth_flow` if it were used.
     requires_response_body = True
+
+    # Safety cap on how much of a 4xx/5xx (or any) response body we buffer
+    # per auth round-trip. Prevents a hostile/misbehaving server from
+    # forcing the client to hold an unbounded body in memory.
+    MAX_RESPONSE_BODY_BYTES = 64 * 1024
 
     def __init__(self, client_library: ClientLibrary) -> None:
         """
@@ -84,6 +88,72 @@ class TokenAuth(httpx.Auth):
         """
         self.client_library = client_library
 
+    @staticmethod
+    def _read_capped(response: httpx.Response, limit: int) -> None:
+        """
+        Read up to `limit` bytes of the response body, then stop.
+
+        Mirrors httpx.Response.read(), but bounds how much is buffered so a
+        hostile/misbehaving server cannot force unbounded memory use.
+
+        :param response: The response to (partially) read.
+        :param limit: Maximum number of bytes to buffer.
+        """
+        if hasattr(response, "_content"):
+            return
+        content_length = response.headers.get("content-length")
+        if content_length is not None and int(content_length) > limit:
+            response.close()
+            # Cache a truncated placeholder so any later read()/re-iteration
+            # (e.g. httpx's own raise_for_status or auth-retry machinery)
+            # sees cached content instead of touching the now-closed stream,
+            # which would otherwise raise StreamClosed/StreamConsumed.
+            response._content = b""
+            return
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in response.iter_bytes():
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > limit:
+                response.close()
+                response._content = b"".join(chunks)
+                return
+        response._content = b"".join(chunks)
+
+    def sync_auth_flow(
+        self, request: httpx.Request
+    ) -> Generator[httpx.Request, httpx.Response, None]:
+        """
+        Run the authentication flow, capping buffered 4xx/5xx response bodies.
+
+        Overrides httpx.Auth.sync_auth_flow (rather than relying on
+        `requires_response_body`) so the automatic body read of error
+        responses is bounded by MAX_RESPONSE_BODY_BYTES instead of
+        unbounded. Successful (2xx/3xx) responses are left untouched and
+        are read normally by the caller.
+
+        :param request: The request object to authenticate.
+        :yields: The authenticated request and response in sequence.
+        """
+        flow = self.auth_flow(request)
+        request = next(flow)
+        while True:
+            response = yield request
+            # Only 4xx/5xx responses are capped here: those are the ones
+            # auth_flow's own raise_for_status() (and error reporting) read
+            # eagerly, and the only ones a hostile server could otherwise
+            # force the client to buffer without bound. 2xx/3xx application
+            # responses are left untouched so normal, larger-than-the-cap
+            # API payloads (lab topologies, image/definition lists, etc.)
+            # are not truncated.
+            if response.status_code // 100 in (4, 5):
+                self._read_capped(response, self.MAX_RESPONSE_BODY_BYTES)
+            try:
+                request = flow.send(response)
+            except StopIteration:
+                break
+
     @property
     def token(self) -> str | None:
         """
@@ -91,11 +161,22 @@ class TokenAuth(httpx.Auth):
         from the server.
 
         :returns: The JWT token or None.
+        :raises InitializationError: If credentials would be sent over
+            unencrypted HTTP.
         """
         if self.client_library.jwtoken:
             return self.client_library.jwtoken
 
         base_url = self.client_library._session.base_url
+        if base_url.scheme == "http":
+            # allow_http already gates whether an http:// base_url can exist
+            # at all (see _prepare_url), but a username/password login must
+            # never be posted in cleartext -- only a pre-obtained token is
+            # permitted over http://.
+            raise InitializationError(
+                "Refusing to send username/password over unencrypted "
+                "http://. Set client.jwtoken to a pre-obtained token instead."
+            )
         if not self.client_library.allow_http:
             if base_url.port is not None and base_url.port != 443:
                 _LOGGER.warning("Not using SSL port of 443: %s", base_url.port)
@@ -105,13 +186,20 @@ class TokenAuth(httpx.Auth):
             "username": self.client_library.username,
             "password": self.client_library.password,
         }
-        response = self.client_library._session.post(
+        # Use `.stream()` (not `.post()`) so the response body is not
+        # auto-read in full before we get a chance to apply the same
+        # MAX_RESPONSE_BODY_BYTES cap used for every other request; `.post()`
+        # would fully buffer a hostile/oversized body before this method
+        # ever regains control, bypassing the cap entirely.
+        with self.client_library._session.stream(
+            "POST",
             _AUTH_URL,
             json=data,
             auth=None,  # type: ignore[arg-type]
-        )  # auth=None works but is missing from .post's type hint
-        raise_for_status(response)
-        self.client_library.jwtoken = response.json()
+        ) as response:  # auth=None works but is missing from .stream's type hint
+            self._read_capped(response, self.MAX_RESPONSE_BODY_BYTES)
+            raise_for_status(response)
+            self.client_library.jwtoken = response.json()
         return self.client_library.jwtoken
 
     @token.setter
@@ -155,11 +243,18 @@ class TokenAuth(httpx.Auth):
         """
         Log out the user (invalidate the current token).
 
+        Also clears cached secrets (token, password) from the client
+        library so they do not linger in memory after logout.
+
         :param clear_all_sessions: Whether to clear all sessions.
         :returns: Whether the logout succeeded.
         """
         url = "logout" + ("?clear_all_sessions=true" if clear_all_sessions else "")
-        return self.client_library._session.delete(url).json()
+        try:
+            return self.client_library._session.delete(url).json()
+        finally:
+            self.client_library.jwtoken = None
+            self.client_library.password = None
 
 
 class BlankAuth(httpx.Auth):
@@ -236,6 +331,7 @@ def make_session(
     client_type: str | None = None,
     timeout: httpx.Timeout | float | None = None,
     send_client_uuid=True,
+    follow_redirects: bool = False,
 ) -> httpx.Client:
     """
     Create an httpx Client object with the specified base URL
@@ -254,6 +350,10 @@ def make_session(
     :param send_client_uuid: When True (default), send an X-Client-UUID
         header on every request so the controller can correlate activity.
         Set to False in privacy-sensitive automation.
+    :param follow_redirects: When False (default), the client does not
+        auto-follow HTTP redirects. A redirect can silently retarget a
+        request (and its Authorization header) to a different host; opt in
+        with True only when the controller is trusted to redirect safely.
     :returns: The created httpx Client object.
     """
     headers = {"X-CML-CLIENT": "PCL" if client_type is None else client_type}
@@ -263,7 +363,7 @@ def make_session(
         base_url=base_url,
         verify=ssl_verify,
         auth=BlankAuth(),
-        follow_redirects=True,
+        follow_redirects=follow_redirects,
         timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
         headers=headers,
     )

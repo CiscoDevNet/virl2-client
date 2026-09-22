@@ -232,7 +232,7 @@ def test_token_auth_caps_buffered_response_body() -> None:
     """
     client = _make_client()
     client.username = "user"
-    client.password = "pass"  # noqa: S105
+    client.password = "pass"
     auth = TokenAuth(client)
     auth.MAX_RESPONSE_BODY_BYTES = 8
 
@@ -413,4 +413,3 @@ def test_token_auth_caps_oversized_login_response() -> None:
 
     with pytest.raises(httpx.HTTPStatusError):
         _ = auth.token
-

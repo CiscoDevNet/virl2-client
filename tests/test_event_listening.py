@@ -43,7 +43,9 @@ except ImportError as exc:  # pragma: no cover - optional dependency gate
     pytest.skip(f"optional dependency missing: {exc}", allow_module_level=True)
 
 
-def _client(ssl_verify: bool | str = True, url: str = "https://controller.local/api/v0/") -> MagicMock:
+def _client(
+    ssl_verify: bool | str = True, url: str = "https://controller.local/api/v0/"
+) -> MagicMock:
     """Create a mocked client library for EventListener tests.
 
     :param ssl_verify: Whether to verify SSL (True/False) or path to CA bundle.

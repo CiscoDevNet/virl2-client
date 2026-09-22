@@ -1538,9 +1538,7 @@ class Lab:
         """
         url = self._url_for("lab")
         response = self._session.get(url)
-        _LOGGER.debug(
-            "lab state: %s -> %s", self._id, sanitize_for_log(response.text)
-        )
+        _LOGGER.debug("lab state: %s -> %s", self._id, sanitize_for_log(response.text))
         return response.json()
 
     @check_stale

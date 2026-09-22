@@ -136,7 +136,9 @@ class Licensing:
         # Log a stable identifier only, not the full config: proxy_server may
         # carry embedded userinfo (e.g. user:pass@host) that must not reach
         # log pipelines.
-        ssms_host = urlsplit(ssms if "//" in (ssms or "") else f"//{ssms or ''}").hostname
+        ssms_host = urlsplit(
+            ssms if "//" in (ssms or "") else f"//{ssms or ''}"
+        ).hostname
         _LOGGER.info(
             "The transport configuration has been updated. ssms_host=%s.", ssms_host
         )

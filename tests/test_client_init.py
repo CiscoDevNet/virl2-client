@@ -65,9 +65,7 @@ def test_client_library_init_allow_http(
     :param client_library_server_current: Patched system_info fixture.
     """
     _ = client_library_server_current
-    cl = ClientLibrary(
-        "http://somehost", jwtoken="test-jwt-token", allow_http=True
-    )
+    cl = ClientLibrary("http://somehost", jwtoken="test-jwt-token", allow_http=True)
     assert cl._session.base_url.scheme == "http"
     assert cl._session.base_url.host == "somehost"
     assert cl._session.base_url.port is None
@@ -150,7 +148,13 @@ def test_client_library_init_url(
         if isinstance(err.value, OSError):
             assert "reading from stdin" in str(err.value)
     else:
-        cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True, jwtoken="test-jwt-token")
+        cl = ClientLibrary(
+            url,
+            username="virl2",
+            password="virl2",
+            allow_http=True,
+            jwtoken="test-jwt-token",
+        )
         url_parts = cl._session.base_url
         assert url_parts.scheme == (expected_parts.scheme or "https")
         assert url_parts.host == (expected_parts.host or expected_parts.path)

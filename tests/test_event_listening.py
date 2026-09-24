@@ -43,6 +43,15 @@ except ImportError as exc:  # pragma: no cover - optional dependency gate
     pytest.skip(f"optional dependency missing: {exc}", allow_module_level=True)
 
 
+def test_message_text_normalizes_payload() -> None:
+    """_message_text decodes bytes and returns str payloads unchanged.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    assert EventListener._message_text(b'{"event": "ok"}') == '{"event": "ok"}'
+    assert EventListener._message_text('{"event": "ok"}') == '{"event": "ok"}'
+
+
 def _client(
     ssl_verify: bool | str = True, url: str = "https://controller.local/api/v0/"
 ) -> MagicMock:

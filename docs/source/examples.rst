@@ -27,6 +27,49 @@ Disabling SSL certificate verification entirely (``ssl_verify=False``) is
 discouraged and should only be used as a last resort in isolated lab
 environments.
 
+Authenticating with a Personal Access Token
+-------------------------------------------
+
+For unattended automation, authenticate with a Personal Access Token (PAT)
+instead of a username and password. Create the token in the CML UI at
+**Settings > API Tokens**, or through the ``/api/v0/access_tokens`` API. Copy
+and store the token securely when it is created; it is a bearer credential.
+
+The simplest option is to put the PAT in the ``VIRL2_JWT`` environment variable,
+which the library reads automatically. Do not provide a username or password::
+
+    from virl2_client import ClientLibrary
+
+    # VIRL2_JWT is set in the environment; no jwtoken argument is needed.
+    client = ClientLibrary("https://cml.example.com")
+
+If the token comes from another source, such as a secrets manager, pass it
+explicitly as ``jwtoken`` instead::
+
+    client = ClientLibrary("https://cml.example.com", jwtoken=my_token)
+
+Either way, the client sends the value of ``client.jwtoken`` in the
+``Authorization`` header as a Bearer token.
+
+For PAT-based automation, do not also configure a username and password. If
+both are set, the client uses the PAT but silently re-authenticates with the
+username and password when the PAT expires or is revoked, instead of failing.
+That masks token revocation and reintroduces the very credential the PAT is
+meant to replace. Provide the PAT alone so that an expired or revoked token
+fails loudly and can be rotated deliberately.
+
+PATs have a maximum lifetime of 365 days and can be revoked from **Settings >
+API Tokens** or through the API. If a PAT expires or is revoked, the controller
+returns HTTP 401. Without configured username and password credentials, the
+client raises ``APIError`` ("JWT token expired and automatic re-authentication
+is not possible") rather than automatically re-authenticating. Create a
+replacement PAT and either set ``client.jwtoken`` on the existing client or
+recreate the client (updating ``VIRL2_JWT`` only takes effect for a newly
+constructed client). Token expiration is determined by the token itself; the
+client does not assume a 24-hour lifetime.
+
+No client-library code change is required for PAT authentication.
+
 Creating a lab with nodes and links
 -----------------------------------
 

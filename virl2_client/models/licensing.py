@@ -133,9 +133,8 @@ class Licensing:
             if error.response.status_code != 405:
                 raise
             response = self._session.put(url, json=data)
-        # Log a stable identifier only, not the full config: proxy_server may
-        # carry embedded userinfo (e.g. user:pass@host) that must not reach
-        # log pipelines.
+        # Log only the ssms hostname, not the full config: urlsplit().hostname
+        # drops any embedded userinfo (user:pass@host) that must not reach logs.
         ssms_host = urlsplit(
             ssms if "//" in (ssms or "") else f"//{ssms or ''}"
         ).hostname

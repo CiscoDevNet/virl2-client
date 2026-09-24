@@ -94,7 +94,12 @@ class TokenAuth(httpx.Auth):
         Read up to `limit` bytes of the response body, then stop.
 
         Mirrors httpx.Response.read(), but bounds how much is buffered so a
-        hostile/misbehaving server cannot force unbounded memory use.
+        hostile/misbehaving server cannot force unbounded memory use. A bogus
+        Content-Length (non-numeric/negative/multiple values) is treated as
+        unknown length rather than raising. Always caches a `_content` value
+        (truncated bodies get a trailing marker) so later read()/re-iteration
+        by httpx (raise_for_status, auth retry) sees cached content instead of
+        hitting the closed stream (StreamClosed/StreamConsumed).
 
         :param response: The response to (partially) read.
         :param limit: Maximum number of bytes to buffer.
@@ -102,24 +107,36 @@ class TokenAuth(httpx.Auth):
         if hasattr(response, "_content"):
             return
         content_length = response.headers.get("content-length")
-        if content_length is not None and int(content_length) > limit:
+        try:
+            declared_length = int(content_length) if content_length is not None else -1
+        except ValueError:
+            declared_length = -1
+        # Fast path: skip reading when the server honestly declares oversize.
+        if declared_length > limit:
             response.close()
-            # Cache a truncated placeholder so any later read()/re-iteration
-            # (e.g. httpx's own raise_for_status or auth-retry machinery)
-            # sees cached content instead of touching the now-closed stream,
-            # which would otherwise raise StreamClosed/StreamConsumed.
-            response._content = b""
+            response._content = (
+                b"<error response truncated: declared %d bytes exceeds %d>"
+                % (declared_length, limit)
+            )
             return
         chunks: list[bytes] = []
         total = 0
+        truncated = False
         for chunk in response.iter_bytes():
+            remaining = limit - total
+            if len(chunk) > remaining:
+                # Keep the prefix that fits, then stop.
+                chunks.append(chunk[:remaining])
+                truncated = True
+                break
             chunks.append(chunk)
             total += len(chunk)
-            if total > limit:
-                response.close()
-                response._content = b"".join(chunks)
-                return
-        response._content = b"".join(chunks)
+        if truncated:
+            response.close()
+        body = b"".join(chunks)
+        if truncated:
+            body += b"... <error response truncated at %d bytes>" % limit
+        response._content = body
 
     def sync_auth_flow(
         self, request: httpx.Request
@@ -169,10 +186,7 @@ class TokenAuth(httpx.Auth):
 
         base_url = self.client_library._session.base_url
         if base_url.scheme == "http":
-            # allow_http already gates whether an http:// base_url can exist
-            # at all (see _prepare_url), but a username/password login must
-            # never be posted in cleartext -- only a pre-obtained token is
-            # permitted over http://.
+            # Never post username/password in cleartext; only a preset token.
             raise InitializationError(
                 "Refusing to send username/password over unencrypted "
                 "http://. Set client.jwtoken to a pre-obtained token instead."
@@ -186,17 +200,15 @@ class TokenAuth(httpx.Auth):
             "username": self.client_library.username,
             "password": self.client_library.password,
         }
-        # Use `.stream()` (not `.post()`) so the response body is not
-        # auto-read in full before we get a chance to apply the same
-        # MAX_RESPONSE_BODY_BYTES cap used for every other request; `.post()`
-        # would fully buffer a hostile/oversized body before this method
-        # ever regains control, bypassing the cap entirely.
+        # Use `.stream()` (not `.post()`) so the body is not auto-buffered
+        # before we can apply MAX_RESPONSE_BODY_BYTES.
         with self.client_library._session.stream(
             "POST",
             _AUTH_URL,
             json=data,
             auth=None,  # type: ignore[arg-type]
         ) as response:  # auth=None works but is missing from .stream's type hint
+            # Cap regardless of status: /authenticate returns only a small JWT.
             self._read_capped(response, self.MAX_RESPONSE_BODY_BYTES)
             raise_for_status(response)
             self.client_library.jwtoken = response.json()

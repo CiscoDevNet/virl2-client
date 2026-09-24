@@ -227,6 +227,9 @@ def test_token_auth_caps_buffered_response_body() -> None:
     test_token_auth_does_not_cap_successful_response_body), so this uses a
     401 status to exercise the cap. httpx's own auth-retry machinery needs
     username/password configured to retry a 401, so those are set here too.
+    _content is always cached (a short truncation marker for oversized
+    bodies) so later read()/re-iteration by httpx never hits the closed
+    stream (regression: previously left unset, raising downstream).
 
     NOTE: LLM-generated test -- verify for correctness.
     """
@@ -254,12 +257,10 @@ def test_token_auth_caps_buffered_response_body() -> None:
     next(flow)
     flow.send(response)
 
-    # _content is now always set (even if truncated/empty) once capped, so
-    # any later read()/re-iteration by httpx sees cached content instead of
-    # touching the closed/consumed stream (regression: previously left
-    # unset, causing an unhandled httpx stream exception downstream).
-    assert response._content == b""
-    assert response.read() == b""
+    # Declared-oversize fast path: body replaced by a short truncation marker.
+    assert b"truncated" in response._content
+    assert len(response._content) < len(oversized_body)
+    assert response.read() == response._content
 
 
 def test_token_auth_does_not_cap_successful_response_body() -> None:
@@ -413,3 +414,62 @@ def test_token_auth_caps_oversized_login_response() -> None:
 
     with pytest.raises(httpx.HTTPStatusError):
         _ = auth.token
+
+
+def test_read_capped_tolerates_malformed_content_length() -> None:
+    """A non-numeric Content-Length must not crash _read_capped.
+
+    Regression test: a hostile/misbehaving server can send a bogus
+    Content-Length (e.g. "not-a-number"). Parsing it must not raise; the
+    header is treated as "unknown length" and the streaming loop still
+    bounds how much of the body is buffered.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    request = httpx.Request("GET", "https://example.local/api/v0/authentication")
+    oversized_body = b"x" * 1024
+
+    def gen() -> Iterator[bytes]:
+        """Yield the oversized body in chunks to simulate a stream."""
+        for i in range(0, len(oversized_body), 128):
+            yield oversized_body[i : i + 128]
+
+    response = httpx.Response(
+        403,
+        request=request,
+        content=gen(),
+        headers={"content-length": "not-a-number"},
+    )
+
+    # Caps to a 64-byte prefix (+ marker) via the streaming loop, not raising.
+    TokenAuth._read_capped(response, 64)
+
+    assert response._content.startswith(b"x" * 64)
+    assert b"truncated" in response._content
+    assert len(response._content) < len(oversized_body)
+    assert response.read() == response._content
+
+
+def test_token_auth_warns_on_non_https_scheme(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Warn when the base URL scheme is neither https nor http.
+
+    With allow_http=False and a scheme that is not "http" (which would be
+    refused outright) nor "https", `token` logs a "Not using https scheme"
+    warning before attempting the login.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param caplog: Pytest log capture fixture.
+    """
+    client = _make_client()
+    # Scheme-less URL: not "http" (so not refused) and not "https" (so warned).
+    client._session.base_url = httpx.URL("//example.local/api/v0/")
+    auth = TokenAuth(client)
+
+    with caplog.at_level(logging.WARNING):
+        token = auth.token
+
+    assert token == "jwt-token"
+    assert "Not using https scheme" in caplog.text

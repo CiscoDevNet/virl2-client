@@ -25,8 +25,8 @@ Set at least ``CML_URL`` in the environment before running this script,
 plus one of the following credential options:
 
 * ``CML_USERNAME`` and ``CML_PASSWORD`` -- for an ``https://`` ``CML_URL``.
-  Username/password auth over plain ``http://`` is refused by the client
-  (CMLDEV-1228): credentials must never be posted in cleartext.
+  Username/password auth over plain ``http://`` is refused by the client:
+  credentials must never be posted in cleartext.
 * ``CML_JWT_TOKEN`` -- a pre-obtained token. Required when ``CML_URL`` uses
   ``http://`` (e.g. a local, non-TLS controller); optional otherwise.
 

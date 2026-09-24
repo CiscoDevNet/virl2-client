@@ -260,6 +260,8 @@ class NodeImageDefinitions:
             )
             raise InvalidImageFile(message)
 
+        # Only check a caller-supplied `rename` (sent as a header/field); a
+        # None rename uses the local basename, already constrained by the OS.
         if rename is not None and not _FILENAME_CHARS.match(name):
             message = (
                 f"Specified filename ({name}) contains disallowed characters "

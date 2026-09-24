@@ -34,6 +34,7 @@ import pytest
 from virl2_client.exceptions import InvalidContentType, InvalidImageFile
 from virl2_client.models.node_image_definition import (
     EXTENSION_LIST,
+    MAX_UPLOAD_SIZE_BYTES,
     NodeImageDefinitions,
     print_progress_bar,
 )
@@ -172,6 +173,69 @@ def test_upload_image_file_rejects_path_traversal_rename(tmp_path: Path) -> None
     image.write_bytes(b"abc")
     with pytest.raises(ValueError, match="Invalid filename"):
         defs.upload_image_file(image, rename="../evil.qcow2")
+
+
+@pytest.mark.parametrize(
+    "rename",
+    ["file with space.qcow2", "file;rm.qcow2", "file$(cmd).qcow2"],
+)
+def test_upload_image_file_rejects_unsafe_rename_chars(
+    tmp_path: Path, rename: str
+) -> None:
+    """upload_image_file rejects renames outside the filename allow-list.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Pytest tmp_path fixture.
+    :param rename: Rename value containing a disallowed character.
+    """
+    defs = NodeImageDefinitions(MagicMock())
+    image = tmp_path / "file.qcow2"
+    image.write_bytes(b"abc")
+    with pytest.raises(InvalidImageFile, match="disallowed characters"):
+        defs.upload_image_file(image, rename=rename)
+
+
+def test_upload_image_file_allows_spaces_in_original_filename(
+    tmp_path: Path,
+) -> None:
+    """upload_image_file allows disallowed chars in original (non-rename) name.
+
+    The filename allow-list only guards caller-supplied `rename` values;
+    the source file's own basename is not renamed or interpolated into a
+    shell/SSH context, so it must not be rejected (CMLDEV-1228 regression
+    check).
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Pytest tmp_path fixture.
+    """
+    session = MagicMock()
+    defs = NodeImageDefinitions(session)
+    image = tmp_path / "My Router (v2).qcow2"
+    image.write_bytes(b"abc")
+    defs.upload_image_file(image)
+    session.post.assert_called_once()
+
+
+def test_upload_image_file_rejects_oversized_file(tmp_path: Path) -> None:
+    """upload_image_file rejects a file larger than MAX_UPLOAD_SIZE_BYTES.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param tmp_path: Pytest tmp_path fixture.
+    """
+    defs = NodeImageDefinitions(MagicMock())
+    image = tmp_path / "file.qcow2"
+    image.write_bytes(b"abc")
+    with (
+        patch(
+            "virl2_client.models.node_image_definition.os.path.getsize",
+            return_value=MAX_UPLOAD_SIZE_BYTES + 1,
+        ),
+        pytest.raises(InvalidImageFile, match="exceeds the maximum allowed"),
+    ):
+        defs.upload_image_file(image)
 
 
 @pytest.mark.parametrize(

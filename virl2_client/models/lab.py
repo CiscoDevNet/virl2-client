@@ -41,7 +41,14 @@ from ..exceptions import (
     SmartAnnotationNotFound,
     VirlException,
 )
-from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, locked
+from ..utils import (
+    UNCHANGED,
+    _Sentinel,
+    check_stale,
+    get_url_from_template,
+    locked,
+    sanitize_for_log,
+)
 from ..utils import property_s as property
 from .annotation import (
     Annotation,
@@ -1532,7 +1539,7 @@ class Lab:
         """
         url = self._url_for("lab")
         response = self._session.get(url)
-        _LOGGER.debug("lab state: %s -> %s", self._id, response.text)
+        _LOGGER.debug("lab state: %s -> %s", self._id, sanitize_for_log(response.text))
         return response.json()
 
     @check_stale
@@ -1558,7 +1565,7 @@ class Lab:
         """
         url = self._url_for("lab")
         response = self._session.delete(url)
-        _LOGGER.debug("Removed lab: %s", response.text)
+        _LOGGER.debug("Removed lab: %s", sanitize_for_log(response.text))
         self._stale = True
 
     @check_stale

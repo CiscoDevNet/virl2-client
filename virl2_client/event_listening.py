@@ -132,6 +132,17 @@ class EventListener:
         # listener; previously this was hardcoded to wss://.
         url_pieces = urlparse(client_library.url)
         ws_scheme = "ws" if url_pieces.scheme == "http" else "wss"
+        if ws_scheme == "ws" and not client_library.allow_http:
+            # Defense in depth: _prepare_url already refuses an http://
+            # base_url unless allow_http=True, so this should be
+            # unreachable, but never send the bearer token over a
+            # plaintext ws:// connection. TokenAuth.token also refuses to
+            # obtain a token via username/password over http://, so only a
+            # pre-obtained token can ever reach this path.
+            raise ValueError(
+                "Refusing to open a plaintext ws:// event connection without "
+                "allow_http=True."
+            )
         ws_url_pieces = url_pieces._replace(scheme=ws_scheme, path="ws/ui")
         self._ws_url = str(ws_url_pieces.geturl())
 

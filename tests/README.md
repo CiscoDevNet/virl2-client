@@ -331,6 +331,7 @@ complements `test_system.py`).
 | `test_deprecated_alias_modules.py` | Deprecated alias modules and emitted warning categories |
 | `test_event_handling.py` | Optional event-handling module |
 | `test_event_listening.py` | Optional websocket event listener |
+| `test_utils.py` | General-purpose helpers (log sanitization, etc.) |
 | `test_utils_stale.py` | Stale-checking utilities and related helpers |
 
 ## Coverage and Validation

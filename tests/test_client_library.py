@@ -185,6 +185,35 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
 
 
 @respx.mock
+def test_session_lock_and_event_listener_init_on_auth_failure(
+    client_library_server_current: MagicMock,
+) -> None:
+    """event_listener and _session.lock stay set even on early auth-failure return.
+
+    Regression test: previously, when raise_for_auth_failure=False and
+    auth failed, __init__ returned early before these attributes were set,
+    leaving the @locked decorator silently falling back to unlocked execution.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param client_library_server_current: Patched system_info fixture.
+    """
+    _ = client_library_server_current
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(403)
+    respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
+
+    cl = ClientLibrary(
+        url=FAKE_URL,
+        username="test",
+        password="pa$$",
+        raise_for_auth_failure=False,
+    )
+
+    assert cl.event_listener is None
+    assert cl._session.lock is None
+
+
+@respx.mock
 def test_jwt_valid_token_skips_auth(
     client_library_server_current: MagicMock,
 ) -> None:

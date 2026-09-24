@@ -34,6 +34,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import re
 import warnings
 from typing import TYPE_CHECKING, Any
 
@@ -72,6 +73,12 @@ _LOGGER = logging.getLogger(__name__)
 # exhaust the number of allowed attempts at the server
 # to use ssh keys, set the specific key path or set empty ssh_options
 DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
+
+# key_path is interpolated into an OpenSSH options string and passed to the
+# terminal server connection; reject anything that could inject/append
+# extra SSH options: whitespace or quotes (to close/reopen the option
+# value), or a leading "-" (-o/-F-style option syntax).
+_UNSAFE_KEY_PATH_CHARS = re.compile(r"""[\s"']""")
 
 # CML 2.11.0 introduced POST /labs/{lab_id}/nodes/{node_id}/cli. Frozen for the
 # pyATS deprecation stack — not advanced for later releases (2.12, 2.13, …).
@@ -292,6 +299,8 @@ class ClPyats:
         :param key_path: The SSH key path to be set.
         :param ssh_options: SSH options passed to terminal server connection.
         :raises PyatsNotInstalled: If pyATS is not installed.
+        :raises ValueError: If key_path contains whitespace, quotes, or
+            looks like an SSH option (e.g. starts with "-").
         """
         self._check_pyats_installed()
         terminal = self._testbed.devices.terminal_server
@@ -301,6 +310,12 @@ class ClPyats:
             terminal.credentials.default.password = password
             terminal.connections.cli.ssh_options = ssh_options
         if key_path is not None:
+            key_path = str(key_path)
+            if _UNSAFE_KEY_PATH_CHARS.search(key_path) or key_path.startswith("-"):
+                raise ValueError(
+                    f"Invalid key_path ({key_path!r}): must not contain "
+                    "whitespace, quotes, or look like an SSH option."
+                )
             ssh_options += f" -o IdentityFile={key_path}"
         terminal.connections.cli.ssh_options = ssh_options
 

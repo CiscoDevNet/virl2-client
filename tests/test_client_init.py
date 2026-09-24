@@ -57,18 +57,20 @@ def reset_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_client_library_init_allow_http(
     client_library_server_current: MagicMock,
 ) -> None:
-    """Client accepts http:// URL when allow_http=True.
+    """Client accepts http:// URL when allow_http=True with a JWT token.
+
+    Username/password auth is refused over http:// (CMLDEV-1228); only a
+    pre-obtained token is permitted, so jwtoken is passed here instead.
 
     :param client_library_server_current: Patched system_info fixture.
     """
     _ = client_library_server_current
-    cl = ClientLibrary("http://somehost", "virl2", "virl2", allow_http=True)
+    cl = ClientLibrary("http://somehost", jwtoken="test-jwt-token", allow_http=True)
     assert cl._session.base_url.scheme == "http"
     assert cl._session.base_url.host == "somehost"
     assert cl._session.base_url.port is None
     assert cl._session.base_url.path.endswith("/api/v0/")
-    assert cl.username == "virl2"
-    assert cl.password == "virl2"
+    assert cl.jwtoken == "test-jwt-token"
 
 
 @pytest.mark.parametrize("allow_http", [None, False], ids=["default", "explicit_false"])
@@ -146,15 +148,20 @@ def test_client_library_init_url(
         if isinstance(err.value, OSError):
             assert "reading from stdin" in str(err.value)
     else:
-        cl = ClientLibrary(url, username="virl2", password="virl2", allow_http=True)
+        cl = ClientLibrary(
+            url,
+            username="virl2",
+            password="virl2",
+            allow_http=True,
+            jwtoken="test-jwt-token",
+        )
         url_parts = cl._session.base_url
         assert url_parts.scheme == (expected_parts.scheme or "https")
         assert url_parts.host == (expected_parts.host or expected_parts.path)
         assert url_parts.port == expected_parts.port
         assert url_parts.path == "/api/v0/"
         assert cl._session.base_url.path.endswith("/api/v0/")
-        assert cl.username == "virl2"
-        assert cl.password == "virl2"
+        assert cl.jwtoken == "test-jwt-token"
 
 
 # the test fails if you have variables set in env

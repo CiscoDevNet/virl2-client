@@ -52,15 +52,19 @@ def test_message_text_normalizes_payload() -> None:
     assert EventListener._message_text('{"event": "ok"}') == '{"event": "ok"}'
 
 
-def _client(ssl_verify: bool | str = True) -> MagicMock:
+def _client(
+    ssl_verify: bool | str = True, url: str = "https://controller.local/api/v0/"
+) -> MagicMock:
     """Create a mocked client library for EventListener tests.
 
     :param ssl_verify: Whether to verify SSL (True/False) or path to CA bundle.
+    :param url: Base URL for the mocked client library.
     :returns: Mocked client instance for EventListener tests.
     """
     client = MagicMock()
     client._ssl_verify = ssl_verify
-    client.url = "https://controller.local/api/v0/"
+    client.url = url
+    client.allow_http = url.startswith("http://")
     client._session.auth.token = "token"
     client.uuid = "uuid-1"
     return client
@@ -121,6 +125,31 @@ def test_ssl_verify_path_missing_raises(tmp_path: Path) -> None:
     missing = (tmp_path / "missing.pem").as_posix()
     with pytest.raises(FileNotFoundError, match="ssl_verify path"):
         EventListener(_client(missing))
+
+
+def test_init_ws_connection_data_rejects_http_without_allow_http() -> None:
+    """_init_ws_connection_data refuses ws:// transport when allow_http is False.
+
+    Defense-in-depth: normally unreachable, as ClientLibrary URL construction
+    already blocks http:// scheme unless allow_http=True.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    client = _client(url="http://controller.local/api/v0/")
+    client.allow_http = False
+    with pytest.raises(ValueError, match="allow_http"):
+        EventListener(client)
+
+
+def test_init_ws_connection_data_allows_http_with_allow_http() -> None:
+    """_init_ws_connection_data allows ws:// transport when allow_http is True.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    client = _client(url="http://controller.local/api/v0/")
+    client.allow_http = True
+    listener = EventListener(client)
+    assert listener._ws_url.startswith("ws://")
 
 
 class _DummyThread:

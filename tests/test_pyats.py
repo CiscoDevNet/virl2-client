@@ -336,6 +336,36 @@ def test_cl_pyats_set_termserv_creds() -> None:
         assert "IdentityFile=/tmp/key" in terminal.connections.cli.ssh_options
 
 
+@pytest.mark.parametrize(
+    "key_path",
+    [
+        "/tmp/key -o ProxyCommand=evil",
+        '/tmp/key" -o ProxyCommand=evil',
+        "/tmp/key'; rm -rf /",
+        "-oProxyCommand=evil",
+        "-F/tmp/evil_config",
+    ],
+)
+def test_cl_pyats_set_termserv_creds_rejects_unsafe_key_path(key_path: str) -> None:
+    """Reject key_path values that could inject extra SSH options.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param key_path: An unsafe key_path value that must be rejected.
+    """
+    lab = MagicMock()
+    pyats = ClPyats(lab)
+    terminal = MagicMock()
+    terminal.connections = SimpleNamespace(cli=SimpleNamespace(ssh_options=""))
+    devices = type("Devices", (dict,), {"terminal_server": terminal})()
+    pyats._testbed = MagicMock(devices=devices)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.raises(ValueError, match="Invalid key_path"),
+    ):
+        pyats.set_termserv_credentials(key_path=key_path)
+
+
 def test_cl_pyats_prepare_params() -> None:
     """_prepare_params returns init_exec_commands, init_config_commands, timeout.
 

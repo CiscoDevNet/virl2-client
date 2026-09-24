@@ -62,7 +62,11 @@ class Version:
 
     @staticmethod
     def parse_version_str(version_str: str) -> str:
-        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})(.{0,32})$"
+        # Tail is capped at 32 chars and restricted to a safe suffix
+        # character set (pre-release/build markers such as "-dev1",
+        # "+build.2", ".post3"), rather than an arbitrary blob that could
+        # smuggle unexpected content through version comparisons/logs.
+        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})([A-Za-z0-9._+-]{0,32})?$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")
@@ -287,6 +291,25 @@ def locked(func: TCallable) -> TCallable:
             return func(*args, **kwargs)
 
     return cast("TCallable", wrapper_locked)
+
+
+_LOG_TEXT_MAX_LEN = 200
+
+
+def sanitize_for_log(text: str, max_len: int = _LOG_TEXT_MAX_LEN) -> str:
+    """Sanitize controller-supplied text before writing it to logs.
+
+    Strips CR/LF (to stop log-line injection/forging) and caps length (to
+    stop a hostile/misbehaving controller from flooding logs).
+
+    :param text: Raw text to sanitize, typically a response body.
+    :param max_len: Maximum number of characters to keep.
+    :returns: The sanitized, length-capped text.
+    """
+    cleaned = text.replace("\r", " ").replace("\n", " ")
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len] + "...(truncated)"
+    return cleaned
 
 
 def get_url_from_template(

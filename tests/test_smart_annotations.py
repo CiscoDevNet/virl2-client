@@ -26,6 +26,7 @@ import pytest
 from tests.helpers import make_lab
 from virl2_client.exceptions import InvalidProperty
 from virl2_client.models import SmartAnnotation
+from virl2_client.utils import Version
 
 
 def test_smart_annotation_prop_setters() -> None:
@@ -141,6 +142,19 @@ def test_smart_annotation_update_push() -> None:
     with patch.object(annotation, "_set_smart_annotation_properties") as set_props:
         annotation._update({"label": "updated"}, push_to_server=True)
         set_props.assert_called_once()
+
+
+def test_smart_annotation_update_translates_border_style_for_api() -> None:
+    """_update with border_style normalizes wire values for the controller version.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = make_lab()
+    lab._session.controller_version = Version("2.11.0")
+    annotation = SmartAnnotation(lab, "s2")
+    with patch.object(annotation, "_set_smart_annotation_properties") as set_props:
+        annotation._update({"border_style": "dashed"}, push_to_server=True)
+        set_props.assert_called_once_with({"border_style": "dashed"})
 
 
 def test_smart_annotation_update_skips_id() -> None:

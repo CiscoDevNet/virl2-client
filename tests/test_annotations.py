@@ -260,6 +260,19 @@ def test_annotation_update_succeeds() -> None:
     assert annotation.x1 == 1
 
 
+def test_annotation_update_translates_border_style_for_api() -> None:
+    """update with border_style normalizes wire values for the controller version.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = make_lab()
+    lab._session.controller_version = Version("2.11.0")
+    annotation = AnnotationRectangle(lab, "a10")
+    with patch.object(annotation, "_set_annotation_properties") as set_props:
+        annotation.update({"border_style": "dotted"})
+        set_props.assert_called_once_with({"border_style": "dotted"})
+
+
 def test_annotation_remove_delegates() -> None:
     """remove delegates to lab and marks stale.
 

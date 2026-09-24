@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
@@ -378,8 +379,12 @@ def test_get_pyats_testbed() -> None:
     """
     lab, session, _ = _make_lab_context()
     session.get.return_value.text = "pyats-yaml"
-    assert lab.get_pyats_testbed() == "pyats-yaml"
-    assert lab.get_pyats_testbed(hostname="host") == "pyats-yaml"
+    with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+        assert lab.get_pyats_testbed() == "pyats-yaml"
+    # DeprecationWarning is once per lab.pyats; second call must stay silent.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert lab.get_pyats_testbed(hostname="host") == "pyats-yaml"
 
 
 def test_sync_and_cleanup_pyats() -> None:
@@ -389,10 +394,14 @@ def test_sync_and_cleanup_pyats() -> None:
     """
     lab, _, _ = _make_lab_context()
     with patch.object(lab.pyats, "sync_testbed") as sync_testbed:
-        lab.sync_pyats()
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            lab.sync_pyats()
         sync_testbed.assert_called_once_with(lab.username, lab.password)
-    with patch.object(lab.pyats, "cleanup") as cleanup:
-        lab.cleanup_pyats_connections()
+    # Fresh lab: deprecation warns once per ClPyats instance.
+    lab2, _, _ = _make_lab_context()
+    with patch.object(lab2.pyats, "cleanup") as cleanup:
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            lab2.cleanup_pyats_connections()
         cleanup.assert_called_once()
 
 
@@ -410,7 +419,8 @@ def test_sync_pyats_jwt_when_password_missing() -> None:
     lab.password = None
     session.auth.token = "jwt-token-placeholder"
     with patch.object(lab.pyats, "sync_testbed") as sync_testbed:
-        lab.sync_pyats()
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            lab.sync_pyats()
         sync_testbed.assert_called_once_with(lab.username, "jwt-token-placeholder")
 
 

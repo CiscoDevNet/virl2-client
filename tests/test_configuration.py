@@ -511,6 +511,40 @@ def test_config_get_prop_ignores_parent_virlrc(
     assert ClientConfig._get_prop("VIRL2_URL") is None
 
 
+def test_get_configuration_returns_none_when_final_validation_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """get_configuration returns None when final validation does not succeed.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    monkeypatch.setattr(
+        ClientConfig, "_populate_from_env", classmethod(lambda _cls, _c: None)
+    )
+    monkeypatch.setattr(
+        ClientConfig, "_populate_from_rc_files", classmethod(lambda _cls, _c: None)
+    )
+    original_validate = ClientConfig._validate.__func__
+
+    def fake_validate(cls, config, final=False):
+        if final:
+            return False
+        return original_validate(cls, config, final)
+
+    monkeypatch.setattr(ClientConfig, "_validate", classmethod(fake_validate))
+
+    result = ClientConfig.get_configuration(
+        url=None,
+        username=None,
+        password=None,
+        jwtoken=None,
+        ssl_verify=None,
+        allow_inputs=False,
+    )
+
+    assert result is None
+
+
 def test_config_populate_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     """ClientConfig._populate_from_inputs stores JWT from interactive input.
 

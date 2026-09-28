@@ -141,7 +141,7 @@ def test_new_auth_url_used_with_cml_2_10(
 ):
     """Verify that the new auth URL is used with CML 2.10.x controllers.
 
-    With the current client version (2.10.0), _make_test_auth_call should
+    With the current client version (2.10.1), _make_test_auth_call should
     access the "authentication" endpoint and not the legacy "authok" one.
     """
 
@@ -364,7 +364,7 @@ def test_client_library_init_disallow_http(client_library_server_current: MagicM
 def test_new_auth_url_fails_with_cml_2_9(client_library_server_2_9_0: MagicMock):
     """Negative test: new auth URL does not work with CML 2.9.x.
 
-    With the current client version (2.10.0) and a 2.9 controller, only the
+    With the current client version (2.10.1) and a 2.9 controller, only the
     legacy "authok" endpoint is expected to exist server-side.
     """
 

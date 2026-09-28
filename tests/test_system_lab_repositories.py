@@ -381,7 +381,7 @@ def test_lab_repository_end_to_end_workflow():
     )
 
     respx.get("https://localhost/api/v0/system_information").respond(
-        json={"version": "2.10.0"}
+        json={"version": ClientLibrary.VERSION.version_str}
     )
 
     deleted = [False]

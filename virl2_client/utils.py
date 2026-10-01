@@ -66,7 +66,7 @@ class Version:
         # character set (pre-release/build markers such as "-dev1",
         # "+build.2", ".post3"), rather than an arbitrary blob that could
         # smuggle unexpected content through version comparisons/logs.
-        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})([A-Za-z0-9._+-]{0,32})?$"
+        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})([A-Za-z0-9._+-]{1,32})?$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")

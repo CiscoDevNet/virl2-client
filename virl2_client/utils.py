@@ -204,6 +204,8 @@ class property_s(property):
             self.__doc__ = doc
 
     def __get__(self, instance, owner):
+        if instance is None:
+            return super().__get__(instance, owner)
         return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 

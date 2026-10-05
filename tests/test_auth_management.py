@@ -89,6 +89,68 @@ def test_sync_updates_settings_and_timestamp() -> None:
     session.get.assert_called_once_with("system/auth/config")
 
 
+def test_sync_drops_secret_fields() -> None:
+    """Presence markers for write-only secrets are never cached."""
+    auth_management, session = make_auth_management({"method": "local"})
+    session.get.return_value.json.return_value = {
+        "method": "ldap",
+        "verify_tls": True,
+        "manager_password": "<redacted>",
+        "manager_ntlm_hash": None,
+    }
+
+    auth_management.sync()
+
+    assert auth_management.get_settings() == {"method": "ldap", "verify_tls": True}
+
+
+@pytest.mark.parametrize(
+    ("method", "secrets"),
+    [
+        ("ldap", {"manager_password": "<redacted>", "manager_ntlm_hash": None}),
+        ("radius", {"secret": "<redacted>"}),
+        ("oidc", {"client_secret": None}),
+        ("oauth2", {"client_secret": "<redacted>"}),
+        ("saml", {"sp_private_key": "<redacted>"}),
+    ],
+)
+def test_settings_round_trip_omits_secrets(method: str, secrets: dict) -> None:
+    """update_settings(get_settings()) never sends secret markers back."""
+    auth_management, session = make_auth_management({"method": "local"})
+    response = {"method": method, "timeout": 10, **secrets}
+    session.get.return_value.json.return_value = response
+    session.patch.return_value.json.return_value = response
+
+    auth_management.sync()
+    auth_management.update_settings(auth_management.get_settings())
+
+    session.patch.assert_called_once_with(
+        "system/auth/config", json={"method": method, "timeout": 10}
+    )
+    assert auth_management._settings == {"method": method, "timeout": 10}
+
+
+def test_sync_drops_unknown_secret_markers() -> None:
+    """Fields carrying the presence marker are dropped even if not known."""
+    auth_management, session = make_auth_management({"method": "local"})
+    session.get.return_value.json.return_value = {
+        "method": "oidc",
+        "future_secret": "<redacted>",
+        "timeout": 10,
+    }
+
+    auth_management.sync()
+
+    assert auth_management.get_settings() == {"method": "oidc", "timeout": 10}
+
+
+@pytest.mark.parametrize("method", ["oidc", "oauth2", "saml"])
+def test_manager_is_none_for_sso_methods(method: str) -> None:
+    """SSO methods have no property manager."""
+    auth_management, _ = make_auth_management({"method": method})
+    assert auth_management.manager is None
+
+
 @pytest.mark.parametrize("search_filter", [None, "(cn=admins)"])
 def test_get_ldap_groups(search_filter: str | None) -> None:
     """get_ldap_groups returns groups, optionally filtered.
@@ -157,10 +219,15 @@ def test_auth_with_group_name() -> None:
 
 
 def test_current_auth_includes_manager_password() -> None:
-    """test_current_auth includes manager_password in auth-config."""
-    auth_management, session = make_auth_management(
-        {"method": "ldap", "verify_tls": True}
-    )
+    """test_current_auth sends manager_password, never cached secret markers."""
+    auth_management, session = make_auth_management({"method": "local"})
+    session.get.return_value.json.return_value = {
+        "method": "ldap",
+        "verify_tls": True,
+        "manager_password": "<redacted>",
+        "manager_ntlm_hash": "<redacted>",
+    }
+    auth_management.sync()
     session.post.return_value.json.return_value = {"auth_ok": True}
 
     response = auth_management.test_current_auth(
@@ -305,26 +372,34 @@ def test_radius_settings_update(setting: str, value: str | int | float) -> None:
     [
         ("ldap", "manager_password", "secret"),
         ("radius", "secret", "secret"),
+        ("ldap", "manager_password", None),
+        ("radius", "secret", None),
     ],
 )
-def test_secret_setter_patches_config(method: str, prop: str, value: str) -> None:
+def test_secret_setter_patches_config(
+    method: str, prop: str, value: str | None
+) -> None:
     """Secret-like setter PATCHes config with value.
 
     NOTE: LLM-generated test -- verify for correctness.
 
     :param method: Auth method (ldap or radius).
     :param prop: Property name to set.
-    :param value: Value to set.
+    :param value: Value to set (None clears the secret).
     """
     auth_management, session = make_auth_management({"method": method})
     manager = auth_management._managers[method]
-    session.patch.return_value.json.return_value = {"method": method, prop: value}
+    session.patch.return_value.json.return_value = {
+        "method": method,
+        prop: "<redacted>" if value else None,
+    }
 
     setattr(manager, prop, value)
 
     session.patch.assert_called_once_with(
         "system/auth/config", json={prop: value, "method": method}
     )
+    assert prop not in auth_management._settings
 
 
 def test_update_settings_precedence_and_sync() -> None:
@@ -390,8 +465,8 @@ def test_accessing_wrong_manager_raises() -> None:
         _ = auth_management._managers["radius"].timeout
 
 
-def test_method_setter_and_current_settings() -> None:
-    """Exercise method getter/setter and _get_current_settings helper.
+def test_method_setter() -> None:
+    """Exercise method getter/setter.
 
     NOTE: LLM-generated test -- verify for correctness.
     """
@@ -404,7 +479,6 @@ def test_method_setter_and_current_settings() -> None:
     session.patch.assert_called_once_with(
         "system/auth/config", json={"method": "radius"}
     )
-    assert auth_management._get_current_settings() == {"method": "radius"}
 
 
 def test_ldap_all_getters() -> None:

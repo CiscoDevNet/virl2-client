@@ -574,3 +574,67 @@ def test_auth_call_propagates_500() -> None:
         pytest.raises(httpx.HTTPStatusError),
     ):
         original_make_test_auth_call(failing, new_auth=False)
+
+
+@pytest.mark.parametrize(
+    ("controller_version", "status_code"),
+    [
+        pytest.param("2.11.0", 401, id="2.11-401"),
+        pytest.param("2.11.0.dev0", 401, id="2.11-dev-401"),
+        pytest.param("2.11.0+build.42", 401, id="2.11-build-401"),
+        pytest.param("2.10.0", 403, id="2.10-403"),
+    ],
+)
+def test_auth_call_login_failure_raises_initialization_error(
+    controller_version: str, status_code: int
+) -> None:
+    """Version-specific login-failure status raises InitializationError.
+
+    :param controller_version: Controller version reported by the server.
+    :param status_code: Login-failure HTTP status for that version.
+    """
+    failing = _make_client()
+    failing._session.controller_version = Version(controller_version)
+    login_failure = httpx.HTTPStatusError(
+        "error",
+        request=httpx.Request("POST", "https://x/api/v0/authenticate"),
+        response=httpx.Response(status_code=status_code),
+    )
+    failing._url_for = MagicMock(return_value="authentication")
+    with (
+        patch.object(failing._session, "get", side_effect=login_failure),
+        pytest.raises(InitializationError, match="Unable to authenticate"),
+    ):
+        ClientLibrary._make_test_auth_call(failing, new_auth=True)
+
+
+@pytest.mark.parametrize(
+    ("controller_version", "status_code"),
+    [
+        pytest.param("2.11.0", 403, id="2.11-403-is-authz"),
+        pytest.param("2.11.0", 401, id="2.11-401-expired-token"),
+        pytest.param("2.10.0", 401, id="2.10-401-not-login"),
+    ],
+)
+def test_auth_call_other_status_propagates(
+    controller_version: str, status_code: int
+) -> None:
+    """Non-login failures propagate (incl. 2.11 401 from a non-login request).
+
+    :param controller_version: Controller version reported by the server.
+    :param status_code: HTTP status returned by the failing auth call.
+    """
+    failing = _make_client()
+    failing._session.controller_version = Version(controller_version)
+    other = httpx.HTTPStatusError(
+        "error",
+        request=httpx.Request("GET", "https://x/api/v0/authentication"),
+        response=httpx.Response(status_code=status_code),
+    )
+    failing._url_for = MagicMock(return_value="authentication")
+    with (
+        patch.object(failing._session, "get", side_effect=other),
+        pytest.raises(httpx.HTTPStatusError) as exc_info,
+    ):
+        ClientLibrary._make_test_auth_call(failing, new_auth=True)
+    assert not isinstance(exc_info.value, InitializationError)

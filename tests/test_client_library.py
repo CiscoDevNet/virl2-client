@@ -137,7 +137,7 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
 
     # mock failed and successful authentication
     side_effect = initial_different_response(
-        httpx.Response(403), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
+        httpx.Response(401), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
     )
     respx.post(f"{FAKE_URL}api/v0/authenticate").side_effect = side_effect
     side_effect = initial_different_response(
@@ -199,7 +199,7 @@ def test_session_lock_and_event_listener_init_on_auth_failure(
     :param client_library_server_current: Patched system_info fixture.
     """
     _ = client_library_server_current
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(403)
+    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(401)
     respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
 
     cl = ClientLibrary(
@@ -294,16 +294,20 @@ def test_jwt_expired_reauths(
 
 
 @respx.mock
+@pytest.mark.parametrize("raise_for_auth_failure", [False, True])
 def test_jwt_reauth_no_creds_fails(
     client_library_server_current: MagicMock,
     reset_env: None,
+    raise_for_auth_failure: bool,
 ) -> None:
     """Raise APIError when expired JWT cannot be refreshed without credentials.
 
-    NOTE: LLM-generated test -- verify for correctness.
+    An expired/revoked token is not a login failure, so it fails loudly
+    regardless of raise_for_auth_failure.
 
     :param client_library_server_current: Patched system_info fixture.
     :param reset_env: Fixture clearing VIRL2 env vars.
+    :param raise_for_auth_failure: ClientLibrary flag under test.
     """
     _ = client_library_server_current, reset_env
 
@@ -315,8 +319,13 @@ def test_jwt_reauth_no_creds_fails(
     with pytest.raises(
         APIError,
         match="JWT token expired and automatic re-authentication is not possible",
-    ):
-        ClientLibrary(url=FAKE_URL, jwtoken="EXPIRED_TOKEN")
+    ) as err:
+        ClientLibrary(
+            url=FAKE_URL,
+            jwtoken="EXPIRED_TOKEN",
+            raise_for_auth_failure=raise_for_auth_failure,
+        )
+    assert not isinstance(err.value, InitializationError)
 
     assert auth_route.called
     assert auth_route.call_count == 1

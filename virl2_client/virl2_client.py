@@ -400,10 +400,14 @@ class ClientLibrary:
             response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
-            if status_code == httpx.codes.FORBIDDEN:
-                message = (
-                    "Unable to authenticate, please check your username and password"
-                )
+            # Login failure is 401 since 2.11, 403 before
+            login_failure_status = (
+                httpx.codes.UNAUTHORIZED
+                if self._session.controller_version >= Version("2.11.0")
+                else httpx.codes.FORBIDDEN
+            )
+            if status_code == login_failure_status:
+                message = "Unable to authenticate, please check your credentials"
                 raise InitializationError(message) from exc
             raise
         except httpx.HTTPError as exc:

@@ -533,3 +533,30 @@ def test_lab_repo_management_len() -> None:
     mgr._lab_repositories = {"a": Mock(), "b": Mock()}
     assert len(mgr) == 2
     mgr.sync_lab_repositories_if_outdated.assert_called_once()
+
+
+@pytest.mark.parametrize("folder", ["updated_folder", None])
+def test_sync_updates_existing_repository(system_with_repos, folder):
+    from virl2_client.utils import Version
+
+    manager = system_with_repos
+    manager._session.controller_version = Version("2.9.0")
+    repository = manager.get_lab_repository("repo-123")
+    updated = {
+        "id": "repo-123",
+        "url": "https://example.com/updated.git",
+        "name": "updated-name",
+    }
+    if folder is not None:
+        updated["folder"] = folder
+    manager._session.get.return_value.json.return_value = [updated]
+
+    manager.sync_lab_repositories()
+
+    assert manager.get_lab_repository("repo-123") is repository
+    assert repository.url == "https://example.com/updated.git"
+    assert repository.name == "updated-name"
+    assert repository.folder == folder
+    assert manager.get_lab_repository_by_name("updated-name") is repository
+    with pytest.raises(LabRepositoryNotFound):
+        manager.get_lab_repository_by_name("cisco-templates")

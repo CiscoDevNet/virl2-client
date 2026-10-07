@@ -260,6 +260,8 @@ class property_s(property):
         :param owner: The owning class, or None.
         :returns: The property value from the getter.
         """
+        if instance is None:
+            return super().__get__(instance, owner)
         return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 

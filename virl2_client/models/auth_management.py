@@ -30,6 +30,33 @@ from .resource_pool import ResourcePool
 if TYPE_CHECKING:
     from httpx import Client
 
+# Write-only secrets: the server only returns presence markers for them.
+# The marker is "<redacted>" when a secret is stored and None when it is not.
+_SECRET_MARKER = "<redacted>"  # noqa: S105 - presence marker, not a secret
+_SECRET_FIELDS = frozenset(
+    {
+        "manager_password",
+        "manager_ntlm_hash",
+        "secret",
+        "client_secret",
+        "sp_private_key",
+    }
+)
+
+
+def _without_secrets(settings: dict[str, Any]) -> dict[str, Any]:
+    """Drop write-only secret fields so they are never cached or sent back.
+
+    Known secret fields are dropped by name. Any other field carrying the
+    presence marker is dropped as well, so a secret field added on the server
+    is not echoed back by update_settings(get_settings()).
+    """
+    return {
+        key: value
+        for key, value in settings.items()
+        if key not in _SECRET_FIELDS and value != _SECRET_MARKER
+    }
+
 
 class AuthManagement:
     _URL_TEMPLATES: ClassVar[dict[str, str]] = {
@@ -91,8 +118,7 @@ class AuthManagement:
         Fetches the current auth config from the server and updates local state.
         """
         url = self._url_for("config")
-        self._settings = self._session.get(url).json()
-        self._last_sync_time = time.time()
+        self._store_settings(self._session.get(url).json())
 
     @property
     def method(self) -> str:
@@ -115,19 +141,11 @@ class AuthManagement:
     def manager(self) -> AuthMethodManager | None:
         """Return the property manager for the current authentication method.
 
-        :returns: The manager for the active method, or None for local auth.
+        :returns: The manager for the active method, or None for methods without
+            a property manager (local, OIDC, OAuth2, SAML).
         """
         self.sync_if_outdated()
-        return self._managers[self._settings["method"]]
-
-    def _get_current_settings(self) -> dict[str, Any]:
-        """
-        Get the current authentication settings.
-
-        :returns: The current authentication settings.
-        """
-        url = self._url_for("config")
-        return self._session.get(url).json()
+        return self._managers.get(self._settings["method"])
 
     def _get_setting(self, setting: str) -> Any:
         """
@@ -143,6 +161,9 @@ class AuthManagement:
         """
         Get a dictionary of the settings of the current authentication method.
 
+        Write-only secret fields are not included, so the result can be passed
+        back to update_settings() without touching stored secrets.
+
         :returns: A dictionary of the settings of the current authentication method.
         """
         self.sync_if_outdated()
@@ -157,8 +178,7 @@ class AuthManagement:
         """
         url = self._url_for("config")
         settings = {setting: value, "method": self._settings["method"]}
-        self._settings = self._session.patch(url, json=settings).json()
-        self._last_sync_time = time.time()
+        self._store_settings(self._session.patch(url, json=settings).json())
 
     def update_settings(
         self, settings_dict: dict[str, Any] | None = None, **kwargs: Any
@@ -191,7 +211,14 @@ class AuthManagement:
         if not settings:
             raise TypeError("No settings to update.")
         url = self._url_for("config")
-        self._settings = self._session.patch(url, json=settings).json()
+        self._store_settings(self._session.patch(url, json=settings).json())
+
+    def _store_settings(self, settings: dict[str, Any]) -> None:
+        """Cache settings returned by the server, without secret fields.
+
+        :param settings: The auth configuration returned by the server.
+        """
+        self._settings = _without_secrets(settings)
         self._last_sync_time = time.time()
 
     def get_ldap_groups(self, search_filter: str | None = None) -> list[str]:
@@ -614,10 +641,10 @@ class LDAPManager(AuthMethodManager):
         """
         self._update_setting("timeout", value)
 
-    def manager_password(self, value: str) -> None:
+    def manager_password(self, value: str | None) -> None:
         """Set the manager password.
 
-        :param value: The manager password to set.
+        :param value: The manager password to set, or None to clear it.
         :raises MethodNotActive: If LDAP is not the active auth method.
         """
         self._update_setting("manager_password", value)
@@ -782,10 +809,10 @@ class RADIUSManager(AuthMethodManager):
         """
         self._update_setting("nas_identifier", value)
 
-    def secret(self, value: str) -> None:
+    def secret(self, value: str | None) -> None:
         """Set the shared secret for the RADIUS server(s).
 
-        :param value: The shared secret to set.
+        :param value: The shared secret to set, or None to clear it.
         :raises MethodNotActive: If RADIUS is not the active auth method.
         """
         self._update_setting("secret", value)

@@ -204,6 +204,11 @@ class LabRepositoryManagement:
             repo_id = lab_repository.pop("id")
             if repo_id not in self._lab_repositories:
                 self.add_lab_repository_local(repo_id, **lab_repository)
+            else:
+                repository = self._lab_repositories[repo_id]
+                repository._url = lab_repository["url"]
+                repository._name = lab_repository["name"]
+                repository._folder = lab_repository.get("folder")
             lab_repository_ids.append(repo_id)
 
         for repo_id in tuple(self._lab_repositories):

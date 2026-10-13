@@ -47,7 +47,7 @@ from .models import (
     TokenAuth,
     UserManagement,
 )
-from .models.authentication import make_session
+from .models.authentication import _AUTH_URL, make_session
 from .utils import Version, get_url_from_template, locked, sanitize_for_log
 
 _LOGGER = logging.getLogger(__name__)
@@ -238,6 +238,15 @@ class DiagnosticsCategory(Enum):
     STARTUP_SCHEDULER = "startup_scheduler"
 
 
+def _is_login_request(request: httpx.Request) -> bool:
+    """Return whether the request is the username/password login call.
+
+    :param request: The request that failed.
+    :returns: True for POST to the authenticate endpoint.
+    """
+    return request.method == "POST" and request.url.path.endswith(f"/{_AUTH_URL}")
+
+
 class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
@@ -400,10 +409,16 @@ class ClientLibrary:
             response = self._session.get(url)
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
-            if status_code == httpx.codes.FORBIDDEN:
-                message = (
-                    "Unable to authenticate, please check your username and password"
+            # Login failure is 401 since 2.11, 403 before
+            if self._session.controller_version >= Version("2.11.0"):
+                # 401 also means expired/revoked token; only the login call is bad creds
+                login_failed = status_code == httpx.codes.UNAUTHORIZED and (
+                    _is_login_request(exc.request)
                 )
+            else:
+                login_failed = status_code == httpx.codes.FORBIDDEN
+            if login_failed:
+                message = "Unable to authenticate, please check your credentials"
                 raise InitializationError(message) from exc
             raise
         except httpx.HTTPError as exc:

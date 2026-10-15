@@ -1430,7 +1430,8 @@ class Node:
                     self._set_configuration(value)
                 continue
             if key == "operational":
-                self.sync_operational(node_data)
+                # events carry partial operational data: merge, don't replace
+                self._operational = {**self._operational, **(value or {})}
                 continue
             setattr(self, f"_{key}", value)
 

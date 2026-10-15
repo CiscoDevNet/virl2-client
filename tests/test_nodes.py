@@ -634,6 +634,26 @@ def test_node_update_excludes_config() -> None:
     assert node.label == "updated-label"
 
 
+def test_node_update_merges_partial_operational() -> None:
+    """A partial operational event keeps the other operational fields."""
+    _lab, node = _make_lab_and_node()
+    node._operational = {"compute_id": "c1", "resource_pool": "p1"}
+
+    node._update(
+        {"data": {"operational": {"compute_id": "c2"}}},
+        exclude_configurations=True,
+        push_to_server=False,
+    )
+    assert node._operational == {"compute_id": "c2", "resource_pool": "p1"}
+
+    node._update(
+        {"data": {"operational": None}},
+        exclude_configurations=True,
+        push_to_server=False,
+    )
+    assert node._operational == {"compute_id": "c2", "resource_pool": "p1"}
+
+
 def test_node_update_preserves_id() -> None:
     """_update must not overwrite node ID.
 

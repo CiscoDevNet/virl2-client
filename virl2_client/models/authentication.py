@@ -189,7 +189,7 @@ class TokenAuth(httpx.Auth):
             # Never post username/password in cleartext; only a preset token.
             raise InitializationError(
                 "Refusing to send username/password over unencrypted "
-                "http://. Set client.jwtoken to a pre-obtained token instead."
+                "http://. Set client.jwtoken to a pre-obtained token instead."  # NOSONAR
             )
         if not self.client_library.allow_http:
             if base_url.port is not None and base_url.port != 443:

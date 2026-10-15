@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 # Write-only secrets: the server only returns presence markers for them.
 # The marker is "<redacted>" when a secret is stored and None when it is not.
-_SECRET_MARKER = "<redacted>"  # noqa: S105 - presence marker, not a secret
+_SECRET_MARKER = "<redacted>"  # noqa: S105
 _SECRET_FIELDS = frozenset(
     {
         "manager_password",

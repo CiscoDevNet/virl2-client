@@ -238,8 +238,8 @@ def test_lab_method_waits(method: str) -> None:
     """
     lab = make_lab()
     with (
-        # stop() calls cleanup_pyats_connections; this test targets wait_until_lab_converged.
-        patch.object(lab, "cleanup_pyats_connections"),
+        # stop() cleans up pyATS connections; this test targets wait_until_lab_converged.
+        patch.object(lab.pyats, "cleanup"),
         patch.object(lab, "wait_until_lab_converged") as wait,
     ):
         getattr(lab, method)(wait=True)

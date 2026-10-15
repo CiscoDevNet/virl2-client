@@ -63,7 +63,7 @@ def _read_default_password() -> str:
 
 def main() -> int:
     url = os.environ.get("CML_URL", "http://localhost:8001")
-    is_http = url.startswith("http://")
+    is_http = url.startswith("http://")  # NOSONAR
     jwtoken = os.environ.get("CML_JWT_TOKEN")
 
     if jwtoken:

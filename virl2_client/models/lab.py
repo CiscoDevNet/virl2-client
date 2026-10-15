@@ -1487,7 +1487,9 @@ class Lab:
         """
         url = self._url_for("stop")
         self._session.put(url)
-        self.cleanup_pyats_connections()
+        # internal cleanup: do not go through the deprecated public wrapper,
+        # otherwise every stop() would emit the pyATS DeprecationWarning
+        self.pyats.cleanup()
         if self.need_to_wait(wait):
             self.wait_until_lab_converged()
         _LOGGER.debug("Stopped lab: %s", self._id)

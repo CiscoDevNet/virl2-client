@@ -21,7 +21,7 @@
 """Backward compatibility tests for virl2_client 2.10.
 
 These tests verify that the v2.10 client works correctly against older
-CML servers (2.8, 2.9) by mocking server responses with respx.
+CML servers (2.8, 2.9) by mocking server responses with pytest-httpx2.
 
 Tests cover:
 - Auth flow branching (authok vs authentication endpoint)
@@ -34,9 +34,8 @@ Tests cover:
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 import pytest
-import respx
 
 from virl2_client.exceptions import FeatureNotSupported
 from virl2_client.models import (
@@ -63,14 +62,14 @@ FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 # ---------------------------------------------------------------------------
 
 
-def _make_client(respx_mock, version: str) -> ClientLibrary:
+def _make_client(httpx2_mock, version: str) -> ClientLibrary:
     """Create a ClientLibrary connected to a fake server reporting *version*."""
-    respx_mock.get(FAKE_HOST_API + "system_information").respond(
+    httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
         json={"version": version, "ready": True},
     )
-    respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
+    httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
     if Version(version) >= Version("2.10.0"):
-        respx_mock.get(FAKE_HOST_API + "authentication").respond(
+        httpx2_mock.get(FAKE_HOST_API + "authentication").respond(
             json={
                 "username": "admin",
                 "id": "00000000-0000-4000-a000-000000000000",
@@ -79,7 +78,7 @@ def _make_client(respx_mock, version: str) -> ClientLibrary:
             }
         )
     else:
-        respx_mock.get(FAKE_HOST_API + "authok").respond(text="OK")
+        httpx2_mock.get(FAKE_HOST_API + "authok").respond(text="OK")
     return ClientLibrary(
         url=FAKE_HOST,
         username="test",
@@ -112,19 +111,16 @@ def _make_lab(client: ClientLibrary, lab_id: str = "lab-id") -> Lab:
 class TestControllerVersionOnSession:
     """Verify that controller_version is stored on the session."""
 
-    @respx.mock
-    def test_version_stored_for_2_10(self):
-        client = _make_client(respx.mock, "2.10.0")
+    def test_version_stored_for_2_10(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.10.0")
         assert client._session.controller_version == Version("2.10.0")
 
-    @respx.mock
-    def test_version_stored_for_2_9(self):
-        client = _make_client(respx.mock, "2.9.0")
+    def test_version_stored_for_2_9(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.9.0")
         assert client._session.controller_version == Version("2.9.0")
 
-    @respx.mock
-    def test_version_stored_for_2_8(self):
-        client = _make_client(respx.mock, "2.8.0")
+    def test_version_stored_for_2_8(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.8.0")
         assert client._session.controller_version == Version("2.8.0")
 
 
@@ -136,10 +132,9 @@ class TestControllerVersionOnSession:
 class TestAuthFlowBranching:
     """Verify that the correct auth endpoint is used based on server version."""
 
-    @respx.mock
-    def test_2_10_uses_authentication_endpoint(self):
+    def test_2_10_uses_authentication_endpoint(self, httpx2_mock):
         """CML 2.10 should GET /authentication and extract user info."""
-        auth_route = respx.get(FAKE_HOST_API + "authentication").respond(
+        auth_route = httpx2_mock.get(FAKE_HOST_API + "authentication").respond(
             json={
                 "username": "admin",
                 "id": "00000000-0000-4000-a000-000000000000",
@@ -147,36 +142,34 @@ class TestAuthFlowBranching:
                 "admin": True,
             }
         )
-        respx.get(FAKE_HOST_API + "system_information").respond(
+        httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
             json={"version": "2.10.0", "ready": True},
         )
-        respx.post(FAKE_HOST_API + "authenticate").respond(json="T")
+        httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="T")
 
         client = ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
         assert auth_route.called
         assert client.username == "admin"
         assert client.admin is True
 
-    @respx.mock
-    def test_2_9_uses_authok_endpoint(self):
+    def test_2_9_uses_authok_endpoint(self, httpx2_mock):
         """CML 2.9 should GET /authok (legacy path)."""
-        authok_route = respx.get(FAKE_HOST_API + "authok").respond(text="OK")
-        respx.get(FAKE_HOST_API + "system_information").respond(
+        authok_route = httpx2_mock.get(FAKE_HOST_API + "authok").respond(text="OK")
+        httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
             json={"version": "2.9.0", "ready": True},
         )
-        respx.post(FAKE_HOST_API + "authenticate").respond(json="T")
+        httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="T")
 
         ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
         assert authok_route.called
 
-    @respx.mock
-    def test_2_8_uses_authok_endpoint(self):
+    def test_2_8_uses_authok_endpoint(self, httpx2_mock):
         """CML 2.8 should GET /authok (legacy path)."""
-        authok_route = respx.get(FAKE_HOST_API + "authok").respond(text="OK")
-        respx.get(FAKE_HOST_API + "system_information").respond(
+        authok_route = httpx2_mock.get(FAKE_HOST_API + "authok").respond(text="OK")
+        httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
             json={"version": "2.8.0", "ready": True},
         )
-        respx.post(FAKE_HOST_API + "authenticate").respond(json="T")
+        httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="T")
 
         ClientLibrary(
             url=FAKE_HOST,
@@ -186,13 +179,12 @@ class TestAuthFlowBranching:
         )
         assert authok_route.called
 
-    @respx.mock
-    def test_unparseable_version_raises(self):
+    def test_unparseable_version_raises(self, httpx2_mock):
         """If the controller returns a garbled version, raise InitializationError."""
-        respx.get(FAKE_HOST_API + "system_information").respond(
+        httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
             json={"version": "not-a-version", "ready": True},
         )
-        respx.post(FAKE_HOST_API + "authenticate").respond(json="T")
+        httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="T")
 
         with pytest.raises(InitializationError, match="invalid version"):
             ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
@@ -206,34 +198,31 @@ class TestAuthFlowBranching:
 class TestVersionGuardCloneImage:
     """Node.clone_image() requires CML >= 2.9."""
 
-    @respx.mock
-    def test_clone_image_blocked_on_2_8(self):
+    def test_clone_image_blocked_on_2_8(self, httpx2_mock):
         """clone_image() raises FeatureNotSupported against a 2.8 server."""
-        client = _make_client(respx.mock, "2.8.0")
+        client = _make_client(httpx2_mock, "2.8.0")
         lab = _make_lab(client)
         node = Node(lab, "n1", "mynode", "alpine")
         with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             node.clone_image()
 
-    @respx.mock
-    def test_clone_image_allowed_on_2_9(self):
+    def test_clone_image_allowed_on_2_9(self, httpx2_mock):
         """clone_image() proceeds on a 2.9 server (HTTP call is made)."""
-        client = _make_client(respx.mock, "2.9.0")
+        client = _make_client(httpx2_mock, "2.9.0")
         lab = _make_lab(client)
         node = Node(lab, "n1", "mynode", "alpine")
-        respx.put(FAKE_HOST_API + "labs/lab-id/nodes/n1/clone_image").respond(
+        httpx2_mock.put(FAKE_HOST_API + "labs/lab-id/nodes/n1/clone_image").respond(
             json={"image_id": "new-image"}
         )
         result = node.clone_image()
         assert result == {"image_id": "new-image"}
 
-    @respx.mock
-    def test_clone_image_allowed_on_2_10(self):
+    def test_clone_image_allowed_on_2_10(self, httpx2_mock):
         """clone_image() proceeds on a 2.10 server."""
-        client = _make_client(respx.mock, "2.10.0")
+        client = _make_client(httpx2_mock, "2.10.0")
         lab = _make_lab(client)
         node = Node(lab, "n1", "mynode", "alpine")
-        respx.put(FAKE_HOST_API + "labs/lab-id/nodes/n1/clone_image").respond(
+        httpx2_mock.put(FAKE_HOST_API + "labs/lab-id/nodes/n1/clone_image").respond(
             json={"image_id": "img-123"}
         )
         result = node.clone_image()
@@ -243,31 +232,28 @@ class TestVersionGuardCloneImage:
 class TestVersionGuardWirelessPcap:
     """Node wireless capture methods require CML >= 2.10."""
 
-    @respx.mock
-    def test_start_capture_blocked_on_2_9(self):
+    def test_start_capture_blocked_on_2_9(self, httpx2_mock):
         """start_capture() raises FeatureNotSupported against a 2.9 server."""
-        client = _make_client(respx.mock, "2.9.0")
+        client = _make_client(httpx2_mock, "2.9.0")
         lab = _make_lab(client)
         node = Node(lab, "n1", "wireless-ap", "wireless_node")
         with pytest.raises(FeatureNotSupported, match=r"2\.10\.0"):
             node.start_capture(maxpackets=100)
 
-    @respx.mock
-    def test_stop_capture_blocked_on_2_9(self):
+    def test_stop_capture_blocked_on_2_9(self, httpx2_mock):
         """stop_capture() raises FeatureNotSupported against a 2.9 server."""
-        client = _make_client(respx.mock, "2.9.0")
+        client = _make_client(httpx2_mock, "2.9.0")
         lab = _make_lab(client)
         node = Node(lab, "n1", "wireless-ap", "wireless_node")
         with pytest.raises(FeatureNotSupported, match=r"2\.10\.0"):
             node.stop_capture()
 
-    @respx.mock
-    def test_start_capture_allowed_on_2_10(self):
+    def test_start_capture_allowed_on_2_10(self, httpx2_mock):
         """start_capture() proceeds on a 2.10 server."""
-        client = _make_client(respx.mock, "2.10.0")
+        client = _make_client(httpx2_mock, "2.10.0")
         lab = _make_lab(client)
         node = Node(lab, "n1", "wireless-ap", "wireless_node")
-        respx.post(FAKE_HOST_API + "wireless/pcap").respond(
+        httpx2_mock.post(FAKE_HOST_API + "wireless/pcap").respond(
             json="PCAP started for node n1"
         )
         result = node.start_capture(maxpackets=100)
@@ -277,44 +263,39 @@ class TestVersionGuardWirelessPcap:
 class TestVersionGuardLabRepositories:
     """LabRepositoryManagement methods require CML >= 2.9."""
 
-    @respx.mock
-    def test_sync_lab_repos_blocked_on_2_8(self):
-        client = _make_client(respx.mock, "2.8.0")
+    def test_sync_lab_repos_blocked_on_2_8(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
         with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.sync_lab_repositories()
 
-    @respx.mock
-    def test_get_lab_repos_blocked_on_2_8(self):
-        client = _make_client(respx.mock, "2.8.0")
+    def test_get_lab_repos_blocked_on_2_8(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
         with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.get_lab_repositories()
 
-    @respx.mock
-    def test_add_lab_repo_blocked_on_2_8(self):
-        client = _make_client(respx.mock, "2.8.0")
+    def test_add_lab_repo_blocked_on_2_8(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
         with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.add_lab_repository("https://example.com/repo.git", "test", "folder")
 
-    @respx.mock
-    def test_refresh_lab_repos_blocked_on_2_8(self):
-        client = _make_client(respx.mock, "2.8.0")
+    def test_refresh_lab_repos_blocked_on_2_8(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
         with pytest.raises(FeatureNotSupported, match=r"2\.9\.0"):
             mgmt.refresh_lab_repositories()
 
-    @respx.mock
-    def test_sync_lab_repos_allowed_on_2_9(self):
-        client = _make_client(respx.mock, "2.9.0")
+    def test_sync_lab_repos_allowed_on_2_9(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.9.0")
         system = SystemManagement(client._session, auto_sync=False)
         mgmt = LabRepositoryManagement(system, client._session, auto_sync=False)
-        respx.get(FAKE_HOST_API + "lab_repos").respond(json=[])
+        httpx2_mock.get(FAKE_HOST_API + "lab_repos").respond(json=[])
         mgmt.sync_lab_repositories()
 
 
@@ -327,12 +308,11 @@ class TestComputeHostResponseShapes:
     """sync_compute_hosts handles both old (with nodes list) and new (with
     node_counts) response shapes."""
 
-    @respx.mock
-    def test_v2_8_response_with_nodes_list(self):
+    def test_v2_8_response_with_nodes_list(self, httpx2_mock):
         """v2.8 includes a 'nodes' list and no 'node_counts'."""
-        client = _make_client(respx.mock, "2.8.0")
+        client = _make_client(httpx2_mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
-        respx.get(FAKE_HOST_API + "system/compute_hosts").respond(
+        httpx2_mock.get(FAKE_HOST_API + "system/compute_hosts").respond(
             json=[
                 {
                     "id": "compute-1",
@@ -352,12 +332,11 @@ class TestComputeHostResponseShapes:
         host = system._compute_hosts["compute-1"]
         assert host._node_counts == {}
 
-    @respx.mock
-    def test_v2_10_response_with_node_counts(self):
+    def test_v2_10_response_with_node_counts(self, httpx2_mock):
         """v2.10 includes 'node_counts' and no 'nodes'."""
-        client = _make_client(respx.mock, "2.10.0")
+        client = _make_client(httpx2_mock, "2.10.0")
         system = SystemManagement(client._session, auto_sync=False)
-        respx.get(FAKE_HOST_API + "system/compute_hosts").respond(
+        httpx2_mock.get(FAKE_HOST_API + "system/compute_hosts").respond(
             json=[
                 {
                     "id": "compute-2",
@@ -376,12 +355,11 @@ class TestComputeHostResponseShapes:
         host = system._compute_hosts["compute-2"]
         assert host._node_counts == {"deployed": 5, "running": 3, "orphans": 0}
 
-    @respx.mock
-    def test_v2_9_response_with_both_nodes_and_node_counts(self):
+    def test_v2_9_response_with_both_nodes_and_node_counts(self, httpx2_mock):
         """v2.9 may include both fields; client should handle gracefully."""
-        client = _make_client(respx.mock, "2.9.0")
+        client = _make_client(httpx2_mock, "2.9.0")
         system = SystemManagement(client._session, auto_sync=False)
-        respx.get(FAKE_HOST_API + "system/compute_hosts").respond(
+        httpx2_mock.get(FAKE_HOST_API + "system/compute_hosts").respond(
             json=[
                 {
                     "id": "compute-3",
@@ -410,12 +388,11 @@ class TestComputeHostResponseShapes:
 class TestDiagnosticsCompat:
     """get_diagnostics uses /diagnostics/{category} which exists on all versions."""
 
-    @respx.mock
-    def test_diagnostics_soft_fail_on_missing_category(self):
+    def test_diagnostics_soft_fail_on_missing_category(self, httpx2_mock):
         """If a category endpoint returns an error, diagnostics records it
         rather than raising."""
-        client = _make_client(respx.mock, "2.8.0")
-        respx.get(FAKE_HOST_API + "diagnostics/computes").respond(
+        client = _make_client(httpx2_mock, "2.8.0")
+        httpx2_mock.get(FAKE_HOST_API + "diagnostics/computes").respond(
             status_code=404,
             json={"description": "Not Found"},
         )
@@ -423,11 +400,12 @@ class TestDiagnosticsCompat:
         assert "computes" in result
         assert "error" in result["computes"]
 
-    @respx.mock
-    def test_diagnostics_success(self):
+    def test_diagnostics_success(self, httpx2_mock):
         """Normal diagnostics fetch returns the data."""
-        client = _make_client(respx.mock, "2.10.0")
-        respx.get(FAKE_HOST_API + "diagnostics/labs").respond(json={"active_labs": 3})
+        client = _make_client(httpx2_mock, "2.10.0")
+        httpx2_mock.get(FAKE_HOST_API + "diagnostics/labs").respond(
+            json={"active_labs": 3}
+        )
         result = client.get_diagnostics(DiagnosticsCategory.LABS)
         assert result == {"labs": {"active_labs": 3}}
 
@@ -441,16 +419,15 @@ class TestMissingEndpoint404:
     """When the client calls an endpoint that does not exist on the server,
     the server returns 404 and the client should raise APIError."""
 
-    @respx.mock
-    def test_404_on_associations_raises_api_error(self):
+    def test_404_on_associations_raises_api_error(self, httpx2_mock):
         """Lab associations endpoint missing on v2.8 gives a clean APIError."""
-        client = _make_client(respx.mock, "2.8.0")
+        client = _make_client(httpx2_mock, "2.8.0")
         lab = _make_lab(client)
-        respx.get(FAKE_HOST_API + "labs/lab-id/associations").respond(
+        httpx2_mock.get(FAKE_HOST_API + "labs/lab-id/associations").respond(
             status_code=404, json={"description": "Not Found"}
         )
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(httpx2.HTTPStatusError):
             lab._session.get(lab._url_for("associations"))
 
 
@@ -490,27 +467,24 @@ class TestVersionComparison:
 class TestVersionEnforcement:
     """check_controller_version rejects controllers too old or too new."""
 
-    @respx.mock
-    def test_accepts_2_9_server(self):
+    def test_accepts_2_9_server(self, httpx2_mock):
         """Client should accept a server within the 3-minor support window."""
-        client = _make_client(respx.mock, "2.9.0")
+        client = _make_client(httpx2_mock, "2.9.0")
         assert client._session.controller_version == Version("2.9.0")
 
-    @respx.mock
-    def test_accepts_2_10_server(self):
-        client = _make_client(respx.mock, "2.10.0")
+    def test_accepts_2_10_server(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.10.0")
         assert client._session.controller_version == Version("2.10.0")
 
-    @respx.mock
-    def test_rejects_too_old_server(self):
+    def test_rejects_too_old_server(self, httpx2_mock):
         """Client should reject a server outside the 3-minor support window."""
         too_old = str(ClientLibrary.VERSION.minor - 3)
         old_version = f"2.{too_old}.0"
 
-        respx.get(FAKE_HOST_API + "system_information").respond(
+        httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
             json={"version": old_version, "ready": True},
         )
-        respx.post(FAKE_HOST_API + "authenticate").respond(json="T")
+        httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="T")
 
         with pytest.raises(InitializationError, match="Unsupported minor version"):
             ClientLibrary(url=FAKE_HOST, username="test", password="pa$$")
@@ -524,13 +498,11 @@ class TestVersionEnforcement:
 class TestSessionControllerVersion:
     """The session object carries controller_version so models can access it."""
 
-    @respx.mock
-    def test_session_has_version(self):
-        client = _make_client(respx.mock, "2.9.0")
+    def test_session_has_version(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.9.0")
         assert client._session.controller_version == Version("2.9.0")
 
-    @respx.mock
-    def test_model_can_read_version_via_session(self):
-        client = _make_client(respx.mock, "2.8.0")
+    def test_model_can_read_version_via_session(self, httpx2_mock):
+        client = _make_client(httpx2_mock, "2.8.0")
         system = SystemManagement(client._session, auto_sync=False)
         assert system._session.controller_version == Version("2.8.0")

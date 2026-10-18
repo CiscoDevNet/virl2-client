@@ -25,7 +25,7 @@ import logging
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 
 from virl2_client.exceptions import APIError, InitializationError
@@ -47,7 +47,7 @@ def _make_client(allow_http: bool = False) -> MagicMock:
     client.username = "u"
     client.password = "p"
     client.allow_http = allow_http
-    client._session.base_url = httpx.URL("https://example.local:8443/api/v0/")
+    client._session.base_url = httpx2.URL("https://example.local:8443/api/v0/")
     # TokenAuth.token uses `_session.stream(...)` as a context manager (not
     # `.post()`) so it can cap the login response body; mock the same shape.
     stream_response = client._session.stream.return_value.__enter__.return_value
@@ -105,7 +105,7 @@ def test_token_auth_refuses_username_password_over_http(allow_http: bool) -> Non
     :param allow_http: Value for the allow_http attribute.
     """
     client = _make_client(allow_http=allow_http)
-    client._session.base_url = httpx.URL("http://example.local/api/v0/")
+    client._session.base_url = httpx2.URL("http://example.local/api/v0/")
     auth = TokenAuth(client)
 
     with pytest.raises(InitializationError, match="unencrypted"):
@@ -121,7 +121,7 @@ def test_token_auth_allows_preset_jwtoken_over_http() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     client = _make_client(allow_http=True)
-    client._session.base_url = httpx.URL("http://example.local/api/v0/")
+    client._session.base_url = httpx2.URL("http://example.local/api/v0/")
     client.jwtoken = "preset-token"
     auth = TokenAuth(client)
 
@@ -166,8 +166,8 @@ def test_auth_flow_no_creds_raises() -> None:
     auth = TokenAuth(client)
     auth.token = "expired-token"
 
-    request = httpx.Request("GET", "https://example.local/api/v0/authentication")
-    response = httpx.Response(401, request=request)
+    request = httpx2.Request("GET", "https://example.local/api/v0/authentication")
+    response = httpx2.Response(401, request=request)
     flow = auth.auth_flow(request)
     next(flow)
 
@@ -239,14 +239,14 @@ def test_token_auth_caps_buffered_response_body() -> None:
     auth = TokenAuth(client)
     auth.MAX_RESPONSE_BODY_BYTES = 8
 
-    request = httpx.Request("GET", "https://example.local/api/v0/authentication")
+    request = httpx2.Request("GET", "https://example.local/api/v0/authentication")
     oversized_body = b"x" * 1024
 
     def gen() -> Iterator[bytes]:
         """Yield the oversized body as a single chunk to simulate a stream."""
         yield oversized_body
 
-    response = httpx.Response(
+    response = httpx2.Response(
         401,
         request=request,
         content=gen(),
@@ -277,7 +277,7 @@ def test_token_auth_does_not_cap_successful_response_body() -> None:
     client.jwtoken = "preset-token"
     big_body = b"[" + b",".join([b"1"] * 40_000) + b"]"
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         """Return a large, streamed 200 JSON response.
 
         :param request: The outgoing request (unused).
@@ -290,13 +290,13 @@ def test_token_auth_does_not_cap_successful_response_body() -> None:
             for i in range(0, len(big_body), 4096):
                 yield big_body[i : i + 4096]
 
-        return httpx.Response(
+        return httpx2.Response(
             200, content=gen(), headers={"content-length": str(len(big_body))}
         )
 
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     auth = TokenAuth(client)
-    session = httpx.Client(
+    session = httpx2.Client(
         transport=transport, auth=auth, base_url="https://example.local/"
     )
     response = session.get("/labs")
@@ -317,7 +317,7 @@ def test_token_auth_capped_response_survives_raise_for_status() -> None:
     client = _make_client()
     client.jwtoken = "preset-token"
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         """Return an oversized, streamed 403 response.
 
         :param request: The outgoing request (unused).
@@ -330,14 +330,14 @@ def test_token_auth_capped_response_survives_raise_for_status() -> None:
             for _ in range(20):
                 yield b"x" * 10_000
 
-        return httpx.Response(403, content=gen(), headers={"content-length": "200000"})
+        return httpx2.Response(403, content=gen(), headers={"content-length": "200000"})
 
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     auth = TokenAuth(client)
-    session = httpx.Client(
+    session = httpx2.Client(
         transport=transport, auth=auth, base_url="https://example.local/"
     )
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         session.get("/foo")
 
 
@@ -354,7 +354,7 @@ def test_token_auth_caps_streamed_response_without_content_length() -> None:
     client = _make_client()
     client.jwtoken = "preset-token"
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         """Return an oversized 403 response with no Content-Length header.
 
         :param request: The outgoing request (unused).
@@ -367,14 +367,14 @@ def test_token_auth_caps_streamed_response_without_content_length() -> None:
             for _ in range(20):
                 yield b"x" * 10_000
 
-        return httpx.Response(403, content=gen())
+        return httpx2.Response(403, content=gen())
 
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     auth = TokenAuth(client)
-    session = httpx.Client(
+    session = httpx2.Client(
         transport=transport, auth=auth, base_url="https://example.local/"
     )
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         session.get("/foo")
 
 
@@ -392,7 +392,7 @@ def test_token_auth_caps_oversized_login_response() -> None:
     client = _make_client()
     client.jwtoken = None
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         """Return an oversized, streamed 401 login-failure response.
 
         :param request: The outgoing request (unused).
@@ -405,14 +405,14 @@ def test_token_auth_caps_oversized_login_response() -> None:
             for _ in range(20):
                 yield b"x" * 10_000
 
-        return httpx.Response(401, content=gen())
+        return httpx2.Response(401, content=gen())
 
-    transport = httpx.MockTransport(handler)
-    real_session = httpx.Client(transport=transport, base_url="https://example.local/")
+    transport = httpx2.MockTransport(handler)
+    real_session = httpx2.Client(transport=transport, base_url="https://example.local/")
     client._session = real_session
     auth = TokenAuth(client)
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         _ = auth.token
 
 
@@ -426,7 +426,7 @@ def test_read_capped_tolerates_malformed_content_length() -> None:
 
     NOTE: LLM-generated test -- verify for correctness.
     """
-    request = httpx.Request("GET", "https://example.local/api/v0/authentication")
+    request = httpx2.Request("GET", "https://example.local/api/v0/authentication")
     oversized_body = b"x" * 1024
 
     def gen() -> Iterator[bytes]:
@@ -434,7 +434,7 @@ def test_read_capped_tolerates_malformed_content_length() -> None:
         for i in range(0, len(oversized_body), 128):
             yield oversized_body[i : i + 128]
 
-    response = httpx.Response(
+    response = httpx2.Response(
         403,
         request=request,
         content=gen(),
@@ -465,7 +465,7 @@ def test_token_auth_warns_on_non_https_scheme(
     """
     client = _make_client()
     # Scheme-less URL: not "http" (so not refused) and not "https" (so warned).
-    client._session.base_url = httpx.URL("//example.local/api/v0/")
+    client._session.base_url = httpx2.URL("//example.local/api/v0/")
     auth = TokenAuth(client)
 
     with caplog.at_level(logging.WARNING):

@@ -28,7 +28,7 @@ from ..exceptions import LabRepositoryNotFound
 from ..utils import _requires_version, get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
     from .system import SystemManagement
 
@@ -56,7 +56,7 @@ class LabRepository:
         :param folder: The folder name for the lab repository.
         """
         self._manager = manager
-        self._session: httpx.Client = manager._session
+        self._session: httpx2.Client = manager._session
         self._id = repo_id
         self._url = url
         self._name = name
@@ -134,7 +134,7 @@ class LabRepositoryManagement:
     def __init__(
         self,
         system: SystemManagement,
-        session: httpx.Client,
+        session: httpx2.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
     ) -> None:

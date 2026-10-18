@@ -23,7 +23,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from virl2_client.exceptions import InitializationError, LabNotFound
@@ -79,10 +79,10 @@ def test_is_system_ready_502_retry() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     client = _make_client()
-    bad_gateway = httpx.HTTPStatusError(
+    bad_gateway = httpx2.HTTPStatusError(
         "bad",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=httpx.codes.BAD_GATEWAY),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=httpx2.codes.BAD_GATEWAY),
     )
     with (
         patch.object(client, "system_info", side_effect=[bad_gateway, {"ready": True}]),
@@ -97,14 +97,14 @@ def test_is_system_ready_non_502() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     client = _make_client()
-    other_error = httpx.HTTPStatusError(
+    other_error = httpx2.HTTPStatusError(
         "bad",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=500),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=500),
     )
     with (
         patch.object(client, "system_info", side_effect=other_error),
-        pytest.raises(httpx.HTTPStatusError),
+        pytest.raises(httpx2.HTTPStatusError),
     ):
         client.is_system_ready(wait=False)
 
@@ -209,10 +209,10 @@ def test_get_diagnostics_runtime() -> None:
     ok.raise_for_status.return_value = None
     ok.json.return_value = {"ok": True}
     fail = MagicMock()
-    fail.raise_for_status.side_effect = httpx.HTTPStatusError(
+    fail.raise_for_status.side_effect = httpx2.HTTPStatusError(
         "err",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=500),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=500),
     )
     client._session.get.side_effect = [ok, fail]
     result = client.get_diagnostics(
@@ -366,7 +366,7 @@ def test_client_get_host_rt() -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     client = _make_client()
-    client._session.base_url = httpx.URL("https://host.example/api/v0")
+    client._session.base_url = httpx2.URL("https://host.example/api/v0")
     assert client.get_host() == "host.example"
 
 
@@ -476,7 +476,7 @@ def test_remove_lab_local_keyerror_guard() -> None:
 @pytest.mark.parametrize(
     ("status", "exc_type"),
     [
-        (500, httpx.HTTPStatusError),
+        (500, httpx2.HTTPStatusError),
         (404, LabNotFound),
     ],
 )
@@ -486,10 +486,10 @@ def test_join_lab_error_rt(status: int, exc_type: type) -> None:
     NOTE: LLM-generated test -- verify for correctness.
     """
     client = _make_client()
-    err = httpx.HTTPStatusError(
+    err = httpx2.HTTPStatusError(
         "error",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=status),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=status),
     )
     client._session.get.side_effect = err
     with pytest.raises(exc_type):
@@ -563,15 +563,15 @@ def test_auth_call_propagates_500() -> None:
     """
     original_make_test_auth_call = ClientLibrary._make_test_auth_call
     failing = _make_client()
-    non_403 = httpx.HTTPStatusError(
+    non_403 = httpx2.HTTPStatusError(
         "error",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=500),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=500),
     )
     failing._url_for = MagicMock(return_value="auth")
     with (
         patch.object(failing._session, "get", side_effect=non_403),
-        pytest.raises(httpx.HTTPStatusError),
+        pytest.raises(httpx2.HTTPStatusError),
     ):
         original_make_test_auth_call(failing, new_auth=False)
 
@@ -595,10 +595,10 @@ def test_auth_call_login_failure_raises_initialization_error(
     """
     failing = _make_client()
     failing._session.controller_version = Version(controller_version)
-    login_failure = httpx.HTTPStatusError(
+    login_failure = httpx2.HTTPStatusError(
         "error",
-        request=httpx.Request("POST", "https://x/api/v0/authenticate"),
-        response=httpx.Response(status_code=status_code),
+        request=httpx2.Request("POST", "https://x/api/v0/authenticate"),
+        response=httpx2.Response(status_code=status_code),
     )
     failing._url_for = MagicMock(return_value="authentication")
     with (
@@ -626,15 +626,15 @@ def test_auth_call_other_status_propagates(
     """
     failing = _make_client()
     failing._session.controller_version = Version(controller_version)
-    other = httpx.HTTPStatusError(
+    other = httpx2.HTTPStatusError(
         "error",
-        request=httpx.Request("GET", "https://x/api/v0/authentication"),
-        response=httpx.Response(status_code=status_code),
+        request=httpx2.Request("GET", "https://x/api/v0/authentication"),
+        response=httpx2.Response(status_code=status_code),
     )
     failing._url_for = MagicMock(return_value="authentication")
     with (
         patch.object(failing._session, "get", side_effect=other),
-        pytest.raises(httpx.HTTPStatusError) as exc_info,
+        pytest.raises(httpx2.HTTPStatusError) as exc_info,
     ):
         ClientLibrary._make_test_auth_call(failing, new_auth=True)
     assert not isinstance(exc_info.value, InitializationError)

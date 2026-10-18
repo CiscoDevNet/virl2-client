@@ -148,13 +148,13 @@ def test_exception_hierarchy_element_already_exists():
 
 
 def test_exception_hierarchy_api_error():
-    """APIError inherits from both VirlException and httpx.HTTPStatusError."""
-    import httpx
+    """APIError inherits from both VirlException and httpx2.HTTPStatusError."""
+    import httpx2
 
     from virl2_client.exceptions import APIError, VirlException
 
     assert issubclass(APIError, VirlException)
-    assert issubclass(APIError, httpx.HTTPStatusError)
+    assert issubclass(APIError, httpx2.HTTPStatusError)
 
 
 def test_exception_hierarchy_feature_not_supported():

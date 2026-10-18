@@ -27,7 +27,7 @@ from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
     from .link import Link
     from .node import Node
@@ -72,7 +72,7 @@ class Interface:
         self._slot = slot
         self._mac_address = mac_address
         self._state: str | None = None
-        self._session: httpx.Client = node._lab._session
+        self._session: httpx2.Client = node._lab._session
         self._stale = False
         self.statistics = {
             "readbytes": 0,

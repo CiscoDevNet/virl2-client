@@ -28,7 +28,7 @@ from ..utils import get_url_from_template
 from .resource_pool import ResourcePool
 
 if TYPE_CHECKING:
-    from httpx import Client
+    from httpx2 import Client
 
 # Write-only secrets: the server only returns presence markers for them.
 # The marker is "<redacted>" when a secret is stored and None when it is not.

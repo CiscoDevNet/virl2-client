@@ -52,9 +52,9 @@ When generating/editing tests in this directory:
 
 ## Mocking
 
-- Do not use `@respx.mock` unless the test body configures at least one route.
-- Three valid `respx` patterns: fixture (`respx_mock: MockRouter`), decorator
-  (`@respx.mock`), or context manager (`with respx.mock(...)`).
+- Mock HTTP with the `httpx2_mock` fixture from pytest-httpx2 (`-p pytest_httpx2`).
+- Do not use `@respx.mock`; that mocks httpx, not httpx2.
+- Nested mock: `with respx.mock(using="httpcore2", base_url=...) as httpx2_mock:`.
 - Patch at the import site, not the definition site
   (e.g. `patch("virl2_client.models.node.time.sleep")`, not `patch("time.sleep")`).
 - Use `patch.object(Cls, "attr")` as a context manager; never assign directly

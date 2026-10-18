@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from tests.helpers import make_lab
@@ -412,10 +412,10 @@ def test_sync_topology_update_path() -> None:
 def test_sync_topology_404() -> None:
     """_sync_topology raises LabNotFound on 404 and marks stale."""
     lab = make_lab()
-    not_found = httpx.HTTPStatusError(
+    not_found = httpx2.HTTPStatusError(
         "404",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=404, text="Lab not found: l1"),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=404, text="Lab not found: l1"),
     )
     lab._session.get.side_effect = not_found
     with pytest.raises(LabNotFound):
@@ -426,13 +426,13 @@ def test_sync_topology_404() -> None:
 def test_sync_topology_500() -> None:
     """_sync_topology raises HTTPStatusError on 500."""
     lab = make_lab()
-    generic = httpx.HTTPStatusError(
+    generic = httpx2.HTTPStatusError(
         "500",
-        request=httpx.Request("GET", "https://x"),
-        response=httpx.Response(status_code=500, text="boom"),
+        request=httpx2.Request("GET", "https://x"),
+        response=httpx2.Response(status_code=500, text="boom"),
     )
     lab._session.get.side_effect = generic
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         lab._sync_topology()
 
 

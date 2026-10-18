@@ -240,14 +240,14 @@ def test_lab_requires_user_management() -> None:
         )
 
 
-def test_sync_stats(respx_mock: MockRouter) -> None:
+def test_sync_stats(httpx2_mock: MockRouter) -> None:
     """Call simulation statistics endpoint for lab statistics sync.
 
     NOTE: LLM-generated test -- verify for correctness.
 
-    :param respx_mock: HTTPX mock router fixture.
+    :param httpx2_mock: HTTPX mock router fixture.
     """
-    respx_mock.get("mock://mock/labs/1/simulation_stats").respond(
+    httpx2_mock.get("mock://mock/labs/1/simulation_stats").respond(
         json={"nodes": {}, "links": {}}
     )
     session = make_session("mock://mock")
@@ -264,17 +264,17 @@ def test_sync_stats(respx_mock: MockRouter) -> None:
         user_management=USER_MANAGEMENT,
     )
     lab.sync_statistics()
-    respx_mock.assert_all_called()
+    httpx2_mock.assert_all_called()
 
 
-def test_sync_interfaces_operational(respx_mock: MockRouter) -> None:
+def test_sync_interfaces_operational(httpx2_mock: MockRouter) -> None:
     """Populate per-interface operational fields from bulk API response.
 
     NOTE: LLM-generated test -- verify for correctness.
 
-    :param respx_mock: HTTPX mock router fixture.
+    :param httpx2_mock: HTTPX mock router fixture.
     """
-    respx_mock.get("mock://mock/labs/1/interfaces").respond(
+    httpx2_mock.get("mock://mock/labs/1/interfaces").respond(
         json=[{"id": "iface1", "operational": {"mac_address": "aa:bb:cc:dd:ee:ff"}}]
     )
     session = make_session("mock://mock")
@@ -296,14 +296,14 @@ def test_sync_interfaces_operational(respx_mock: MockRouter) -> None:
     }
 
 
-def test_lab_clear_discovered_addresses(respx_mock: MockRouter) -> None:
+def test_lab_clear_discovered_addresses(httpx2_mock: MockRouter) -> None:
     """Clear discovered L3 addresses at lab level through API.
 
     NOTE: LLM-generated test -- verify for correctness.
 
-    :param respx_mock: HTTPX mock router fixture.
+    :param httpx2_mock: HTTPX mock router fixture.
     """
-    respx_mock.delete("mock://mock/labs/1/layer3_addresses").respond(status_code=204)
+    httpx2_mock.delete("mock://mock/labs/1/layer3_addresses").respond(status_code=204)
     session = make_session("mock://mock")
     session.lock = MagicMock()
     lab = Lab(
@@ -317,7 +317,7 @@ def test_lab_clear_discovered_addresses(respx_mock: MockRouter) -> None:
         user_management=USER_MANAGEMENT,
     )
     lab.clear_discovered_addresses()
-    respx_mock.assert_all_called()
+    httpx2_mock.assert_all_called()
 
 
 def test_lab_text_properties() -> None:

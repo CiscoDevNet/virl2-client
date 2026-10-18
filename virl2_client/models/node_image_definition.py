@@ -33,7 +33,7 @@ from ..utils import _requires_version, get_url_from_template
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import httpx
+    import httpx2
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class NodeImageDefinitions:
         "reload_defs": "reload_definitions",
     }
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(self, session: httpx2.Client) -> None:
         """
         Manage node and image definitions.
 

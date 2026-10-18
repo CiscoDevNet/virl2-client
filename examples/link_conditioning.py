@@ -32,7 +32,7 @@ import getpass
 import os
 import sys
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 
 from virl2_client import ClientLibrary
 

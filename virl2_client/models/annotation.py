@@ -33,12 +33,12 @@ from .border_style import (
 )
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
     from .lab import Lab
 
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
-    # TypeAlias kept for Python 3.10; type statement needs 3.12+.
+    # TypeAlias kept for Python 3.11; type statement needs 3.12+.
     AnnotationType: TypeAlias = (  # NOSONAR
         "AnnotationRectangle | AnnotationEllipse | AnnotationLine | AnnotationText"
     )
@@ -229,7 +229,7 @@ class Annotation:
         """
         self._id = annotation_id
         self._lab = lab
-        self._session: httpx.Client = lab._session
+        self._session: httpx2.Client = lab._session
         # When the annotation is removed on the server, this annotation object is marked
         # stale and can no longer be interacted with - the user should discard it
         self._stale = False

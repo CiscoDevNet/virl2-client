@@ -27,7 +27,7 @@ import time
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 
 from ..exceptions import (
     AnnotationNotFound,
@@ -66,7 +66,7 @@ from .smart_annotation import SmartAnnotation
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    import httpx
+    import httpx2
 
     from .annotation import AnnotationType
     from .resource_pool import ResourcePool, ResourcePoolManagement
@@ -110,7 +110,7 @@ class Lab:
         self,
         title: str | None,
         lab_id: str,
-        session: httpx.Client,
+        session: httpx2.Client,
         username: str,
         password: str,
         auto_sync: bool = True,

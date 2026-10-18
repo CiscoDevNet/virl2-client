@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 import pytest
 
 from virl2_client.exceptions import AnnotationNotFound, LabNotFound, VirlException
@@ -49,16 +49,16 @@ class Lab:
         self._stale = stale
 
 
-def _http_status_error(status_code: int, text: str = "") -> httpx.HTTPStatusError:
+def _http_status_error(status_code: int, text: str = "") -> httpx2.HTTPStatusError:
     """Build an HTTPStatusError for testing.
 
     :param status_code: HTTP status code for the response.
     :param text: Optional response body text.
-    :returns: An httpx.HTTPStatusError with the given status and text.
+    :returns: An httpx2.HTTPStatusError with the given status and text.
     """
-    request = httpx.Request("GET", "https://example/api")
-    response = httpx.Response(status_code, request=request, text=text)
-    return httpx.HTTPStatusError("error", request=request, response=response)
+    request = httpx2.Request("GET", "https://example/api")
+    response = httpx2.Response(status_code, request=request, text=text)
+    return httpx2.HTTPStatusError("error", request=request, response=response)
 
 
 def test_check_stale_raises_already_stale() -> None:
@@ -118,7 +118,7 @@ def test_check_stale_passthrough_other_errors() -> None:
         """Raise generic server error for passthrough branch."""
         raise error
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         _check_and_mark_stale(raise_500, instance, instance)
 
     assert instance._stale is False

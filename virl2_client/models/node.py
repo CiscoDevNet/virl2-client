@@ -26,7 +26,7 @@ import time
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import httpx
+import httpx2
 
 from ..exceptions import InterfaceNotFound, SmartAnnotationNotFound
 from ..utils import (
@@ -149,7 +149,7 @@ class Node:
         self._operational: dict[str, Any] = kwargs.get("operational", {})
 
         self._state: str | None = None
-        self._session: httpx.Client = lab._session
+        self._session: httpx2.Client = lab._session
         self._stale = False
         self._last_sync_l3_address_time = 0.0
         self._last_sync_operational_time = 0.0
@@ -255,8 +255,8 @@ class Node:
         _LOGGER.info("Stopping wireless packet capture on node %s", self._id)
         try:
             self._session.delete(url)
-        except httpx.HTTPStatusError as error:
-            if error.response.status_code != httpx.codes.NOT_FOUND:
+        except httpx2.HTTPStatusError as error:
+            if error.response.status_code != httpx2.codes.NOT_FOUND:
                 raise
             _LOGGER.debug(
                 "No active wireless capture on node %s (404); treating stop as a no-op",

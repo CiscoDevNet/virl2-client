@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+import respx
 from respx import MockRouter
 
 from virl2_client.models import authentication
@@ -34,6 +35,24 @@ from virl2_client.virl2_client import ClientLibrary
 CURRENT_VERSION = ClientLibrary.VERSION.version_str
 FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
+
+
+@pytest.fixture
+def httpx2_mock(request: pytest.FixtureRequest) -> Iterator[MockRouter]:
+    """HTTP mock router targeting httpx2/httpcore2.
+
+    pytest-httpx2's plugin fixture calls ``respx.mock(using="httpcore2")``, which
+    builds a new MockRouter with ``assert_all_called=True``. The historical
+    ``@respx.mock`` decorator used the global singleton
+    (``assert_all_called=False``). Keep that default so tests can register
+    unused negative-path routes.
+    """
+    options: dict = {"using": "httpcore2", "assert_all_called": False}
+    if (marker := request.node.get_closest_marker("httpx2")) is not None:
+        options.update(marker.kwargs)
+        options.setdefault("using", "httpcore2")
+    with respx.mock(**options) as router:
+        yield router
 
 
 @pytest.fixture
@@ -144,6 +163,8 @@ def test_data_dir() -> Path:
 def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Response:
     """Return response body from a file based on the request URL path.
 
+    respx side effects are still typed against httpx, even when mocking httpcore2.
+
     :param test_data_dir: Directory containing JSON fixture files.
     :param request: The HTTP request; URL path determines which file to load.
     :returns: An httpx.Response with content set to the matching fixture file.
@@ -157,27 +178,27 @@ def resp_body_from_file(test_data_dir: Path, request: httpx.Request) -> httpx.Re
     else:
         pytest.fail(
             f"resp_body_from_file: unhandled URL path {request.url.path!r}; "
-            "add an explicit respx route or extend the path-mapping logic."
+            "add an explicit httpx2_mock route or extend the path-mapping logic."
         )
     file_path = test_data_dir / filename
     return httpx.Response(200, text=file_path.read_text())
 
 
 @pytest.fixture
-def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
-    """Provide basic lab data with respx_mock for unit tests.
+def respx_mock_with_labs(httpx2_mock: MockRouter, test_data_dir: Path) -> None:
+    """Provide basic lab data with httpx2_mock for unit tests.
 
     Enables tests to call client.all_labs or client.join_existing_lab.
     Sample data includes runtime data (node states, simulation_statistics).
 
-    :param respx_mock: The respx mock router to configure.
+    :param httpx2_mock: The respx mock router to configure.
     :param test_data_dir: Directory containing JSON fixture files.
     """
-    respx_mock.get(FAKE_HOST_API + "system_information").respond(
+    httpx2_mock.get(FAKE_HOST_API + "system_information").respond(
         json={"version": CURRENT_VERSION, "ready": True, "oui": "52:54:00:00:00:00"},
     )
-    respx_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
-    respx_mock.get(FAKE_HOST_API + "authentication").respond(
+    httpx2_mock.post(FAKE_HOST_API + "authenticate").respond(json="BOGUS_TOKEN")
+    httpx2_mock.get(FAKE_HOST_API + "authentication").respond(
         json={
             "username": "username",
             "id": "6c7dd461-1cbe-428f-bdd5-545a0d766ed7",
@@ -186,11 +207,11 @@ def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
             "error": None,
         }
     )
-    respx_mock.get(
+    httpx2_mock.get(
         FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/resource_pools"
     ).respond(json=[])
-    respx_mock.get(FAKE_HOST_API + "users").respond(json=[])
-    respx_mock.get(FAKE_HOST_API + "resource_pools?data=true").respond(json=[])
+    httpx2_mock.get(FAKE_HOST_API + "users").respond(json=[])
+    httpx2_mock.get(FAKE_HOST_API + "resource_pools?data=true").respond(json=[])
     nodes = [
         "99cda47a-ecb2-4d31-86c4-74e7a8201958",
         "913e62a7-e096-4ed9-bb9f-03ae13106fc5",
@@ -201,24 +222,24 @@ def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
         "004c00c9-2606-485c-8ff9-d698e430fa6a",
     ]
     for node in nodes:
-        respx_mock.get(
+        httpx2_mock.get(
             FAKE_HOST_API
             + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}?operational=true"
             f"&exclude_configurations=true"
         ).respond(
             json={"operational": {"compute_id": "99c887f5-052e-4864-a583-49fa7c4b68a9"}}
         )
-        respx_mock.get(
+        httpx2_mock.get(
             FAKE_HOST_API
             + f"labs/444a78d1-575c-4746-8469-696e580f17b6/nodes/{node}/interfaces"
             + "?data=true&operational=true"
         ).respond(json=[])
 
-    respx_mock.get(
+    httpx2_mock.get(
         FAKE_HOST_API + "labs/444a78d1-575c-4746-8469-696e580f17b6/interfaces"
     ).respond(json=[])
 
-    respx_mock.get(
+    httpx2_mock.get(
         FAKE_HOST_API
         + "labs/444a78d1-575c-4746-8469-696e580f17b6/nodes?data=true&operational=true&"
         "exclude_configurations=true"
@@ -249,14 +270,14 @@ def respx_mock_with_labs(respx_mock: MockRouter, test_data_dir: Path) -> None:
     )
     side_effect = partial(resp_body_from_file, test_data_dir)
     for api in resp_from_files:
-        respx_mock.get(FAKE_HOST_API + api).mock(side_effect=side_effect)
+        httpx2_mock.get(FAKE_HOST_API + api).mock(side_effect=side_effect)
 
 
 @pytest.fixture
 def client_library(respx_mock_with_labs: None) -> Iterator[ClientLibrary]:
     """Provide a ClientLibrary instance with mocked lab API responses.
 
-    :param respx_mock_with_labs: Fixture that configures respx (consumed for setup).
+    :param respx_mock_with_labs: Fixture that configures httpx2_mock (consumed for setup).
     :yields: A ClientLibrary connected to FAKE_HOST with test credentials.
     """
     _ = respx_mock_with_labs

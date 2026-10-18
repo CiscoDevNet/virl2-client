@@ -89,16 +89,16 @@ def test_joined_lab_compute_id(client_library: ClientLibrary) -> None:
 
 
 def test_sync_topology_404_marks_stale_raises(
-    respx_mock: MockRouter,
+    httpx2_mock: MockRouter,
 ) -> None:
     """Mark lab stale and raise LabNotFound on topology 404.
 
     NOTE: LLM-generated test -- verify for correctness.
 
-    :param respx_mock: HTTPX mock router fixture.
+    :param httpx2_mock: HTTPX mock router fixture.
     :raises AssertionError: If stale flag is not set.
     """
-    respx_mock.get("mock://mock/labs/deadbeef/topology").respond(
+    httpx2_mock.get("mock://mock/labs/deadbeef/topology").respond(
         status_code=404, text="Lab not found: deadbeef"
     )
     session = make_session("mock://mock")

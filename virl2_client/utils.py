@@ -28,7 +28,7 @@ from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import httpx
+import httpx2
 
 from .exceptions import (
     AnnotationNotFound,
@@ -192,7 +192,7 @@ def _check_and_mark_stale(
         if instance._stale:
             raise _make_not_found(instance)
         return ret
-    except httpx.HTTPStatusError as exc:
+    except httpx2.HTTPStatusError as exc:
         resp = exc.response
         class_name = type(instance).__name__
         instance_id = instance._id

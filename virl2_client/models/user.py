@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from ..utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
 
 class UserManagement:
@@ -39,7 +39,7 @@ class UserManagement:
 
     def __init__(
         self,
-        session: httpx.Client,
+        session: httpx2.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
     ) -> None:

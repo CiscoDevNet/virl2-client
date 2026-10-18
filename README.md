@@ -16,8 +16,8 @@ This is the client library for the *Cisco Modeling Labs* Platform
 (`virl2_client`). It provides a Python package to programmatically create,
 edit, delete and control network simulations on a CML 2 controller.
 
-It is a pure Python implementation that requires Python 3. We've tested and
-written the package with Python 3.8.10.
+It is a pure Python implementation that requires Python 3.11 or newer. We've
+tested the package with Python 3.11 through 3.15.
 
 The status of the package can be considered **stable**.  Issues with the
 software should be raised via the [GitHub issue

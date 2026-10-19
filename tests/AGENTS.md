@@ -52,7 +52,7 @@ When generating/editing tests in this directory:
 
 ## Mocking
 
-- Mock HTTP with the `httpx2_mock` fixture from pytest-httpx2 (`-p pytest_httpx2`).
+- Mock HTTP with the `httpx2_mock` fixture (conftest registers respx's httpcore2 mocker).
 - Do not use `@respx.mock`; that mocks httpx, not httpx2.
 - Nested mock: `with respx.mock(using="httpcore2", base_url=...) as httpx2_mock:`.
 - Patch at the import site, not the definition site

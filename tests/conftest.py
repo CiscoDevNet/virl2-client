@@ -28,6 +28,7 @@ import httpx
 import pytest
 import respx
 from respx import MockRouter
+from respx.mocks import HTTPCoreMocker, Mocker
 
 from virl2_client.models import authentication
 from virl2_client.virl2_client import ClientLibrary
@@ -37,15 +38,44 @@ FAKE_HOST = "https://0.0.0.0"
 FAKE_HOST_API = f"{FAKE_HOST}/api/v0/"
 
 
+def _ensure_httpcore2_mocker() -> None:
+    """Register respx's httpcore2 mocker without depending on pytest-httpx2.
+
+    respx only patches httpcore by default. virl2_client speaks HTTP through
+    httpx2/httpcore2, so the mock router must target those modules instead.
+    pytest-httpx2 registers this mocker as a pytest plugin; define the same
+    subclass here so PCL tests work from the simple CI venv, which never
+    installs that plugin.
+    """
+    if "httpcore2" in Mocker.registry:
+        return
+
+    class HTTPCore2Mocker(HTTPCoreMocker):
+        name = "httpcore2"
+        targets = [
+            "httpcore2._sync.connection.HTTPConnection",
+            "httpcore2._sync.connection_pool.ConnectionPool",
+            "httpcore2._sync.http_proxy.HTTPProxy",
+            "httpcore2._async.connection.AsyncHTTPConnection",
+            "httpcore2._async.connection_pool.AsyncConnectionPool",
+            "httpcore2._async.http_proxy.AsyncHTTPProxy",
+        ]
+
+    # Class body registers the mocker via Mocker.__init_subclass__.
+    _ = HTTPCore2Mocker
+
+
+_ensure_httpcore2_mocker()
+
+
 @pytest.fixture
 def httpx2_mock(request: pytest.FixtureRequest) -> Iterator[MockRouter]:
     """HTTP mock router targeting httpx2/httpcore2.
 
-    pytest-httpx2's plugin fixture calls ``respx.mock(using="httpcore2")``, which
-    builds a new MockRouter with ``assert_all_called=True``. The historical
-    ``@respx.mock`` decorator used the global singleton
-    (``assert_all_called=False``). Keep that default so tests can register
-    unused negative-path routes.
+    ``respx.mock(using="httpcore2")`` builds a new MockRouter with
+    ``assert_all_called=True``. The historical ``@respx.mock`` decorator used
+    the global singleton (``assert_all_called=False``). Keep that default so
+    tests can register unused negative-path routes.
     """
     options: dict = {"using": "httpcore2", "assert_all_called": False}
     if (marker := request.node.get_closest_marker("httpx2")) is not None:

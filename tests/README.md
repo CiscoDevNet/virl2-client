@@ -242,7 +242,7 @@ and make the file easier to scan.
   replaces the name in the namespace where it was imported, so
   `patch("virl2_client.models.node.time.sleep")` is correct when `node.py`
   does `import time`; `patch("time.sleep")` would miss the reference.
-- **HTTP mock patterns** — use pytest-httpx2 so mocks hit httpx2/httpcore2:
+- **HTTP mock patterns** — respx with `using="httpcore2"` (registered in conftest):
   - *Fixture*: accept `httpx2_mock: MockRouter`, configure routes, call
     `httpx2_mock.assert_all_called()` at the end.
   - *Nested mock*: `with respx.mock(using="httpcore2", base_url=...) as httpx2_mock:`.

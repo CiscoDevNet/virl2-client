@@ -1546,21 +1546,6 @@ pytest = ">=7"
 testing = ["process-tests", "pytest-xdist", "virtualenv"]
 
 [[package]]
-name = "pytest-httpx2"
-version = "1.0.0"
-description = "A pytest plugin for mocking out httpx2 using respx."
-optional = false
-python-versions = ">=3.10"
-groups = ["dev"]
-files = [
-    {file = "pytest_httpx2-1.0.0-py3-none-any.whl", hash = "sha256:467dc7f6946854ffc20e1678703266b093037d8f3fb9f1fb523a2c432c64cff0"},
-    {file = "pytest_httpx2-1.0.0.tar.gz", hash = "sha256:d897a14c1341d3f3014e9432c16fed366598aba06a2ba9c08460a51799cb7128"},
-]
-
-[package.dependencies]
-respx = "*"
-
-[[package]]
 name = "pytest-xdist"
 version = "3.8.0"
 description = "pytest xdist plugin for distributed testing, most importantly across multiple CPUs"
@@ -2162,4 +2147,4 @@ events = ["aiohttp"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "2129ea6de09789e0dd1428fcd2985b1ef944b28c5e7da9513bc8d6ec430a4157"
+content-hash = "7ea088c7b1c462372c68b3fc914a323f0b1ebc13fccdf7a6e5117dd8ab9a5681"

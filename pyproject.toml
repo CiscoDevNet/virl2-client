@@ -51,7 +51,6 @@ pre-commit = "^4"
 pytest = "*"
 pytest-cov = "*"
 pytest-xdist = "*"
-pytest-httpx2 = "^1"
 respx = "^0.23.1"
 
 [tool.poetry.extras]

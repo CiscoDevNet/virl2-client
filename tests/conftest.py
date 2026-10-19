@@ -22,6 +22,7 @@ import sys
 from collections.abc import Iterator
 from functools import partial
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -52,7 +53,7 @@ def _ensure_httpcore2_mocker() -> None:
 
     class HTTPCore2Mocker(HTTPCoreMocker):
         name = "httpcore2"
-        targets = [
+        targets: ClassVar[list[str]] = [
             "httpcore2._sync.connection.HTTPConnection",
             "httpcore2._sync.connection_pool.ConnectionPool",
             "httpcore2._sync.http_proxy.HTTPProxy",

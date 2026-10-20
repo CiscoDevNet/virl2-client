@@ -59,14 +59,14 @@ def test_create_interface_raises_slot_missing() -> None:
         lab.create_interface(node, slot=1, wait=False)
 
 
-def test_node_clear_discovered_addresses(respx_mock: MockRouter) -> None:
+def test_node_clear_discovered_addresses(httpx2_mock: MockRouter) -> None:
     """Clear node-level discovered addresses and reset interface snooped data.
 
     NOTE: LLM-generated test -- verify for correctness.
 
-    :param respx_mock: HTTPX router fixture used to mock API requests.
+    :param httpx2_mock: HTTPX router fixture used to mock API requests.
     """
-    respx_mock.delete("mock://mock/labs/1/nodes/n1/layer3_addresses").respond(
+    httpx2_mock.delete("mock://mock/labs/1/nodes/n1/layer3_addresses").respond(
         status_code=204
     )
     session = make_session("mock://mock")

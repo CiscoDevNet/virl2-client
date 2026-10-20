@@ -28,7 +28,7 @@ from ..utils import get_url_from_template
 from .resource_pool import ResourcePool
 
 if TYPE_CHECKING:
-    from httpx import Client
+    from httpx2 import Client
 
 # Write-only secrets: the server only returns presence markers for them.
 # The marker is "<redacted>" when a secret is stored and None when it is not.
@@ -75,7 +75,7 @@ class AuthManagement:
         """
         Manage authentication settings and synchronization.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: Whether to automatically synchronize resource pools.
         :param auto_sync_interval: How often to synchronize resource pools in seconds.
         """

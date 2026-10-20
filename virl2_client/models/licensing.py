@@ -31,7 +31,7 @@ from virl2_client.exceptions import APIError
 from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,11 +55,11 @@ class Licensing:
     max_wait = 30
     wait_interval = 1.5
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(self, session: httpx2.Client) -> None:
         """
         Manage licensing.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         """
         self._session = session
 
@@ -99,7 +99,7 @@ class Licensing:
         _LOGGER.info("The agent has scheduled an authorization renewal.")
         return self._status_response(response)
 
-    def _status_response(self, response: httpx.Response) -> dict[str, Any]:
+    def _status_response(self, response: httpx2.Response) -> dict[str, Any]:
         """Return the effective licensing status from a mutation response.
 
         CML 2.11+ returns the effective ``LicensingStatus`` body on 200/202.

@@ -31,7 +31,7 @@ from ..utils import get_url_from_template
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    import httpx
+    import httpx2
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,14 +55,14 @@ class ResourcePoolManagement:
 
     def __init__(
         self,
-        session: httpx.Client,
+        session: httpx2.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
     ) -> None:
         """
         Manage and synchronize resource pools.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: Whether to automatically synchronize resource pools.
         :param auto_sync_interval: How often to synchronize resource pools in seconds.
         """
@@ -285,7 +285,7 @@ class ResourcePool:
         :param user_pools: A list of user pools in the resource pool.
         """
         self._resource_pools = resource_pools
-        self._session: httpx.Client = resource_pools._session
+        self._session: httpx2.Client = resource_pools._session
         self._id = pool_id
         self._label = label
         self._description = description

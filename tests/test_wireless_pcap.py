@@ -30,7 +30,7 @@ requires CML server >= 2.10.0. REST endpoints:
 
 from unittest.mock import Mock
 
-import httpx
+import httpx2
 import pytest
 
 from virl2_client.models import Node
@@ -151,14 +151,14 @@ def test_stop_capture_reraises_non_404(node: Node) -> None:
 
     NOTE: LLM-generated test -- verify for correctness.
     """
-    response = Mock(status_code=httpx.codes.INTERNAL_SERVER_ERROR)
-    node._session.delete.side_effect = httpx.HTTPStatusError(
+    response = Mock(status_code=httpx2.codes.INTERNAL_SERVER_ERROR)
+    node._session.delete.side_effect = httpx2.HTTPStatusError(
         "server error",
         request=Mock(),
         response=response,
     )
 
-    with pytest.raises(httpx.HTTPStatusError, match="server error"):
+    with pytest.raises(httpx2.HTTPStatusError, match="server error"):
         node.stop_capture()
 
 
@@ -167,8 +167,8 @@ def test_stop_capture_ignores_404(node: Node) -> None:
 
     NOTE: LLM-generated test -- verify for correctness.
     """
-    response = Mock(status_code=httpx.codes.NOT_FOUND)
-    node._session.delete.side_effect = httpx.HTTPStatusError(
+    response = Mock(status_code=httpx2.codes.NOT_FOUND)
+    node._session.delete.side_effect = httpx2.HTTPStatusError(
         "not found",
         request=Mock(),
         response=response,

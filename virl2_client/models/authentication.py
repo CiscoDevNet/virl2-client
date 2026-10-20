@@ -26,7 +26,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
 
-import httpx
+import httpx2
 
 from ..exceptions import APIError, InitializationError
 
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 _AUTH_URL = "authenticate"
 
 
-def raise_for_status(response: httpx.Response) -> None:
+def raise_for_status(response: httpx2.Response) -> None:
     """
     Ensure response body is read before raising for status.
 
@@ -51,24 +51,24 @@ def raise_for_status(response: httpx.Response) -> None:
     automatically closed, and we then cannot read the response in later error handling.
     We thus need to check if the response is 4/500 and read it preemptively if so.
 
-    :param response: The httpx response to check.
+    :param response: The httpx2 response to check.
     """
     if response.status_code // 100 in (4, 5):
         response.read()
     response.raise_for_status()
 
 
-class TokenAuth(httpx.Auth):
+class TokenAuth(httpx2.Auth):
     """
-    Token-based authentication for an httpx session.
+    Token-based authentication for an httpx2 session.
 
     Inspired by:
     https://requests.readthedocs.io/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
-    Modified for httpx based on:
-    https://www.python-httpx.org/advanced/#customizing-authentication
+    Modified for httpx2 based on:
+    https://www.python-httpx.org/advanced/authentication/
     """
 
-    # Read by httpx.Auth at runtime. When True, httpx would buffer the full
+    # Read by httpx2.Auth at runtime. When True, httpx would buffer the full
     # response body before invoking `auth_flow`. We override `sync_auth_flow`
     # below to apply a max-bytes cap instead, so this flag is not actually
     # consumed by the base implementation for us -- it documents intent for
@@ -89,11 +89,11 @@ class TokenAuth(httpx.Auth):
         self.client_library = client_library
 
     @staticmethod
-    def _read_capped(response: httpx.Response, limit: int) -> None:
+    def _read_capped(response: httpx2.Response, limit: int) -> None:
         """
         Read up to `limit` bytes of the response body, then stop.
 
-        Mirrors httpx.Response.read(), but bounds how much is buffered so a
+        Mirrors httpx2.Response.read(), but bounds how much is buffered so a
         hostile/misbehaving server cannot force unbounded memory use. A bogus
         Content-Length (non-numeric/negative/multiple values) is treated as
         unknown length rather than raising. Always caches a `_content` value
@@ -139,12 +139,12 @@ class TokenAuth(httpx.Auth):
         response._content = body
 
     def sync_auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
+        self, request: httpx2.Request
+    ) -> Generator[httpx2.Request, httpx2.Response, None]:
         """
         Run the authentication flow, capping buffered 4xx/5xx response bodies.
 
-        Overrides httpx.Auth.sync_auth_flow (rather than relying on
+        Overrides httpx2.Auth.sync_auth_flow (rather than relying on
         `requires_response_body`) so the automatic body read of error
         responses is bounded by MAX_RESPONSE_BODY_BYTES instead of
         unbounded. Successful (2xx/3xx) responses are left untouched and
@@ -224,8 +224,8 @@ class TokenAuth(httpx.Auth):
         self.client_library.jwtoken = value
 
     def auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
+        self, request: httpx2.Request
+    ) -> Generator[httpx2.Request, httpx2.Response, None]:
         """
         Implement the authentication flow for the token-based authentication.
 
@@ -269,12 +269,12 @@ class TokenAuth(httpx.Auth):
             self.client_library.password = None
 
 
-class BlankAuth(httpx.Auth):
-    """An httpx Auth implementation that performs no authentication."""
+class BlankAuth(httpx2.Auth):
+    """An httpx2 Auth implementation that performs no authentication."""
 
     def auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
+        self, request: httpx2.Request
+    ) -> Generator[httpx2.Request, httpx2.Response, None]:
         """
         Pass through the request without adding authentication headers.
 
@@ -285,8 +285,8 @@ class BlankAuth(httpx.Auth):
         raise_for_status(response)
 
 
-class CustomClient(httpx.Client):
-    """httpx Client that raises APIError with server description on HTTP errors."""
+class CustomClient(httpx2.Client):
+    """httpx2 Client that raises APIError with server description on HTTP errors."""
 
     _ERROR_PREFIX: ClassVar[dict[int, str]] = MappingProxyType(
         {
@@ -299,18 +299,18 @@ class CustomClient(httpx.Client):
         """
         Initialize the custom client, wrapping request to raise APIError on failures.
 
-        :param args: Positional arguments passed to httpx.Client.
-        :param kwargs: Keyword arguments passed to httpx.Client.
+        :param args: Positional arguments passed to httpx2.Client.
+        :param kwargs: Keyword arguments passed to httpx2.Client.
         """
         super().__init__(*args, **kwargs)
         self._original_request = self.request
         self.request = self._request
 
-    def _request(self, *args: Any, **kwargs: Any) -> httpx.Response:
+    def _request(self, *args: Any, **kwargs: Any) -> httpx2.Response:
         """
-        Override httpx.Client.request to raise APIError with server description.
+        Override httpx2.Client.request to raise APIError with server description.
 
-        Replaces the default httpx HTTPStatusError with APIError containing
+        Replaces the default httpx2 HTTPStatusError with APIError containing
         the server's error description when available.
 
         :param args: Positional arguments passed to the underlying request.
@@ -320,7 +320,7 @@ class CustomClient(httpx.Client):
         """
         try:
             return self._original_request(*args, **kwargs)
-        except httpx.HTTPStatusError as error:
+        except httpx2.HTTPStatusError as error:
             try:
                 error_detail = json.loads(error.response.text)["description"]
             except (json.JSONDecodeError, IndexError, KeyError, TypeError):
@@ -334,19 +334,19 @@ class CustomClient(httpx.Client):
             raise api_error from None
 
 
-DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=60.0, pool=10.0)
+DEFAULT_TIMEOUT = httpx2.Timeout(connect=10.0, read=300.0, write=60.0, pool=10.0)
 
 
 def make_session(
     base_url: str,
     ssl_verify: bool | str = True,
     client_type: str | None = None,
-    timeout: httpx.Timeout | float | None = None,
+    timeout: httpx2.Timeout | float | None = None,
     send_client_uuid=True,
     follow_redirects: bool = False,
-) -> httpx.Client:
+) -> httpx2.Client:
     """
-    Create an httpx Client object with the specified base URL
+    Create an httpx2 Client object with the specified base URL
     and SSL verification setting.
 
     Note: The base URL is automatically prepended to all HTTP calls. This means you
@@ -357,7 +357,7 @@ def make_session(
     :param client_type: The client type identifier.
     :param timeout: HTTP timeout override. Defaults to a 10s connect /
         300s read / 60s write / 10s pool budget when omitted or None.
-        Pass a larger httpx.Timeout for long-running synchronous lab
+        Pass a larger httpx2.Timeout for long-running synchronous lab
         operations.
     :param send_client_uuid: When True (default), send an X-Client-UUID
         header on every request so the controller can correlate activity.
@@ -366,7 +366,7 @@ def make_session(
         auto-follow HTTP redirects. A redirect can silently retarget a
         request (and its Authorization header) to a different host; opt in
         with True only when the controller is trusted to redirect safely.
-    :returns: The created httpx Client object.
+    :returns: The created httpx2 Client object.
     """
     headers = {"X-CML-CLIENT": "PCL" if client_type is None else client_type}
     if send_client_uuid:

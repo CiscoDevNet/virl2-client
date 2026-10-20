@@ -29,7 +29,7 @@ from virl2_client.exceptions import ControllerNotFound
 from ..utils import OptInStatus, get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,14 +48,14 @@ class SystemManagement:
 
     def __init__(
         self,
-        session: httpx.Client,
+        session: httpx2.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
     ) -> None:
         """
         Manage the underlying controller software and the host system where it runs.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: A boolean indicating whether auto synchronization is enabled.
         :param auto_sync_interval: The interval in seconds between auto
             synchronizations.
@@ -454,7 +454,7 @@ class ComputeHost:
         :param node_counts: The counts of deployed and running nodes and orphans.
         """
         self._system = system
-        self._session: httpx.Client = system._session
+        self._session: httpx2.Client = system._session
         self._compute_id = compute_id
         self._hostname = hostname
         self._server_address = server_address
@@ -644,7 +644,7 @@ class SystemNotice:
         :param groups: The groups associated with the system notice.
         """
         self._system = system
-        self._session: httpx.Client = system._session
+        self._session: httpx2.Client = system._session
         self._id = notice_id
         self._level = level
         self._label = label

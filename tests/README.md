@@ -69,7 +69,7 @@ every test module.
 | `client_library_server_2_19_0` | fixture | Patches `system_info` to return CML 2.19.0 |
 | `mocked_session` | fixture | Patches `authentication.CustomClient` for tests needing a mock HTTP session |
 | `test_data_dir` | fixture (session) | `Path` to the `test_data/` directory |
-| `respx_mock_with_labs` | fixture | Pre-configures `respx` routes for lab listing and topology |
+| `respx_mock_with_labs` | fixture | Pre-configures `httpx2_mock` routes for lab listing and topology |
 | `client_library` | fixture | A fully constructed `ClientLibrary` backed by `respx_mock_with_labs` |
 
 Import constants directly when needed; fixtures are auto-discovered by pytest.
@@ -97,7 +97,7 @@ are accessed via the `test_data_dir` session fixture.
 | `sample_topology.json` | Standalone topology for import tests |
 | `*.qcow`, `*.qcow2`, etc. | Stub image files for upload validation |
 
-The `resp_body_from_file` helper in `conftest.py` maps `respx` request paths
+The `resp_body_from_file` helper in `conftest.py` maps mocked request paths
 to the corresponding JSON file automatically.  Add new fixture files here
 instead of inlining large JSON blobs in test code.
 
@@ -168,8 +168,8 @@ fixture or helper in `conftest.py`; do not copy test bodies across modules.
 
 ## Inline Topology Creation
 
-When a test needs nodes, interfaces, or links but does not need a full `respx`
-session, use the `Lab._create_*_local` family to build elements in-memory:
+When a test needs nodes, interfaces, or links but does not need a full HTTP
+mock session, use the `Lab._create_*_local` family to build elements in-memory:
 
 ```python
 lab = make_lab()
@@ -230,9 +230,9 @@ and make the file easier to scan.
 
 ## Mock and Decorator Hygiene
 
-- Do not apply `@respx.mock` (or any mock-router decorator) unless the test body
-  actually registers at least one route on it.  A stray decorator looks like
-  there is network isolation when there is none.
+- Do not request `httpx2_mock` unless the test body registers at least one
+  route on it.  A stray fixture looks like there is network isolation when
+  there is none.
 - Do not patch class attributes directly without cleanup (e.g. `Lab.sync = Mock()`).
   Use `patch.object(Lab, "sync")` as a context manager so the original is
   restored automatically; unrestored patches bleed into later tests.
@@ -242,11 +242,10 @@ and make the file easier to scan.
   replaces the name in the namespace where it was imported, so
   `patch("virl2_client.models.node.time.sleep")` is correct when `node.py`
   does `import time`; `patch("time.sleep")` would miss the reference.
-- **`respx` patterns** — three valid ways, choose by scope:
-  - *Fixture*: accept `respx_mock: MockRouter`, configure routes, call
-    `respx_mock.assert_all_called()` at the end.
-  - *Decorator*: apply `@respx.mock` and configure routes in the body.
-  - *Context manager*: `with respx.mock(base_url=...) as respx_mock:`.
+- **HTTP mock patterns** — respx with `using="httpcore2"` (registered in conftest):
+  - *Fixture*: accept `httpx2_mock: MockRouter`, configure routes, call
+    `httpx2_mock.assert_all_called()` at the end.
+  - *Nested mock*: `with respx.mock(using="httpcore2", base_url=...) as httpx2_mock:`.
 - **Module-local helpers** — when several tests in one file share setup logic,
   extract a private helper (e.g. `_make_node()`, `_new_event()`).  Move to
   `helpers.py` or `conftest.py` only when the helper is needed across modules.

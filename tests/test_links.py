@@ -35,19 +35,19 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.parametrize("connect_two_nodes", [True, False])
-def test_create_link(respx_mock: MockRouter, connect_two_nodes: bool) -> None:
+def test_create_link(httpx2_mock: MockRouter, connect_two_nodes: bool) -> None:
     """Create links via helper or explicit interface workflow.
 
     NOTE: LLM-generated test -- verify for correctness.
 
-    :param respx_mock: HTTPX router fixture used to mock API requests.
+    :param httpx2_mock: HTTPX router fixture used to mock API requests.
     :param connect_two_nodes: Whether to use helper node-connect workflow.
     """
-    respx_mock.post("mock://mock/labs/1/nodes").respond(json={"id": "n0"})
-    respx_mock.post("mock://mock/labs/1/interfaces").respond(
+    httpx2_mock.post("mock://mock/labs/1/nodes").respond(json={"id": "n0"})
+    httpx2_mock.post("mock://mock/labs/1/interfaces").respond(
         json={"id": "i0", "label": "eth0", "slot": 0}
     )
-    respx_mock.post("mock://mock/labs/1/links").respond(
+    httpx2_mock.post("mock://mock/labs/1/links").respond(
         json={"id": "l0", "label": "segment0"}
     )
     session = make_session("mock://mock")
@@ -83,7 +83,7 @@ def test_create_link(respx_mock: MockRouter, connect_two_nodes: bool) -> None:
         "writepackets": 0,
     }
     assert link.id == "l0"
-    respx_mock.assert_all_called()
+    httpx2_mock.assert_all_called()
 
 
 def test_link_wait_until_converged_timeout() -> None:

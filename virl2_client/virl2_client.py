@@ -33,7 +33,7 @@ from threading import RLock
 from typing import Any, ClassVar, NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-import httpx
+import httpx2
 
 from .exceptions import InitializationError, LabNotFound
 from .models import (
@@ -238,7 +238,7 @@ class DiagnosticsCategory(Enum):
     STARTUP_SCHEDULER = "startup_scheduler"
 
 
-def _is_login_request(request: httpx.Request) -> bool:
+def _is_login_request(request: httpx2.Request) -> bool:
     """Return whether the request is the username/password login call.
 
     :param request: The request that failed.
@@ -285,7 +285,7 @@ class ClientLibrary:
         events: bool = False,
         client_type: str | None = None,
         check_version: bool = True,
-        timeout: httpx.Timeout | float | None = None,
+        timeout: httpx2.Timeout | float | None = None,
         send_client_uuid=True,
         follow_redirects: bool = False,
     ) -> None:
@@ -333,7 +333,7 @@ class ClientLibrary:
                 send_client_uuid=send_client_uuid,
                 follow_redirects=follow_redirects,
             )
-        except httpx.InvalidURL as exc:
+        except httpx2.InvalidURL as exc:
             raise InitializationError(exc) from None
         self._session.lock = None
         self._session.controller_version = self.check_controller_version()
@@ -407,21 +407,21 @@ class ClientLibrary:
         url = self._url_for("auth" if new_auth else "old_auth")
         try:
             response = self._session.get(url)
-        except httpx.HTTPStatusError as exc:
+        except httpx2.HTTPStatusError as exc:
             status_code = exc.response.status_code
             # Login failure is 401 since 2.11, 403 before
             if self._session.controller_version >= Version("2.11.0"):
                 # 401 also means expired/revoked token; only the login call is bad creds
-                login_failed = status_code == httpx.codes.UNAUTHORIZED and (
+                login_failed = status_code == httpx2.codes.UNAUTHORIZED and (
                     _is_login_request(exc.request)
                 )
             else:
-                login_failed = status_code == httpx.codes.FORBIDDEN
+                login_failed = status_code == httpx2.codes.FORBIDDEN
             if login_failed:
                 message = "Unable to authenticate, please check your credentials"
                 raise InitializationError(message) from exc
             raise
-        except httpx.HTTPError as exc:
+        except httpx2.HTTPError as exc:
             raise InitializationError(exc) from exc
         if new_auth:
             user_info: dict = response.json()
@@ -526,8 +526,8 @@ class ClientLibrary:
             try:
                 result = self.system_info()
                 ready = bool(result.get("ready"))
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == httpx.codes.BAD_GATEWAY:
+            except httpx2.HTTPStatusError as exc:
+                if exc.response.status_code == httpx2.codes.BAD_GATEWAY:
                     # 502 Bad Gateway is expected and hints
                     # that system is not ready - no need to
                     # raise - just wait
@@ -591,7 +591,7 @@ class ClientLibrary:
         :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
         :returns: The imported Lab instance.
         :raises ValueError: If no lab ID is returned in the API response.
-        :raises httpx.HTTPError: If there was a transport error.
+        :raises httpx2.HTTPError: If there was a transport error.
         """
         lab = self._create_imported_lab(topology, title, virl_1x)
         lab.sync()
@@ -840,7 +840,7 @@ class ClientLibrary:
                 # check if lab exists through REST call
                 url = self._url_for("lab_topology", lab_id=lab_id)
                 topology = self._session.get(url).json()
-            except httpx.HTTPStatusError as exc:
+            except httpx2.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
                     raise LabNotFound(lab_id) from exc
                 raise
@@ -901,7 +901,7 @@ class ClientLibrary:
                 response = self._session.get(url)
                 response.raise_for_status()
                 diagnostics_data[value] = response.json()
-            except httpx.HTTPStatusError:
+            except httpx2.HTTPStatusError:
                 diagnostics_data[value] = {
                     "error": f"Failed to fetch {value} diagnostics"
                 }

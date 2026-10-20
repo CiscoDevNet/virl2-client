@@ -7,14 +7,14 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from ..utils import Version
 
 CANONICAL_BORDER_STYLE_MIN_VERSION = Version("2.11.0")
 
 
-class BorderStyle(str, Enum):
+class BorderStyle(StrEnum):
     """Canonical annotation border styles (mirrors simple_common.schemas.enums.BorderStyle)."""
 
     SOLID = "solid"

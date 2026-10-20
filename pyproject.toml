@@ -22,13 +22,17 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: System :: Networking",
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-httpx = "^0.28.1"
+python = "^3.11"
+httpx2 = "^2.14"
 
 # https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
 # optional package for events
@@ -36,9 +40,8 @@ aiohttp = {version = "^3", optional = true}
 
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
-# version 8.2 is available but requires python>=3.11
-# version 9 is available but requires python>=3.12
-sphinx = {version="<8.2", optional = true}
+# Sphinx 9 requires python>=3.12; the client still supports 3.11
+sphinx = {version="<9", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 aiohttp = "^3"
@@ -58,7 +61,7 @@ poetry-plugin-export = "*"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 fix = true
 exclude = ["examples"]
 
@@ -92,10 +95,7 @@ select = [
   "G",
   # prohibit print()/pprint() in production code
   "T20",
-  # datetime timezone awareness
-  # NOTE: virl2_client targets py310; if you add a datetime.now()/strptime
-  # later, use `from datetime import timezone` and `timezone.utc`, NOT
-  # `from datetime import UTC` (the UTC sentinel is py311+ only).
+  # datetime timezone awareness (`datetime.UTC` is fine; floor is py311)
   "DTZ",
   # logging best practices
   "LOG",

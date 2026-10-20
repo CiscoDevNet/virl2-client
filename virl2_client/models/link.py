@@ -28,7 +28,7 @@ from ..utils import UNCHANGED, _Sentinel, check_stale, get_url_from_template, lo
 from ..utils import property_s as property
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
     from .interface import Interface
     from .lab import Lab
@@ -77,7 +77,7 @@ class Link:
         self._interface_b = iface_b
         self._label = label
         self._lab = lab
-        self._session: httpx.Client = lab._session
+        self._session: httpx2.Client = lab._session
         self._state: str | None = None
         # When the link is removed on the server, this link object is marked stale
         # and can no longer be interacted with - the user should discard it

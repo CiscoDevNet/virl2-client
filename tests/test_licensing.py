@@ -22,7 +22,7 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from virl2_client.exceptions import APIError
@@ -85,8 +85,8 @@ def test_licensing_set_transport_reraises_non_405_patch_error() -> None:
     """set_transport re-raises PATCH failures other than HTTP 405."""
     session = MagicMock()
     lic = Licensing(session)
-    request = httpx.Request("PATCH", "https://controller/licensing/transport")
-    patch_response = httpx.Response(500, request=request)
+    request = httpx2.Request("PATCH", "https://controller/licensing/transport")
+    patch_response = httpx2.Response(500, request=request)
     session.patch.side_effect = APIError(
         "500", request=request, response=patch_response
     )
@@ -99,8 +99,8 @@ def test_licensing_set_transport_put_fallback() -> None:
     """Pre-2.11 controllers reject PATCH; fall back to PUT and status() on 204."""
     session = MagicMock()
     lic = Licensing(session)
-    request = httpx.Request("PATCH", "https://controller/licensing/transport")
-    patch_response = httpx.Response(405, request=request)
+    request = httpx2.Request("PATCH", "https://controller/licensing/transport")
+    patch_response = httpx2.Response(405, request=request)
     put_response = MagicMock()
     put_response.status_code = 204
     lic.status = MagicMock(return_value={"transport": {"ssms": "legacy"}})

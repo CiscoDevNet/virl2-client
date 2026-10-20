@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from ..utils import get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
 
 class GroupManagement:
@@ -37,11 +37,11 @@ class GroupManagement:
         "id": "groups/{group_name}/id",
     }
 
-    def __init__(self, session: httpx.Client) -> None:
+    def __init__(self, session: httpx2.Client) -> None:
         """
         Initialize group management.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         """
         self._session = session
 

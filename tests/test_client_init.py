@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import httpx
+import httpx2
 import pytest
 
 from virl2_client.virl2_client import ClientLibrary, InitializationError
@@ -126,7 +126,7 @@ def test_client_library_init_url(
     _ = client_library_server_current, reset_env
     monkeypatch.setattr("getpass.getpass", input)
     (fail, url) = params
-    expected_parts = None if fail else httpx.URL(url)
+    expected_parts = None if fail else httpx2.URL(url)
     if via == "environment":
         env = url
         url = None

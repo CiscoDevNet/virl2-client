@@ -19,7 +19,7 @@
 #
 """Exception hierarchy for the virl2_client package."""
 
-import httpx
+import httpx2
 
 
 class VirlException(Exception):
@@ -149,7 +149,7 @@ class ControllerNotFound(VirlException):
         super().__init__("Controller not found")
 
 
-class APIError(VirlException, httpx.HTTPStatusError):
+class APIError(VirlException, httpx2.HTTPStatusError):
     """Raised when the CML REST API returns an HTTP error response."""
 
     pass

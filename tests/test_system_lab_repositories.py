@@ -23,7 +23,6 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
-import respx
 
 from virl2_client.exceptions import ElementNotFound, LabRepositoryNotFound
 from virl2_client.models import LabRepository, LabRepositoryManagement
@@ -433,14 +432,13 @@ def test_lab_repository_not_found_exception() -> None:
     assert isinstance(exc, KeyError)
 
 
-@respx.mock
-def test_lab_repository_end_to_end_workflow() -> None:
+def test_lab_repository_end_to_end_workflow(httpx2_mock) -> None:
     """Run an end-to-end repository workflow via mocked REST endpoints.
 
     :raises LabRepositoryNotFound: On post-delete lookup.
     """
-    respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
-    respx.get("https://localhost/api/v0/authentication").respond(
+    httpx2_mock.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
+    httpx2_mock.get("https://localhost/api/v0/authentication").respond(
         200,
         json={
             "username": "username",
@@ -451,7 +449,7 @@ def test_lab_repository_end_to_end_workflow() -> None:
         },
     )
 
-    respx.get("https://localhost/api/v0/system_information").respond(
+    httpx2_mock.get("https://localhost/api/v0/system_information").respond(
         json={"version": "2.10.0"}
     )
 
@@ -466,7 +464,7 @@ def test_lab_repository_end_to_end_workflow() -> None:
         _ = request
         if deleted[0]:
             return httpx.Response(200, json=[])
-        if len(respx.calls) >= 4:
+        if len(httpx2_mock.calls) >= 4:
             return httpx.Response(200, json=[MOCK_LAB_REPOSITORY_1])
         return httpx.Response(200, json=[])
 
@@ -480,11 +478,13 @@ def test_lab_repository_end_to_end_workflow() -> None:
         deleted[0] = True
         return httpx.Response(200)
 
-    respx.get("https://localhost/api/v0/lab_repos").mock(
+    httpx2_mock.get("https://localhost/api/v0/lab_repos").mock(
         side_effect=get_lab_repos_response
     )
-    respx.post("https://localhost/api/v0/lab_repos").respond(json=MOCK_LAB_REPOSITORY_1)
-    respx.delete("https://localhost/api/v0/lab_repos/repo-123").mock(
+    httpx2_mock.post("https://localhost/api/v0/lab_repos").respond(
+        json=MOCK_LAB_REPOSITORY_1
+    )
+    httpx2_mock.delete("https://localhost/api/v0/lab_repos/repo-123").mock(
         side_effect=delete_lab_repo_response
     )
 

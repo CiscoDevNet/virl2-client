@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import httpx
+import httpx2
 import pytest
 import respx
 
@@ -80,9 +81,8 @@ def test_import_lab_from_path_virl(
     )
 
 
-@respx.mock
 def test_new_auth_url_used_with_cml_2_10(
-    client_library_server_current: MagicMock,
+    httpx2_mock, client_library_server_current: MagicMock
 ) -> None:
     """Verify new auth URL is used with CML 2.10.x controllers.
 
@@ -93,8 +93,8 @@ def test_new_auth_url_used_with_cml_2_10(
 
     _ = client_library_server_current
 
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
-    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    new_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(
         200,
         json={
             "username": "username",
@@ -104,7 +104,7 @@ def test_new_auth_url_used_with_cml_2_10(
             "error": None,
         },
     )
-    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(404)
+    old_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authok").respond(404)
 
     ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
 
@@ -112,8 +112,9 @@ def test_new_auth_url_used_with_cml_2_10(
     assert not old_auth_route.called
 
 
-@respx.mock
-def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None:
+def test_auth_and_reauth_token(
+    httpx2_mock, client_library_server_current: MagicMock
+) -> None:
     """Verify auth token flow: initial failure, re-auth, and subsequent success.
 
     :param client_library_server_current: Patched system_info fixture.
@@ -139,7 +140,7 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
     side_effect = initial_different_response(
         httpx.Response(401), httpx.Response(200, json="7bbcan78a98bch7nh3cm7hao3nc7")
     )
-    respx.post(f"{FAKE_URL}api/v0/authenticate").side_effect = side_effect
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").side_effect = side_effect
     side_effect = initial_different_response(
         httpx.Response(401),
         httpx.Response(
@@ -153,10 +154,10 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
             },
         ),
     )
-    respx.get(f"{FAKE_URL}api/v0/authentication").side_effect = side_effect
+    httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").side_effect = side_effect
 
     # mock get labs
-    respx.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
+    httpx2_mock.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
 
     with pytest.raises(InitializationError):
         # Test returns custom exception when instructed to raise on failure
@@ -171,22 +172,21 @@ def test_auth_and_reauth_token(client_library_server_current: MagicMock) -> None
 
     cl.all_labs()
 
-    assert respx.calls[0].request.url == f"{FAKE_URL}api/v0/authenticate"
-    assert json.loads(respx.calls[0].request.content) == {
+    assert httpx2_mock.calls[0].request.url == f"{FAKE_URL}api/v0/authenticate"
+    assert json.loads(httpx2_mock.calls[0].request.content) == {
         "username": "test",
         "password": "pa$$",
     }
-    assert respx.calls[1].request.url == f"{FAKE_URL}api/v0/authenticate"
-    assert respx.calls[2].request.url == f"{FAKE_URL}api/v0/authentication"
-    assert respx.calls[3].request.url == f"{FAKE_URL}api/v0/authenticate"
-    assert respx.calls[4].request.url == f"{FAKE_URL}api/v0/authentication"
-    assert respx.calls[5].request.url == f"{FAKE_URL}api/v0/labs"
-    assert respx.calls.call_count == 6
+    assert httpx2_mock.calls[1].request.url == f"{FAKE_URL}api/v0/authenticate"
+    assert httpx2_mock.calls[2].request.url == f"{FAKE_URL}api/v0/authentication"
+    assert httpx2_mock.calls[3].request.url == f"{FAKE_URL}api/v0/authenticate"
+    assert httpx2_mock.calls[4].request.url == f"{FAKE_URL}api/v0/authentication"
+    assert httpx2_mock.calls[5].request.url == f"{FAKE_URL}api/v0/labs"
+    assert httpx2_mock.calls.call_count == 6
 
 
-@respx.mock
 def test_session_lock_and_event_listener_init_on_auth_failure(
-    client_library_server_current: MagicMock,
+    httpx2_mock, client_library_server_current: MagicMock
 ) -> None:
     """event_listener and _session.lock stay set even on early auth-failure return.
 
@@ -199,8 +199,8 @@ def test_session_lock_and_event_listener_init_on_auth_failure(
     :param client_library_server_current: Patched system_info fixture.
     """
     _ = client_library_server_current
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(401)
-    respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(401)
+    httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(401)
 
     cl = ClientLibrary(
         url=FAKE_URL,
@@ -213,9 +213,8 @@ def test_session_lock_and_event_listener_init_on_auth_failure(
     assert cl._session.lock is None
 
 
-@respx.mock
 def test_jwt_valid_token_skips_auth(
-    client_library_server_current: MagicMock,
+    httpx2_mock, client_library_server_current: MagicMock
 ) -> None:
     """Skip password auth when a valid JWT token is provided.
 
@@ -225,7 +224,7 @@ def test_jwt_valid_token_skips_auth(
     """
     _ = client_library_server_current
 
-    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+    auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(
         200,
         json={
             "username": "jwt_user",
@@ -235,10 +234,10 @@ def test_jwt_valid_token_skips_auth(
             "error": None,
         },
     )
-    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+    password_auth_route = httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(
         json="SHOULD_NOT_BE_USED"
     )
-    respx.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
+    httpx2_mock.get(f"{FAKE_URL}api/v0/labs").respond(json=[])
 
     cl = ClientLibrary(url=FAKE_URL, jwtoken="VALID_TOKEN")
     cl.all_labs()
@@ -247,9 +246,8 @@ def test_jwt_valid_token_skips_auth(
     assert not password_auth_route.called
 
 
-@respx.mock
 def test_jwt_expired_reauths(
-    client_library_server_current: MagicMock,
+    httpx2_mock, client_library_server_current: MagicMock
 ) -> None:
     """Re-authenticate with username/password when JWT is expired.
 
@@ -259,7 +257,7 @@ def test_jwt_expired_reauths(
     """
     _ = client_library_server_current
 
-    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication")
+    auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication")
     auth_route.side_effect = [
         httpx.Response(401),
         httpx.Response(
@@ -273,7 +271,7 @@ def test_jwt_expired_reauths(
             },
         ),
     ]
-    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+    password_auth_route = httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(
         json="REFRESHED_TOKEN"
     )
 
@@ -293,9 +291,9 @@ def test_jwt_expired_reauths(
     }
 
 
-@respx.mock
 @pytest.mark.parametrize("raise_for_auth_failure", [False, True])
 def test_jwt_reauth_no_creds_fails(
+    httpx2_mock,
     client_library_server_current: MagicMock,
     reset_env: None,
     raise_for_auth_failure: bool,
@@ -305,14 +303,15 @@ def test_jwt_reauth_no_creds_fails(
     An expired/revoked token is not a login failure, so it fails loudly
     regardless of raise_for_auth_failure.
 
+    :param httpx2_mock: HTTPX mock router fixture.
     :param client_library_server_current: Patched system_info fixture.
     :param reset_env: Fixture clearing VIRL2 env vars.
     :param raise_for_auth_failure: ClientLibrary flag under test.
     """
     _ = client_library_server_current, reset_env
 
-    auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(401)
-    password_auth_route = respx.post(f"{FAKE_URL}api/v0/authenticate").respond(
+    auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(401)
+    password_auth_route = httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(
         json="SHOULD_NOT_BE_USED"
     )
 
@@ -332,9 +331,8 @@ def test_jwt_reauth_no_creds_fails(
     assert not password_auth_route.called
 
 
-@respx.mock
 def test_old_auth_url_used_with_cml_2_9(
-    client_library_server_2_9_0: MagicMock, monkeypatch: pytest.MonkeyPatch
+    httpx2_mock, client_library_server_2_9_0: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Verify legacy auth URL is used with CML 2.9.x controller and 2.9.x client.
 
@@ -346,9 +344,9 @@ def test_old_auth_url_used_with_cml_2_9(
 
     monkeypatch.setattr(ClientLibrary, "VERSION", Version("2.9.0"))
 
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
-    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
-    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(404)
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(404)
 
     ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
 
@@ -356,9 +354,8 @@ def test_old_auth_url_used_with_cml_2_9(
     assert not new_auth_route.called
 
 
-@respx.mock
 def test_new_auth_url_fails_with_cml_2_9(
-    client_library_server_2_9_0: MagicMock,
+    httpx2_mock, client_library_server_2_9_0: MagicMock
 ) -> None:
     """Negative test: new auth URL does not work with CML 2.9.x.
 
@@ -370,9 +367,9 @@ def test_new_auth_url_fails_with_cml_2_9(
 
     _ = client_library_server_2_9_0
 
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
-    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
-    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(404)
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(404)
 
     ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
 
@@ -380,9 +377,10 @@ def test_new_auth_url_fails_with_cml_2_9(
     assert not new_auth_route.called
 
 
-@respx.mock
 def test_old_auth_url_deprecated_with_cml_2_10(
-    client_library_server_current: MagicMock, monkeypatch: pytest.MonkeyPatch
+    httpx2_mock,
+    client_library_server_current: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Negative test: legacy auth URL should be considered deprecated on
     CML 2.10.x controllers.  This is a theoretical scenario in case it is not
@@ -400,9 +398,9 @@ def test_old_auth_url_deprecated_with_cml_2_10(
 
     monkeypatch.setattr(ClientLibrary, "VERSION", Version("2.9.0"))
 
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
-    old_auth_route = respx.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
-    new_auth_route = respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    old_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authok").respond(200, text="OK")
+    new_auth_route = httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(
         200,
         json={
             "username": "username",
@@ -585,17 +583,22 @@ def test_get_diagnostics_paths(
     :param valid: Whether API returns 200 (True) or 404 (False).
     """
     data = {"data": "sample"}
-    return_value = httpx.Response(200, json=data) if valid else httpx.Response(404)
 
     expected_categories = categories
     if DiagnosticsCategory.ALL in categories:
         expected_categories = list(DiagnosticsCategory)[1:]
 
-    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
+    with respx.mock(
+        using="httpcore2",
+        assert_all_called=False,
+        base_url="https://0.0.0.0/api/v0/",
+    ) as httpx2_mock:
         for category in expected_categories:
-            respx_mock.get(f"diagnostics/{category.value}").mock(
-                return_value=return_value
-            )
+            route = httpx2_mock.get(f"diagnostics/{category.value}")
+            if valid:
+                route.respond(200, json=data)
+            else:
+                route.respond(404)
         diagnostics_data = client_library.get_diagnostics(*categories)
 
     for category in expected_categories:
@@ -624,8 +627,12 @@ def test_get_diagnostics_warns_user_list(
 
     :param client_library: ClientLibrary instance with mocked lab API.
     """
-    with respx.mock(base_url="https://0.0.0.0/api/v0/") as respx_mock:
-        respx_mock.get("diagnostics/user_list").respond(200, json={"users": []})
+    with respx.mock(
+        using="httpcore2",
+        assert_all_called=False,
+        base_url="https://0.0.0.0/api/v0/",
+    ) as httpx2_mock:
+        httpx2_mock.get("diagnostics/user_list").respond(200, json={"users": []})
         with pytest.deprecated_call(match="DiagnosticsCategory.USER_LIST"):
             diagnostics_data = client_library.get_diagnostics(
                 DiagnosticsCategory.USER_LIST
@@ -634,9 +641,8 @@ def test_get_diagnostics_warns_user_list(
     assert diagnostics_data["user_list"] == {"users": []}
 
 
-@respx.mock
 def test_system_controller_compute_load(
-    client_library_server_current: MagicMock,
+    httpx2_mock, client_library_server_current: MagicMock
 ) -> None:
     """system_management.controller returns connector host from compute_hosts.
 
@@ -645,8 +651,8 @@ def test_system_controller_compute_load(
     :param client_library_server_current: Patched system_info fixture.
     """
     _ = client_library_server_current
-    respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
-    respx.get("https://localhost/api/v0/authentication").respond(
+    httpx2_mock.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
+    httpx2_mock.get("https://localhost/api/v0/authentication").respond(
         200,
         json={
             "username": "username",
@@ -671,7 +677,7 @@ def test_system_controller_compute_load(
         }
     ]
 
-    respx.get("https://localhost/api/v0/system/compute_hosts").respond(
+    httpx2_mock.get("https://localhost/api/v0/system/compute_hosts").respond(
         json=compute_hosts_response
     )
 
@@ -762,9 +768,8 @@ def test_check_controller_version_major_mismatch(
         cl.check_controller_version()
 
 
-@respx.mock
 def test_join_existing_lab_404_not_found(
-    client_library_server_current: MagicMock,
+    httpx2_mock, client_library_server_current: MagicMock
 ) -> None:
     """Raise LabNotFound when joining a missing lab returns 404.
 
@@ -775,8 +780,8 @@ def test_join_existing_lab_404_not_found(
     """
     _ = client_library_server_current
     lab_id = "missing-lab"
-    respx.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
-    respx.get(f"{FAKE_URL}api/v0/authentication").respond(
+    httpx2_mock.post(f"{FAKE_URL}api/v0/authenticate").respond(json="BOGUS_TOKEN")
+    httpx2_mock.get(f"{FAKE_URL}api/v0/authentication").respond(
         200,
         json={
             "username": "username",
@@ -786,7 +791,7 @@ def test_join_existing_lab_404_not_found(
             "error": None,
         },
     )
-    respx.get(f"{FAKE_URL}api/v0/labs/{lab_id}/topology").respond(
+    httpx2_mock.get(f"{FAKE_URL}api/v0/labs/{lab_id}/topology").respond(
         status_code=404, text=f"Lab not found: {lab_id}"
     )
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
@@ -840,7 +845,7 @@ def test_client_get_host(
     """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
-    cl._session.base_url = httpx.URL("https://demo.local:443/api/v0/")
+    cl._session.base_url = httpx2.URL("https://demo.local:443/api/v0/")
     assert cl.get_host() == "demo.local"
 
 
@@ -904,11 +909,11 @@ def test_join_lab_propagates_error(
     """
     _ = client_library_server_current, mocked_session
     cl = ClientLibrary(url=FAKE_URL, username="test", password="pa$$")
-    request = httpx.Request("GET", "https://x")
-    cl._session.get.side_effect = httpx.HTTPStatusError(
+    request = httpx2.Request("GET", "https://x")
+    cl._session.get.side_effect = httpx2.HTTPStatusError(
         "boom",
         request=request,
-        response=httpx.Response(status_code=500, request=request),
+        response=httpx2.Response(status_code=500, request=request),
     )
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         cl.join_existing_lab("missing", sync_lab=True)

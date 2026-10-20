@@ -33,7 +33,7 @@ from .border_style import (
 )
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
     from .lab import Lab
 
@@ -79,7 +79,7 @@ class SmartAnnotation:
         """
         self._id = annotation_id
         self._lab = lab
-        self._session: httpx.Client = lab._session
+        self._session: httpx2.Client = lab._session
         # When the smart annotation is removed on the server, this object is marked
         # stale and can no longer be interacted with - the user should discard it
         self._stale = False

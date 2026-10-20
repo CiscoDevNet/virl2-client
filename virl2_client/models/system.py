@@ -55,7 +55,7 @@ class SystemManagement:
         """
         Manage the underlying controller software and the host system where it runs.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: A boolean indicating whether auto synchronization is enabled.
         :param auto_sync_interval: The interval in seconds between auto
             synchronizations.

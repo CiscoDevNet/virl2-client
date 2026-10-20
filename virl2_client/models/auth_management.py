@@ -75,7 +75,7 @@ class AuthManagement:
         """
         Manage authentication settings and synchronization.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: Whether to automatically synchronize resource pools.
         :param auto_sync_interval: How often to synchronize resource pools in seconds.
         """

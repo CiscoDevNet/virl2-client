@@ -51,7 +51,7 @@ def raise_for_status(response: httpx2.Response) -> None:
     automatically closed, and we then cannot read the response in later error handling.
     We thus need to check if the response is 4/500 and read it preemptively if so.
 
-    :param response: The httpx response to check.
+    :param response: The httpx2 response to check.
     """
     if response.status_code // 100 in (4, 5):
         response.read()
@@ -60,12 +60,12 @@ def raise_for_status(response: httpx2.Response) -> None:
 
 class TokenAuth(httpx2.Auth):
     """
-    Token-based authentication for an httpx session.
+    Token-based authentication for an httpx2 session.
 
     Inspired by:
     https://requests.readthedocs.io/en/v2.9.1/user/authentication/?highlight=AuthBase#new-forms-of-authentication
-    Modified for httpx based on:
-    https://www.python-httpx2.org/advanced/#customizing-authentication
+    Modified for httpx2 based on:
+    https://www.python-httpx.org/advanced/authentication/
     """
 
     # Read by httpx2.Auth at runtime. When True, httpx would buffer the full
@@ -270,7 +270,7 @@ class TokenAuth(httpx2.Auth):
 
 
 class BlankAuth(httpx2.Auth):
-    """An httpx Auth implementation that performs no authentication."""
+    """An httpx2 Auth implementation that performs no authentication."""
 
     def auth_flow(
         self, request: httpx2.Request
@@ -286,7 +286,7 @@ class BlankAuth(httpx2.Auth):
 
 
 class CustomClient(httpx2.Client):
-    """httpx Client that raises APIError with server description on HTTP errors."""
+    """httpx2 Client that raises APIError with server description on HTTP errors."""
 
     _ERROR_PREFIX: ClassVar[dict[int, str]] = MappingProxyType(
         {
@@ -310,7 +310,7 @@ class CustomClient(httpx2.Client):
         """
         Override httpx2.Client.request to raise APIError with server description.
 
-        Replaces the default httpx HTTPStatusError with APIError containing
+        Replaces the default httpx2 HTTPStatusError with APIError containing
         the server's error description when available.
 
         :param args: Positional arguments passed to the underlying request.
@@ -346,7 +346,7 @@ def make_session(
     follow_redirects: bool = False,
 ) -> httpx2.Client:
     """
-    Create an httpx Client object with the specified base URL
+    Create an httpx2 Client object with the specified base URL
     and SSL verification setting.
 
     Note: The base URL is automatically prepended to all HTTP calls. This means you
@@ -366,7 +366,7 @@ def make_session(
         auto-follow HTTP redirects. A redirect can silently retarget a
         request (and its Authorization header) to a different host; opt in
         with True only when the controller is trusted to redirect safely.
-    :returns: The created httpx Client object.
+    :returns: The created httpx2 Client object.
     """
     headers = {"X-CML-CLIENT": "PCL" if client_type is None else client_type}
     if send_client_uuid:

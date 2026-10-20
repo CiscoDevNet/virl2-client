@@ -41,7 +41,7 @@ class GroupManagement:
         """
         Initialize group management.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         """
         self._session = session
 

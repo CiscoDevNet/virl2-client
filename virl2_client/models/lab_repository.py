@@ -142,7 +142,7 @@ class LabRepositoryManagement:
         Manage lab repositories.
 
         :param system: The SystemManagement instance.
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: A boolean indicating whether auto synchronization is enabled.
         :param auto_sync_interval: The interval in seconds between auto synchronizations.
         """

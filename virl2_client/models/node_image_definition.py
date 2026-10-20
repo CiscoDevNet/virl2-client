@@ -87,7 +87,7 @@ class NodeImageDefinitions:
         Image definitions define disk images that are required to boot a network node.
         Together, they define a complete virtual network node.
 
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         """
         self._session = session
 

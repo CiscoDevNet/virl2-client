@@ -127,7 +127,7 @@ class Lab:
 
         :param title: Name or title of the lab.
         :param lab_id: Lab ID.
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param username: Username of the user to authenticate.
         :param password: Password of the user to authenticate.
         :param auto_sync: A flag indicating whether local changes should be

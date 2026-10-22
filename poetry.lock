@@ -3074,11 +3074,11 @@ multidict = ">=4.0"
 propcache = ">=0.2.1"
 
 [extras]
-docs = ["sphinx", "sphinx_rtd_theme"]
+docs = ["sphinx", "sphinx-rtd-theme"]
 events = ["aiohttp"]
 pyats = ["pyats"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.10"
-content-hash = "c10d0ad18043ee6cecff83ebfa66b1745fbe35e6efba81bc6768cb8aaba2ca59"
+python-versions = ">=3.10,<4.0"
+content-hash = "303dfaa32ce94063307623e1b732b842a85bba20e60f6297aba58815b86bde5e"

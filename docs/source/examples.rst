@@ -7,21 +7,68 @@ Client Library::
     from virl2_client import ClientLibrary
     client = ClientLibrary("https://192.168.1.1", "username", "password")
 
-A custom SSL certificate bundle can be passed in `ssl_verify`::
+A custom SSL certificate bundle can be passed in ``ssl_verify``::
 
     client = ClientLibrary("https://192.168.1.1", "username", "password", ssl_verify="./cert.pem")
 
 You can pass a certificate using the ``CA_BUNDLE`` or ``CML_VERIFY_CERT`` environment variables as well.
+Constructor arguments take precedence; environment variables and ``.virlrc`` fill in values that were not provided explicitly.
 
 If no username or password are given then the environment will be checked,
 looking for ``VIRL2_USER`` or ``VIRL_USERNAME`` and ``VIRL2_PASS`` or ``VIRL_PASSWORD``, respectively.
-Environment variables take precedence over those provided in arguments.
 
 It's also possible to pass the URL as an environment variable ``VIRL2_URL`` or ``VIRL_HOST``.
 
-Disabling SSL certificate verification (not recommended)::
+For controllers that ship with a self-signed TLS certificate, prefer pointing
+the client at the controller CA (``ssl_verify="./controller-ca.pem"`` or the
+``CA_BUNDLE`` environment variable) instead of disabling verification.
 
-    client = ClientLibrary("https://192.168.1.1", "username", "password", ssl_verify=False)
+Disabling SSL certificate verification entirely (``ssl_verify=False``) is
+discouraged and should only be used as a last resort in isolated lab
+environments.
+
+Authenticating with a Personal Access Token
+-------------------------------------------
+
+For unattended automation, authenticate with a Personal Access Token (PAT)
+instead of a username and password. Create the token in the CML UI at
+**Settings > API Tokens**, or through the ``/api/v0/access_tokens`` API. Copy
+and store the token securely when it is created; it is a bearer credential.
+
+The simplest option is to put the PAT in the ``VIRL2_JWT`` environment variable,
+which the library reads automatically. Do not provide a username or password::
+
+    from virl2_client import ClientLibrary
+
+    # VIRL2_JWT is set in the environment; no jwtoken argument is needed.
+    client = ClientLibrary("https://cml.example.com")
+
+If the token comes from another source, such as a secrets manager, pass it
+explicitly as ``jwtoken`` instead::
+
+    client = ClientLibrary("https://cml.example.com", jwtoken=my_token)
+
+Either way, the client sends the value of ``client.jwtoken`` in the
+``Authorization`` header as a Bearer token.
+
+For PAT-based automation, do not also configure a username and password. If
+both are set, the client uses the PAT but silently re-authenticates with the
+username and password when the PAT expires or is revoked, instead of failing.
+That masks token revocation and reintroduces the very credential the PAT is
+meant to replace. Provide the PAT alone so that an expired or revoked token
+fails loudly and can be rotated deliberately.
+
+PATs have a maximum lifetime of 365 days and can be revoked from **Settings >
+API Tokens** or through the API. If a PAT expires or is revoked, the controller
+returns HTTP 401. Without configured username and password credentials, the
+client raises ``APIError`` ("JWT token expired and automatic re-authentication
+is not possible") rather than automatically re-authenticating. Create a
+replacement PAT and either set ``client.jwtoken`` on the existing client or
+recreate the client (updating ``VIRL2_JWT`` only takes effect for a newly
+constructed client). Token expiration is determined by the token itself; the
+client does not assume a 24-hour lifetime.
+
+No client-library code change is required for PAT authentication.
 
 Creating a lab with nodes and links
 -----------------------------------
@@ -123,8 +170,7 @@ and is interactive::
 
     client = ClientLibrary(VIRL_CONTROLLER,
                            VIRL_USERNAME,
-                           VIRL_PASSWORD,
-                           ssl_verify=False)
+                           VIRL_PASSWORD)
 
     # this assumes that there's exactly one lab with this title
     our_lab = client.find_labs_by_title('my_lab')[0]
@@ -178,51 +224,53 @@ Licensing the System
 --------------------
 
 The following example shows how to apply a license to the system using a token
-and retrieve licensing status using the the VIRL2 client library::
+and retrieve licensing status using the VIRL2 client library. Credentials
+are taken from the environment when available and prompted for otherwise,
+so nothing sensitive has to be written to disk::
 
     import getpass
     import json
+    import os
+    import sys
+
     from virl2_client import ClientLibrary
 
-    VIRL_CONTROLLER = "cml2-controller"
-    VIRL_USERNAME = input("username: ")
-    VIRL_PASSWORD = getpass.getpass("password: ")
-    SL_TOKEN = input("smart license token: ")
-    PRODUCT_CONFIG = input("product configuration: ")
 
-    client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+    def _prompt(env_var, prompt, *, secret=False):
+        value = os.environ.get(env_var)
+        if value is not None:
+            return value
+        reader = getpass.getpass if secret else input
+        return reader(prompt)
 
-    # Get the licensing handle from the client as a property
+
+    url = _prompt("CML_URL", "controller URL or hostname: ")
+    username = _prompt("CML_USERNAME", "username: ")
+    password = _prompt("CML_PASSWORD", "password: ", secret=True)
+    token = _prompt("CML_SSMS_TOKEN", "Smart Licensing token: ", secret=True)
+
+    client = ClientLibrary(url, username, password)
     licensing = client.licensing
 
-    # Set the product configuration
-    licensing.set_product_license(PRODUCT_CONFIG)
-
-    # Setup default license transport (i.e., directly connected to the external
-    # Smart License server)
+    # Use the default SSMS transport (direct to the public Smart Licensing
+    # server). Call licensing.set_transport(ssms=...) instead if you need
+    # to point at an on-prem satellite.
     licensing.set_default_transport()
 
-    # Register with the Smart License server.
-    # Wait for registration and authorization to complete.
-    result = licensing.register_wait(SL_TOKEN)
+    # Register with the Smart Licensing server and wait for both
+    # registration and authorization polls to converge. register_wait()
+    # returns the effective licensing status snapshot on success and
+    # raises RuntimeError when polling times out.
+    try:
+        status = licensing.register_wait(token)
+    except RuntimeError as exc:
+        print(f"ERROR: Smart Licensing registration timed out: {exc}", file=sys.stderr)
+        sys.exit(1)
 
-    if not result:
-        result = licensing.get_reservation_return_code()
-        print(
-            "ERROR: Failed to register with Smart License server: {}!".format(result)
-        )
-        exit(1)
-
-    # Get the current registration status.
-    # This returns a JSON blob with license status and authorization details.
-    status = licensing.status()
-
-    # Get the current list of licensed features.
-    # This returns a JSON blob with licensed features.
-    features = licensing.features()
-
-    print(json.dumps(status, indent=2))
-    print(json.dumps(features, indent=2))
+    # Dump the full licensing status. The dict already embeds the
+    # per-feature view, so there is no need for a separate features()
+    # call (that API is deprecated).
+    print(json.dumps(status, indent=4))
 
 
 The output for this would look something like the following::
@@ -299,29 +347,6 @@ The output for this would look something like the following::
       }
     }
 
-    [
-      {
-        "id": "regid.2019-10.com.cisco.CML_ENT_BASE,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
-        "name": "CML - Enterprise License",
-        "description": "Cisco Modeling Labs - Enterprise License with 20 nodes capacity included",
-        "in_use": 1,
-        "status": "IN_COMPLIANCE",
-        "version": "1.0",
-        "min": 0,
-        "max": 1
-      },
-      {
-        "id": "regid.2019-10.com.cisco.CML_NODE_COUNT,1.0_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
-        "name": "CML \u2013 Expansion Nodes",
-        "description": "Cisco Modeling Labs - Expansion node capacity for CML Enterprise Servers",
-        "in_use": 50,
-        "status": "IN_COMPLIANCE",
-        "version": "1.0",
-        "min": 0,
-        "max": 300
-      }
-    ]
-
 
 This example can also be found in the ``examples`` directory as ``licensing.py``.
 
@@ -348,7 +373,7 @@ should be removed::
     VIRL_PASSWORD = getpass.getpass("password: ")
     LAB_NAME = input("enter lab name: ")
 
-    client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD, ssl_verify=False)
+    client = ClientLibrary(VIRL_CONTROLLER, VIRL_USERNAME, VIRL_PASSWORD)
 
     # Find the lab by title and join it as long as it's the only
     # lab with that title.

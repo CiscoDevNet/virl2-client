@@ -17,13 +17,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Deprecated pyATS/Unicon integration for running commands on lab devices.
+
+.. deprecated::
+    This module is deprecated and will be removed in a future release.
+    ``pyats`` is no longer a dependency of ``virl2_client`` (optional or
+    otherwise) -- it must be installed separately for this module to be
+    functional. New code should use
+    :meth:`~virl2_client.models.node.Node.run_cli_command` instead, which
+    requires CML server >= 2.11.0 and runs commands server-side via Unicon
+    without needing pyATS/Unicon installed locally.
+"""
 
 from __future__ import annotations
 
 import io
 import logging
 import os
-from pathlib import Path
+import re
+import warnings
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -43,8 +55,11 @@ else:
 
 
 from ..exceptions import PyatsDeviceNotFound, PyatsNotInstalled
+from ..utils import Version
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from genie.libs.conf.device import Device
     from genie.libs.conf.testbed import Testbed
 
@@ -59,13 +74,83 @@ _LOGGER = logging.getLogger(__name__)
 # to use ssh keys, set the specific key path or set empty ssh_options
 DEFAULT_SSH_OPTIONS = "-o IdentitiesOnly=yes -o IdentityAgent=none"
 
+# key_path is interpolated into an OpenSSH options string and passed to the
+# terminal server connection; reject anything that could inject/append
+# extra SSH options: whitespace or quotes (to close/reopen the option
+# value), or a leading "-" (-o/-F-style option syntax).
+_UNSAFE_KEY_PATH_CHARS = re.compile(r"""[\s"']""")
+
+# CML 2.11.0 introduced POST /labs/{lab_id}/nodes/{node_id}/cli. Frozen for the
+# pyATS deprecation stack — not advanced for later releases (2.12, 2.13, …).
+# Any connected controller >= this version delegates to the server-side CLI API.
+SERVER_CLI_API_MIN_VERSION = Version("2.11.0")
+SERVER_CLI_API_MIN_VERSION_STR = "2.11.0"
+
+_PYATS_DEPRECATION_MESSAGE = (
+    "pyATS/Unicon integration (ClPyats, Lab.pyats, "
+    "Node.run_pyats_command/run_pyats_config_command) is "
+    "deprecated and will be removed in a future release. pyats "
+    "is no longer bundled as a virl2_client dependency and must "
+    "be installed separately if you still need this functionality."
+)
+
+_RUN_PYATS_USE_CLI_MESSAGE = (
+    "Node.run_pyats_command() and Node.run_pyats_config_command() are "
+    "deprecated; use Node.run_cli_command() instead."
+)
+
+
+def warn_pyats_deprecated(cl_pyats: ClPyats, stacklevel: int = 2) -> None:
+    """Emit a DeprecationWarning once per :class:`ClPyats` instance (per lab)."""
+    if cl_pyats._deprecation_warned:
+        return
+    cl_pyats._deprecation_warned = True
+    warnings.warn(
+        _PYATS_DEPRECATION_MESSAGE,
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
+
+def warn_run_pyats_use_cli(cl_pyats: ClPyats, stacklevel: int = 2) -> None:
+    """Advise :meth:`~virl2_client.models.node.Node.run_cli_command` on CML >= 2.11.
+
+    Emitted once per :class:`ClPyats` instance when the deprecated node helpers
+    are used against a controller that exposes the server-side CLI API.
+    """
+    if cl_pyats._run_pyats_cli_warned:
+        return
+    cl_pyats._run_pyats_cli_warned = True
+    warnings.warn(
+        _RUN_PYATS_USE_CLI_MESSAGE,
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
+
 
 class ClPyats:
+    """PyATS/Unicon integration for running commands against lab devices.
+
+    .. deprecated::
+        This module and class are deprecated and will be removed in a
+        future release. ``pyats`` is no longer a dependency (optional or
+        otherwise) of ``virl2_client`` -- install it separately in your
+        own environment if you still need this functionality. New code
+        should use :meth:`~virl2_client.models.node.Node.run_cli_command`
+        instead, which requires CML server >= 2.11.0 and runs commands
+        server-side via Unicon without needing pyATS/Unicon installed
+        locally.
+    """
+
     def __init__(self, lab: Lab, hostname: str | None = None) -> None:
         """
         Create a pyATS object that can be used to run commands
-        against a device either in exec mode ``show version`` or in
-        configuration mode ``interface gi0/0 \\n no shut``.
+        against a device either in exec mode show version or in
+        configuration mode interface gi0/0 \\n no shut.
+
+        .. deprecated::
+            Use :meth:`Node.run_cli_command` instead (requires CML server
+            >= 2.11.0).
 
         :param lab: The lab object to be used with pyATS.
         :param hostname: Forced hostname or IP address and port of the console
@@ -75,10 +160,16 @@ class ClPyats:
         self._hostname = hostname
         self._testbed: Testbed | None = None
         self._connections: set[Device] = set()
+        self._deprecation_warned = False
+        self._run_pyats_cli_warned = False
+        self._serial_ports: dict[str, int] = {}
 
     @property
     def hostname(self) -> str | None:
-        """Return the forced hostname/IP and port terminal server setting."""
+        """Return the forced hostname/IP and port terminal server setting.
+
+        :returns: Terminal server host override, or None when unset.
+        """
         return self._hostname
 
     @hostname.setter
@@ -91,6 +182,10 @@ class ClPyats:
         """
         self._hostname = hostname
 
+    def serial_port_for(self, node_label: str) -> int:
+        """Return the serial console index selected for *node_label* (default 0)."""
+        return self._serial_ports.get(node_label, 0)
+
     def _check_pyats_installed(self) -> None:
         """
         Check if pyATS is installed and raise an exception if not.
@@ -98,7 +193,14 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
         if _PyatsTFLoader is None:
-            raise PyatsNotInstalled
+            raise PyatsNotInstalled(
+                "pyATS is not installed. pyats is no longer bundled as a "
+                "virl2_client dependency; install it separately "
+                "(e.g. `pip install pyats unicon`) if you still need this "
+                "functionality, or switch to Node.run_cli_command() instead "
+                "(requires CML server >= 2.11.0 and needs no local pyATS "
+                "install)."
+            )
 
     def _load_pyats_testbed(self, testbed_yaml: str) -> Testbed:
         """
@@ -107,6 +209,9 @@ class ClPyats:
         Disable all templating features of PyATS markup processor.
         Also disable extensions loading (which still uses all the templating)
         https://pubhub.devnetcloud.com/media/pyats/docs/utilities/yaml_markup.html
+
+        :param testbed_yaml: Testbed document in YAML format.
+        :returns: Parsed pyATS testbed object.
         """
         processor = _PyatsTMProcessor(
             reference=True,
@@ -121,12 +226,18 @@ class ClPyats:
         loader = _PyatsTFLoader(markupprocessor=processor, enable_extensions=False)
         return loader.load(io.StringIO(testbed_yaml))
 
-    def sync_testbed(self, username: str, password: str) -> None:
+    def sync_testbed(self, username: str, password: str | None = None) -> None:
         """
         Sync the testbed (the latest topology data) from the server.
 
         :param username: The username to be inserted into the testbed data.
-        :param password: The password to be inserted into the testbed data.
+        :param password: The password or a JWT token to be inserted into
+            the testbed data. Passing a JWT avoids creating a new token
+            per SSH session and requires a CML 2.11.0 (or newer)
+            controller that accepts JWTs as SSH passwords. When None
+            (the default), the existing terminal-server password in the
+            testbed YAML is left unchanged; call set_termserv_credentials
+            to set credentials later.
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
         self._check_pyats_installed()
@@ -140,19 +251,31 @@ class ClPyats:
         should be executed after sync_testbed
         and re-executed after every sync_testbed call.
 
+        On CML 2.11.0+ controllers the selection is recorded for
+        :meth:`~virl2_client.models.node.Node.run_cli_command` delegation from
+        the deprecated pyATS node helpers; no local pyATS testbed is required.
+
         :param node_label: The label/title of the device.
         :param console_number: The serial console number to be used for PyAts.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         :raises PyatsNotInstalled: If pyATS is not installed.
         """
-        self._check_pyats_installed()
-        try:
-            pyats_device: Device = self._testbed.devices[node_label]
-        except KeyError:
-            raise PyatsDeviceNotFound(node_label)
+        self._serial_ports[node_label] = int(console_number)
+        if self._lab._session.controller_version < SERVER_CLI_API_MIN_VERSION:
+            warn_pyats_deprecated(self, stacklevel=2)
+            self._check_pyats_installed()
+            if self._testbed is None:
+                raise RuntimeError("pyATS testbed is not initialized")
 
-        command = pyats_device.connections["a"]["command"]
-        pyats_device.connections["a"]["command"] = command[:-1] + str(console_number)
+            try:
+                pyats_device: Device = self._testbed.devices[node_label]
+            except KeyError:
+                raise PyatsDeviceNotFound(node_label) from None
+
+            command = pyats_device.connections["a"]["command"]
+            pyats_device.connections["a"]["command"] = command[:-1] + str(
+                console_number
+            )
 
     def set_termserv_credentials(
         self,
@@ -174,7 +297,10 @@ class ClPyats:
         :param username: The username to be set.
         :param password: The password to be set.
         :param key_path: The SSH key path to be set.
+        :param ssh_options: SSH options passed to terminal server connection.
         :raises PyatsNotInstalled: If pyATS is not installed.
+        :raises ValueError: If key_path contains whitespace, quotes, or
+            looks like an SSH option (e.g. starts with "-").
         """
         self._check_pyats_installed()
         terminal = self._testbed.devices.terminal_server
@@ -184,6 +310,12 @@ class ClPyats:
             terminal.credentials.default.password = password
             terminal.connections.cli.ssh_options = ssh_options
         if key_path is not None:
+            key_path = str(key_path)
+            if _UNSAFE_KEY_PATH_CHARS.search(key_path) or key_path.startswith("-"):
+                raise ValueError(
+                    f"Invalid key_path ({key_path!r}): must not contain "
+                    "whitespace, quotes, or look like an SSH option."
+                )
             ssh_options += f" -o IdentityFile={key_path}"
         terminal.connections.cli.ssh_options = ssh_options
 
@@ -191,8 +323,8 @@ class ClPyats:
         self,
         init_exec_commands: list[str] | None = None,
         init_config_commands: list[str] | None = None,
-        **params: str,
-    ) -> dict:
+        **params: Any,
+    ) -> dict[str, Any]:
         """
         Prepare a dictionary of optional parameters to be executed before a command.
         None means that default commands will be executed. If you want no commands
@@ -200,6 +332,7 @@ class ClPyats:
 
         :param init_exec_commands: A list of exec commands to be executed.
         :param init_config_commands: A list of config commands to be executed.
+        :param params: Additional PyATS parameters to pass through.
         :returns: A dictionary of optional parameters to be executed with a command.
         """
         if init_exec_commands is not None:
@@ -208,8 +341,12 @@ class ClPyats:
             params["init_config_commands"] = init_config_commands
         return params
 
-    def _is_connected(self, pyats_device: "Device") -> bool:
-        """Helper method to see if the device appears connected"""
+    def _is_connected(self, pyats_device: Device) -> bool:
+        """Check whether a pyATS device is currently connected.
+
+        :param pyats_device: Device instance to inspect.
+        :returns: True when the device has an active CLI spawn handle.
+        """
         if pyats_device not in self._connections or not pyats_device.is_connected():
             return False
         try:
@@ -218,8 +355,12 @@ class ClPyats:
         except (TypeError, AttributeError):
             return False
 
-    def _reconnect(self, pyats_device: "Device", params: dict) -> None:
-        """Helper method to reconnect a PyATS device with proper cleanup."""
+    def _reconnect(self, pyats_device: Device, params: dict[str, Any]) -> None:
+        """Reconnect a pyATS device with cleanup around connect calls.
+
+        :param pyats_device: Device instance to reconnect.
+        :param params: Connect/init command parameters.
+        """
         if self._is_connected(pyats_device):
             return
         self._destroy_device(pyats_device, raise_exc=False)
@@ -254,10 +395,12 @@ class ClPyats:
         :param init_config_commands: A list of config commands to be executed
             before the command. Default commands will be run if omitted.
             Pass an empty list to run no commands.
-        :param pyats_params: Additional PyATS call parameters
+        :param _retry_attempted: Internal guard to avoid infinite reconnect retries.
+        :param pyats_params: Additional PyATS call parameters.
         :returns: The output from the device.
         :raises PyatsDeviceNotFound: If the device cannot be found.
         :raises PyatsNotInstalled: If pyATS is not installed.
+        :raises RuntimeError: If the pyATS testbed is not initialized.
         """
         self._check_pyats_installed()
 
@@ -267,7 +410,7 @@ class ClPyats:
         try:
             pyats_device: Device = self._testbed.devices[node_label]
         except KeyError:
-            raise PyatsDeviceNotFound(node_label)
+            raise PyatsDeviceNotFound(node_label) from None
 
         params = self._prepare_params(
             init_exec_commands, init_config_commands, **pyats_params
@@ -323,6 +466,7 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
+        warn_pyats_deprecated(self, stacklevel=2)
         return self._execute_command(
             node_label,
             command,
@@ -357,6 +501,7 @@ class ClPyats:
         :raises PyatsNotInstalled: If pyATS is not installed.
         :returns: The output from the device.
         """
+        warn_pyats_deprecated(self, stacklevel=2)
         return self._execute_command(
             node_label,
             command,
@@ -386,7 +531,12 @@ class ClPyats:
         if pyats_device in self._connections:
             self._destroy_device(pyats_device)
 
-    def _destroy_device(self, pyats_device: "Device", raise_exc=True) -> None:
+    def _destroy_device(self, pyats_device: Device, raise_exc: bool = True) -> None:
+        """Destroy a device connection and forget local tracking state.
+
+        :param pyats_device: Device instance to destroy.
+        :param raise_exc: Re-raise destroy exceptions when True.
+        """
         try:
             pyats_device.destroy()
         except Exception:
@@ -397,6 +547,11 @@ class ClPyats:
 
 
 def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
+    """Classify command failures to decide whether retry is safe.
+
+    :param exc: Exception raised during command execution.
+    :returns: Tuple (should_raise, retry_reason).
+    """
     should_raise = True
     retry_reason = None
 
@@ -411,8 +566,11 @@ def _analyze_execute_failure(exc: Exception) -> tuple[bool, str | None]:
     return should_raise, retry_reason
 
 
-def _remove_unicon_loggers(pyats_device: "Device") -> None:
-    """Prevent unicon logger instances and placeholders from accummulating"""
+def _remove_unicon_loggers(pyats_device: Device) -> None:
+    """Prevent unicon logger instances and placeholders from accumulating.
+
+    :param pyats_device: Device with active/previous unicon connections.
+    """
     loggers = logging.root.manager.loggerDict
     try:
         names = {
@@ -424,6 +582,7 @@ def _remove_unicon_loggers(pyats_device: "Device") -> None:
     except (AttributeError, TypeError, KeyError):
         return
     for name in names:
-        while name.startswith("unicon."):
-            loggers.pop(name, None)
-            name = name.rsplit(".", 1)[0]
+        current_name = name
+        while current_name.startswith("unicon."):
+            loggers.pop(current_name, None)
+            current_name = current_name.rsplit(".", 1)[0]

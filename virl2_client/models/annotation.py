@@ -21,19 +21,25 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 
 from ..exceptions import InvalidProperty
-from ..utils import _deprecated_argument, check_stale, get_url_from_template, locked
+from ..utils import check_stale, get_url_from_template, locked
 from ..utils import property_s as property
+from .border_style import (
+    BorderStyle,
+    border_style_for_api,
+    border_style_from_api,
+)
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
     from .lab import Lab
 
     AnnotationTypeString = Literal["text", "line", "ellipse", "rectangle"]
-    AnnotationType: TypeAlias = (
+    # TypeAlias kept for Python 3.11; type statement needs 3.12+.
+    AnnotationType: TypeAlias = (  # NOSONAR
         "AnnotationRectangle | AnnotationEllipse | AnnotationLine | AnnotationText"
     )
 
@@ -61,6 +67,11 @@ ANNOTATION_PROPERTY_MAP = {
     "line_end": 0b0100,
     "line_start": 0b0100,
     "rotation": 0b1011,
+    "shadow_angle": 0b1000,
+    "shadow_blur": 0b1000,
+    "shadow_color": 0b1000,
+    "shadow_distance": 0b1000,
+    "shadow_enabled": 0b1000,
     "text_bold": 0b1000,
     "text_content": 0b1000,
     "text_font": 0b1000,
@@ -84,7 +95,7 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
         "text": TRANSPARENT,
     },
     "border_radius": 0,
-    "border_style": "",
+    "border_style": "solid",
     "color": {
         "rectangle": WHITE,
         "ellipse": WHITE,
@@ -94,6 +105,11 @@ ANNOTATION_PROPERTIES_DEFAULTS = {
     "line_end": None,
     "line_start": None,
     "rotation": 0,
+    "shadow_angle": 45,
+    "shadow_blur": 6,
+    "shadow_color": "#808080FF",
+    "shadow_distance": 6,
+    "shadow_enabled": False,
     "text_bold": False,
     "text_content": "text annotation",
     "text_font": "monospace",
@@ -177,7 +193,9 @@ class _RotationMixin:
 
 
 class Annotation:
-    _URL_TEMPLATES = {
+    """Base class for VIRL2 lab annotations (text, line, ellipse, rectangle)."""
+
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "annotations": "labs/{lab_id}/annotations",
         "annotation": "labs/{lab_id}/annotations/{annotation_id}",
     }
@@ -211,7 +229,7 @@ class Annotation:
         """
         self._id = annotation_id
         self._lab = lab
-        self._session: httpx.Client = lab._session
+        self._session: httpx2.Client = lab._session
         # When the annotation is removed on the server, this annotation object is marked
         # stale and can no longer be interacted with - the user should discard it
         self._stale = False
@@ -219,7 +237,7 @@ class Annotation:
         # set properties required by all annotations
         # values set to 'None' have type-specific default values
         self._border_color = None
-        self._border_style = ""
+        self._border_style = "solid"
         self._color = None
         self._thickness = 1
         self._type = annotation_type
@@ -227,12 +245,20 @@ class Annotation:
         self._y1 = 0
         self._z_index = 0
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return user-friendly annotation description.
+
+        :returns: Annotation id with stale marker when applicable.
+        """
         return (
             f"{self.__class__.__name__}: {self._id}{' (STALE)' if self._stale else ''}"
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return debug representation for this annotation.
+
+        :returns: Representation containing lab, id, and annotation type.
+        """
         return (
             f"{self.__class__.__name__}("
             f"{str(self._lab)!r}, "
@@ -240,20 +266,29 @@ class Annotation:
             f"{self._type!r})"
         )
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
+        """Compare annotations by identifier.
+
+        :param other: Object to compare against.
+        :returns: True when other is an annotation with same id.
+        """
         if not isinstance(other, Annotation):
             return False
         return self._id == other._id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Return hash based on annotation identifier.
+
+        :returns: Stable hash value for this annotation id.
+        """
         return hash(self._id)
 
-    def _url_for(self, endpoint: str, **kwargs) -> str:
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["lab_id"] = self._lab._id
@@ -262,104 +297,152 @@ class Annotation:
 
     @property
     def id(self) -> str:
-        """Return ID of the annotation."""
+        """Return ID of the annotation.
+
+        :returns: The annotation ID.
+        """
         return self._id
 
     @property
     def border_color(self) -> str:
-        """Border color (example: `#FF00FF00`)."""
+        """Border color (example: #FF00FF00).
+
+        :returns: The border color string.
+        """
         self._lab.sync_topology_if_outdated()
         return self._border_color
 
     @border_color.setter
     @locked
     def border_color(self, value: str) -> None:
-        """Set border color (example: `#FF00FF00`)."""
+        """Set border color (example: #FF00FF00).
+
+        :param value: The border color string to set.
+        """
         self._set_annotation_property("border_color", value)
         self._border_color = value
 
     @property
     def border_style(self) -> str:
-        """Border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed)."""
+        """Border style; valid values: solid, dotted, dashed.
+
+        :returns: The border style string.
+        """
         self._lab.sync_topology_if_outdated()
         return self._border_style
 
     @border_style.setter
     @locked
     def border_style(self, value: str) -> None:
+        """Set border style (solid, dotted, dashed).
+
+        :param value: The border style string to set.
         """
-        Set border style; valid values: '' (solid), '2,2' (dotted), '4,2' (dashed).
-        """
-        self._set_annotation_property("border_style", value)
-        self._border_style = value
+        canonical = BorderStyle(value).value
+        wire = border_style_for_api(canonical, self._session.controller_version)
+        self._set_annotation_property("border_style", wire)
+        self._border_style = canonical
 
     @property
     def color(self) -> str:
-        """Annotation color (example: `#00AAFF`)."""
+        """Annotation color (example: #00AAFF).
+
+        :returns: The color string.
+        """
         self._lab.sync_topology_if_outdated()
         return self._color
 
     @color.setter
     @locked
     def color(self, value: str) -> None:
-        """Set annotation color (example: `#00AAFF`)."""
+        """Set annotation color (example: #00AAFF).
+
+        :param value: The color string to set.
+        """
         self._set_annotation_property("color", value)
         self._color = value
 
     @property
     def thickness(self) -> int:
-        """Annotation border thickness."""
+        """Annotation border thickness.
+
+        :returns: The thickness value.
+        """
         self._lab.sync_topology_if_outdated()
         return self._thickness
 
     @thickness.setter
     @locked
     def thickness(self, value: int) -> None:
-        """Set annotation border thickness."""
+        """Set annotation border thickness.
+
+        :param value: The thickness value to set.
+        """
         self._set_annotation_property("thickness", value)
         self._thickness = value
 
     @property
     def type(self) -> str:
-        """Return type of the annotation."""
+        """Return type of the annotation.
+
+        :returns: The annotation type (text, line, ellipse, rectangle).
+        """
         return self._type
 
     @property
     def x1(self) -> int:
-        """X1 coordinate."""
+        """X1 coordinate.
+
+        :returns: The x1 coordinate value.
+        """
         self._lab.sync_topology_if_outdated()
         return self._x1
 
     @x1.setter
     @locked
     def x1(self, value: int) -> None:
-        """Set x1 coordinate."""
+        """Set x1 coordinate.
+
+        :param value: The x1 coordinate value to set.
+        """
         self._set_annotation_property("x1", value)
         self._x1 = value
 
     @property
     def y1(self) -> int:
-        """Y1 coordinate."""
+        """Y1 coordinate.
+
+        :returns: The y1 coordinate value.
+        """
         self._lab.sync_topology_if_outdated()
         return self._y1
 
     @y1.setter
     @locked
     def y1(self, value: int) -> None:
-        """Set y1 coordinate."""
+        """Set y1 coordinate.
+
+        :param value: The y1 coordinate value to set.
+        """
         self._set_annotation_property("y1", value)
         self._y1 = value
 
     @property
     def z_index(self) -> int:
-        """Z layer (depth) of an annotation."""
+        """Z layer (depth) of an annotation.
+
+        :returns: The z_index value.
+        """
         self._lab.sync_topology_if_outdated()
         return self._z_index
 
     @z_index.setter
     @locked
     def z_index(self, value: int) -> None:
-        """Set Z layer (depth) of an annotation."""
+        """Set Z layer (depth) of an annotation.
+
+        :param value: The z_index value to set.
+        """
         self._set_annotation_property("z_index", value)
         self._z_index = value
 
@@ -368,6 +451,9 @@ class Annotation:
         """
         Return a list of all valid properties set to default values for the selected
         annotation type.
+
+        :param annotation_type: The annotation type (text, line, ellipse, rectangle).
+        :returns: A dictionary of property names to default values for the type.
         """
         default_values = {}
         for ppty in ANNOTATION_PROPERTY_MAP:
@@ -386,7 +472,12 @@ class Annotation:
     def is_valid_property(
         cls, annotation_type: AnnotationTypeString, _property: str
     ) -> bool:
-        """Check if the given property is recognized by the selected annotation type."""
+        """Check if the given property is recognized by the selected annotation type.
+
+        :param annotation_type: The annotation type (text, line, ellipse, rectangle).
+        :param _property: The property name to validate.
+        :returns: True if the property is valid for the given type, False otherwise.
+        """
         return (
             annotation_type in _ANNOTATION_TYPES
             and _property in ANNOTATION_PROPERTY_MAP
@@ -418,7 +509,11 @@ class Annotation:
         }
 
     def remove(self) -> None:
-        """Remove annotation from the lab."""
+        """Remove annotation from the lab.
+
+        Delegates to the lab's remove_annotation method.
+        :raises: Exceptions raised by the lab's remove_annotation implementation.
+        """
         self._lab.remove_annotation(self)
 
     @check_stale
@@ -428,15 +523,13 @@ class Annotation:
         url = self._url_for("annotation")
         self._session.delete(url)
 
-    def update(self, annotation_data: dict[str, Any], push_to_server=None) -> None:
-        """
-        Update annotation properties.
+    def update(self, annotation_data: dict[str, Any]) -> None:
+        """Update annotation properties.
 
         :param annotation_data: JSON dict with new annotation property:value pairs.
-        :param push_to_server: DEPRECATED: Was only used by internal methods
-            and should otherwise always be True.
+        :raises ValueError: If annotation type is changed.
+        :raises InvalidProperty: If an invalid property key is provided.
         """
-        _deprecated_argument(self.update, push_to_server, "push_to_server")
         self._update(annotation_data, push_to_server=True)
 
     @check_stale
@@ -447,6 +540,8 @@ class Annotation:
 
         :param annotation_data: JSON dict with new annotation property:value pairs.
         :param push_to_server: Whether to push the changes to the server.
+        :raises ValueError: If annotation type is changed.
+        :raises InvalidProperty: If an invalid property key is provided.
         """
         if annotation_data.get("type") not in (None, self._type):
             raise ValueError("Can't change annotation type.")
@@ -457,13 +552,24 @@ class Annotation:
                 raise InvalidProperty(f"Invalid annotation property: {key}")
 
         if push_to_server:
-            self._set_annotation_properties(annotation_data)
+            wire_data = dict(annotation_data)
+            if "border_style" in wire_data:
+                wire_data["border_style"] = border_style_for_api(
+                    wire_data["border_style"],
+                    self._session.controller_version,
+                )
+            self._set_annotation_properties(wire_data)
 
         # update locally
-        for key, value in annotation_data.items():
+        for key, raw_value in annotation_data.items():
             if key == "id":
                 continue
-            setattr(self, f"_{key}", value)
+            local_value = (
+                border_style_from_api(raw_value, self._session.controller_version)
+                if key == "border_style"
+                else raw_value
+            )
+            setattr(self, f"_{key}", local_value)
 
     def _set_annotation_property(self, key: str, val: Any) -> None:
         """
@@ -477,7 +583,11 @@ class Annotation:
 
     @check_stale
     def _set_annotation_properties(self, annotation_data: dict[str, Any]) -> None:
-        """Update annotation properties server-side."""
+        """
+        Update annotation properties server-side.
+
+        :param annotation_data: JSON dict with property:value pairs to patch.
+        """
         self._session.patch(
             url=self._url_for("annotation"), json=annotation_data | {"type": self._type}
         )
@@ -500,7 +610,14 @@ class AnnotationRectangle(_CoordinateXY2Mixin, _RotationMixin, Annotation):
         lab: Lab,
         annotation_id: str,
         annotation_data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a rectangle annotation.
+
+        :param lab: The lab object to which the annotation belongs.
+        :param annotation_id: The ID of the annotation.
+        :param annotation_data: Optional initial property data from the server.
+        """
         super().__init__(lab, annotation_id, "rectangle")
 
         # default values
@@ -515,14 +632,20 @@ class AnnotationRectangle(_CoordinateXY2Mixin, _RotationMixin, Annotation):
 
     @property
     def border_radius(self) -> int:
-        """Border radius."""
+        """Border radius.
+
+        :returns: The border radius value.
+        """
         self._lab.sync_topology_if_outdated()
         return self._border_radius
 
     @border_radius.setter
     @locked
     def border_radius(self, value: int) -> None:
-        """Set border radius."""
+        """Set border radius.
+
+        :param value: The border radius value to set.
+        """
         self._set_annotation_property("border_radius", value)
         self._border_radius = value
 
@@ -539,7 +662,14 @@ class AnnotationEllipse(_CoordinateXY2Mixin, _RotationMixin, Annotation):
         lab: Lab,
         annotation_id: str,
         annotation_data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize an ellipse annotation.
+
+        :param lab: The lab object to which the annotation belongs.
+        :param annotation_id: The ID of the annotation.
+        :param annotation_data: Optional initial property data from the server.
+        """
         super().__init__(lab, annotation_id, "ellipse")
 
         # default values
@@ -566,7 +696,14 @@ class AnnotationLine(_CoordinateXY2Mixin, Annotation):
         lab: Lab,
         annotation_id: str,
         annotation_data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a line annotation.
+
+        :param lab: The lab object to which the annotation belongs.
+        :param annotation_id: The ID of the annotation.
+        :param annotation_data: Optional initial property data from the server.
+        """
         super().__init__(lab, annotation_id, "line")
 
         # default values
@@ -581,27 +718,39 @@ class AnnotationLine(_CoordinateXY2Mixin, Annotation):
 
     @property
     def line_start(self) -> str | None:
-        """Line arrow start style."""
+        """Line arrow start style.
+
+        :returns: The line start style (arrow, square, circle) or None.
+        """
         self._lab.sync_topology_if_outdated()
         return self._line_start
 
     @line_start.setter
     @locked
     def line_start(self, value: str | None) -> None:
-        """Set line arrow start style: (arrow, square, circle)."""
+        """Set line arrow start style: (arrow, square, circle).
+
+        :param value: The line start style to set, or None.
+        """
         self._set_annotation_property("line_start", value)
         self._line_start = value
 
     @property
     def line_end(self) -> str | None:
-        """Line arrow end style."""
+        """Line arrow end style.
+
+        :returns: The line end style (arrow, square, circle) or None.
+        """
         self._lab.sync_topology_if_outdated()
         return self._line_end
 
     @line_end.setter
     @locked
     def line_end(self, value: str | None) -> None:
-        """Set line arrow end style: (arrow, square, circle)."""
+        """Set line arrow end style: (arrow, square, circle).
+
+        :param value: The line end style to set, or None.
+        """
         self._set_annotation_property("line_end", value)
         self._line_end = value
 
@@ -616,6 +765,11 @@ class AnnotationText(_RotationMixin, Annotation):
             "x2",
             "y2",
             "rotation",
+            "shadow_angle",
+            "shadow_blur",
+            "shadow_color",
+            "shadow_distance",
+            "shadow_enabled",
             "text_bold",
             "text_content",
             "text_font",
@@ -630,7 +784,14 @@ class AnnotationText(_RotationMixin, Annotation):
         lab: Lab,
         annotation_id: str,
         annotation_data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a text annotation.
+
+        :param lab: The lab object to which the annotation belongs.
+        :param annotation_id: The ID of the annotation.
+        :param annotation_data: Optional initial property data from the server.
+        """
         super().__init__(lab, annotation_id, "text")
 
         # default values
@@ -639,6 +800,11 @@ class AnnotationText(_RotationMixin, Annotation):
         self._x2 = 100
         self._y2 = 100
         self._rotation = 0
+        self._shadow_angle = 45
+        self._shadow_blur = 6
+        self._shadow_color = GREY
+        self._shadow_distance = 6
+        self._shadow_enabled = False
         self._text_bold = False
         self._text_content = "text annotation"
         self._text_font = "monospace"
@@ -650,78 +816,209 @@ class AnnotationText(_RotationMixin, Annotation):
 
     @property
     def text_bold(self) -> bool:
-        """Text boldness."""
+        """Text boldness.
+
+        :returns: True if text is bold, False otherwise.
+        """
         self._lab.sync_topology_if_outdated()
         return self._text_bold
 
     @text_bold.setter
     @locked
     def text_bold(self, value: bool) -> None:
-        """Set text boldness (bool)."""
+        """Set text boldness.
+
+        :param value: True for bold, False otherwise.
+        """
         self._set_annotation_property("text_bold", value)
         self._text_bold = value
 
     @property
     def text_content(self) -> str:
-        """Text annotation content."""
+        """Text annotation content.
+
+        :returns: The text content string.
+        """
         self._lab.sync_topology_if_outdated()
         return self._text_content
 
     @text_content.setter
     @locked
     def text_content(self, value: str) -> None:
-        """Set text annotation content."""
+        """Set text annotation content.
+
+        :param value: The text content string to set.
+        """
         self._set_annotation_property("text_content", value)
         self._text_content = value
 
     @property
     def text_font(self) -> str:
-        """Text font."""
+        """Text font.
+
+        :returns: The font name string.
+        """
         self._lab.sync_topology_if_outdated()
         return self._text_font
 
     @text_font.setter
     @locked
     def text_font(self, value: str) -> None:
-        """Set text font."""
+        """Set text font.
+
+        :param value: The font name string to set.
+        """
         self._set_annotation_property("text_font", value)
         self._text_font = value
 
     @property
     def text_italic(self) -> bool:
-        """Text cursive."""
+        """Text italic/cursive.
+
+        :returns: True if text is italic, False otherwise.
+        """
         self._lab.sync_topology_if_outdated()
         return self._text_italic
 
     @text_italic.setter
     @locked
     def text_italic(self, value: bool) -> None:
-        """Set text cursive (bool)."""
+        """Set text italic/cursive.
+
+        :param value: True for italic, False otherwise.
+        """
         self._set_annotation_property("text_italic", value)
         self._text_italic = value
 
     @property
     def text_size(self) -> int:
-        """Size of the text."""
+        """Size of the text.
+
+        :returns: The text size value.
+        """
         self._lab.sync_topology_if_outdated()
         return self._text_size
 
     @text_size.setter
     @locked
     def text_size(self, value: int) -> None:
-        """Set size of the text (various units are recognized)."""
+        """Set size of the text (various units are recognized).
+
+        :param value: The text size value to set.
+        """
         self._set_annotation_property("text_size", value)
         self._text_size = value
 
     @property
     def text_unit(self) -> str:
-        """Text size unit."""
+        """Text size unit.
+
+        :returns: The text size unit string (pt, px, em, etc.).
+        """
         self._lab.sync_topology_if_outdated()
         return self._text_unit
 
     @text_unit.setter
     @locked
     def text_unit(self, value: str) -> None:
-        """Set text size unit (pt, px, em, ...)."""
+        """Set text size unit (pt, px, em, ...).
+
+        :param value: The unit string to set.
+        """
         self._set_annotation_property("text_unit", value)
         self._text_unit = value
+
+    @property
+    def shadow_enabled(self) -> bool:
+        """Text shadow enabled state.
+
+        :returns: True if text shadow is enabled, False otherwise.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_enabled
+
+    @shadow_enabled.setter
+    @locked
+    def shadow_enabled(self, value: bool) -> None:
+        """Set text shadow enabled state.
+
+        :param value: True to enable text shadow, False otherwise.
+        """
+        self._set_annotation_property("shadow_enabled", value)
+        self._shadow_enabled = value
+
+    @property
+    def shadow_color(self) -> str:
+        """Text shadow color.
+
+        :returns: The shadow color string (RGBA hex).
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_color
+
+    @shadow_color.setter
+    @locked
+    def shadow_color(self, value: str) -> None:
+        """Set text shadow color.
+
+        :param value: The shadow color string (RGBA hex) to set.
+        """
+        self._set_annotation_property("shadow_color", value)
+        self._shadow_color = value
+
+    @property
+    def shadow_distance(self) -> int:
+        """Text shadow distance.
+
+        :returns: The shadow distance in pixels.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_distance
+
+    @shadow_distance.setter
+    @locked
+    def shadow_distance(self, value: int) -> None:
+        """Set text shadow distance.
+
+        :param value: The shadow distance in pixels to set.
+        """
+        self._set_annotation_property("shadow_distance", value)
+        self._shadow_distance = value
+
+    @property
+    def shadow_blur(self) -> int:
+        """Text shadow blur radius.
+
+        :returns: The shadow blur radius in pixels.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_blur
+
+    @shadow_blur.setter
+    @locked
+    def shadow_blur(self, value: int) -> None:
+        """Set text shadow blur radius.
+
+        :param value: The shadow blur radius in pixels to set.
+        """
+        self._set_annotation_property("shadow_blur", value)
+        self._shadow_blur = value
+
+    @property
+    def shadow_angle(self) -> int:
+        """Text shadow angle.
+
+        :returns: The shadow angle in degrees.
+        """
+        self._lab.sync_topology_if_outdated()
+        return self._shadow_angle
+
+    @shadow_angle.setter
+    @locked
+    def shadow_angle(self, value: int) -> None:
+        """Set text shadow angle.
+
+        :param value: The shadow angle in degrees to set.
+        """
+        self._set_annotation_property("shadow_angle", value)
+        self._shadow_angle = value

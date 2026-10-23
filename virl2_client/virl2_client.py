@@ -28,13 +28,12 @@ import sys
 import time
 import warnings
 from enum import Enum
-from functools import lru_cache
 from pathlib import Path
 from threading import RLock
-from typing import NamedTuple
+from typing import Any, ClassVar, NamedTuple
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-import httpx
+import httpx2
 
 from .exceptions import InitializationError, LabNotFound
 from .models import (
@@ -48,11 +47,10 @@ from .models import (
     TokenAuth,
     UserManagement,
 )
-from .models.authentication import make_session
-from .utils import Version, _deprecated_argument, get_url_from_template, locked
+from .models.authentication import _AUTH_URL, make_session
+from .utils import Version, get_url_from_template, locked, sanitize_for_log
 
 _LOGGER = logging.getLogger(__name__)
-cached = lru_cache(maxsize=None)  # cache results forever
 
 _JWT_PATTERN = re.compile(r"^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$")
 
@@ -62,7 +60,7 @@ class ClientConfig(NamedTuple):
     any number of identically configured instances of ClientLibrary."""
 
     _CONFIG_FILE_NAME = ".virlrc"
-    _CONFIG_SOURCES = {
+    _CONFIG_SOURCES = {  # noqa: RUF012
         "url": ["VIRL2_URL", "VIRL_HOST"],
         "username": ["VIRL2_USER", "VIRL_USERNAME"],
         "password": ["VIRL2_PASS", "VIRL_PASSWORD"],
@@ -82,6 +80,7 @@ class ClientConfig(NamedTuple):
     convergence_wait_max_iter: int = 500
     convergence_wait_time: int | float = 5
     check_version: bool = True
+    follow_redirects: bool = False
 
     def make_client(self) -> ClientLibrary:
         client = ClientLibrary(
@@ -96,6 +95,7 @@ class ClientConfig(NamedTuple):
             convergence_wait_time=self.convergence_wait_time,
             check_version=self.check_version,
             events=self.events,
+            follow_redirects=self.follow_redirects,
         )
         client.auto_sync_interval = self.auto_sync
         client.auto_sync = self.auto_sync >= 0.0 and not self.events
@@ -168,20 +168,20 @@ class ClientConfig(NamedTuple):
             config["password"] = getpass.getpass("Please enter your password: ")
 
     @classmethod
-    def _validate(cls, config: dict, final=False) -> bool:
-        message = None
+    def _validate(cls, config: dict[str, Any], final: bool = False) -> bool:
+        errors: list[str] = []
         if not config["url"]:
-            message = "No URL provided."
+            errors.append("No URL provided.")
         if not (config["jwtoken"] or (config["username"] and config["password"])):
-            message = "Incomplete authentication configuration."
+            errors.append("Incomplete authentication configuration.")
         ssl_verify_pending = config["ssl_verify"] is None
         if final:
-            if message:
-                raise InitializationError(message)
-            elif ssl_verify_pending:
+            if errors:
+                raise InitializationError(" ".join(errors))
+            if ssl_verify_pending:
                 config["ssl_verify"] = True
             return True
-        return not ssl_verify_pending and not message
+        return not ssl_verify_pending and not errors
 
     @classmethod
     def get_configuration(
@@ -192,7 +192,7 @@ class ClientConfig(NamedTuple):
         jwtoken: str | None,
         ssl_verify: bool | str | None,
         allow_inputs: bool | None = None,
-    ) -> ClientConfig:
+    ) -> ClientConfig | None:
         config = {
             "url": url,
             "username": username,
@@ -220,9 +220,12 @@ class ClientConfig(NamedTuple):
             cls._populate_from_inputs(config)
         if cls._validate(config, final=True):
             return cls(**config)
+        return None
 
 
 class DiagnosticsCategory(Enum):
+    """Categories of diagnostics data that can be retrieved from the controller."""
+
     ALL = "all"
     COMPUTES = "computes"
     LABS = "labs"
@@ -235,20 +238,29 @@ class DiagnosticsCategory(Enum):
     STARTUP_SCHEDULER = "startup_scheduler"
 
 
+def _is_login_request(request: httpx2.Request) -> bool:
+    """Return whether the request is the username/password login call.
+
+    :param request: The request that failed.
+    :returns: True for POST to the authenticate endpoint.
+    """
+    return request.method == "POST" and request.url.path.endswith(f"/{_AUTH_URL}")
+
+
 class ClientLibrary:
     """Python bindings for the REST API of a CML controller."""
 
     # current client version
-    VERSION = Version("2.10.1")
+    VERSION = Version("2.11.0")
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "auth": "authentication",
         "old_auth": "authok",
         "system_info": "system_information",
         "import": "import",
         "import_1x": "import/virl-1x",
         "sample_labs": "sample/labs",
-        "sample_lab": "sample/labs/{lab_title}",
+        "sample_lab": "sample/labs/{sample_lab_id}",
         "labs": "labs",
         "lab": "labs/{lab_id}",
         "lab_topology": "labs/{lab_id}/topology",
@@ -258,6 +270,7 @@ class ClientLibrary:
         "populate_lab_tiles": "populate_lab_tiles",
     }
 
+    # Public constructor arity matches documented session/auth options.
     def __init__(
         self,
         url: str | None = None,
@@ -270,10 +283,11 @@ class ClientLibrary:
         convergence_wait_max_iter: int = 500,
         convergence_wait_time: int | float = 5,
         events: bool = False,
-        client_type: str = None,
+        client_type: str | None = None,
         check_version: bool = True,
-        timeout: httpx.Timeout | float | None = None,
+        timeout: httpx2.Timeout | float | None = None,
         send_client_uuid=True,
+        follow_redirects: bool = False,
     ) -> None:
         client_config = ClientConfig.get_configuration(
             url, username, password, jwtoken, ssl_verify
@@ -292,15 +306,23 @@ class ClientLibrary:
             _LOGGER.warning("SSL Verification disabled")
 
         self.auto_sync = True
-        """`auto_sync` automatically syncs data with the backend after a specific
+        """auto_sync automatically syncs data with the backend after a specific
         time. The default expiry time is 1.0s. This time can be configured by
-        setting the `auto_sync_interval`."""
+        setting the auto_sync_interval."""
         self.auto_sync_interval = 1.0  # seconds
 
         self.convergence_wait_max_iter = convergence_wait_max_iter
         self.convergence_wait_time = convergence_wait_time
 
         self._labs: dict[str, Lab] = {}
+
+        # Initialize event_listener before any call that could raise or
+        # return early below, so consumers never see a half-initialized
+        # instance. _session.lock is set right after the session exists,
+        # for the same reason (@locked previously fell back to unlocked
+        # execution if this attribute was still missing after an early
+        # return).
+        self.event_listener = None
 
         try:
             self._session = make_session(
@@ -309,9 +331,11 @@ class ClientLibrary:
                 client_type,
                 timeout=timeout,
                 send_client_uuid=send_client_uuid,
+                follow_redirects=follow_redirects,
             )
-        except httpx.InvalidURL as exc:
+        except httpx2.InvalidURL as exc:
             raise InitializationError(exc) from None
+        self._session.lock = None
         self._session.controller_version = self.check_controller_version()
 
         self._session.auth = TokenAuth(self)
@@ -350,24 +374,21 @@ class ClientLibrary:
         except InitializationError as exc:
             if raise_for_auth_failure:
                 raise
-            else:
-                _LOGGER.warning(exc)
-                return
+            _LOGGER.warning(exc)
+            return
 
-        self.event_listener = None
-        self._session.lock = None
         if events:
             # http-based auto sync should be off by default when using events
             self.auto_sync = False
             self.start_event_listening()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.url!r})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.__class__.__name__} URL: {self._session.base_url}"
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
@@ -386,16 +407,22 @@ class ClientLibrary:
         url = self._url_for("auth" if new_auth else "old_auth")
         try:
             response = self._session.get(url)
-        except httpx.HTTPStatusError as exc:
+        except httpx2.HTTPStatusError as exc:
             status_code = exc.response.status_code
-            if status_code == httpx.codes.FORBIDDEN:
-                message = (
-                    "Unable to authenticate, please check your username and password"
+            # Login failure is 401 since 2.11, 403 before
+            if self._session.controller_version >= Version("2.11.0"):
+                # 401 also means expired/revoked token; only the login call is bad creds
+                login_failed = status_code == httpx2.codes.UNAUTHORIZED and (
+                    _is_login_request(exc.request)
                 )
-                raise InitializationError(message)
+            else:
+                login_failed = status_code == httpx2.codes.FORBIDDEN
+            if login_failed:
+                message = "Unable to authenticate, please check your credentials"
+                raise InitializationError(message) from exc
             raise
-        except httpx.HTTPError as exc:
-            raise InitializationError(exc)
+        except httpx2.HTTPError as exc:
+            raise InitializationError(exc) from exc
         if new_auth:
             user_info: dict = response.json()
             self.user_id = user_info["id"]
@@ -440,7 +467,7 @@ class ClientLibrary:
     def check_controller_version(self) -> Version:
         """
         Check remote controller version against current client version
-        (specified in `self.VERSION` and support last 3 minor versions).
+        (specified in self.VERSION and support last 3 minor versions).
         Raise exception if versions are incompatible, or print warning
         if the client minor version is lower than the controller minor version.
         Compatibility validation is disabled if `self.check_version` attribute
@@ -453,10 +480,10 @@ class ClientLibrary:
         controller_version_str = self.system_info().get("version", "")
         try:
             controller_version = Version(controller_version_str)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
             raise InitializationError(
                 f"Controller returned invalid version: {controller_version_str}"
-            )
+            ) from exc
 
         if not self.check_version:
             return controller_version
@@ -499,8 +526,8 @@ class ClientLibrary:
             try:
                 result = self.system_info()
                 ready = bool(result.get("ready"))
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == httpx.codes.BAD_GATEWAY:
+            except httpx2.HTTPStatusError as exc:
+                if exc.response.status_code == httpx2.codes.BAD_GATEWAY:
                     # 502 Bad Gateway is expected and hints
                     # that system is not ready - no need to
                     # raise - just wait
@@ -523,12 +550,12 @@ class ClientLibrary:
         return path.suffix == ".virl"
 
     @locked
-    def start_event_listening(self):
+    def start_event_listening(self) -> None:
         """
         Start listening for and parsing websocket events.
 
         To replace the default event handling mechanism,
-        subclass `event_handling.EventHandler` (or `EventHandlerBase` if necessary),
+        subclass EventHandler (or EventHandlerBase if necessary),
         then do::
             custom_listener = EventListener()
             custom_listener._event_handler = CustomHandler(client_library)
@@ -543,7 +570,7 @@ class ClientLibrary:
             self.event_listener.start_listening()
 
     @locked
-    def stop_event_listening(self):
+    def stop_event_listening(self) -> None:
         """Stop listening for and parsing websocket events."""
         if self.event_listener:
             self._session.lock = None
@@ -554,7 +581,6 @@ class ClientLibrary:
         self,
         topology: str,
         title: str | None = None,
-        offline: bool | None = None,
         virl_1x: bool = False,
     ) -> Lab:
         """
@@ -562,13 +588,11 @@ class ClientLibrary:
 
         :param topology: The topology representation as a string.
         :param title: The title of the lab.
-        :param offline: DEPRECATED: Offline mode has been removed.
         :param virl_1x: Whether the topology format is the old, VIRL 1.x format.
         :returns: The imported Lab instance.
         :raises ValueError: If no lab ID is returned in the API response.
-        :raises httpx.HTTPError: If there was a transport error.
+        :raises httpx2.HTTPError: If there was a transport error.
         """
-        _deprecated_argument(self.import_lab, offline, "offline")
         lab = self._create_imported_lab(topology, title, virl_1x)
         lab.sync()
         self._labs[lab.id] = lab
@@ -630,15 +654,15 @@ class ClientLibrary:
         return self._session.get(url).json()
 
     @locked
-    def import_sample_lab(self, title: str) -> Lab:
+    def import_sample_lab(self, sample_lab_id: str) -> Lab:
         """
         Import a built-in sample lab.
 
-        :param title: The sample lab name.
+        :param sample_lab_id: The sample lab ID.
         :returns: The imported Lab instance.
         """
 
-        url = self._url_for("sample_lab", lab_title=title)
+        url = self._url_for("sample_lab", sample_lab_id=sample_lab_id)
         lab_id = self._session.put(url).json()
         return self.join_existing_lab(lab_id)
 
@@ -687,7 +711,7 @@ class ClientLibrary:
         try:
             return self._labs[lab_id]
         except KeyError:
-            raise LabNotFound(lab_id)
+            raise LabNotFound(lab_id) from None
 
     @locked
     def create_lab(
@@ -760,7 +784,7 @@ class ClientLibrary:
 
         Use this method with caution as it permanently deletes the specified lab.
 
-        If you have the lab object, you can also do ``lab.remove()``.
+        If you have the lab object, you can also do lab.remove().
 
         :param lab_id: The ID or Lab object representing the lab to be removed.
         """
@@ -789,14 +813,14 @@ class ClientLibrary:
         """Helper function to remove an unjoined lab from the server."""
         url = self._url_for("lab", lab_id=lab_id)
         response = self._session.delete(url)
-        _LOGGER.debug("Removed lab: %s", response.text)
+        _LOGGER.debug("Removed lab: %s", sanitize_for_log(response.text))
 
     @locked
     def join_existing_lab(self, lab_id: str, sync_lab: bool = True) -> Lab:
         """
         Join a lab that exists on the server and make it accessible locally.
 
-        If `sync_lab` is set to True, the current lab will be synchronized by applying
+        If sync_lab is set to True, the current lab will be synchronized by applying
         any changes that were made in the UI or in another ClientLibrary session.
 
         Example::
@@ -816,9 +840,9 @@ class ClientLibrary:
                 # check if lab exists through REST call
                 url = self._url_for("lab_topology", lab_id=lab_id)
                 topology = self._session.get(url).json()
-            except httpx.HTTPStatusError as exc:
+            except httpx2.HTTPStatusError as exc:
                 if exc.response.status_code == 404:
-                    raise LabNotFound(lab_id)
+                    raise LabNotFound(lab_id) from exc
                 raise
             title = topology.get("lab", {}).get("title")
         else:
@@ -851,19 +875,14 @@ class ClientLibrary:
         Return selected diagnostics data as a JSON object.
 
         :param categories: List of diagnostics categories to fetch.
-            DEPRECATED: If not provided, provide DiagnosticsCategory.ALL to fetch all
-            diagnostics data.
         :returns: The diagnostics data.
         """
         if not categories:
-            warnings.warn(
-                "'ClientLibrary.get_diagnostics()' without arguments is deprecated. "
-                "Use 'ClientLibrary.get_diagnostics(DiagnosticsCategory.ALL)' or "
-                "'ClientLibrary.get_diagnostics(DiagnosticsCategory.COMPUTES, "
-                "DiagnosticsCategory.LABS, ...)' with specific categories instead.",
-                DeprecationWarning,
+            raise ValueError(
+                "No diagnostics category provided. Use "
+                "ClientLibrary.get_diagnostics(DiagnosticsCategory.ALL) "
+                "or provide one or more explicit categories."
             )
-            categories = [DiagnosticsCategory.ALL]
         if DiagnosticsCategory.USER_LIST in categories:
             warnings.warn(
                 "'DiagnosticsCategory.USER_LIST' is deprecated. "
@@ -882,7 +901,7 @@ class ClientLibrary:
                 response = self._session.get(url)
                 response.raise_for_status()
                 diagnostics_data[value] = response.json()
-            except httpx.HTTPStatusError:
+            except httpx2.HTTPStatusError:
                 diagnostics_data[value] = {
                     "error": f"Failed to fetch {value} diagnostics"
                 }
@@ -941,7 +960,7 @@ class ClientLibrary:
         Get the list of all lab IDs.
 
         :param show_all: Whether to include labs owned by all users (True) or only labs
-            owned by the admin (False).
+            owned by the authenticated user (False).
         :returns: A list of lab IDs.
         """
         params = {"show_all": True} if show_all else None
@@ -954,7 +973,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
         url_parts = urlsplit(url, "https")
     except ValueError:
         message = "invalid URL / hostname"
-        raise InitializationError(message)
+        raise InitializationError(message) from None
 
     # https://docs.python.org/3/library/urllib.parse.html
     # Following the syntax specifications in RFC 1808, urlparse recognizes
@@ -966,7 +985,7 @@ def _prepare_url(url: str, allow_http: bool) -> tuple[str, str]:
             url_parts = urlsplit("//" + url, "https")
         except ValueError:
             message = "invalid URL / hostname"
-            raise InitializationError(message)
+            raise InitializationError(message) from None
 
     if not allow_http and url_parts.scheme == "http":
         message = "invalid URL scheme (must be https)"

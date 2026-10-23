@@ -22,16 +22,16 @@ from __future__ import annotations
 
 import time
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..utils import UNCHANGED, OptInStatus, _Sentinel, get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
 
 
 class UserManagement:
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "users": "users",
         "user": "users/{user_id}",
         "user_id": "users/{username}/id",
@@ -39,7 +39,7 @@ class UserManagement:
 
     def __init__(
         self,
-        session: httpx.Client,
+        session: httpx2.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
     ) -> None:
@@ -49,7 +49,7 @@ class UserManagement:
         self._last_sync_users_time = 0.0
         self._users_by_id: dict[str, dict] = {}
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
@@ -117,7 +117,7 @@ class UserManagement:
         url = self._url_for("user", user_id=user_id)
         self._session.delete(url)
 
-    def create_user(self, username: str, pwd: str, **kwargs: dict[str, Any]) -> dict:
+    def create_user(self, username: str, pwd: str, **kwargs: Any) -> dict:
         """
         Create a new user.
 
@@ -144,7 +144,7 @@ class UserManagement:
         url = self._url_for("users")
         return self._session.post(url, json=data).json()
 
-    def update_user(self, user_id: str, **kwargs: dict[str, Any]) -> dict:
+    def update_user(self, user_id: str, **kwargs: Any) -> dict:
         """
         Update an existing user.
 
@@ -182,8 +182,8 @@ class UserManagement:
         admin: bool | None = None,
         password_dict: dict[str, str] | None = None,
         pubkey: str | None = None,
-        resource_pool: str | None | _Sentinel = UNCHANGED,
-        opt_in: OptInStatus | bool | None | _Sentinel = UNCHANGED,
+        resource_pool: str | _Sentinel | None = UNCHANGED,
+        opt_in: OptInStatus | bool | _Sentinel | None = UNCHANGED,
         tour_version: str | None = None,
     ) -> None:
         optional_data = {
@@ -197,9 +197,7 @@ class UserManagement:
             "pubkey": pubkey,
             "tour_version": tour_version,
         }
-        for key, value in optional_data.items():
-            if value is not None:
-                data[key] = value
+        data.update({k: v for k, v in optional_data.items() if v is not None})
         if resource_pool is not UNCHANGED:
             data["resource_pool"] = resource_pool
         if opt_in is UNCHANGED:

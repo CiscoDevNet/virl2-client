@@ -5,7 +5,7 @@
 #
 [tool.poetry]
 name = "virl2_client"
-version = "2.10.1"
+version = "2.11.0.dev0"
 description = "VIRL2 Client Library"
 authors = ["Simon Knight <simknigh@cisco.com>", "Ralph Schmieder <rschmied@cisco.com>"]
 license = "Apache-2.0"
@@ -22,43 +22,172 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: System :: Networking",
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-httpx = "^0.28.1"
+python = "^3.11"
+httpx2 = "^2.14"
 
 # https://github.com/python-poetry/poetry/pull/606 -- no support for optional dev-deps
 # optional package for events
 aiohttp = {version = "^3", optional = true}
 
-# optional pyATS package
-# (this pulls in a lot more dependencies)
-# it does not pull in genie, need to specify extras=["full"] for pyATS.
-pyats = {version = "^25", optional = true}
-
 # optional packages for documentation build
 sphinx_rtd_theme = {version="^3", optional = true}
-# version 8.2.3 is available but requires python>=3.11
-sphinx = {version="<8.2", optional = true}
+# Sphinx 9 requires python>=3.12; the client still supports 3.11
+sphinx = {version="<9", optional = true}
 
 [tool.poetry.group.dev.dependencies]
-flake8 = "^7"
+aiohttp = "^3"
+ruff = "*"
 pre-commit = "^4"
-# incompatible with pyats
-pytest = "<9.1"
+pytest = "*"
+pytest-cov = "*"
 pytest-xdist = "*"
-respx = "^0.22.0"
+respx = "^0.23.1"
 
 [tool.poetry.extras]
 events = ["aiohttp"]
-pyats = ["pyats"]
 docs = ["sphinx", "sphinx_rtd_theme"]
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "*"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+fix = true
+exclude = ["examples"]
+
+[tool.ruff.lint]
+select = [
+  # pycodestyle
+  "E",
+  "W",
+  # pyflakes
+  "F",
+  # isort
+  "I",
+  # pylint (ruff's implementation)
+  "PL",
+  # security (flake8-bandit)
+  "S",
+  # correctness / footguns
+  "B",
+  # pyupgrade
+  "UP",
+  # naming (pep8-naming)
+  "N",
+  # simplifications / refactors
+  "SIM",
+  "C4",
+  # builtins shadowing
+  "A",
+  # ruff-specific rules
+  "RUF",
+  # logging format
+  "G",
+  # prohibit print()/pprint() in production code
+  "T20",
+  # datetime timezone awareness (`datetime.UTC` is fine; floor is py311)
+  "DTZ",
+  # logging best practices
+  "LOG",
+  # sys.version checks
+  "YTT",
+  # raise-style cleanups
+  "RSE",
+  # import conventions
+  "ICN",
+  # performance anti-patterns
+  "PERF",
+  # pytest-style correctness (parametrize types, raises match=, fixture teardown)
+  "PT",
+  # implicit namespace packages
+  "INP",
+  # unused function/method/lambda arguments
+  "ARG",
+  # flake8-blind-except
+  "BLE",
+  # furbelow (syntax improvements)
+  "FURB",
+  # flake8-implicit-str-concat
+  "ISC",
+  # flake8-quotes
+  "Q",
+  # flake8-future-annotations
+  "FA",
+  # flake8-print
+  "T10",
+  # flake8-todos
+  "TD",
+  # auto-fixable issues
+  "FIX",
+  # pygrep-hooks
+  "PGH",
+  # type-checking imports
+  "TCH",
+  # flake8-pie
+  "PIE",
+  # flake8-return
+  "RET",
+]
+
+# Reuse the monorepo core ignore set with PCL-appropriate overrides.
+ignore = [
+  # line too long -- handled by formatter
+  "E501",
+  # magic values in comparisons
+  "PLR2004",
+  # error-suffix-on-exception-name (deferred; coordinated with simple --
+  # public API rename is a breaking change)
+  "N818",
+  # builtin-import-shadowing (TYPE_CHECKING imports of id, type, etc.)
+  "A004",
+  # invalid-class-name -- intentional lowercase class (property_s)
+  "N801",
+  # allow explicit pass in placeholder implementations
+  "PIE790",
+  # too-many-positional-arguments -- same rationale as PLR0913 per-file ignores
+  "PLR0917",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["virl2_client"]
+
+[tool.ruff.lint.per-file-ignores]
+"conftest.py" = ["PLR0913", "PLR0915", "S101"]
+"tests/**/*.py" = [
+  "S101",    # assert in tests
+  "S102",    # exec-builtin in tests
+  "S104",    # hardcoded-bind-all-interfaces
+  "S105",    # hardcoded-password-string
+  "S106",    # hardcoded-password-func-arg
+  "S108",    # hardcoded-temp-file
+  "PLC0415", # import-outside-top-level
+  "PLR0913", # too-many-arguments
+  "INP001",  # tests/ intentionally has no __init__.py (pytest rootdir collection)
+]
+# API-driven constructors with many parameters
+"virl2_client/virl2_client.py" = ["PLR0913"]
+"virl2_client/models/lab.py" = ["PLR0913"]
+"virl2_client/models/resource_pool.py" = ["PLR0913"]
+"virl2_client/models/system.py" = ["PLR0913"]
+"virl2_client/models/user.py" = ["PLR0913"]
+
+[tool.ruff.lint.pylint]
+max-args = 7
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
 
 [build-system]
 requires = ["poetry-core"]

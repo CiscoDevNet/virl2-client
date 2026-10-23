@@ -16,8 +16,8 @@ This is the client library for the *Cisco Modeling Labs* Platform
 (`virl2_client`). It provides a Python package to programmatically create,
 edit, delete and control network simulations on a CML 2 controller.
 
-It is a pure Python implementation that requires Python 3. We've tested and
-written the package with Python 3.8.10.
+It is a pure Python implementation that requires Python 3.11 or newer. We've
+tested the package with Python 3.11 through 3.15.
 
 The status of the package can be considered **stable**.  Issues with the
 software should be raised via the [GitHub issue
@@ -38,14 +38,16 @@ The package comes in form of a wheel that is downloadable from the CML
 
     pip3 install virl2_client
 
-If you want to interact with devices via the client library, you need to
-also install the pyATS library. This can be achieved in one go using
+If you want to run CLI commands on devices, use `Node.run_cli_command()`
+(requires a CML 2.11.0+ controller). It executes the command server-side via
+Unicon and does not require any additional local packages.
 
-```
-pip3 install "virl2_client[pyats]"
-```
-
-Note that this does *not* pull in the full pyATS package... See below how that is achieved.
+> **Deprecated:** The previous approach of installing pyATS locally
+> (`pip3 install "virl2_client[pyats]"`) and using `Lab.pyats` /
+> `Node.run_pyats_command()` / `Node.run_pyats_config_command()` is
+> deprecated and will be removed in a future release. `pyats` is no longer a
+> dependency (optional or otherwise) of `virl2_client`; install it separately
+> (e.g. `pip3 install pyats unicon`) if you still need this functionality.
 
 or, alternatively, the version that is bundled with the CML 2 controller can
 be downloaded to the local filesystem and then directly installed via
@@ -61,11 +63,6 @@ proper version/build information. For example
     pip3 install virl2_client-2.0.0b10-py3-none-any.whl
 
 We recommend the use of a virtual environment for installation.
-
-If you require the full version of the pyATS library including things like Genie
-then you need to do this in a subsequent step like shown here:
-
-    pip3 install "pyats[full]"
 
 > **IMPORTANT**: The version of the Python client library  must be compatible
 > with the version of the controller.  If you are running an older controller

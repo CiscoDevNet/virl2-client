@@ -17,43 +17,697 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Tests for pyATS integration: ClPyats model and node credential handling."""
 
-from unittest.mock import MagicMock, Mock
+from __future__ import annotations
+
+import logging
+import warnings
+from pathlib import Path
+from types import SimpleNamespace
+from typing import ClassVar
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from virl2_client.models import Lab
-from virl2_client.models.node import Node
+from tests.helpers import make_lab
+from virl2_client.exceptions import PyatsDeviceNotFound, PyatsNotInstalled
+from virl2_client.models import Node, cl_pyats
+from virl2_client.models.cl_pyats import (
+    ClPyats,
+    _analyze_execute_failure,
+    _remove_unicon_loggers,
+)
+from virl2_client.virl2_client import Version
 
-RESOURCE_POOL_MANAGER = Mock()
-USER_MANAGEMENT = Mock()
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _device() -> MagicMock:
+    """Create a mocked pyATS device model with common nested attributes.
+
+    :returns: Mocked pyATS device object.
+    """
+    dev = MagicMock()
+    dev.connectionmgr.connections = SimpleNamespace(cli=MagicMock())
+    dev.connectionmgr.connections.cli.spawn.fd = 1
+    dev.connections = {
+        "a": {"command": "telnet 10"},
+        "cli": SimpleNamespace(ssh_options=""),
+    }
+    dev.is_connected.return_value = True
+    return dev
+
+
+# ---------------------------------------------------------------------------
+# ClPyats model tests
+# ---------------------------------------------------------------------------
+
+
+def test_cl_pyats_importerror_branch() -> None:
+    """Execute module import fallback path when pyATS dependencies are absent.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    module_path = Path(cl_pyats.__file__)
+    source = module_path.read_text()
+    source = source.replace(
+        "from pyats.topology.loader.base", "from definitely_missing_pyats"
+    )
+    namespace: dict[str, object] = {
+        "__name__": "virl2_client.models.tmp_cl_pyats",
+        "__package__": "virl2_client.models",
+        "__file__": str(module_path),
+    }
+    exec(compile(source, str(module_path), "exec"), namespace)
+    assert namespace["_PyatsTFLoader"] is None
+    assert namespace["_UConnectionError"] is None
+
+
+def test_cl_pyats_import_success_branch_clears_processor_argv(monkeypatch) -> None:
+    """Import success path clears pyATS Processor.argv (no CLI args).
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    import importlib
+    import sys
+    import types
+
+    from virl2_client.models import cl_pyats as cl_pyats_module
+
+    class Processor:
+        argv: ClassVar[list[str]] = ["--stale-cli-arg"]
+
+    # Ensure markup processor never uses pytest CLI args (mirrors cl_pyats import).
+    fake_module_names = (
+        "pyats.topology.loader.base",
+        "pyats.topology.loader.markup",
+        "pyats.utils.yaml.markup",
+        "unicon.core.errors",
+    )
+    fake_modules = {
+        "pyats.topology.loader.base": types.SimpleNamespace(TestbedFileLoader=object),
+        "pyats.topology.loader.markup": types.SimpleNamespace(
+            TestbedMarkupProcessor=object
+        ),
+        "pyats.utils.yaml.markup": types.SimpleNamespace(Processor=Processor),
+        "unicon.core.errors": types.SimpleNamespace(
+            ConnectionError=Exception,
+            SubCommandFailure=Exception,
+        ),
+    }
+    saved_modules = {name: sys.modules.get(name) for name in fake_module_names}
+    try:
+        for name, module in fake_modules.items():
+            monkeypatch.setitem(sys.modules, name, module)
+        reloaded = importlib.reload(cl_pyats_module)
+        assert Processor.argv == []
+        assert reloaded._PyatsTFLoader is object
+    finally:
+        for name, module in saved_modules.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+        importlib.reload(cl_pyats_module)
+
+
+def test_cl_pyats_hostname() -> None:
+    """Get and set hostname.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    pyats = ClPyats(lab, hostname="term:2222")
+    assert pyats.hostname == "term:2222"
+    pyats.hostname = "other:3000"
+    assert pyats.hostname == "other:3000"
+
+
+def test_cl_pyats_not_installed() -> None:
+    """Raise PyatsNotInstalled when _PyatsTFLoader is None.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", None),
+        pytest.raises(PyatsNotInstalled),
+    ):
+        pyats._check_pyats_installed()
+
+
+def test_cl_pyats_not_installed_message() -> None:
+    """PyatsNotInstalled carries an actionable message."""
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", None),
+        pytest.raises(PyatsNotInstalled) as exc_info,
+    ):
+        pyats._check_pyats_installed()
+    assert "pip install pyats unicon" in str(exc_info.value)
+    assert "run_cli_command" in str(exc_info.value)
+
+
+def test_cl_pyats_deprecation_warning_fires_once_per_instance() -> None:
+    """Deprecated pyATS APIs warn only on first use per ClPyats instance."""
+    pyats = ClPyats(MagicMock())
+    with patch.object(pyats, "_execute_command", return_value="ok"):
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            pyats.run_command("n1", "show version")
+        # DeprecationWarning is once per ClPyats instance; second call must stay silent.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            pyats.run_command("n1", "show ip int brief")
+
+
+def test_cl_pyats_check_pyats_installed_does_not_warn() -> None:
+    """_check_pyats_installed only validates installation; callers warn."""
+    pyats = ClPyats(MagicMock())
+    with (
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", MagicMock()),
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("error")
+        pyats._check_pyats_installed()
+
+
+def test_cl_pyats_load_testbed() -> None:
+    """Load testbed from YAML.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    pyats = ClPyats(lab)
+    loader = MagicMock()
+    loader.load.return_value = {"tb": "ok"}
+    with (
+        patch(
+            "virl2_client.models.cl_pyats._PyatsTMProcessor", return_value=MagicMock()
+        ),
+        patch("virl2_client.models.cl_pyats._PyatsTFLoader", return_value=loader),
+    ):
+        assert pyats._load_pyats_testbed("devices: {}") == {"tb": "ok"}
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        pytest.param(("u", "p"), ("u", "p"), id="password"),
+        pytest.param(("u", None), ("u", None), id="password-none"),
+        pytest.param(("u",), ("u", None), id="password-omitted"),
+        pytest.param(
+            ("u", "jwt-token-placeholder"),
+            ("u", "jwt-token-placeholder"),
+            id="password-jwt",
+        ),
+    ],
+)
+def test_cl_pyats_sync_testbed(args: tuple, expected: tuple) -> None:
+    """Sync credentials into testbed.
+
+    The password parameter is optional; None is forwarded to
+    set_termserv_credentials so the testbed YAML default is preserved.
+    A JWT string is forwarded verbatim (the SSH console server
+    interprets it).
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    pyats = ClPyats(lab)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        patch.object(pyats, "_load_pyats_testbed", return_value=MagicMock()) as load_tb,
+        patch.object(pyats, "set_termserv_credentials") as set_creds,
+    ):
+        lab.get_pyats_testbed.return_value = "yaml-data"
+        pyats.sync_testbed(*args)
+        load_tb.assert_called_once_with("yaml-data")
+        set_creds.assert_called_once_with(*expected)
+
+
+def test_cl_pyats_switch_console() -> None:
+    """Switch serial console updates connection command.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    # < 2.11: mutates the pyATS testbed connection command.
+    lab._session.controller_version = Version("2.10.0")
+    pyats = ClPyats(lab)
+    dev = _device()
+    devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({"n1": dev})
+    pyats._testbed = MagicMock(devices=devices)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
+    ):
+        pyats.switch_serial_console("n1", 5)
+    assert dev.connections["a"]["command"].endswith("5")
+
+
+def test_cl_pyats_switch_console_records_port_on_2_11_without_testbed() -> None:
+    """On CML 2.11+ switch_serial_console records the port without a testbed."""
+    lab = MagicMock()
+    # >= 2.11: records serial_port only; no local pyATS / testbed mutation.
+    lab._session.controller_version = Version("2.11.0")
+    pyats = ClPyats(lab)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        pyats.switch_serial_console("n1", 2)
+
+    assert pyats.serial_port_for("n1") == 2
+
+
+def test_cl_pyats_switch_missing() -> None:
+    """Raise PyatsDeviceNotFound for missing device.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    lab._session.controller_version = Version("2.10.0")
+    pyats = ClPyats(lab)
+    devices = type("Devices", (dict,), {"terminal_server": MagicMock()})({})
+    pyats._testbed = MagicMock(devices=devices)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
+        pytest.raises(PyatsDeviceNotFound),
+    ):
+        pyats.switch_serial_console("missing", 1)
+
+
+def test_cl_pyats_switch_console_requires_testbed_on_2_10() -> None:
+    """switch_serial_console on 2.10 requires an initialized pyATS testbed.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    lab._session.controller_version = Version("2.10.0")
+    pyats = ClPyats(lab)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"),
+        pytest.raises(RuntimeError, match="testbed is not initialized"),
+    ):
+        pyats.switch_serial_console("n1", 1)
+
+
+def test_cl_pyats_set_termserv_creds() -> None:
+    """Set termserv credentials with key_path and ssh_options.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = MagicMock()
+    pyats = ClPyats(lab)
+    terminal = MagicMock()
+    terminal.connections = SimpleNamespace(cli=SimpleNamespace(ssh_options=""))
+    devices = type("Devices", (dict,), {"terminal_server": terminal})()
+    pyats._testbed = MagicMock(devices=devices)
+    with patch.object(pyats, "_check_pyats_installed"):
+        pyats.set_termserv_credentials(
+            "u", "p", key_path="/tmp/key", ssh_options="-o X"
+        )
+        assert terminal.credentials.default.username == "u"
+        assert terminal.credentials.default.password == "p"
+        assert "IdentityFile=/tmp/key" in terminal.connections.cli.ssh_options
+
+
+@pytest.mark.parametrize(
+    "key_path",
+    [
+        "/tmp/key -o ProxyCommand=evil",
+        '/tmp/key" -o ProxyCommand=evil',
+        "/tmp/key'; rm -rf /",
+        "-oProxyCommand=evil",
+        "-F/tmp/evil_config",
+    ],
+)
+def test_cl_pyats_set_termserv_creds_rejects_unsafe_key_path(key_path: str) -> None:
+    """Reject key_path values that could inject extra SSH options.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param key_path: An unsafe key_path value that must be rejected.
+    """
+    lab = MagicMock()
+    pyats = ClPyats(lab)
+    terminal = MagicMock()
+    terminal.connections = SimpleNamespace(cli=SimpleNamespace(ssh_options=""))
+    devices = type("Devices", (dict,), {"terminal_server": terminal})()
+    pyats._testbed = MagicMock(devices=devices)
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.raises(ValueError, match="Invalid key_path"),
+    ):
+        pyats.set_termserv_credentials(key_path=key_path)
+
+
+def test_cl_pyats_prepare_params() -> None:
+    """_prepare_params returns init_exec_commands, init_config_commands, timeout.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    params = pyats._prepare_params(["term len 0"], [], timeout=5)
+    assert params["init_exec_commands"] == ["term len 0"]
+    assert params["init_config_commands"] == []
+    assert params["timeout"] == 5
+
+
+def test_cl_pyats_is_connected() -> None:
+    """_is_connected branches: not in set, in set fd=1, fd=0, no cli.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    assert pyats._is_connected(dev) is False
+    pyats._connections.add(dev)
+    assert pyats._is_connected(dev) is True
+    dev.connectionmgr.connections.cli.spawn.fd = 0
+    assert pyats._is_connected(dev) is False
+    dev.connectionmgr.connections = SimpleNamespace()
+    assert pyats._is_connected(dev) is False
+
+
+def test_cl_pyats_reconnect_noop() -> None:
+    """_reconnect when connected does not call destroy.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    with (
+        patch.object(pyats, "_is_connected", return_value=True),
+        patch.object(pyats, "_destroy_device") as destroy,
+    ):
+        pyats._reconnect(dev, {})
+        destroy.assert_not_called()
+
+
+def test_cl_pyats_reconnect_acts() -> None:
+    """_reconnect when disconnected calls destroy and clear_logs.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    with (
+        patch.object(pyats, "_is_connected", return_value=False),
+        patch.object(pyats, "_destroy_device") as destroy,
+        patch("virl2_client.models.cl_pyats._remove_unicon_loggers") as clear_logs,
+    ):
+        pyats._reconnect(dev, {"timeout": 5})
+        destroy.assert_called_once_with(dev, raise_exc=False)
+        clear_logs.assert_called_once_with(dev)
+
+
+def test_cl_pyats_execute_success() -> None:
+    """Execute and configure-mode success.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    pyats._testbed = MagicMock(devices={"n1": dev})
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        patch.object(pyats, "_reconnect"),
+        patch.object(pyats, "_prepare_params", return_value={"x": 1}),
+    ):
+        dev.execute.return_value = "ok"
+        assert pyats._execute_command("n1", "show version") == "ok"
+        dev.configure.return_value = "cfg-ok"
+        assert (
+            pyats._execute_command("n1", "hostname x", configure_mode=True) == "cfg-ok"
+        )
+
+
+def test_cl_pyats_execute_no_testbed() -> None:
+    """Raise RuntimeError when testbed is None.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    pyats._testbed = None
+    with patch.object(pyats, "_check_pyats_installed"), pytest.raises(RuntimeError):
+        pyats._execute_command("n1", "x")
+
+
+def test_cl_pyats_execute_missing_dev() -> None:
+    """Raise PyatsDeviceNotFound for missing device.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    pyats._testbed = MagicMock(devices={})
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        pytest.raises(PyatsDeviceNotFound),
+    ):
+        pyats._execute_command("missing", "x")
+
+
+def test_cl_pyats_reconnect_raises() -> None:
+    """Raise ValueError when reconnect fails.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    pyats._testbed = MagicMock(devices={"n1": dev})
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        patch.object(pyats, "_reconnect", side_effect=ValueError("boom")),
+        patch(
+            "virl2_client.models.cl_pyats._analyze_execute_failure",
+            return_value=(True, None),
+        ),
+        pytest.raises(ValueError, match="boom"),
+    ):
+        pyats._execute_command("n1", "x")
+
+
+def test_cl_pyats_execute_retry_ok() -> None:
+    """Transient failure then retry success.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    pyats._testbed = MagicMock(devices={"n1": dev})
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        patch.object(pyats, "_reconnect"),
+        patch.object(pyats, "_prepare_params", return_value={}),
+        patch(
+            "virl2_client.models.cl_pyats._analyze_execute_failure",
+            return_value=(False, "reconnect"),
+        ),
+    ):
+        dev.execute.side_effect = [Exception("transient"), "ok-after-retry"]
+        assert pyats._execute_command("n1", "x") == "ok-after-retry"
+
+
+def test_cl_pyats_execute_retry_fail() -> None:
+    """Retry still fails and raises.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev = _device()
+    pyats._testbed = MagicMock(devices={"n1": dev})
+    with (
+        patch.object(pyats, "_check_pyats_installed"),
+        patch.object(pyats, "_reconnect"),
+        patch.object(pyats, "_prepare_params", return_value={}),
+        patch(
+            "virl2_client.models.cl_pyats._analyze_execute_failure",
+            return_value=(False, "retry"),
+        ),
+    ):
+        dev.execute.side_effect = Exception("still failing")
+        with pytest.raises(Exception, match="still failing"):
+            pyats._execute_command("n1", "x", _retry_attempted=True)
+
+
+def test_cl_pyats_run_wrappers() -> None:
+    """run_command and run_config_command delegate to _execute_command.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    with patch.object(pyats, "_execute_command", return_value="ok") as exec_cmd:
+        with pytest.warns(DeprecationWarning, match="pyATS/Unicon integration"):
+            assert pyats.run_command("n1", "show x") == "ok"
+        # DeprecationWarning is once per ClPyats instance; second call must stay silent.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert pyats.run_config_command("n1", "hostname x") == "ok"
+        assert exec_cmd.call_count == 2
+
+
+def test_cl_pyats_cleanup_all() -> None:
+    """Cleanup destroys all connected devices.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev1 = _device()
+    dev2 = _device()
+    pyats._connections = {dev1, dev2}
+    with patch.object(pyats, "_destroy_device") as destroy:
+        pyats.cleanup()
+        assert destroy.call_count == 2
+
+
+def test_cl_pyats_cleanup_no_testbed() -> None:
+    """Cleanup when testbed is None does not raise.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    pyats._testbed = None
+    pyats.cleanup("n1")
+
+
+def test_cl_pyats_cleanup_missing_dev() -> None:
+    """Cleanup for non-existent device does not raise.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    pyats._testbed = MagicMock(devices={})
+    pyats.cleanup("missing")
+
+
+def test_cl_pyats_cleanup_specific() -> None:
+    """Cleanup specific device destroys only that device.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev1 = _device()
+    pyats._testbed = MagicMock(devices={"n1": dev1})
+    pyats._connections = {dev1}
+    with patch.object(pyats, "_destroy_device") as destroy:
+        pyats.cleanup("n1")
+        destroy.assert_called_once_with(dev1)
+
+
+def test_cl_pyats_destroy_device() -> None:
+    """_destroy_device removes device from connections.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev1 = _device()
+    pyats._connections = {dev1}
+    pyats._destroy_device(dev1)
+    assert dev1 not in pyats._connections
+
+
+def test_cl_pyats_destroy_raises() -> None:
+    """_destroy_device raise_exc=True propagates; raise_exc=False swallows.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    pyats = ClPyats(MagicMock())
+    dev2 = _device()
+    pyats._connections = {dev2}
+    dev2.destroy.side_effect = RuntimeError("boom")
+    with pytest.raises(RuntimeError):
+        pyats._destroy_device(dev2, raise_exc=True)
+    pyats._destroy_device(dev2, raise_exc=False)
+
+
+@pytest.mark.parametrize(
+    ("case", "should_raise", "reason_substr"),
+    [
+        ("connection_error", False, "ConnectionError"),
+        ("timeout", False, "TimeoutError"),
+        ("value_error", True, None),
+    ],
+)
+def test_analyze_execute_failure(
+    case: str, should_raise: bool, reason_substr: str | None
+) -> None:
+    """_analyze_execute_failure handles ConnectionError, SubCmdErr, ValueError.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+
+    class ConnErr(Exception):
+        pass
+
+    class SubCmdErr(Exception):
+        pass
+
+    with (
+        patch("virl2_client.models.cl_pyats._UConnectionError", ConnErr),
+        patch("virl2_client.models.cl_pyats._USubCommandFailure", SubCmdErr),
+    ):
+        if case == "connection_error":
+            got_raise, reason = _analyze_execute_failure(ConnErr("x"))
+        elif case == "timeout":
+            exc = SubCmdErr("x")
+            exc.__cause__ = TimeoutError("t")
+            got_raise, reason = _analyze_execute_failure(exc)
+        else:
+            got_raise, reason = _analyze_execute_failure(ValueError("x"))
+        assert got_raise is should_raise
+        if reason_substr is not None:
+            assert reason_substr in reason
+        else:
+            assert reason is None
+
+
+def test_remove_unicon_loggers() -> None:
+    """_remove_unicon_loggers normal path and error path (no connectionmgr).
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    dev = _device()
+    dev.connectionmgr.connections = {
+        "cli": SimpleNamespace(log=SimpleNamespace(name="unicon.terminal_server.conn"))
+    }
+    logging.root.manager.loggerDict["unicon.terminal_server.conn"] = MagicMock()
+    _remove_unicon_loggers(dev)
+
+    _remove_unicon_loggers(SimpleNamespace(connectionmgr=None))
+
+
+# ---------------------------------------------------------------------------
+# Node-level pyATS credential tests
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def session() -> MagicMock:
-    """Mocked HTTP session used by Lab/Node instances."""
+def pyats_session() -> MagicMock:
+    """Return a mocked HTTP session used by Lab/Node instances.
+
+    :returns: Mocked HTTP session object.
+    """
     return MagicMock()
 
 
 @pytest.fixture
-def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
+def node(request: pytest.FixtureRequest, pyats_session: MagicMock) -> Node:
     """Create a Node (and Lab) for a given initial pyATS mapping.
 
-    The parametrized value for this fixture (via ``indirect=["node"]``)
-    is interpreted as the initial ``pyats`` dict or ``None``.
-    """
+    The parametrized value for this fixture (via indirect=["node"])
+    is interpreted as the initial pyats dict or None.
 
+    :param request: Fixture request object with optional parametrized payload.
+    :param pyats_session: Mocked HTTP session fixture.
+    :returns: Node instance bound to a synthetic lab.
+    """
     initial_pyats: dict | None = getattr(request, "param", None)
-    lab = Lab(
-        "test_lab",
-        "lab-id",
-        session,
-        "user",
-        "pass",
-        auto_sync=False,
-        resource_pool_manager=RESOURCE_POOL_MANAGER,
-        user_management=USER_MANAGEMENT,
-    )
+    lab = make_lab(session=pyats_session)
     node_kwargs = {"pyats": initial_pyats} if initial_pyats is not None else {}
     return Node(
         lab,
@@ -65,71 +719,59 @@ def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
 
 
 @pytest.mark.parametrize(
-    "node, initial_pyats, expected_pyats",
+    ("node", "initial_pyats", "expected_pyats"),
     [
-        # default: nothing set
         (None, {}, {"username": None, "password": None, "enable_password": None}),
-        # set only username from default
         (
             None,
             {"username": "pyuser"},
             {"username": "pyuser", "password": None, "enable_password": None},
         ),
-        # set only password from default
         (
             None,
             {"password": "pypass"},
             {"username": None, "password": "pypass", "enable_password": None},
         ),
-        # set both from default
         (
             None,
             {"username": "pyuser", "password": "pypass"},
             {"username": "pyuser", "password": "pypass", "enable_password": None},
         ),
-        # set only enable_password from default
         (
             None,
             {"enable_password": "enpass"},
             {"username": None, "password": None, "enable_password": "enpass"},
         ),
-        # explicitly clear username and password back to None
         (
             {"username": "u", "password": "p"},
             {"username": None, "password": None},
             {"username": None, "password": None},
         ),
-        # change only username, leaving password as-is (non-None)
         (
             {"username": "old", "password": "p"},
             {"username": "new"},
             {"username": "new", "password": "p"},
         ),
-        # change only password, leaving username as-is (non-None)
         (
             {"username": "u", "password": "old"},
             {"password": "new"},
             {"username": "u", "password": "new"},
         ),
-        # set username to None while keeping existing password
         (
             {"username": "u", "password": "p"},
             {"username": None},
             {"username": None, "password": "p"},
         ),
-        # set password to None while keeping existing username
         (
             {"username": "u", "password": "p"},
             {"password": None},
             {"username": "u", "password": None},
         ),
-        # set enable_password on node that already has enable_password
         (
             {"username": "u", "password": "p", "enable_password": None},
             {"enable_password": "enpass"},
             {"username": "u", "password": "p", "enable_password": "enpass"},
         ),
-        # clear enable_password back to None
         (
             {"username": "u", "password": "p", "enable_password": "enpass"},
             {"enable_password": None},
@@ -152,25 +794,31 @@ def node(request: pytest.FixtureRequest, session: MagicMock) -> Node:
     ],
     indirect=["node"],
 )
-def test_node_pyats_credentials_parametrized(
-    session: MagicMock,
+def test_node_pyats_credentials(
+    pyats_session: MagicMock,
     node: Node,
     initial_pyats: dict[str, str | None],
     expected_pyats: dict[str, str | None],
 ) -> None:
-    """Verify pyATS credential updates, including None handling, in one place."""
+    """Verify pyATS credential updates, including None handling.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param pyats_session: Mocked HTTP session fixture.
+    :param node: Parametrized node fixture.
+    :param initial_pyats: Input pyATS credential update mapping.
+    :param expected_pyats: Expected node pyATS state after update.
+    """
     if initial_pyats:
         node.set_pyats_credentials(**initial_pyats)
 
     assert node.pyats_credentials == expected_pyats
 
-    # Default case (no kwargs) should not call the API at all.
     if not initial_pyats:
-        session.patch.assert_not_called()
+        pyats_session.patch.assert_not_called()
         return
 
-    # For updates, ensure the correct payload goes out.
-    session.patch.assert_called_once_with(
-        "labs/lab-id/nodes/node-id?exclude_configurations=false",
+    pyats_session.patch.assert_called_once_with(
+        "labs/l1/nodes/node-id?exclude_configurations=false",
         json={"pyats": expected_pyats},
     )

@@ -109,11 +109,18 @@ class ClientConfig(NamedTuple):
                 config = fh.readlines()
 
             for line in config:
-                if line.startswith(prop_name):
-                    prop = line.split("=", 1)[1].strip()
-                    if prop.startswith('"') and prop.endswith('"'):
-                        prop = prop[1:-1]
-                    return prop
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                if "=" in stripped:
+                    key, val = stripped.split("=", 1)
+                    if key.strip() == prop_name:
+                        prop = val.strip()
+                        if (prop.startswith('"') and prop.endswith('"')) or (
+                            prop.startswith("'") and prop.endswith("'")
+                        ):
+                            prop = prop[1:-1]
+                        return prop
         return None
 
     @classmethod

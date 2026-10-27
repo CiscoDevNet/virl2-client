@@ -102,6 +102,24 @@ def test_read_from_stdin(client_library_server_current: MagicMock):
         _ = ClientLibrary(ssl_verify=False)
 
 
+def test_get_from_file_exact_key_and_quotes(tmp_path: Path):
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_text(
+        "# Comment line\n"
+        'VIRL2_USERNAME="admin_user"\n'
+        "VIRL2_USER='real_user'\n"
+        '  VIRL2_PASS = "my_pass"  \n'
+        "VIRL_HOST=127.0.0.1\n",
+        encoding="utf-8",
+    )
+    val_user = ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
+    assert val_user == "real_user"
+    val_username = ClientConfig._get_from_file(tmp_path, "VIRL2_USERNAME")
+    assert val_username == "admin_user"
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "my_pass"
+    assert ClientConfig._get_from_file(tmp_path, "NONEXISTENT") is None
+
+
 def test_get_configuration_uses_jwt_from_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("VIRL2_URL", _TEST_ENV["VIRL2_URL"])
     monkeypatch.setenv("VIRL2_JWT", _TEST_ENV["VIRL2_JWT"])

@@ -105,15 +105,25 @@ class ClientConfig(NamedTuple):
     def _get_from_file(cls, virlrc_parent: Path, prop_name: str) -> str | None:
         virlrc = virlrc_parent / cls._CONFIG_FILE_NAME
         if virlrc.is_file():
-            with virlrc.open() as fh:
-                config = fh.readlines()
+            try:
+                with virlrc.open(encoding="utf-8") as fh:
+                    config = fh.readlines()
+            except (OSError, UnicodeDecodeError):
+                return None
 
             for line in config:
-                if line.startswith(prop_name):
-                    prop = line.split("=", 1)[1].strip()
-                    if prop.startswith('"') and prop.endswith('"'):
-                        prop = prop[1:-1]
-                    return prop
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                if "=" in stripped:
+                    key, val = stripped.split("=", 1)
+                    if key.strip() == prop_name:
+                        prop = val.strip()
+                        if (prop.startswith('"') and prop.endswith('"')) or (
+                            prop.startswith("'") and prop.endswith("'")
+                        ):
+                            prop = prop[1:-1]
+                        return prop
         return None
 
     @classmethod
@@ -134,7 +144,12 @@ class ClientConfig(NamedTuple):
         if prop := cls._get_from_file(Path.cwd(), prop_name):
             return prop
 
-        return cls._get_from_file(Path.home(), prop_name) or None
+        try:
+            home = Path.home()
+        except RuntimeError:
+            return None
+
+        return cls._get_from_file(home, prop_name) or None
 
     @classmethod
     def _populate_from_env(cls, config: dict):

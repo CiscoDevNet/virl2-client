@@ -29,34 +29,33 @@ _TEST_ENV = {
 
 
 @pytest.fixture
-def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
+def cwd_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    os.chdir(path.parent)
+    monkeypatch.chdir(path.parent)
 
     yield path
 
-    os.remove(path)
+    if path.is_file():
+        os.remove(path)
 
 
 @pytest.fixture
-def home_virlrc(tmp_path: Path) -> Iterator[Path]:
+def home_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    HOME = "HOME"
-    home = os.environ.get(HOME)
-    os.environ[HOME] = str(path.parent)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
     yield path
 
-    os.environ[HOME] = home
-    os.remove(path)
+    if path.is_file():
+        os.remove(path)
 
 
 def test_local_virlrc(client_library_server_current: MagicMock, cwd_virlrc: Path):
@@ -118,6 +117,14 @@ def test_get_from_file_exact_key_and_quotes(tmp_path: Path):
     assert val_username == "admin_user"
     assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "my_pass"
     assert ClientConfig._get_from_file(tmp_path, "NONEXISTENT") is None
+
+
+def test_get_prop_home_runtime_error(monkeypatch: pytest.MonkeyPatch):
+    def _raise_runtime_error(cls):
+        raise RuntimeError("No home directory found")
+
+    monkeypatch.setattr(Path, "home", classmethod(_raise_runtime_error))
+    assert ClientConfig._get_prop("NONEXISTENT_VAR_12345") is None
 
 
 def test_get_configuration_uses_jwt_from_env(monkeypatch: pytest.MonkeyPatch):

@@ -334,7 +334,7 @@ class CustomClient(httpx2.Client):
             raise api_error from None
 
 
-DEFAULT_TIMEOUT = httpx2.Timeout(connect=10.0, read=300.0, write=60.0, pool=10.0)
+DEFAULT_TIMEOUT = httpx2.Timeout(connect=10.0, read=320.0, write=60.0, pool=10.0)
 
 
 def make_session(
@@ -356,7 +356,7 @@ def make_session(
     :param ssl_verify: Whether to perform SSL verification.
     :param client_type: The client type identifier.
     :param timeout: HTTP timeout override. Defaults to a 10s connect /
-        300s read / 60s write / 10s pool budget when omitted or None.
+        320s read / 60s write / 10s pool budget when omitted or None.
         Pass a larger httpx2.Timeout for long-running synchronous lab
         operations.
     :param send_client_uuid: When True (default), send an X-Client-UUID

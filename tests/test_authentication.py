@@ -179,6 +179,7 @@ def test_make_session_default_timeout() -> None:
     """make_session applies DEFAULT_TIMEOUT when timeout is omitted."""
     session = make_session("https://example.local/api/v0/")
     assert session.timeout == DEFAULT_TIMEOUT
+    assert session.timeout.read == 320.0
 
 
 def test_make_session_send_client_uuid_false() -> None:

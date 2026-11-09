@@ -106,10 +106,11 @@ class ClientConfig(NamedTuple):
         virlrc = virlrc_parent / cls._CONFIG_FILE_NAME
         if virlrc.is_file():
             try:
-                with virlrc.open(encoding="utf-8") as fh:
+                with virlrc.open(encoding="utf-8-sig") as fh:
                     config = fh.readlines()
-            except (OSError, UnicodeDecodeError):
-                return None
+            except (OSError, UnicodeDecodeError) as exc:
+                _LOGGER.warning("Failed to read configuration file %s: %s", virlrc, exc)
+                raise
 
             for line in config:
                 stripped = line.strip()
@@ -141,7 +142,8 @@ class ClientConfig(NamedTuple):
             VIRL2_URL).
         :returns: The property value, or None if not found.
         """
-        if prop := cls._get_from_file(Path.cwd(), prop_name):
+        prop = cls._get_from_file(Path.cwd(), prop_name)
+        if prop is not None:
             return prop
 
         try:
@@ -149,7 +151,7 @@ class ClientConfig(NamedTuple):
         except RuntimeError:
             return None
 
-        return cls._get_from_file(home, prop_name) or None
+        return cls._get_from_file(home, prop_name)
 
     @classmethod
     def _populate_from_env(cls, config: dict):

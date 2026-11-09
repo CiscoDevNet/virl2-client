@@ -46,9 +46,10 @@ def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
             raise ValueError("Invalid value for abort_on_failure")
         if not isinstance(node_staging.get("start_remaining", True), bool):
             raise ValueError("Invalid value for start_remaining")
-    elif priority := resp.get("priority"):
-        if not isinstance(priority, int) or not 0 <= priority <= 10000:
-            raise ValueError("Invalid value for priority")
+    elif (priority := resp.get("priority")) and (
+        not isinstance(priority, int) or not 0 <= priority <= 10000
+    ):
+        raise ValueError("Invalid value for priority")
 
 
 def test_node_staging_initial_values() -> None:

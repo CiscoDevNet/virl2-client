@@ -136,6 +136,7 @@ class UserManagement:
             - opt_in: Whether the user has seen the initial contact dialog.
             - tour_version: The version of the Workbench tour the user has completed.
             - pubkey: An SSH public key for terminal server. Empty string to clear.
+            - must_change_password: Require a password change at next login.
 
         :returns: User object.
         """
@@ -163,6 +164,7 @@ class UserManagement:
             - opt_in: Whether the user has seen the initial contact dialog.
             - tour_version: The version of the Workbench tour the user has completed.
             - pubkey: An SSH public key for terminal server. Empty string to clear.
+            - must_change_password: Set or clear the password-change requirement.
 
         :returns: User object.
         """
@@ -185,6 +187,7 @@ class UserManagement:
         resource_pool: str | _Sentinel | None = UNCHANGED,
         opt_in: OptInStatus | bool | _Sentinel | None = UNCHANGED,
         tour_version: str | None = None,
+        must_change_password: bool | None = None,
     ) -> None:
         optional_data = {
             "fullname": fullname,
@@ -196,6 +199,7 @@ class UserManagement:
             "password": password_dict,
             "pubkey": pubkey,
             "tour_version": tour_version,
+            "must_change_password": must_change_password,
         }
         data.update({k: v for k, v in optional_data.items() if v is not None})
         if resource_pool is not UNCHANGED:

@@ -19,6 +19,8 @@
 #
 """Tests for user and group CRUD, associations, and ID lookups."""
 
+from __future__ import annotations
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -140,6 +142,28 @@ def test_user_update() -> None:
         tour_version="2",
     )
     assert updated["fullname"] == "X"
+
+
+@pytest.mark.parametrize("value", [None, False, True], ids=["omitted", "false", "true"])
+def test_create_password_change_flag(value: bool | None) -> None:
+    session = MagicMock()
+    manager = UserManagement(session)
+    manager.create_user("alice", "password", must_change_password=value)
+
+    data: dict[str, str | bool] = {"username": "alice", "password": "password"}
+    if value is not None:
+        data["must_change_password"] = value
+    session.post.assert_called_once_with("users", json=data)
+
+
+@pytest.mark.parametrize("value", [None, False, True], ids=["omitted", "false", "true"])
+def test_update_password_change_flag(value: bool | None) -> None:
+    session = MagicMock()
+    manager = UserManagement(session)
+    manager.update_user("u1", must_change_password=value)
+
+    data = {} if value is None else {"must_change_password": value}
+    session.patch.assert_called_once_with("users/u1", json=data)
 
 
 def test_user_groups_assoc() -> None:

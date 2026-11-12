@@ -79,7 +79,7 @@ def cwd_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path
     :yields: Path to the created .virlrc file.
     """
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8-sig") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
@@ -89,21 +89,21 @@ def cwd_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path
 
 @pytest.fixture
 def home_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """Create a .virlrc in tmp_path and set HOME to that directory.
+    """Create a .virlrc in tmp_path and patch Path.home() to that directory.
 
-    Uses monkeypatch.setenv so the environment variable is restored
-    automatically even if the test fails.
+    Path.home() is patched rather than HOME, because Windows Path.home()
+    uses USERPROFILE and ignores HOME.
 
     :param tmp_path: Pytest tmp_path fixture providing a temporary directory.
     :param monkeypatch: Pytest monkeypatch fixture for safe state mutation.
     :yields: Path to the created .virlrc file.
     """
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8-sig") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    monkeypatch.setenv("HOME", str(path.parent))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     return path
 
 
@@ -169,6 +169,101 @@ def test_read_from_stdin(client_library_server_current: MagicMock) -> None:
     _ = client_library_server_current
     with pytest.raises(OSError, match="reading from stdin"):
         _ = ClientLibrary(ssl_verify=False)
+
+
+def test_get_from_file_exact_key_and_quotes(tmp_path: Path) -> None:
+    """Exact key match, comments, whitespace, and single/double quote unquoting."""
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_text(
+        "# Comment line\n"
+        'VIRL2_USERNAME="admin_user"\n'
+        "VIRL2_USER='real_user'\n"
+        '  VIRL2_PASS = "my_pass"  \n'
+        "VIRL_HOST=127.0.0.1\n",
+        encoding="utf-8",
+    )
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_USER") == "real_user"
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_USERNAME") == "admin_user"
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "my_pass"
+    assert ClientConfig._get_from_file(tmp_path, "NONEXISTENT") is None
+
+
+def test_get_prop_home_runtime_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_get_prop returns None when Path.home() raises RuntimeError."""
+
+    def _raise_runtime_error(cls):
+        raise RuntimeError("No home directory found")
+
+    monkeypatch.setattr(Path, "home", classmethod(_raise_runtime_error))
+    assert ClientConfig._get_prop("NONEXISTENT_VAR_12345") is None
+
+
+def test_get_from_file_utf8_bom(tmp_path: Path) -> None:
+    """UTF-8 BOM on the first key is stripped by utf-8-sig."""
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_bytes(b"\xef\xbb\xbfVIRL2_USER=bom_user\nVIRL2_PASS=secret\n")
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_USER") == "bom_user"
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "secret"
+
+
+def test_get_from_file_decode_and_os_error_fails_loud(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unreadable or non-UTF-8 .virlrc raises instead of returning None."""
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_bytes(b"\x80\x81\xff\xfe")
+    with pytest.raises(UnicodeDecodeError):
+        ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
+
+    def _mock_open_error(*args, **kwargs):
+        raise OSError("Disk read error")
+
+    monkeypatch.setattr(Path, "open", _mock_open_error)
+    with pytest.raises(OSError, match="Disk read error"):
+        ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
+
+
+def test_get_from_file_empty_values_and_value_with_equals(tmp_path: Path) -> None:
+    """Empty quoted/bare values and passwords containing '=' are preserved."""
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_text(
+        'EMPTY_DOUBLE=""\n'
+        "EMPTY_SINGLE=''\n"
+        "EMPTY_BARE=\n"
+        'PASS_WITH_EQUALS="p@ss=word=123"\n'
+        "BARE_PASS_WITH_EQUALS=p@ss=word=456\n",
+        encoding="utf-8-sig",
+    )
+    assert ClientConfig._get_from_file(tmp_path, "EMPTY_DOUBLE") == ""
+    assert ClientConfig._get_from_file(tmp_path, "EMPTY_SINGLE") == ""
+    assert ClientConfig._get_from_file(tmp_path, "EMPTY_BARE") == ""
+    assert ClientConfig._get_from_file(tmp_path, "PASS_WITH_EQUALS") == "p@ss=word=123"
+    assert (
+        ClientConfig._get_from_file(tmp_path, "BARE_PASS_WITH_EQUALS")
+        == "p@ss=word=456"
+    )
+
+
+def test_get_prop_empty_value_does_not_fall_through_to_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Empty cwd .virlrc values must not fall through to ~/.virlrc."""
+    cwd_dir = tmp_path / "cwd"
+    cwd_dir.mkdir()
+    (cwd_dir / ClientConfig._CONFIG_FILE_NAME).write_text(
+        'VIRL2_USER=""\n', encoding="utf-8-sig"
+    )
+
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    (home_dir / ClientConfig._CONFIG_FILE_NAME).write_text(
+        'VIRL2_USER="home_user"\n', encoding="utf-8-sig"
+    )
+
+    monkeypatch.chdir(cwd_dir)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home_dir))
+
+    assert ClientConfig._get_prop("VIRL2_USER") == ""
 
 
 def test_config_jwt_from_env(

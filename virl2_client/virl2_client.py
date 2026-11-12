@@ -105,15 +105,26 @@ class ClientConfig(NamedTuple):
     def _get_from_file(cls, virlrc_parent: Path, prop_name: str) -> str | None:
         virlrc = virlrc_parent / cls._CONFIG_FILE_NAME
         if virlrc.is_file():
-            with virlrc.open() as fh:
-                config = fh.readlines()
+            try:
+                with virlrc.open(encoding="utf-8-sig") as fh:
+                    config = fh.readlines()
+            except (OSError, UnicodeDecodeError) as exc:
+                _LOGGER.warning("Failed to read configuration file %s: %s", virlrc, exc)
+                raise
 
             for line in config:
-                if line.startswith(prop_name):
-                    prop = line.split("=", 1)[1].strip()
-                    if prop.startswith('"') and prop.endswith('"'):
-                        prop = prop[1:-1]
-                    return prop
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                if "=" in stripped:
+                    key, val = stripped.split("=", 1)
+                    if key.strip() == prop_name:
+                        prop = val.strip()
+                        if (prop.startswith('"') and prop.endswith('"')) or (
+                            prop.startswith("'") and prop.endswith("'")
+                        ):
+                            prop = prop[1:-1]
+                        return prop
         return None
 
     @classmethod
@@ -131,10 +142,16 @@ class ClientConfig(NamedTuple):
             VIRL2_URL).
         :returns: The property value, or None if not found.
         """
-        if prop := cls._get_from_file(Path.cwd(), prop_name):
+        prop = cls._get_from_file(Path.cwd(), prop_name)
+        if prop is not None:
             return prop
 
-        return cls._get_from_file(Path.home(), prop_name) or None
+        try:
+            home = Path.home()
+        except RuntimeError:
+            return None
+
+        return cls._get_from_file(home, prop_name)
 
     @classmethod
     def _populate_from_env(cls, config: dict):

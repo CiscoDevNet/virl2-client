@@ -3,7 +3,6 @@
 # Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
-import os
 import warnings
 from collections.abc import Iterator
 from pathlib import Path
@@ -29,34 +28,27 @@ _TEST_ENV = {
 
 
 @pytest.fixture
-def cwd_virlrc(tmp_path: Path) -> Iterator[Path]:
+def cwd_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8-sig") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    os.chdir(path.parent)
+    monkeypatch.chdir(path.parent)
 
     yield path
-
-    os.remove(path)
 
 
 @pytest.fixture
-def home_virlrc(tmp_path: Path) -> Iterator[Path]:
+def home_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     path = tmp_path / ClientConfig._CONFIG_FILE_NAME
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8-sig") as f:
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    HOME = "HOME"
-    home = os.environ.get(HOME)
-    os.environ[HOME] = str(path.parent)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
     yield path
-
-    os.environ[HOME] = home
-    os.remove(path)
 
 
 def test_local_virlrc(client_library_server_current: MagicMock, cwd_virlrc: Path):
@@ -100,6 +92,95 @@ def test_read_from_stdin(client_library_server_current: MagicMock):
     _ = client_library_server_current
     with pytest.raises(OSError, match="reading from stdin"):
         _ = ClientLibrary(ssl_verify=False)
+
+
+def test_get_from_file_exact_key_and_quotes(tmp_path: Path):
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_text(
+        "# Comment line\n"
+        'VIRL2_USERNAME="admin_user"\n'
+        "VIRL2_USER='real_user'\n"
+        '  VIRL2_PASS = "my_pass"  \n'
+        "VIRL_HOST=127.0.0.1\n",
+        encoding="utf-8",
+    )
+    val_user = ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
+    assert val_user == "real_user"
+    val_username = ClientConfig._get_from_file(tmp_path, "VIRL2_USERNAME")
+    assert val_username == "admin_user"
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "my_pass"
+    assert ClientConfig._get_from_file(tmp_path, "NONEXISTENT") is None
+
+
+def test_get_prop_home_runtime_error(monkeypatch: pytest.MonkeyPatch):
+    def _raise_runtime_error(cls):
+        raise RuntimeError("No home directory found")
+
+    monkeypatch.setattr(Path, "home", classmethod(_raise_runtime_error))
+    assert ClientConfig._get_prop("NONEXISTENT_VAR_12345") is None
+
+
+def test_get_from_file_utf8_bom(tmp_path: Path):
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    # File with UTF-8 byte order mark (BOM) on the first key
+    virlrc.write_bytes(b"\xef\xbb\xbfVIRL2_USER=bom_user\nVIRL2_PASS=secret\n")
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_USER") == "bom_user"
+    assert ClientConfig._get_from_file(tmp_path, "VIRL2_PASS") == "secret"
+
+
+def test_get_from_file_decode_and_os_error_fails_loud(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_bytes(b"\x80\x81\xff\xfe")
+    with pytest.raises(UnicodeDecodeError):
+        ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
+
+    def _mock_open_error(*args, **kwargs):
+        raise OSError("Disk read error")
+
+    monkeypatch.setattr(Path, "open", _mock_open_error)
+    with pytest.raises(OSError, match="Disk read error"):
+        ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
+
+
+def test_get_from_file_empty_values_and_value_with_equals(tmp_path: Path):
+    virlrc = tmp_path / ClientConfig._CONFIG_FILE_NAME
+    virlrc.write_text(
+        'EMPTY_DOUBLE=""\n'
+        "EMPTY_SINGLE=''\n"
+        "EMPTY_BARE=\n"
+        'PASS_WITH_EQUALS="p@ss=word=123"\n'
+        "BARE_PASS_WITH_EQUALS=p@ss=word=456\n",
+        encoding="utf-8-sig",
+    )
+    assert ClientConfig._get_from_file(tmp_path, "EMPTY_DOUBLE") == ""
+    assert ClientConfig._get_from_file(tmp_path, "EMPTY_SINGLE") == ""
+    assert ClientConfig._get_from_file(tmp_path, "EMPTY_BARE") == ""
+    assert ClientConfig._get_from_file(tmp_path, "PASS_WITH_EQUALS") == "p@ss=word=123"
+    assert (
+        ClientConfig._get_from_file(tmp_path, "BARE_PASS_WITH_EQUALS")
+        == "p@ss=word=456"
+    )
+
+
+def test_get_prop_empty_value_does_not_fall_through_to_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    cwd_dir = tmp_path / "cwd"
+    cwd_dir.mkdir()
+    cwd_virlrc = cwd_dir / ClientConfig._CONFIG_FILE_NAME
+    cwd_virlrc.write_text('VIRL2_USER=""\n', encoding="utf-8-sig")
+
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    home_virlrc = home_dir / ClientConfig._CONFIG_FILE_NAME
+    home_virlrc.write_text('VIRL2_USER="home_user"\n', encoding="utf-8-sig")
+
+    monkeypatch.chdir(cwd_dir)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home_dir))
+
+    assert ClientConfig._get_prop("VIRL2_USER") == ""
 
 
 def test_get_configuration_uses_jwt_from_env(monkeypatch: pytest.MonkeyPatch):

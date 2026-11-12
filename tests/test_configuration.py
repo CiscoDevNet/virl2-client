@@ -103,7 +103,7 @@ def home_virlrc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
         for name, value in _TEST_ENV.items():
             f.write(f"{name}={value}\n")
 
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
     return path
 
 
@@ -191,7 +191,7 @@ def test_get_from_file_exact_key_and_quotes(tmp_path: Path) -> None:
 def test_get_prop_home_runtime_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """_get_prop returns None when Path.home() raises RuntimeError."""
 
-    def _raise_runtime_error(cls):
+    def _raise_runtime_error(_cls):
         raise RuntimeError("No home directory found")
 
     monkeypatch.setattr(Path, "home", classmethod(_raise_runtime_error))
@@ -215,7 +215,7 @@ def test_get_from_file_decode_and_os_error_fails_loud(
     with pytest.raises(UnicodeDecodeError):
         ClientConfig._get_from_file(tmp_path, "VIRL2_USER")
 
-    def _mock_open_error(*args, **kwargs):
+    def _mock_open_error(*_args, **_kwargs):
         raise OSError("Disk read error")
 
     monkeypatch.setattr(Path, "open", _mock_open_error)
@@ -261,7 +261,7 @@ def test_get_prop_empty_value_does_not_fall_through_to_home(
     )
 
     monkeypatch.chdir(cwd_dir)
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home_dir))
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: home_dir))
 
     assert ClientConfig._get_prop("VIRL2_USER") == ""
 

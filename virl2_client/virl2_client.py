@@ -101,30 +101,39 @@ class ClientConfig(NamedTuple):
         client.auto_sync = self.auto_sync >= 0.0 and not self.events
         return client
 
+    @staticmethod
+    def _unquote_rc_value(prop: str) -> str:
+        if (prop.startswith('"') and prop.endswith('"')) or (
+            prop.startswith("'") and prop.endswith("'")
+        ):
+            return prop[1:-1]
+        return prop
+
+    @classmethod
+    def _parse_rc_line(cls, line: str, prop_name: str) -> str | None:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            return None
+        key, val = stripped.split("=", 1)
+        if key.strip() != prop_name:
+            return None
+        return cls._unquote_rc_value(val.strip())
+
     @classmethod
     def _get_from_file(cls, virlrc_parent: Path, prop_name: str) -> str | None:
         virlrc = virlrc_parent / cls._CONFIG_FILE_NAME
-        if virlrc.is_file():
-            try:
-                with virlrc.open(encoding="utf-8-sig") as fh:
-                    config = fh.readlines()
-            except (OSError, UnicodeDecodeError) as exc:
-                _LOGGER.warning("Failed to read configuration file %s: %s", virlrc, exc)
-                raise
-
-            for line in config:
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                if "=" in stripped:
-                    key, val = stripped.split("=", 1)
-                    if key.strip() == prop_name:
-                        prop = val.strip()
-                        if (prop.startswith('"') and prop.endswith('"')) or (
-                            prop.startswith("'") and prop.endswith("'")
-                        ):
-                            prop = prop[1:-1]
-                        return prop
+        if not virlrc.is_file():
+            return None
+        try:
+            with virlrc.open(encoding="utf-8-sig") as fh:
+                config = fh.readlines()
+        except (OSError, UnicodeDecodeError) as exc:
+            _LOGGER.warning("Failed to read configuration file %s: %s", virlrc, exc)
+            raise
+        for line in config:
+            prop = cls._parse_rc_line(line, prop_name)
+            if prop is not None:
+                return prop
         return None
 
     @classmethod

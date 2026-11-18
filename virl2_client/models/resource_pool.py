@@ -210,6 +210,8 @@ class ResourcePoolManagement:
         external_connectors: list[str] | None = None,
         users: list[str] | None = None,
         user_pools: list[str] | None = None,
+        traffic_pps: int | None = None,
+        traffic_streams: int | None = None,
     ) -> ResourcePool:
         """
         Add a resource pool locally without server round-trip.
@@ -225,6 +227,8 @@ class ResourcePoolManagement:
         :param external_connectors: Optional list of external connectors.
         :param users: Optional list of user IDs.
         :param user_pools: Optional list of user pool IDs.
+        :param traffic_pps: Optional traffic packet-rate limit; zero blocks traffic.
+        :param traffic_streams: Optional active traffic stream limit.
         :returns: The created ResourcePool instance.
         """
         new_resource_pool = ResourcePool(
@@ -240,6 +244,8 @@ class ResourcePoolManagement:
             external_connectors,
             users,
             user_pools,
+            traffic_pps=traffic_pps,
+            traffic_streams=traffic_streams,
         )
         self._resource_pools[pool_id] = new_resource_pool
         return new_resource_pool
@@ -267,6 +273,8 @@ class ResourcePool:
         external_connectors: list[str] | None = None,
         users: list[str] | None = None,
         user_pools: list[str] | None = None,
+        traffic_pps: int | None = None,
+        traffic_streams: int | None = None,
     ) -> None:
         """
         Initialize a resource pool.
@@ -283,6 +291,8 @@ class ResourcePool:
         :param external_connectors: A list of external connectors in the resource pool.
         :param users: A list of users in the resource pool.
         :param user_pools: A list of user pools in the resource pool.
+        :param traffic_pps: Packet-rate limit; None inherits or is unlimited, zero blocks.
+        :param traffic_streams: Active stream limit; None inherits or is unlimited.
         """
         self._resource_pools = resource_pools
         self._session: httpx2.Client = resource_pools._session
@@ -297,6 +307,8 @@ class ResourcePool:
         self._external_connectors = external_connectors
         self._users = users if users is not None else []
         self._user_pools = user_pools if user_pools is not None else []
+        self._traffic_pps = traffic_pps
+        self._traffic_streams = traffic_streams
 
     def __str__(self) -> str:
         """Return user-friendly resource-pool description.
@@ -461,6 +473,30 @@ class ResourcePool:
         self._disk_space = value
 
     @property
+    def traffic_pps(self) -> int | None:
+        """Return the traffic packet-rate limit, or None to inherit/unlimit."""
+        self._resource_pools.sync_resource_pools_if_outdated()
+        return self._traffic_pps
+
+    @traffic_pps.setter
+    def traffic_pps(self, value: int | None) -> None:
+        """Set the traffic packet-rate limit; zero blocks traffic."""
+        self._set_resource_pool_property("traffic_pps", value)
+        self._traffic_pps = value
+
+    @property
+    def traffic_streams(self) -> int | None:
+        """Return the active traffic stream limit, or None to inherit/unlimit."""
+        self._resource_pools.sync_resource_pools_if_outdated()
+        return self._traffic_streams
+
+    @traffic_streams.setter
+    def traffic_streams(self, value: int | None) -> None:
+        """Set the active traffic stream limit; zero blocks traffic."""
+        self._set_resource_pool_property("traffic_streams", value)
+        self._traffic_streams = value
+
+    @property
     def external_connectors(self) -> list[str] | None:
         """Return a list of external connectors in the resource pool.
 
@@ -598,6 +634,8 @@ class ResourcePoolUsageBase:
     :param ram: RAM amount.
     :param disk_space: Disk space amount.
     :param external_connectors: List of external connector IDs.
+    :param traffic_pps: Traffic packet rate or limit; absent on older servers.
+    :param traffic_streams: Active traffic stream count or limit.
     """
 
     licenses: int
@@ -605,3 +643,5 @@ class ResourcePoolUsageBase:
     ram: int
     disk_space: int
     external_connectors: list[str]
+    traffic_pps: float | None = None
+    traffic_streams: int | None = None

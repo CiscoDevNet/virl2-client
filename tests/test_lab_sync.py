@@ -31,6 +31,29 @@ from virl2_client.exceptions import (
     ElementAlreadyExists,
     SmartAnnotationNotFound,
 )
+from virl2_client.models.resource_pool import ResourcePoolManagement
+
+
+@pytest.mark.parametrize("pool_ids", [[], ["pool"]])
+def test_sync_with_traffic_limits(pool_ids: list[str]) -> None:
+    """Operational sync handles traffic limits even for labs without pools.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab = make_lab()
+    manager = ResourcePoolManagement(lab._session)
+    lab._resource_pool_manager = manager
+    lab._session.get.return_value.json.side_effect = [
+        pool_ids,
+        [{"id": "pool", "label": "Pool", "traffic_pps": None, "traffic_streams": None}],
+        [],
+        [],
+    ]
+    lab.sync_operational()
+    assert [pool.id for pool in lab._resource_pools] == pool_ids
+    pool = manager._resource_pools["pool"]
+    assert pool.traffic_pps is None
+    assert pool.traffic_streams is None
 
 
 @pytest.mark.parametrize(

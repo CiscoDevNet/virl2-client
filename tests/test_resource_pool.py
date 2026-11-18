@@ -23,10 +23,100 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import httpx2
 import pytest
 
 from virl2_client.exceptions import InvalidProperty
 from virl2_client.models.resource_pool import ResourcePool, ResourcePoolManagement
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        {},
+        {"traffic_pps": None, "traffic_streams": None},
+        {"traffic_pps": 0, "traffic_streams": 0},
+        {"traffic_pps": 5, "traffic_streams": 3},
+    ],
+)
+def test_traffic_pool_sync(httpx2_mock, limits: dict) -> None:
+    """Pool discovery accepts old and traffic-aware API responses.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    route = httpx2_mock.get("https://cml.test/resource_pools?data=true")
+    route.respond(200, json=[{"id": "pool", "label": "Pool", **limits}])
+    with httpx2.Client(base_url="https://cml.test/") as session:
+        manager = ResourcePoolManagement(session)
+        # Lab.sync_operational refreshes even when its pool-ID list is empty.
+        assert manager.get_resource_pools_by_ids([]) == {}
+        pool = manager._resource_pools["pool"]
+        assert pool.traffic_pps == limits.get("traffic_pps")
+        assert pool.traffic_streams == limits.get("traffic_streams")
+        route.respond(
+            200,
+            json=[
+                {"id": "pool", "label": "Pool", "traffic_pps": 5, "traffic_streams": 1}
+            ],
+        )
+        manager.sync_resource_pools()
+        assert (pool.traffic_pps, pool.traffic_streams) == (5, 1)
+
+
+@pytest.mark.parametrize("value", [None, 0, 5])
+def test_traffic_pool_create_update(value: int | None) -> None:
+    """Traffic limits survive creation and explicit property updates.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    session = MagicMock()
+    limits = {"traffic_pps": value, "traffic_streams": value}
+    session.post.return_value.json.return_value = {
+        "id": "pool",
+        "label": "Pool",
+        **limits,
+    }
+    manager = ResourcePoolManagement(session, auto_sync=False)
+    pool = manager.create_resource_pool("Pool", **limits)
+    session.post.assert_called_once_with(
+        "resource_pools", json={"label": "Pool", **limits}
+    )
+    assert (pool.traffic_pps, pool.traffic_streams) == (value, value)
+    pool.traffic_pps = value
+    session.patch.assert_called_with("resource_pools/pool", json={"traffic_pps": value})
+    pool.traffic_streams = value
+    session.patch.assert_called_with(
+        "resource_pools/pool", json={"traffic_streams": value}
+    )
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        {},
+        {"traffic_pps": None, "traffic_streams": None},
+        {"traffic_pps": 0, "traffic_streams": 0},
+        {"traffic_pps": 5, "traffic_streams": 3},
+    ],
+)
+def test_traffic_pool_usage(limits: dict) -> None:
+    """Usage parsing handles optional, unlimited, zero and fractional traffic data.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    session = MagicMock()
+    base = {"licenses": 1, "cpus": 2, "ram": 3, "disk_space": 4, "external_connectors": []}
+    session.get.return_value.json.return_value = {
+        "limit": {**base, **limits},
+        "usage": {**base, "traffic_pps": 0.5, "traffic_streams": 1},
+    }
+    pool = ResourcePool(
+        ResourcePoolManagement(session, auto_sync=False), "pool", "Pool"
+    )
+    usage = pool.get_usage()
+    assert usage.limit.traffic_pps == limits.get("traffic_pps")
+    assert usage.limit.traffic_streams == limits.get("traffic_streams")
+    assert (usage.usage.traffic_pps, usage.usage.traffic_streams) == (0.5, 1)
 
 
 def test_rp_property_setters() -> None:

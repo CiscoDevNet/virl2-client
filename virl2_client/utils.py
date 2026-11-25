@@ -28,7 +28,7 @@ from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import httpx
+import httpx2
 
 from .exceptions import (
     AnnotationNotFound,
@@ -62,7 +62,11 @@ class Version:
 
     @staticmethod
     def parse_version_str(version_str: str) -> str:
-        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})(.{0,32})$"
+        # Tail is capped at 32 chars and restricted to a safe suffix
+        # character set (pre-release/build markers such as "-dev1",
+        # "+build.2", ".post3"), rather than an arbitrary blob that could
+        # smuggle unexpected content through version comparisons/logs.
+        regex = r"^(\d{1,2})\.(\d{1,2})\.(\d{1,2})([A-Za-z0-9._+-]{1,32})?$"
         res = re.findall(regex, version_str)
         if not res:
             raise ValueError("Malformed version string.")
@@ -122,7 +126,13 @@ class Version:
 
 
 class _Sentinel:
-    def __repr__(self):
+    """Sentinel type used for optional 'leave unchanged' arguments."""
+
+    def __repr__(self) -> str:
+        """Return string representation of the sentinel.
+
+        :returns: The literal '<Unchanged>'.
+        """
         return "<Unchanged>"
 
 
@@ -131,13 +141,20 @@ _CONFIG_MODE = "exclude_configurations=false"
 
 
 class OptInStatus(Enum):
+    """Status for opt-in consent (e.g. telemetry)."""
+
     ACCEPTED = "accepted"
     DECLINED = "declined"
     UNSET = "unset"
 
 
 def _make_not_found(instance: Element) -> ElementNotFound:
-    """Composes and raises an ElementNotFound error for the given instance."""
+    """
+    Build an ElementNotFound subclass instance for the given element.
+
+    :param instance: The stale element (Lab, Node, Interface, Link, etc.).
+    :returns: The appropriate exception instance (LabNotFound, NodeNotFound, etc.).
+    """
     class_name = type(instance).__name__
     if class_name.startswith("Annotation"):
         class_name = "Annotation"
@@ -152,16 +169,19 @@ def _make_not_found(instance: Element) -> ElementNotFound:
     return error(instance._id)
 
 
-def _check_and_mark_stale(func: Callable, instance: Element, *args, **kwargs):
+def _check_and_mark_stale(
+    func: Callable[..., Any], instance: Element, *args: Any, **kwargs: Any
+) -> Any:
     """
-    Check staleness before and after calling `func`
+    Check staleness before and after calling func
     and updates staleness if a 404 is raised.
 
     :param func: The function to be called if the instance is not stale.
-    :param instance: The instance of the parent class of `func`
-        which has a `_stale` attribute.
-    :param args: Positional arguments to be passed to `func`.
-    :param kwargs: Keyword arguments to be passed to `func`.
+    :param instance: The instance of the parent class of func
+        which has a _stale attribute.
+    :param args: Positional arguments to be passed to func.
+    :param kwargs: Keyword arguments to be passed to func.
+    :returns: The return value of func if no stale-state exception is triggered.
     """
 
     if instance._stale:
@@ -172,7 +192,7 @@ def _check_and_mark_stale(func: Callable, instance: Element, *args, **kwargs):
         if instance._stale:
             raise _make_not_found(instance)
         return ret
-    except httpx.HTTPStatusError as exc:
+    except httpx2.HTTPStatusError as exc:
         resp = exc.response
         class_name = type(instance).__name__
         instance_id = instance._id
@@ -186,37 +206,83 @@ def _check_and_mark_stale(func: Callable, instance: Element, *args, **kwargs):
 
 
 def check_stale(func: TCallable) -> TCallable:
-    """A decorator that will make the wrapped function check staleness."""
+    """Decorator that checks element staleness before and after the wrapped call.
+
+    If the instance is already stale or becomes stale (e.g. via 404), raises
+    the appropriate ElementNotFound subclass (LabNotFound, NodeNotFound, etc.).
+
+    :param func: The method to wrap (must take self as first argument).
+    :returns: The wrapped function.
+    """
 
     @wraps(func)
-    def wrapper_stale(*args, **kwargs):
+    def wrapper_stale(*args: Any, **kwargs: Any) -> Any:
+        """Execute wrapped callable with stale-state checks.
+
+        :param args: Positional arguments passed to wrapped function.
+        :param kwargs: Keyword arguments passed to wrapped function.
+        :returns: Result of wrapped function when object is not stale.
+        """
         return _check_and_mark_stale(func, args[0], *args, **kwargs)
 
-    return cast(TCallable, wrapper_stale)
+    return cast("TCallable", wrapper_stale)
 
 
 class property_s(property):
-    """A modified `property` that will check staleness."""
+    """A property descriptor that checks staleness on access.
 
-    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
+    Behaves like built-in property but invokes staleness checking before
+    returning the value. Used for elements that may become invalid (e.g. 404).
+    """
+
+    def __init__(
+        self,
+        fget: Callable[..., Any] | None = None,
+        fset: Callable[..., Any] | None = None,
+        fdel: Callable[..., Any] | None = None,
+        doc: str | None = None,
+    ) -> None:
+        """Initialize the property descriptor.
+
+        :param fget: Getter function, or None.
+        :param fset: Setter function, or None.
+        :param fdel: Deleter function, or None.
+        :param doc: Docstring for the property, or None.
+        """
         super().__init__(fget=fget, fset=fset, fdel=fdel)
         if doc:
             self.__doc__ = doc
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance: Any, owner: type | None = None) -> Any:
+        """Return the property value after staleness check.
+
+        :param instance: The instance to access the property on.
+        :param owner: The owning class, or None.
+        :returns: The property value from the getter.
+        """
         if instance is None:
             return super().__get__(instance, owner)
         return _check_and_mark_stale(super().__get__, instance, instance, owner)
 
 
 def locked(func: TCallable) -> TCallable:
-    """
-    A decorator that makes a method threadsafe.
-    Parent class instance must have a `_session.lock` property for locking to occur.
+    """Decorator that makes a method thread-safe via session lock.
+
+    Uses the instance's _session.lock context manager when available.
+    If no lock is present, runs without locking.
+
+    :param func: The method to wrap.
+    :returns: The wrapped method.
     """
 
     @wraps(func)
-    def wrapper_locked(*args, **kwargs):
+    def wrapper_locked(*args: Any, **kwargs: Any) -> Any:
+        """Execute wrapped callable while holding session lock when available.
+
+        :param args: Positional arguments passed to wrapped method.
+        :param kwargs: Keyword arguments passed to wrapped method.
+        :returns: Result of wrapped method.
+        """
         try:
             ctx = args[0]._session.lock
         except (IndexError, AttributeError):
@@ -226,7 +292,26 @@ def locked(func: TCallable) -> TCallable:
         with ctx:
             return func(*args, **kwargs)
 
-    return cast(TCallable, wrapper_locked)
+    return cast("TCallable", wrapper_locked)
+
+
+_LOG_TEXT_MAX_LEN = 200
+
+
+def sanitize_for_log(text: str, max_len: int = _LOG_TEXT_MAX_LEN) -> str:
+    """Sanitize controller-supplied text before writing it to logs.
+
+    Strips CR/LF (to stop log-line injection/forging) and caps length (to
+    stop a hostile/misbehaving controller from flooding logs).
+
+    :param text: Raw text to sanitize, typically a response body.
+    :param max_len: Maximum number of characters to keep.
+    :returns: The sanitized, length-capped text.
+    """
+    cleaned = text.replace("\r", " ").replace("\n", " ")
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len] + "...(truncated)"
+    return cleaned
 
 
 def get_url_from_template(
@@ -237,8 +322,9 @@ def get_url_from_template(
 
     :param endpoint: The desired endpoint.
     :param url_templates: The templates to map values to.
-    :param values: Keyword arguments used to format the URL.
+    :param values: Keyword arguments used to format the URL (default: empty dict).
     :returns: The formatted URL.
+    :raises VirlException: If the endpoint is not in url_templates.
     """
     endpoint_url_template = url_templates.get(endpoint)
     if endpoint_url_template is None:
@@ -252,11 +338,20 @@ def get_url_from_template(
 _DEPRECATION_MESSAGES = {
     "push_to_server": "meant to be used only by internal methods",
     "offline": "offline mode has been removed",
-    "labs": "use the `.associations` attribute instead",
+    "labs": "use the .associations attribute instead",
 }
 
 
-def _deprecated_argument(func, argument: Any, argument_name: str):
+def _deprecated_argument(
+    func: Callable[..., Any], argument: Any, argument_name: str
+) -> None:
+    """
+    Emit a standardized deprecation warning for legacy arguments.
+
+    :param func: The function that received the deprecated argument.
+    :param argument: The argument value (checked for non-None).
+    :param argument_name: Name of the deprecated parameter.
+    """
     if argument is not None:
         reason = _DEPRECATION_MESSAGES[argument_name]
         warnings.warn(
@@ -286,6 +381,6 @@ def _requires_version(min_version: str) -> Callable:
                 )
             return func(self, *args, **kwargs)
 
-        return cast(TCallable, wrapper)
+        return cast("TCallable", wrapper)
 
     return decorator

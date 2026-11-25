@@ -17,31 +17,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from unittest.mock import MagicMock, Mock
+"""Tests for lab autostart configuration."""
+
+from __future__ import annotations
+
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
+from tests.helpers import RESOURCE_POOL_MANAGER, USER_MANAGEMENT
 from virl2_client.models import Lab
 
-RESOURCE_POOL_MANAGER = Mock()
-USER_MANAGEMENT = Mock()
 
+def conditional_side_effect(*args: Any, **kwargs: Any) -> None:
+    """Side-effect for session.patch that validates autostart fields in json payload.
 
-def conditional_side_effect(*args, **kwargs):
+    :param args: Unused positional args from patch call.
+    :param kwargs: Keyword args; uses json to validate autostart.enabled, priority, delay.
+    """
     _ = args
     resp = kwargs.get("json", {})
     if autostart := resp.get("autostart"):
         if not isinstance(autostart.get("enabled"), bool):
             raise ValueError("Invalid value for enabled")
-        if priority := autostart.get("priority"):
-            if not isinstance(priority, int) or not 0 <= priority <= 10000:
-                raise ValueError("Invalid value for priority")
-        if delay := autostart.get("delay"):
-            if not isinstance(delay, int) or not 0 <= delay <= 86400:
-                raise ValueError("Invalid value for delay")
+        if (priority := autostart.get("priority")) and (
+            not isinstance(priority, int) or not 0 <= priority <= 10000
+        ):
+            raise ValueError("Invalid value for priority")
+        if (delay := autostart.get("delay")) and (
+            not isinstance(delay, int) or not 0 <= delay <= 86400
+        ):
+            raise ValueError("Invalid value for delay")
 
 
-def test_autostart_initial_values():
+def test_autostart_initial_values() -> None:
     """Test that new lab has correct initial autostart values."""
     session = MagicMock()
     lab = Lab(
@@ -57,7 +67,7 @@ def test_autostart_initial_values():
     assert lab._autostart == {"enabled": False, "priority": None, "delay": None}
 
 
-def test_lab_autostart_setter():
+def test_lab_autostart_setter() -> None:
     """Test setting the autostart parameter on a Lab instance."""
     session = MagicMock()
     lab = Lab(
@@ -78,8 +88,29 @@ def test_lab_autostart_setter():
     )
 
 
-def test_lab_autostart_setter_invalid():
-    """Test setting invalid autostart parameters raises ValueError."""
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({"enabled": "yes", "priority": 5, "delay": 10}, id="enabled_str"),
+        pytest.param(
+            {"enabled": True, "priority": "yes", "delay": 10}, id="priority_str"
+        ),
+        pytest.param({"enabled": True, "priority": -1, "delay": 10}, id="priority_neg"),
+        pytest.param(
+            {"enabled": True, "priority": 10001, "delay": 10}, id="priority_over"
+        ),
+        pytest.param({"enabled": True, "priority": 5, "delay": "yes"}, id="delay_str"),
+        pytest.param({"enabled": True, "priority": 5, "delay": -10}, id="delay_neg"),
+        pytest.param({"enabled": True, "priority": 5, "delay": 86401}, id="delay_over"),
+    ],
+)
+def test_autostart_rejects_invalid(kwargs: dict[str, Any]) -> None:
+    """Reject invalid autostart parameters with ValueError.
+
+    NOTE: LLM-generated test -- verify for correctness.
+
+    :param kwargs: Keyword arguments to pass to set_autostart.
+    """
     session = MagicMock()
     session.patch.side_effect = conditional_side_effect
     lab = Lab(
@@ -93,23 +124,11 @@ def test_lab_autostart_setter_invalid():
         user_management=USER_MANAGEMENT,
     )
 
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled="yes", priority=5, delay=10)
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled=True, priority="yes", delay=10)
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled=True, priority=-1, delay=10)
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled=True, priority=10001, delay=10)
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled=True, priority=5, delay="yes")
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled=True, priority=5, delay=-10)
-    with pytest.raises(ValueError):
-        lab.set_autostart(enabled=True, priority=5, delay=86401)
+    with pytest.raises(ValueError, match="Invalid value for"):
+        lab.set_autostart(**kwargs)
 
 
-def test_lab_autostart_setter_no_change():
+def test_lab_autostart_setter_no_change() -> None:
     """Test that setting autostart to the same value does not trigger an API call."""
     session = MagicMock()
     lab = Lab(
@@ -128,10 +147,10 @@ def test_lab_autostart_setter_no_change():
     session.patch.assert_not_called()
 
     lab.set_autostart(enabled=True, priority=5, delay=10)
-    session.patch.assert_called()
+    session.patch.assert_called_once()
 
 
-def test_lab_autostart_setter_partial_update():
+def test_lab_autostart_setter_partial_update() -> None:
     """Test that setting only some autostart parameters updates correctly."""
     session = MagicMock()
     lab = Lab(

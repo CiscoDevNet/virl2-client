@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Python client library for the Cisco Modeling Labs (CML) REST API."""
 
 from .exceptions import InterfaceNotFound, LabNotFound, LinkNotFound, NodeNotFound
 from .virl2_client import ClientConfig, ClientLibrary, InitializationError

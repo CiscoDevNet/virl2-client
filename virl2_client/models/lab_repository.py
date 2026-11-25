@@ -22,19 +22,21 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..exceptions import LabRepositoryNotFound
 from ..utils import _requires_version, get_url_from_template
 
 if TYPE_CHECKING:
-    import httpx
+    import httpx2
+
+    from .system import SystemManagement
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class LabRepository:
-    _URL_TEMPLATES = {"lab_repo": "lab_repos/{repo_id}"}
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {"lab_repo": "lab_repos/{repo_id}"}
 
     def __init__(
         self,
@@ -54,21 +56,25 @@ class LabRepository:
         :param folder: The folder name for the lab repository.
         """
         self._manager = manager
-        self._session: httpx.Client = manager._session
+        self._session: httpx2.Client = manager._session
         self._id = repo_id
         self._url = url
         self._name = name
         self._folder = folder
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a human-readable representation of the lab repository.
+
+        :returns: String with repository name.
+        """
         return f"Lab repository: {self._name}"
 
-    def _url_for(self, endpoint, **kwargs) -> str:
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         kwargs["repo_id"] = self._id
@@ -76,7 +82,10 @@ class LabRepository:
 
     @property
     def id(self) -> str:
-        """Return the ID of the lab repository."""
+        """Return the ID of the lab repository.
+
+        :returns: The unique repository identifier.
+        """
         return self._id
 
     @property
@@ -117,15 +126,15 @@ class LabRepository:
 class LabRepositoryManagement:
     """Manage lab repositories."""
 
-    _URL_TEMPLATES = {
+    _URL_TEMPLATES: ClassVar[dict[str, str]] = {
         "lab_repos": "lab_repos",
         "lab_repos_refresh": "lab_repos/refresh",
     }
 
     def __init__(
         self,
-        system,
-        session: httpx.Client,
+        system: SystemManagement,
+        session: httpx2.Client,
         auto_sync: bool = True,
         auto_sync_interval: float = 1.0,
     ) -> None:
@@ -133,7 +142,7 @@ class LabRepositoryManagement:
         Manage lab repositories.
 
         :param system: The SystemManagement instance.
-        :param session: The httpx-based HTTP client for this session with the server.
+        :param session: The httpx2-based HTTP client for this session with the server.
         :param auto_sync: A boolean indicating whether auto synchronization is enabled.
         :param auto_sync_interval: The interval in seconds between auto synchronizations.
         """
@@ -145,23 +154,29 @@ class LabRepositoryManagement:
         self._lab_repositories: dict[str, LabRepository] = {}
 
     def __len__(self) -> int:
-        """Return the number of lab repositories."""
+        """Return the number of lab repositories.
+
+        :returns: The count of lab repositories.
+        """
         self.sync_lab_repositories_if_outdated()
         return len(self._lab_repositories)
 
-    def _url_for(self, endpoint, **kwargs):
+    def _url_for(self, endpoint: str, **kwargs: str) -> str:
         """
         Generate the URL for a given API endpoint.
 
         :param endpoint: The desired endpoint.
-        :param **kwargs: Keyword arguments used to format the URL.
+        :param kwargs: Keyword arguments used to format the URL.
         :returns: The formatted URL.
         """
         return get_url_from_template(endpoint, self._URL_TEMPLATES, kwargs)
 
     @property
     def lab_repositories(self) -> dict[str, LabRepository]:
-        """Return a dictionary of lab repositories."""
+        """Return a dictionary of lab repositories.
+
+        :returns: Copy of the lab repositories dict.
+        """
         self.sync_lab_repositories_if_outdated()
         return self._lab_repositories.copy()
 

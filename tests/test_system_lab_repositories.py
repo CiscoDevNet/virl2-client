@@ -17,16 +17,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Tests for LabRepository, LabRepositoryManagement, and system lab repository workflows."""
 
-import time
 from unittest.mock import Mock, patch
 
 import httpx
 import pytest
-import respx
 
-from virl2_client.exceptions import LabRepositoryNotFound
-from virl2_client.models.lab_repository import LabRepository, LabRepositoryManagement
+from virl2_client.exceptions import ElementNotFound, LabRepositoryNotFound
+from virl2_client.models import LabRepository, LabRepositoryManagement
 from virl2_client.virl2_client import ClientLibrary
 
 MOCK_LAB_REPOSITORY_1 = {
@@ -47,11 +46,14 @@ MOCK_LAB_REPOSITORIES_LIST = [MOCK_LAB_REPOSITORY_1, MOCK_LAB_REPOSITORY_2]
 
 
 @pytest.fixture
-def mock_lab_repository_management():
+def mock_lab_repository_management() -> LabRepositoryManagement:
+    """Create a lab-repository management object backed by mocks.
+
+    :returns: A local LabRepositoryManagement instance.
+    """
     session_mock = Mock()
     system_mock = Mock()
-    lab_repo_mgmt = LabRepositoryManagement(system_mock, session_mock, auto_sync=False)
-    return lab_repo_mgmt
+    return LabRepositoryManagement(system_mock, session_mock, auto_sync=False)
 
 
 @pytest.fixture
@@ -137,8 +139,13 @@ def test_lab_repo_properties_sync(
     )
 
 
-def test_lab_repository_remove(mock_lab_repository_management):
-    """Test remove method calls system's DELETE API"""
+def test_lab_repository_remove(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Ensure remove() calls DELETE and drops local repository state.
+
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     lab_repo_mgmt = mock_lab_repository_management
     repo = LabRepository(
         manager=lab_repo_mgmt,
@@ -157,8 +164,13 @@ def test_lab_repository_remove(mock_lab_repository_management):
     assert "test-id" not in lab_repo_mgmt._lab_repositories
 
 
-def test_lab_repositories_property_behavior(mock_lab_repository_management):
-    """Test lab_repositories property triggers sync and returns a copy."""
+def test_lab_repos_property_sync(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Ensure lab_repositories property syncs and returns a copy.
+
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     lab_repo_mgmt = mock_lab_repository_management
     lab_repo_mgmt.sync_lab_repositories_if_outdated = Mock()
 
@@ -174,32 +186,45 @@ def test_lab_repositories_property_behavior(mock_lab_repository_management):
     assert len(result) == 2
 
 
-def test_sync_lab_repositories_if_outdated_conditions(mock_lab_repository_management):
-    """Test sync_lab_repositories_if_outdated behavior under different conditions."""
+@patch("time.time")
+@pytest.mark.parametrize(
+    ("auto_sync", "interval", "last_sync", "now", "expect_sync"),
+    [
+        (False, 0, 0, 10, False),
+        (True, 100, 5, 10, False),
+        (True, 0, 0, 10, True),
+    ],
+)
+def test_sync_lab_repos_conditions(
+    mock_time: Mock,
+    mock_lab_repository_management: LabRepositoryManagement,
+    auto_sync: bool,
+    interval: float,
+    last_sync: float,
+    now: float,
+    expect_sync: bool,
+) -> None:
+    """Check conditional sync behavior for auto-sync and staleness."""
+    mock_time.return_value = now
     lab_repo_mgmt = mock_lab_repository_management
     lab_repo_mgmt.sync_lab_repositories = Mock()
-
-    # Test 1: Auto-sync disabled - should not sync
-    lab_repo_mgmt.auto_sync = False
-    lab_repo_mgmt._last_sync_lab_repository_time = 0.0
+    lab_repo_mgmt.auto_sync = auto_sync
+    lab_repo_mgmt.auto_sync_interval = interval
+    lab_repo_mgmt._last_sync_lab_repository_time = last_sync
     lab_repo_mgmt.sync_lab_repositories_if_outdated()
-    lab_repo_mgmt.sync_lab_repositories.assert_not_called()
-
-    # Test 2: Auto-sync enabled, recent sync - should not sync
-    lab_repo_mgmt.auto_sync = True
-    lab_repo_mgmt.auto_sync_interval = 1.0
-    lab_repo_mgmt._last_sync_lab_repository_time = time.time()
-    lab_repo_mgmt.sync_lab_repositories_if_outdated()
-    lab_repo_mgmt.sync_lab_repositories.assert_not_called()
-
-    # Test 3: Auto-sync enabled, outdated - should sync
-    lab_repo_mgmt._last_sync_lab_repository_time = 0.0
-    lab_repo_mgmt.sync_lab_repositories_if_outdated()
-    lab_repo_mgmt.sync_lab_repositories.assert_called_once()
+    if expect_sync:
+        lab_repo_mgmt.sync_lab_repositories.assert_called_once()
+    else:
+        lab_repo_mgmt.sync_lab_repositories.assert_not_called()
 
 
-def test_add_lab_repository_local(mock_lab_repository_management):
-    """Test add_lab_repository_local creates and stores LabRepository."""
+def test_add_lab_repository_local(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Ensure local-add helper creates and stores LabRepository.
+
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     lab_repo_mgmt = mock_lab_repository_management
 
     data = dict(MOCK_LAB_REPOSITORY_1)
@@ -215,36 +240,63 @@ def test_add_lab_repository_local(mock_lab_repository_management):
     assert lab_repo_mgmt._lab_repositories["repo-123"] is repo
 
 
-def test_get_lab_repository_success_and_failure(system_with_repos):
-    """Test get_lab_repository for both success and failure cases."""
+def test_get_lab_repo_by_id(
+    system_with_repos: LabRepositoryManagement,
+) -> None:
+    """get_lab_repository returns repo by id."""
     lab_repo_mgmt = system_with_repos
     lab_repo_mgmt.sync_lab_repositories_if_outdated = Mock()
-
     repo = lab_repo_mgmt.get_lab_repository("repo-123")
     assert repo.id == "repo-123"
     assert repo._name == "cisco-templates"
 
+
+def test_get_lab_repo_by_id_missing(
+    system_with_repos: LabRepositoryManagement,
+) -> None:
+    """get_lab_repository raises LabRepositoryNotFound for missing id.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab_repo_mgmt = system_with_repos
+    lab_repo_mgmt.sync_lab_repositories_if_outdated = Mock()
     with pytest.raises(LabRepositoryNotFound) as exc_info:
         lab_repo_mgmt.get_lab_repository("nonexistent-repo")
     assert "nonexistent-repo" in str(exc_info.value)
 
 
-def test_get_lab_repository_by_name_success_and_failure(system_with_repos):
-    """Test get_lab_repository_by_name for both success and failure cases."""
+def test_get_lab_repo_by_name(
+    system_with_repos: LabRepositoryManagement,
+) -> None:
+    """get_lab_repository_by_name returns repo by name."""
     lab_repo_mgmt = system_with_repos
     lab_repo_mgmt.sync_lab_repositories_if_outdated = Mock()
-
     repo = lab_repo_mgmt.get_lab_repository_by_name("cisco-templates")
     assert repo.id == "repo-123"
     assert repo._name == "cisco-templates"
 
+
+def test_get_lab_repo_by_name_missing(
+    system_with_repos: LabRepositoryManagement,
+) -> None:
+    """get_lab_repository_by_name raises LabRepositoryNotFound for missing name.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    lab_repo_mgmt = system_with_repos
+    lab_repo_mgmt.sync_lab_repositories_if_outdated = Mock()
     with pytest.raises(LabRepositoryNotFound) as exc_info:
         lab_repo_mgmt.get_lab_repository_by_name("non-existent-name")
     assert "non-existent-name" in str(exc_info.value)
 
 
-def test_get_lab_repositories_api_call(mock_lab_repository_management):
-    """Test get_lab_repositories makes correct API call."""
+def test_get_lab_repositories_api_call(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Verify repository list API call and returned JSON passthrough.
+
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     lab_repo_mgmt = mock_lab_repository_management
 
     mock_response = Mock()
@@ -260,8 +312,13 @@ def test_get_lab_repositories_api_call(mock_lab_repository_management):
     lab_repo_mgmt._session.get.assert_called_once_with("lab_repos")
 
 
-def test_add_lab_repository_api_call(mock_lab_repository_management):
-    """Test add_lab_repository makes correct API call and updates local storage."""
+def test_add_lab_repository_api_call(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Verify add API call payload and local storage update invocation.
+
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     lab_repo_mgmt = mock_lab_repository_management
 
     mock_response = Mock()
@@ -294,8 +351,13 @@ def test_add_lab_repository_api_call(mock_lab_repository_management):
     )
 
 
-def test_refresh_lab_repositories_api_call(mock_lab_repository_management):
-    """Test refresh_lab_repositories makes correct API call."""
+def test_refresh_lab_repositories_api_call(
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Verify refresh API call and refresh result handling.
+
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     lab_repo_mgmt = mock_lab_repository_management
 
     refresh_response = {
@@ -315,8 +377,15 @@ def test_refresh_lab_repositories_api_call(mock_lab_repository_management):
 
 
 @patch("time.time")
-def test_sync_lab_repositories_behavior(mock_time, mock_lab_repository_management):
-    """Test sync_lab_repositories preserves existing, adds new, and removes deleted repos."""
+def test_sync_lab_repositories_behavior(
+    mock_time: Mock,
+    mock_lab_repository_management: LabRepositoryManagement,
+) -> None:
+    """Ensure sync preserves, adds, and removes repositories as expected.
+
+    :param mock_time: Mocked time.time function.
+    :param mock_lab_repository_management: Repository manager fixture.
+    """
     mock_time.return_value = 1234567890.0
     lab_repo_mgmt = mock_lab_repository_management
 
@@ -355,21 +424,21 @@ def test_sync_lab_repositories_behavior(mock_time, mock_lab_repository_managemen
     assert lab_repo_mgmt._last_sync_lab_repository_time == 1234567890.0
 
 
-def test_lab_repository_not_found_exception():
-    """Test LabRepositoryNotFound exception behavior and inheritance."""
-    from virl2_client.exceptions import ElementNotFound
-
+def test_lab_repository_not_found_exception() -> None:
+    """Verify LabRepositoryNotFound inheritance and message formatting."""
     exc = LabRepositoryNotFound("test-repo-id")
     assert "test-repo-id" in str(exc)
     assert isinstance(exc, ElementNotFound)
     assert isinstance(exc, KeyError)
 
 
-@respx.mock
-def test_lab_repository_end_to_end_workflow():
-    """Test complete workflow using LabRepositoryManagement directly."""
-    respx.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
-    respx.get("https://localhost/api/v0/authentication").respond(
+def test_lab_repository_end_to_end_workflow(httpx2_mock) -> None:
+    """Run an end-to-end repository workflow via mocked REST endpoints.
+
+    :raises LabRepositoryNotFound: On post-delete lookup.
+    """
+    httpx2_mock.post("https://localhost/api/v0/authenticate").respond(json="fake_token")
+    httpx2_mock.get("https://localhost/api/v0/authentication").respond(
         200,
         json={
             "username": "username",
@@ -380,29 +449,42 @@ def test_lab_repository_end_to_end_workflow():
         },
     )
 
-    respx.get("https://localhost/api/v0/system_information").respond(
-        json={"version": ClientLibrary.VERSION.version_str}
+    httpx2_mock.get("https://localhost/api/v0/system_information").respond(
+        json={"version": "2.10.0"}
     )
 
     deleted = [False]
 
-    def get_lab_repos_response(request):
+    def get_lab_repos_response(request: httpx.Request) -> httpx.Response:
+        """Return dynamic repository list based on mock workflow state.
+
+        :param request: Incoming mocked request object.
+        :returns: Mocked HTTP response with repository payload.
+        """
+        _ = request
         if deleted[0]:
             return httpx.Response(200, json=[])
-        elif len(respx.calls) >= 4:
+        if len(httpx2_mock.calls) >= 4:
             return httpx.Response(200, json=[MOCK_LAB_REPOSITORY_1])
-        else:
-            return httpx.Response(200, json=[])
+        return httpx.Response(200, json=[])
 
-    def delete_lab_repo_response(request):
+    def delete_lab_repo_response(request: httpx.Request) -> httpx.Response:
+        """Mark repository as deleted in mocked backend state.
+
+        :param request: Incoming mocked request object.
+        :returns: Successful delete response.
+        """
+        _ = request
         deleted[0] = True
         return httpx.Response(200)
 
-    respx.get("https://localhost/api/v0/lab_repos").mock(
+    httpx2_mock.get("https://localhost/api/v0/lab_repos").mock(
         side_effect=get_lab_repos_response
     )
-    respx.post("https://localhost/api/v0/lab_repos").respond(json=MOCK_LAB_REPOSITORY_1)
-    respx.delete("https://localhost/api/v0/lab_repos/repo-123").mock(
+    httpx2_mock.post("https://localhost/api/v0/lab_repos").respond(
+        json=MOCK_LAB_REPOSITORY_1
+    )
+    httpx2_mock.delete("https://localhost/api/v0/lab_repos/repo-123").mock(
         side_effect=delete_lab_repo_response
     )
 
@@ -439,6 +521,18 @@ def test_lab_repository_end_to_end_workflow():
 
     with pytest.raises(LabRepositoryNotFound):
         lab_repo_mgmt.get_lab_repository("repo-123")
+
+
+def test_lab_repo_management_len() -> None:
+    """__len__ syncs and returns count.
+
+    NOTE: LLM-generated test -- verify for correctness.
+    """
+    mgr = LabRepositoryManagement(system=Mock(), session=Mock(), auto_sync=False)
+    mgr.sync_lab_repositories_if_outdated = Mock()
+    mgr._lab_repositories = {"a": Mock(), "b": Mock()}
+    assert len(mgr) == 2
+    mgr.sync_lab_repositories_if_outdated.assert_called_once()
 
 
 @pytest.mark.parametrize("folder", ["updated_folder", None])

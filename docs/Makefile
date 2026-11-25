@@ -28,6 +28,10 @@ clean:
 
 buildapi:
 	rm -rf $(SOURCEDIR)/api/*
-	sphinx-apidoc --templatedir template -fMT -o $(SOURCEDIR)/api ../virl2_client
+	sphinx-apidoc --templatedir template -fMT -o $(SOURCEDIR)/api ../virl2_client \
+		../virl2_client/models/groups.py \
+		../virl2_client/models/users.py \
+		../virl2_client/models/resource_pools.py \
+		../virl2_client/models/node_image_definitions.py
 	@echo "Auto-generation of API documentation finished. " \
 	      "The generated files are in '$(SOURCEDIR)/api/'"
